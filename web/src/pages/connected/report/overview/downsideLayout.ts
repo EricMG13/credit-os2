@@ -1,6 +1,6 @@
 import { ticks } from "../../visuals/visualData";
 import { textWidth, thinTicks, wrapText } from "./chartText";
-import { figureText, gapWord } from "./notes";
+import { figureText } from "./notes";
 import { panelScale, stressLabel, type DownsidePanel } from "./stressData";
 
 /**
@@ -51,10 +51,13 @@ function panelLayout(panel: DownsidePanel, room: number) {
     bars,
     zero,
     at,
-    axis: thinTicks(
-      scale.map((tick) => ({ label: tick.label, x: at(tick.value), value: tick.value })),
-      bars,
-    ),
+    // A panel with no figure placed on it has no scale to read: no axis is drawn for it.
+    axis: panel.cells.some((cell) => cell.value !== null)
+      ? thinTicks(
+          scale.map((tick) => ({ label: tick.label, x: at(tick.value), value: tick.value })),
+          bars,
+        )
+      : [],
   };
 }
 
@@ -92,8 +95,7 @@ export function rowLayout(
 
 /** Where a case's gap mark and word go in a panel `room` wide: by zero, the word on the side it
  * fits, in lines when it fits neither. */
-export function gapPlace(text: string, zero: number, room: number) {
-  const word = gapWord(text);
+export function gapPlace(word: string, zero: number, room: number) {
   const mark = zero + 28 <= room ? zero : Math.max(0, zero - 28);
   const right = room - (mark + 34);
   const left = mark - 6;

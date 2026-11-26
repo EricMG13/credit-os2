@@ -110,6 +110,8 @@ type Spec = {
   severity: string;
   action?: string;
   affected?: string;
+  /** The affected cell is one phrase of the module's, drawn whole (not a list split at commas). */
+  affectedWhole?: boolean;
 };
 
 /** The gaps register as the method's contract names it, then as the module writes it in a run. */
@@ -134,6 +136,8 @@ const GAP_SPECS: Spec[] = [
     why: "What remains unresolved and why it matters",
     severity: "Severity or disposition",
     action: "Required correction or evidence",
+    affected: "Affected conclusion or decision",
+    affectedWhole: true,
   },
 ];
 const CONTRADICTION_SPECS: Spec[] = [
@@ -161,15 +165,16 @@ const reasonOf = (row: Row) => {
   return gap?.kind === "gap" ? gap.reason : null;
 };
 
-function affectedOf(cell: string | undefined): Issue["affected"] {
+function affectedOf(cell: string | undefined, whole = false): Issue["affected"] {
   const text = (cell ?? "").trim();
   if (text === "" || readCell(text).kind === "gap") return null;
   if (namesSource(text)) return "evidence";
+  if (whole) return [readerText(text)];
   return text
     .split(/[,;]/)
     .map((part) => part.trim())
     .filter((part) => part !== "")
-    .map(readerText);
+    .map((text) => readerText(text));
 }
 
 function readRegister(entry: OutputEntry, specs: Spec[], kind: Issue["kind"]): Register {
@@ -194,7 +199,9 @@ function readRegister(entry: OutputEntry, specs: Spec[], kind: Issue["kind"]): R
       text: said(cellAt(table, row, spec.text)),
       why: said(cellAt(table, row, spec.why)),
       action: spec.action ? said(cellAt(table, row, spec.action)) : null,
-      affected: spec.affected ? affectedOf(cellAt(table, row, spec.affected)) : null,
+      affected: spec.affected
+        ? affectedOf(cellAt(table, row, spec.affected), spec.affectedWhole)
+        : null,
     })),
   };
 }
@@ -211,6 +218,8 @@ export type Issues = {
    */
   groups: Group[];
   total: number;
+  /** The module wrote its map of support and contradiction (drawn on the page), whatever registers it wrote. */
+  mapped: boolean;
   /** The reasons stated by a synthetic `Item | Value` register placeholder, when there is one. */
   placeholders: string[];
 };
@@ -230,6 +239,8 @@ function placeholderReasons(entry: OutputEntry) {
   });
   return [...new Set(reasons)];
 }
+
+const MAP_HEADERS = ["From", "Relationship", "Edge type", "To", "Evidence"];
 
 const lineOf = (register: Register) => ("line" in register ? register.line : Infinity);
 
@@ -253,6 +264,7 @@ export function issues(entry: OutputEntry): Issues {
     contradictions,
     groups: [...words.values()],
     total: listed.length,
+    mapped: locate(entry, MAP_HEADERS).state === "found",
     placeholders: placeholderReasons(entry),
   };
 }
@@ -274,6 +286,8 @@ export type Clearance = {
   scope: string | null;
   notEvaluated: string | null;
   limit: string | null;
+  /** The paragraph the module wrote directly under its decision sentence, as written. */
+  after: string | null;
   shape: Shape | null;
   source: "verdict" | "bottom line";
   line: number;
@@ -311,13 +325,16 @@ const DECISION = /^CLEARANCE DECISION:\s*([^.]+)\.\s*(.*)$/is;
 /** The module's one-sentence verdict ("CLEARANCE DECISION: Fail. Critical Issues: 1. …"), as written. */
 function clearanceSentence(entry: OutputEntry): Clearance | null {
   for (const { blocks } of entry.sections)
-    for (const block of blocks) {
+    for (const [at, block] of blocks.entries()) {
       if (block.type !== "text") continue;
       const match = DECISION.exec(readParagraph(block.text).body.trim());
       const status = match?.[1] ? safeText(match[1].trim()) : null;
       if (!match || !status) continue;
       const rest = (match[2] ?? "").trim();
+      const next = blocks[at + 1];
+      const after = next?.type === "text" ? safeText(readParagraph(next.text).body) : null;
       return {
+        after,
         status,
         scope: null,
         notEvaluated: null,
@@ -347,6 +364,7 @@ export function clearance(entry: OutputEntry): Clearance | null {
       scope: SCOPE_SUFFIX.test(stated.text) ? "over the evaluated set" : null,
       notEvaluated: outside !== null && outside.toLowerCase() !== "none" ? outside : null,
       limit: detail("Scope"),
+      after: null,
       shape: shapeOf(word),
       source: "verdict",
       line: status.line,
@@ -363,6 +381,7 @@ export function clearance(entry: OutputEntry): Clearance | null {
       scope: null,
       notEvaluated: null,
       limit: null,
+      after: null,
       shape: null,
       source: "bottom line",
       line: first.line,

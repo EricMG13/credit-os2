@@ -86,7 +86,7 @@ describe("Net debt: the accepted handoff, FY2023 and FY2024", () => {
   it("titles the tile plainly, the unit and periods in the kicker", () => {
     const tile = draw();
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Net debt");
-    expect(tile.textContent).toContain("Net debt, US$m · FY2023 → FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2023 → FY2024");
   });
 
   it("draws each period's net debt and its cash to gross debt as stated, proportional from zero", () => {
@@ -340,7 +340,7 @@ describe("Net debt: one or two stated pro formas are drawn as bars", () => {
 describe("Net debt: other real handoffs and gap states", () => {
   it("draws the relative value handoff's one period, its two adjustments, no comparison", () => {
     const tile = draw(relativeValueCp1Entry());
-    expect(tile.textContent).toContain("Net debt, US$m · FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2024");
     expect(
       [...tile.querySelectorAll("rect[data-bar]")].map((b) => b.getAttribute("data-bar")),
     ).toEqual(["FY2024", "Pro forma", "Pro forma"]);
@@ -399,7 +399,7 @@ describe("Net debt: other real handoffs and gap states", () => {
 
   it("draws the three-period mutation's FY2022 as the hatched gap with its reason, in place", () => {
     const tile = draw(threePeriodCp1());
-    expect(tile.textContent).toContain("Net debt, US$m · FY2022 → FY2023 → FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2022 → FY2023 → FY2024");
     const row = tile.querySelector('[data-row="FY2022"]');
     expect(row?.querySelector("rect[data-bar]")).toBeNull();
     expect(row?.querySelector("[data-gap]")?.getAttribute("data-gap")).toBe(
@@ -497,7 +497,7 @@ describe("Net debt: five scrambled periods in the one period order", () => {
   it("draws the bars and the leverage marks in rule order, each figure its own", () => {
     const tile = draw(mixedPeriodsCp1());
     expect(tile.textContent).toContain(
-      "Net debt, US$m · FY2023 → FY2024 → LTM Jun-2025 → PF FY2024 → FY2025E",
+      "Net debt, $m · FY2023 → FY2024 → LTM Jun-2025 → PF FY2024 → FY2025E",
     );
     const bars = [...tile.querySelectorAll("svg:not([data-strip]) rect[data-bar]")];
     expect(bars.map((node) => node.getAttribute("data-bar"))).toEqual(ORDER);

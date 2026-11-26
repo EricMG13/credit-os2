@@ -1,6 +1,6 @@
 ---
 name: mx-advisor
-description: Fable 5.2 @ high. Read-only plan critique for /advisor - finds gaps, conflicts, missing gates and wrong task splits before dispatch. Never writes files.
+description: Fable 5.2 @ high. Read-only plan critique for /advisor - finds gaps, conflicts, missing gates and wrong task splits before dispatch. Never writes files. Fallback when Fable usage is exhausted: dispatch this same agent with model opus, effort xhigh (Opus 5.5).
 model: claude-fable-5-2
 effort: high
 tools: Read, Bash, Glob, Grep

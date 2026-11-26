@@ -279,7 +279,7 @@ def _retain_method_checks(path: Path, task: HandoffTask, response: bytes) -> Non
     """Beside an attempt's review, every check the module's method scripts made on its response
     (agreed, disagreed or not checked, with the reason), for the library's Evidence page; nothing
     for a module without one. Kept like a review: a recheck that differs is kept beside it."""
-    record = method_scripts.record(task.module_id, response, task.handoffs)
+    record = method_scripts.record(task.module_id, response, task.handoffs, task.run.pathway)
     if record is not None:
         _retain_review(path, json.dumps(record, sort_keys=True, indent=2).encode())
 
@@ -1298,7 +1298,11 @@ def live_adapter_for(
     from deploy_workflow.model.turn import ModelSpec
 
     spec = ModelSpec(selected.config_id, selected.provider, selected.model, selected.effort)
-    return CopilotAdapter(spec, ruling, environ=environ, rulings_root=rulings_root)
+    # a run opens its sessions on the long-context tier where the price covers it; Signal
+    # builds its adapter without it and stays on the default tier
+    return CopilotAdapter(
+        spec, ruling, environ=environ, rulings_root=rulings_root, long_context=True
+    )
 
 
 def with_notes(error: BaseException) -> str:
@@ -1373,7 +1377,6 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
     config: str = "sol-medium",
     rulings_root: Path | None = None,
     effort_by_module: Mapping[str, str] | None = None,
-    on_notice: Callable[[str], None] | None = None,
     web_lookup: str = "default",
     web_hosts: Sequence[str] = (),
     lookup_cutoff: date | None = None,
@@ -1428,7 +1431,6 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
             events=directory,
             web_search=web_search_run(config, ruling, rulings_root),
             effort_by_module=effort_by_module,
-            notice=on_notice,
             web_lookup=lookup,
             web_hosts=web_hosts,
             lookup_cutoff=lookup_cutoff,

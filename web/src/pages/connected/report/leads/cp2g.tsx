@@ -5,10 +5,11 @@ import { scenarioShareLabel } from "../Downside";
 import { forecastMeasure } from "../forecastData";
 import { forecastInput } from "../ForecastRecord";
 import { GapPattern } from "../overview/figureParts";
-import { forwardPath, pathPeriods } from "../overview/stressData";
+import { forwardPath, NET_LEVERAGE, pathPeriods } from "../overview/stressData";
 import { Bento, Figure, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
 import { GapCell, KeyValues, LeadFigure, LeadGap, Notes, TableRegion, Trace } from "./parts";
+import { unitLabel } from "../../moneyUnits";
 import { leadHref, readerCell, drawsNothing } from "./read";
 import type { LeadProps } from "./types";
 
@@ -258,14 +259,12 @@ function PathPanels({ path }: { path: Path }) {
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2";
 
-const NET_LEVERAGE = /^Net leverage\b/i;
-
 /**
  * The path with every case the model publishes: `forwardPath` reads only the main grid (base and
  * one downside), and the model holds its other cases (the upside) in the `other` grid, which
  * `forecastMeasure` reads. A case the path already draws is kept as it is; the others follow it.
  */
-function withOtherCases(path: Path, model: unknown): Path {
+export function withOtherCases(path: Path, model: unknown): Path {
   const drawn = new Set(path.cases.map(({ group }) => group));
   const extra = (forecastMeasure(model, NET_LEVERAGE)?.cases ?? [])
     .filter(({ group }) => !drawn.has(group))
@@ -409,7 +408,7 @@ function amountUnits(document: Record<string, unknown>) {
   const magnitude =
     document.scale === 1000 ? "thousands" : document.scale === 1 ? "millions" : null;
   return magnitude
-    ? `Amounts: ${currency} ${magnitude}, as recorded. Shares are shown as percentages.`
+    ? `Amounts: ${unitLabel(`${currency} ${magnitude}`)}, as recorded. Shares are shown as percentages.`
     : `Amounts as recorded; ${currency}. Shares are shown as percentages.`;
 }
 

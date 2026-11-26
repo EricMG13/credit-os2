@@ -71,7 +71,7 @@ function deliveryFigure(run: Run) {
   return "No delivery recorded";
 }
 
-function ResponseProvenance({ value }: { value?: Run }) {
+function ResponseProvenance({ value, pathway }: { value?: Run; pathway?: string | null }) {
   const outputs = value?.module_outputs;
   return (
     <section aria-label="Response provenance" className="grid gap-3">
@@ -88,7 +88,7 @@ function ResponseProvenance({ value }: { value?: Run }) {
         <ul className="divide-y divide-border-hairline">
           {outputs.map((output) => (
             <li key={output.module} className="grid gap-1 py-3">
-              <span className="font-semibold">{moduleName(output.module)}</span>
+              <span className="font-semibold">{moduleName(output.module, pathway)}</span>
               <span>
                 {output.provenance === "retained-response"
                   ? "Reused retained response"
@@ -202,11 +202,13 @@ function ModuleRecord({
   folder,
   name,
   synthetic,
+  pathway,
 }: {
   group: RecordModule;
   folder: string;
   name: string;
   synthetic: boolean | null;
+  pathway?: string | null;
 }) {
   const callsTitle =
     synthetic === null
@@ -273,10 +275,10 @@ function ModuleRecord({
       })}
       {group.issues.map(({ output }) => (
         <div key={output.id} className="grid gap-1 text-sm text-text-secondary wrap-anywhere">
-          <h4 className="font-semibold">{moduleName(output.module)} · Handoff issues</h4>
-          {output.parseError && <p>{readerText(output.parseError)}</p>}
+          <h4 className="font-semibold">{name} · Handoff issues</h4>
+          {output.parseError && <p>{readerText(output.parseError, pathway)}</p>}
           {output.issue?.split("; ").map((issue, i) => (
-            <p key={i}>{readerText(issue)}</p>
+            <p key={i}>{readerText(issue, pathway)}</p>
           ))}
         </div>
       ))}
@@ -308,7 +310,12 @@ export function ReportRecord({
   return (
     <div className="grid min-w-0 gap-5">
       <RunRecordSummary run={run} value={value} error={error} mode={mode} />
-      <ApprovedSummaryLimits value={value} error={error} limits={approvedLimits} />
+      <ApprovedSummaryLimits
+        value={value}
+        error={error}
+        limits={approvedLimits}
+        pathway={run.pathway}
+      />
       <ModuleRecords groups={groups} run={run} synthetic={synthetic} module={module} />
       <RecordedHashes run={run} />
     </div>
@@ -360,7 +367,7 @@ function RunRecordSummary({
         </p>
       )}
       <p className="text-sm text-text-secondary">{admission}</p>
-      <ResponseProvenance value={value} />
+      <ResponseProvenance value={value} pathway={run.pathway} />
     </section>
   );
 }
@@ -369,10 +376,12 @@ function ApprovedSummaryLimits({
   value,
   error,
   limits,
+  pathway,
 }: {
   value?: Run;
   error?: string;
   limits?: ReadinessItem[] | null;
+  pathway?: string | null;
 }) {
   return (
     <section className={card}>
@@ -392,11 +401,13 @@ function ApprovedSummaryLimits({
           {limits.map((item, index) => (
             <li key={`${item.id}-${String(index)}`} className="grid gap-2 py-3">
               <h4 className="font-semibold">
-                {item.scope === "run" ? "Run" : serviceText(item.scope)}
+                {item.scope === "run" ? "Run" : serviceText(item.scope, pathway)}
               </h4>
               <Badge>{SUMMARY_OUTCOME[item.outcome] ?? item.outcome}</Badge>
-              <p className="text-text-secondary">{serviceText(item.reason)}</p>
-              {item.fix && <p className="text-sm text-text-secondary">{serviceText(item.fix)}</p>}
+              <p className="text-text-secondary">{serviceText(item.reason, pathway)}</p>
+              {item.fix && (
+                <p className="text-sm text-text-secondary">{serviceText(item.fix, pathway)}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -440,7 +451,7 @@ function ModuleRecords({
           className="group/record min-w-0 border-t border-border-hairline py-2"
         >
           <summary className={SUMMARY}>
-            {id ? moduleName(id) : "Unassigned calls"}
+            {id ? moduleName(id, run.pathway) : "Unassigned calls"}
             {group.calls.length > 0 && (
               <span className="text-small font-normal text-text-tertiary">
                 {group.calls.length} {group.calls.length === 1 ? "response" : "responses"}
@@ -454,7 +465,8 @@ function ModuleRecords({
           <ModuleRecord
             group={group}
             folder={run.folder}
-            name={id ? moduleName(id) : "Unassigned calls"}
+            name={id ? moduleName(id, run.pathway) : "Unassigned calls"}
+            pathway={run.pathway}
             synthetic={synthetic}
           />
         </details>

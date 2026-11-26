@@ -1,4 +1,4 @@
-import type { OutputEntry } from "../../publishedReport";
+import { writtenUnit, type OutputEntry } from "../../publishedReport";
 import { reasonText, safeText as safe } from "./kit/reader";
 import { difference, readCell, signOf } from "./kit/numbers";
 import { allTables } from "./kit/tables";
@@ -270,7 +270,7 @@ export function readPeerBenchmark(entry: OutputEntry): PeerRead {
 export function withUnit(text: string, unit: string) {
   const tidy = text.replace(/^-/, "−");
   if (!unit) return tidy;
-  return /^[%x]$/i.test(unit) ? `${tidy}${unit}` : `${tidy} ${safe(unit)}`;
+  return /^[%x]$/i.test(unit) ? `${tidy}${unit}` : writtenUnit(tidy, safe(unit));
 }
 
 /** The chart title the store publishes for a `Chart data:` heading ("Peer range — multiples"), or null. */

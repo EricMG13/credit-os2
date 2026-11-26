@@ -1,0 +1,1771 @@
+{
+  "module": "CP-L10",
+  "source": "tests/fixtures/credit-screening/CP-L10.md",
+  "charts": [],
+  "sections": [
+    {
+      "heading": "Front matter",
+      "level": 2,
+      "line": 1,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 2,
+          "end": 9,
+          "text": "issuer_id: harbourline\nissuer_name: Harbourline Synthetic Foods plc\nmodule_id: CP-L10\nanalysis_date: 2025-03-31\nreporting_period: FY2024\npathway: credit_screening\nfixture: synthetic test data for an invented issuer, not issuer evidence\nevidence_class: screening_run"
+        }
+      ]
+    },
+    {
+      "heading": "Request",
+      "level": 2,
+      "line": 12,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 13,
+          "end": 13,
+          "text": "Screen the financial change, credit, liquidity, market and legal position of Harbourline Synthetic Foods plc as of 2025-03-31 and name where a full assessment is needed."
+        }
+      ]
+    },
+    {
+      "heading": "Findings",
+      "level": 2,
+      "line": 15,
+      "blocks": []
+    },
+    {
+      "heading": "Bottom line",
+      "level": 3,
+      "line": 17,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 18,
+          "end": 19,
+          "text": "The invented issuer looks adequate on liquidity and weaker on earnings, refinancing and document protection, so a full assessment is needed.\nBasis: harbourline_annual_report.txt, page 12"
+        }
+      ]
+    },
+    {
+      "heading": "Key findings",
+      "level": 3,
+      "line": 21,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 22,
+          "end": 23,
+          "text": "Earnings and margins weakened, leverage rose slightly and the main bond falls due in a tight lending period.\nBasis: harbourline_annual_report.txt, page 20"
+        }
+      ]
+    },
+    {
+      "heading": "Contrary evidence and what would change the view",
+      "level": 3,
+      "line": 25,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 26,
+          "end": 27,
+          "text": "Strong cash and an undrawn facility argue against a weaker view; a failed refinancing or a lost facility would worsen it.\nBasis: harbourline_annual_report.txt, page 34"
+        }
+      ]
+    },
+    {
+      "heading": "Limitations",
+      "level": 3,
+      "line": 29,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 30,
+          "end": 30,
+          "text": "- Invented data only, so no conclusion carries weight."
+        }
+      ]
+    },
+    {
+      "heading": "Financial change screen",
+      "level": 3,
+      "line": 32,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 34,
+          "headers": ["Topic", "Finding", "Materiality", "Evidence", "Next step"],
+          "rows": [
+            {
+              "line": 36,
+              "cells": [
+                "Source basis",
+                "The annual report and one interim statement cover the same perimeter.",
+                "Medium",
+                "Direct",
+                "Confirm the perimeter in the next report"
+              ]
+            },
+            {
+              "line": 37,
+              "cells": [
+                "Earnings and margin change",
+                "Operating margin fell by about one point on input costs.",
+                "High",
+                "Direct",
+                "Full assessment of earnings"
+              ]
+            },
+            {
+              "line": 38,
+              "cells": [
+                "Cash conversion",
+                "Cash conversion held broadly steady against the prior year.",
+                "Medium",
+                "Direct",
+                "Watch next half year"
+              ]
+            },
+            {
+              "line": 39,
+              "cells": [
+                "Leverage and coverage",
+                "Leverage rose slightly while interest cover stayed adequate.",
+                "High",
+                "Direct",
+                "Full assessment of leverage"
+              ]
+            },
+            {
+              "line": 40,
+              "cells": [
+                "Liquidity and maturities",
+                "Cash and an undrawn facility cover the next two years of maturities.",
+                "Medium",
+                "Direct",
+                "Check facility terms"
+              ]
+            },
+            {
+              "line": 41,
+              "cells": [
+                "Comparability of key measures",
+                "One reported measure changed definition between years.",
+                "Low",
+                "Partial",
+                "Ask the issuer for restated figures"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Credit screen",
+      "level": 3,
+      "line": 43,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 45,
+          "headers": ["Topic", "Finding", "Materiality", "Evidence", "Next step"],
+          "rows": [
+            {
+              "line": 47,
+              "cells": [
+                "Business durability",
+                "Demand is stable and the customer base is broad.",
+                "Medium",
+                "Direct",
+                "No further work now"
+              ]
+            },
+            {
+              "line": 48,
+              "cells": [
+                "Margin and free cash flow resilience",
+                "Free cash flow stays positive under a modest cost shock.",
+                "High",
+                "Partial",
+                "Full assessment of resilience"
+              ]
+            },
+            {
+              "line": 49,
+              "cells": [
+                "Leverage and refinancing context",
+                "Refinancing falls in a period of tighter lending.",
+                "High",
+                "Direct",
+                "Full assessment of refinancing"
+              ]
+            },
+            {
+              "line": 50,
+              "cells": [
+                "Governance and sponsor behaviour",
+                "The owner has paid small dividends and no large distributions.",
+                "Low",
+                "Direct",
+                "No further work now"
+              ]
+            },
+            {
+              "line": 51,
+              "cells": [
+                "Financial policy and capital allocation",
+                "Stated policy favours debt reduction over acquisitions.",
+                "Medium",
+                "Partial",
+                "Test policy against actual spending"
+              ]
+            },
+            {
+              "line": 52,
+              "cells": [
+                "Environmental and transition exposure",
+                "Transition cost is disclosed in general terms only.",
+                "Low",
+                "Limited",
+                "Request transition plan detail"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Liquidity and forward-risk screen",
+      "level": 3,
+      "line": 54,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 56,
+          "headers": ["Topic", "Finding", "Materiality", "Evidence", "Next step"],
+          "rows": [
+            {
+              "line": 58,
+              "cells": [
+                "Accessible liquidity and uses",
+                "Accessible cash exceeds planned uses over the next year.",
+                "High",
+                "Direct",
+                "Full assessment of liquidity"
+              ]
+            },
+            {
+              "line": 59,
+              "cells": [
+                "Working capital, capex and cash burn",
+                "Working capital swings are seasonal and capex is flexible.",
+                "Medium",
+                "Partial",
+                "Review seasonal pattern"
+              ]
+            },
+            {
+              "line": 60,
+              "cells": [
+                "Rates and hedges",
+                "Most debt is fixed and a small floating part is hedged.",
+                "Medium",
+                "Direct",
+                "Check hedge expiry dates"
+              ]
+            },
+            {
+              "line": 61,
+              "cells": [
+                "Currency, commodity and inflation exposure",
+                "Input costs are partly passed on to customers.",
+                "Medium",
+                "Partial",
+                "Test pass-through assumptions"
+              ]
+            },
+            {
+              "line": 62,
+              "cells": [
+                "Base and downside trajectory",
+                "A downside case reduces cover but does not breach the covenant.",
+                "High",
+                "Partial",
+                "Full assessment of downside"
+              ]
+            },
+            {
+              "line": 63,
+              "cells": [
+                "Breakpoints and refinancing",
+                "The tightest point is the refinancing of the main bond.",
+                "High",
+                "Direct",
+                "Full assessment of refinancing"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Security opportunity screen",
+      "level": 3,
+      "line": 65,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 67,
+          "headers": ["Topic", "Finding", "Materiality", "Evidence", "Next step"],
+          "rows": [
+            {
+              "line": 69,
+              "cells": [
+                "Dated market snapshot",
+                "Prices are dated and taken from one dealer quote.",
+                "Medium",
+                "Limited",
+                "Refresh quotes before use"
+              ]
+            },
+            {
+              "line": 70,
+              "cells": [
+                "Curve and comparable compensation",
+                "The senior bond trades wide of two close comparables.",
+                "High",
+                "Partial",
+                "Full assessment of relative value"
+              ]
+            },
+            {
+              "line": 71,
+              "cells": [
+                "Trading liquidity and technicals",
+                "Issue size is small and trading is thin.",
+                "Medium",
+                "Direct",
+                "Check dealer depth"
+              ]
+            },
+            {
+              "line": 72,
+              "cells": [
+                "Structural recovery and protection",
+                "The senior bond ranks ahead of the junior notes.",
+                "High",
+                "Direct",
+                "Full assessment of recovery"
+              ]
+            },
+            {
+              "line": 73,
+              "cells": [
+                "Downside and liability-management exposure",
+                "Documents allow some debt to move ahead of this bond.",
+                "High",
+                "Partial",
+                "Review the permitted debt baskets"
+              ]
+            },
+            {
+              "line": 74,
+              "cells": [
+                "Integrated screening posture",
+                "Compensation looks fair for the risks found so far.",
+                "Medium",
+                "Partial",
+                "Decide after the full assessment"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Creditor-document screen",
+      "level": 3,
+      "line": 76,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 78,
+          "headers": ["Topic", "Finding", "Materiality", "Evidence", "Next step"],
+          "rows": [
+            {
+              "line": 80,
+              "cells": [
+                "Controlling document availability",
+                "The bond terms are available but the credit agreement is not.",
+                "High",
+                "Partial",
+                "Obtain the credit agreement"
+              ]
+            },
+            {
+              "line": 81,
+              "cells": [
+                "Protection weakness flags",
+                "Two protections look weak in the bond terms.",
+                "High",
+                "Direct",
+                "Full review of protections"
+              ]
+            },
+            {
+              "line": 82,
+              "cells": [
+                "Entities, guarantees and collateral",
+                "Guarantees cover most but not all operating entities.",
+                "Medium",
+                "Partial",
+                "Map guarantors to earnings"
+              ]
+            },
+            {
+              "line": 83,
+              "cells": [
+                "Leakage and priming flags",
+                "Terms permit some value to leave the group.",
+                "High",
+                "Partial",
+                "Review leakage baskets"
+              ]
+            },
+            {
+              "line": 84,
+              "cells": [
+                "Debt capacity and availability",
+                "The remaining debt capacity is limited by the leverage test.",
+                "Medium",
+                "Direct",
+                "Recompute capacity in the full assessment"
+              ]
+            },
+            {
+              "line": 85,
+              "cells": [
+                "Pressure points and upgrade priority",
+                "Document gaps are the first priority for the full assessment.",
+                "High",
+                "Direct",
+                "Start with document review"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Confidence inputs",
+      "level": 3,
+      "line": 87,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 89,
+          "headers": ["Input", "Value"],
+          "rows": [
+            {
+              "line": 91,
+              "cells": ["Directly Sourced", "14"]
+            },
+            {
+              "line": 92,
+              "cells": ["Calculated", "3"]
+            },
+            {
+              "line": 93,
+              "cells": ["Assumption-Based", "5"]
+            },
+            {
+              "line": 94,
+              "cells": ["Analyst Inference", "4"]
+            },
+            {
+              "line": 95,
+              "cells": ["Weak Lineage", "2"]
+            },
+            {
+              "line": 96,
+              "cells": ["Untraced", "0"]
+            },
+            {
+              "line": 97,
+              "cells": ["Conflicting", "0"]
+            },
+            {
+              "line": 98,
+              "cells": ["Insufficient Information", "1"]
+            },
+            {
+              "line": 99,
+              "cells": ["Fields present", "18"]
+            },
+            {
+              "line": 100,
+              "cells": ["Fields total", "20"]
+            },
+            {
+              "line": 101,
+              "cells": ["Source gate", "partial"]
+            },
+            {
+              "line": 102,
+              "cells": ["CRITICAL", "0"]
+            },
+            {
+              "line": 103,
+              "cells": ["MATERIAL", "1"]
+            },
+            {
+              "line": 104,
+              "cells": ["MINOR", "2"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Analytical appendix — complete canonical registers",
+      "level": 3,
+      "line": 106,
+      "blocks": []
+    },
+    {
+      "heading": "TL10.1 - Source and scope gate",
+      "level": 4,
+      "line": 108,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 110,
+          "headers": [
+            "subject_identity",
+            "source_ref",
+            "source_owner_module",
+            "as_of_or_period",
+            "scope_status",
+            "topics_supported",
+            "limitation"
+          ],
+          "rows": [
+            {
+              "line": 112,
+              "cells": [
+                "Harbourline Synthetic Foods plc",
+                "harbourline_annual_report.txt",
+                "CP-1",
+                "FY2024",
+                "In scope",
+                "SOURCE_BASIS; EARNINGS_MARGIN_CHANGE; CASH_CONVERSION; LEVERAGE_COVERAGE; LIQUIDITY_MATURITIES; KPI_COMPARABILITY",
+                "Invented data"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL10.2 - Topic allocation",
+      "level": 4,
+      "line": 114,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 116,
+          "headers": [
+            "topic_id",
+            "topic_label",
+            "source_owner_modules",
+            "materiality",
+            "evidence_status",
+            "disposition",
+            "priority_rank",
+            "summary",
+            "source_refs",
+            "upgrade_module_ids"
+          ],
+          "rows": [
+            {
+              "line": 118,
+              "cells": [
+                "SOURCE_BASIS",
+                "Source basis",
+                "CP-1; CP-1B",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "1",
+                "The annual report and one interim statement cover the same perimeter.",
+                "harbourline_annual_report.txt",
+                "CP-1; CP-1B"
+              ]
+            },
+            {
+              "line": 119,
+              "cells": [
+                "EARNINGS_MARGIN_CHANGE",
+                "Earnings and margin change",
+                "CP-1B",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "2",
+                "Operating margin fell by about one point on input costs.",
+                "harbourline_annual_report.txt",
+                "CP-1B"
+              ]
+            },
+            {
+              "line": 120,
+              "cells": [
+                "CASH_CONVERSION",
+                "Cash conversion",
+                "CP-1; CP-1B",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "3",
+                "Cash conversion held broadly steady against the prior year.",
+                "harbourline_annual_report.txt",
+                "CP-1; CP-1B"
+              ]
+            },
+            {
+              "line": 121,
+              "cells": [
+                "LEVERAGE_COVERAGE",
+                "Leverage and coverage",
+                "CP-1; CP-1B",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "4",
+                "Leverage rose slightly while interest cover stayed adequate.",
+                "harbourline_annual_report.txt",
+                "CP-1; CP-1B"
+              ]
+            },
+            {
+              "line": 122,
+              "cells": [
+                "LIQUIDITY_MATURITIES",
+                "Liquidity and maturities",
+                "CP-1; CP-1B",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "5",
+                "Cash and an undrawn facility cover the next two years of maturities.",
+                "harbourline_annual_report.txt",
+                "CP-1; CP-1B"
+              ]
+            },
+            {
+              "line": 123,
+              "cells": [
+                "KPI_COMPARABILITY",
+                "Comparability of key measures",
+                "CP-1; CP-1B",
+                "LOW",
+                "PARTIAL",
+                "SUMMARIZE",
+                "6",
+                "One reported measure changed definition between years.",
+                "harbourline_annual_report.txt",
+                "CP-1; CP-1B"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL10.3 - Decision screen",
+      "level": 4,
+      "line": 125,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 127,
+          "headers": [
+            "screen_item",
+            "assessment",
+            "evidence",
+            "credit_transmission",
+            "screening_implication",
+            "confidence",
+            "source_refs"
+          ],
+          "rows": [
+            {
+              "line": 129,
+              "cells": [
+                "OVERALL",
+                "Financial change screen points to a full assessment",
+                "Invented annual report",
+                "Weaker earnings and tighter refinancing reduce headroom",
+                "Full assessment recommended",
+                "MEDIUM",
+                "harbourline_annual_report.txt"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL10.4 - Gaps and upgrades",
+      "level": 4,
+      "line": 131,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 133,
+          "headers": [
+            "topic_id",
+            "trigger",
+            "missing_inputs",
+            "decision_impact",
+            "required_source",
+            "target_full_module_id",
+            "expected_owned_object",
+            "blocking_for_full_decision"
+          ],
+          "rows": [
+            {
+              "line": 135,
+              "cells": [
+                "EARNINGS_MARGIN_CHANGE",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the financial change screen view",
+                "Management accounts and filings",
+                "CP-1B",
+                "earnings_delta",
+                "false"
+              ]
+            },
+            {
+              "line": 136,
+              "cells": [
+                "LEVERAGE_COVERAGE",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the financial change screen view",
+                "Management accounts and filings",
+                "CP-1",
+                "canonical_financial_data_kpis",
+                "false"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL20.1 - Source and scope gate",
+      "level": 4,
+      "line": 138,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 140,
+          "headers": [
+            "subject_identity",
+            "source_ref",
+            "source_owner_module",
+            "as_of_or_period",
+            "scope_status",
+            "topics_supported",
+            "limitation"
+          ],
+          "rows": [
+            {
+              "line": 142,
+              "cells": [
+                "Harbourline Synthetic Foods plc",
+                "harbourline_annual_report.txt",
+                "CP-2",
+                "FY2024",
+                "In scope",
+                "BUSINESS_DURABILITY; MARGIN_FCF_RESILIENCE; LEVERAGE_REFINANCING_CONTEXT; GOVERNANCE_SPONSOR_BEHAVIOR; FINANCIAL_POLICY_CAPITAL_ALLOCATION; ESG_TRANSITION",
+                "Invented data"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL20.2 - Topic allocation",
+      "level": 4,
+      "line": 144,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 146,
+          "headers": [
+            "topic_id",
+            "topic_label",
+            "source_owner_modules",
+            "materiality",
+            "evidence_status",
+            "disposition",
+            "priority_rank",
+            "summary",
+            "source_refs",
+            "upgrade_module_ids"
+          ],
+          "rows": [
+            {
+              "line": 148,
+              "cells": [
+                "BUSINESS_DURABILITY",
+                "Business durability",
+                "CP-2",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "1",
+                "Demand is stable and the customer base is broad.",
+                "harbourline_annual_report.txt",
+                "CP-2"
+              ]
+            },
+            {
+              "line": 149,
+              "cells": [
+                "MARGIN_FCF_RESILIENCE",
+                "Margin and free cash flow resilience",
+                "CP-2",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "2",
+                "Free cash flow stays positive under a modest cost shock.",
+                "harbourline_annual_report.txt",
+                "CP-2"
+              ]
+            },
+            {
+              "line": 150,
+              "cells": [
+                "LEVERAGE_REFINANCING_CONTEXT",
+                "Leverage and refinancing context",
+                "CP-2",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "3",
+                "Refinancing falls in a period of tighter lending.",
+                "harbourline_annual_report.txt",
+                "CP-2"
+              ]
+            },
+            {
+              "line": 151,
+              "cells": [
+                "GOVERNANCE_SPONSOR_BEHAVIOR",
+                "Governance and sponsor behaviour",
+                "CP-2C",
+                "LOW",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "4",
+                "The owner has paid small dividends and no large distributions.",
+                "harbourline_annual_report.txt",
+                "CP-2C"
+              ]
+            },
+            {
+              "line": 152,
+              "cells": [
+                "FINANCIAL_POLICY_CAPITAL_ALLOCATION",
+                "Financial policy and capital allocation",
+                "CP-2; CP-2C",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "5",
+                "Stated policy favours debt reduction over acquisitions.",
+                "harbourline_annual_report.txt",
+                "CP-2; CP-2C"
+              ]
+            },
+            {
+              "line": 153,
+              "cells": [
+                "ESG_TRANSITION",
+                "Environmental and transition exposure",
+                "CP-2F",
+                "LOW",
+                "PARTIAL",
+                "SUMMARIZE",
+                "6",
+                "Transition cost is disclosed in general terms only.",
+                "harbourline_annual_report.txt",
+                "CP-2F"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL20.3 - Decision screen",
+      "level": 4,
+      "line": 155,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 157,
+          "headers": [
+            "screen_item",
+            "assessment",
+            "evidence",
+            "credit_transmission",
+            "screening_implication",
+            "confidence",
+            "source_refs"
+          ],
+          "rows": [
+            {
+              "line": 159,
+              "cells": [
+                "OVERALL",
+                "Credit screen points to a full assessment",
+                "Invented annual report",
+                "Weaker earnings and tighter refinancing reduce headroom",
+                "Full assessment recommended",
+                "MEDIUM",
+                "harbourline_annual_report.txt"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL20.4 - Gaps and upgrades",
+      "level": 4,
+      "line": 161,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 163,
+          "headers": [
+            "topic_id",
+            "trigger",
+            "missing_inputs",
+            "decision_impact",
+            "required_source",
+            "target_full_module_id",
+            "expected_owned_object",
+            "blocking_for_full_decision"
+          ],
+          "rows": [
+            {
+              "line": 165,
+              "cells": [
+                "MARGIN_FCF_RESILIENCE",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the credit screen view",
+                "Management accounts and filings",
+                "CP-2",
+                "fundamental_credit_synthesis",
+                "false"
+              ]
+            },
+            {
+              "line": 166,
+              "cells": [
+                "LEVERAGE_REFINANCING_CONTEXT",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the credit screen view",
+                "Management accounts and filings",
+                "CP-2",
+                "fundamental_credit_synthesis",
+                "false"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL23.1 - Source and scope gate",
+      "level": 4,
+      "line": 168,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 170,
+          "headers": [
+            "subject_identity",
+            "source_ref",
+            "source_owner_module",
+            "as_of_or_period",
+            "scope_status",
+            "topics_supported",
+            "limitation"
+          ],
+          "rows": [
+            {
+              "line": 172,
+              "cells": [
+                "Harbourline Synthetic Foods plc",
+                "harbourline_annual_report.txt",
+                "CP-2D",
+                "FY2024",
+                "In scope",
+                "ACCESSIBLE_LIQUIDITY_USES; WORKING_CAPITAL_CAPEX_CASH_BURN; RATES_HEDGES; FX_COMMODITY_INFLATION; BASE_DOWNSIDE_TRAJECTORY; BREAKPOINTS_REFINANCING",
+                "Invented data"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL23.2 - Topic allocation",
+      "level": 4,
+      "line": 174,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 176,
+          "headers": [
+            "topic_id",
+            "topic_label",
+            "source_owner_modules",
+            "materiality",
+            "evidence_status",
+            "disposition",
+            "priority_rank",
+            "summary",
+            "source_refs",
+            "upgrade_module_ids"
+          ],
+          "rows": [
+            {
+              "line": 178,
+              "cells": [
+                "ACCESSIBLE_LIQUIDITY_USES",
+                "Accessible liquidity and uses",
+                "CP-2D",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "1",
+                "Accessible cash exceeds planned uses over the next year.",
+                "harbourline_annual_report.txt",
+                "CP-2D"
+              ]
+            },
+            {
+              "line": 179,
+              "cells": [
+                "WORKING_CAPITAL_CAPEX_CASH_BURN",
+                "Working capital, capex and cash burn",
+                "CP-2D",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "2",
+                "Working capital swings are seasonal and capex is flexible.",
+                "harbourline_annual_report.txt",
+                "CP-2D"
+              ]
+            },
+            {
+              "line": 180,
+              "cells": [
+                "RATES_HEDGES",
+                "Rates and hedges",
+                "CP-2E",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "3",
+                "Most debt is fixed and a small floating part is hedged.",
+                "harbourline_annual_report.txt",
+                "CP-2E"
+              ]
+            },
+            {
+              "line": 181,
+              "cells": [
+                "FX_COMMODITY_INFLATION",
+                "Currency, commodity and inflation exposure",
+                "CP-2E",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "4",
+                "Input costs are partly passed on to customers.",
+                "harbourline_annual_report.txt",
+                "CP-2E"
+              ]
+            },
+            {
+              "line": 182,
+              "cells": [
+                "BASE_DOWNSIDE_TRAJECTORY",
+                "Base and downside trajectory",
+                "CP-2G",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "5",
+                "A downside case reduces cover but does not breach the covenant.",
+                "harbourline_annual_report.txt",
+                "CP-2G"
+              ]
+            },
+            {
+              "line": 183,
+              "cells": [
+                "BREAKPOINTS_REFINANCING",
+                "Breakpoints and refinancing",
+                "CP-2D; CP-2E; CP-2G",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "6",
+                "The tightest point is the refinancing of the main bond.",
+                "harbourline_annual_report.txt",
+                "CP-2D; CP-2E; CP-2G"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL23.3 - Decision screen",
+      "level": 4,
+      "line": 185,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 187,
+          "headers": [
+            "screen_item",
+            "assessment",
+            "evidence",
+            "credit_transmission",
+            "screening_implication",
+            "confidence",
+            "source_refs"
+          ],
+          "rows": [
+            {
+              "line": 189,
+              "cells": [
+                "OVERALL",
+                "Liquidity and forward-risk screen points to a full assessment",
+                "Invented annual report",
+                "Weaker earnings and tighter refinancing reduce headroom",
+                "Full assessment recommended",
+                "MEDIUM",
+                "harbourline_annual_report.txt"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL23.4 - Gaps and upgrades",
+      "level": 4,
+      "line": 191,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 193,
+          "headers": [
+            "topic_id",
+            "trigger",
+            "missing_inputs",
+            "decision_impact",
+            "required_source",
+            "target_full_module_id",
+            "expected_owned_object",
+            "blocking_for_full_decision"
+          ],
+          "rows": [
+            {
+              "line": 195,
+              "cells": [
+                "ACCESSIBLE_LIQUIDITY_USES",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the liquidity and forward-risk screen view",
+                "Management accounts and filings",
+                "CP-2D",
+                "liquidity_cash_flow_bridge",
+                "false"
+              ]
+            },
+            {
+              "line": 196,
+              "cells": [
+                "BASE_DOWNSIDE_TRAJECTORY",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the liquidity and forward-risk screen view",
+                "Management accounts and filings",
+                "CP-2G",
+                "forward_credit_model",
+                "false"
+              ]
+            },
+            {
+              "line": 197,
+              "cells": [
+                "BREAKPOINTS_REFINANCING",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the liquidity and forward-risk screen view",
+                "Management accounts and filings",
+                "CP-2D",
+                "liquidity_cash_flow_bridge",
+                "false"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL30.1 - Source and scope gate",
+      "level": 4,
+      "line": 199,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 201,
+          "headers": [
+            "subject_identity",
+            "source_ref",
+            "source_owner_module",
+            "as_of_or_period",
+            "scope_status",
+            "topics_supported",
+            "limitation"
+          ],
+          "rows": [
+            {
+              "line": 203,
+              "cells": [
+                "Harbourline Synthetic Foods plc",
+                "harbourline_annual_report.txt",
+                "CP-3D",
+                "FY2024",
+                "In scope",
+                "DATED_MARKET_SNAPSHOT; CURVE_COMPARABLE_COMPENSATION; LIQUIDITY_TECHNICALS; STRUCTURAL_RECOVERY_PROTECTION; DOWNSIDE_LME_EXPOSURE; INTEGRATED_SCREENING_POSTURE",
+                "Invented data"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL30.2 - Topic allocation",
+      "level": 4,
+      "line": 205,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 207,
+          "headers": [
+            "topic_id",
+            "topic_label",
+            "source_owner_modules",
+            "materiality",
+            "evidence_status",
+            "disposition",
+            "priority_rank",
+            "summary",
+            "source_refs",
+            "upgrade_module_ids"
+          ],
+          "rows": [
+            {
+              "line": 209,
+              "cells": [
+                "DATED_MARKET_SNAPSHOT",
+                "Dated market snapshot",
+                "CP-3D",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "1",
+                "Prices are dated and taken from one dealer quote.",
+                "harbourline_annual_report.txt",
+                "CP-3D"
+              ]
+            },
+            {
+              "line": 210,
+              "cells": [
+                "CURVE_COMPARABLE_COMPENSATION",
+                "Curve and comparable compensation",
+                "CP-3D; CP-3",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "2",
+                "The senior bond trades wide of two close comparables.",
+                "harbourline_annual_report.txt",
+                "CP-3D; CP-3"
+              ]
+            },
+            {
+              "line": 211,
+              "cells": [
+                "LIQUIDITY_TECHNICALS",
+                "Trading liquidity and technicals",
+                "CP-3D",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "3",
+                "Issue size is small and trading is thin.",
+                "harbourline_annual_report.txt",
+                "CP-3D"
+              ]
+            },
+            {
+              "line": 212,
+              "cells": [
+                "STRUCTURAL_RECOVERY_PROTECTION",
+                "Structural recovery and protection",
+                "CP-3A",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "4",
+                "The senior bond ranks ahead of the junior notes.",
+                "harbourline_annual_report.txt",
+                "CP-3A"
+              ]
+            },
+            {
+              "line": 213,
+              "cells": [
+                "DOWNSIDE_LME_EXPOSURE",
+                "Downside and liability-management exposure",
+                "CP-3A; CP-3",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "5",
+                "Documents allow some debt to move ahead of this bond.",
+                "harbourline_annual_report.txt",
+                "CP-3A; CP-3"
+              ]
+            },
+            {
+              "line": 214,
+              "cells": [
+                "INTEGRATED_SCREENING_POSTURE",
+                "Integrated screening posture",
+                "CP-3D; CP-3A; CP-3",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "6",
+                "Compensation looks fair for the risks found so far.",
+                "harbourline_annual_report.txt",
+                "CP-3D; CP-3A; CP-3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL30.3 - Decision screen",
+      "level": 4,
+      "line": 216,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 218,
+          "headers": [
+            "screen_item",
+            "assessment",
+            "evidence",
+            "credit_transmission",
+            "screening_implication",
+            "confidence",
+            "source_refs"
+          ],
+          "rows": [
+            {
+              "line": 220,
+              "cells": [
+                "OVERALL",
+                "Security opportunity screen points to a full assessment",
+                "Invented annual report",
+                "Weaker earnings and tighter refinancing reduce headroom",
+                "Full assessment recommended",
+                "MEDIUM",
+                "harbourline_annual_report.txt"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL30.4 - Gaps and upgrades",
+      "level": 4,
+      "line": 222,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 224,
+          "headers": [
+            "topic_id",
+            "trigger",
+            "missing_inputs",
+            "decision_impact",
+            "required_source",
+            "target_full_module_id",
+            "expected_owned_object",
+            "blocking_for_full_decision"
+          ],
+          "rows": [
+            {
+              "line": 226,
+              "cells": [
+                "CURVE_COMPARABLE_COMPENSATION",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the security opportunity screen view",
+                "Management accounts and filings",
+                "CP-3D",
+                "relative_value_assessment",
+                "false"
+              ]
+            },
+            {
+              "line": 227,
+              "cells": [
+                "STRUCTURAL_RECOVERY_PROTECTION",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the security opportunity screen view",
+                "Management accounts and filings",
+                "CP-3A",
+                "recovery_instrument_assessment",
+                "false"
+              ]
+            },
+            {
+              "line": 228,
+              "cells": [
+                "DOWNSIDE_LME_EXPOSURE",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the security opportunity screen view",
+                "Management accounts and filings",
+                "CP-3A",
+                "recovery_instrument_assessment",
+                "false"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL40.1 - Source and scope gate",
+      "level": 4,
+      "line": 230,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 232,
+          "headers": [
+            "subject_identity",
+            "source_ref",
+            "source_owner_module",
+            "as_of_or_period",
+            "scope_status",
+            "topics_supported",
+            "limitation"
+          ],
+          "rows": [
+            {
+              "line": 234,
+              "cells": [
+                "Harbourline Synthetic Foods plc",
+                "harbourline_annual_report.txt",
+                "CP-4",
+                "FY2024",
+                "In scope",
+                "CONTROLLING_DOCUMENT_AVAILABILITY; PROTECTION_WEAKNESS_FLAGS; ENTITY_GUARANTEE_COLLATERAL; LEAKAGE_PRIMING_FLAGS; CAPACITY_AVAILABILITY; PRESSURE_POINT_UPGRADE_PRIORITY",
+                "Invented data"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL40.2 - Topic allocation",
+      "level": 4,
+      "line": 236,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 238,
+          "headers": [
+            "topic_id",
+            "topic_label",
+            "source_owner_modules",
+            "materiality",
+            "evidence_status",
+            "disposition",
+            "priority_rank",
+            "summary",
+            "source_refs",
+            "upgrade_module_ids"
+          ],
+          "rows": [
+            {
+              "line": 240,
+              "cells": [
+                "CONTROLLING_DOCUMENT_AVAILABILITY",
+                "Controlling document availability",
+                "CP-4",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "1",
+                "The bond terms are available but the credit agreement is not.",
+                "harbourline_annual_report.txt",
+                "CP-4"
+              ]
+            },
+            {
+              "line": 241,
+              "cells": [
+                "PROTECTION_WEAKNESS_FLAGS",
+                "Protection weakness flags",
+                "CP-4",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "2",
+                "Two protections look weak in the bond terms.",
+                "harbourline_annual_report.txt",
+                "CP-4"
+              ]
+            },
+            {
+              "line": 242,
+              "cells": [
+                "ENTITY_GUARANTEE_COLLATERAL",
+                "Entities, guarantees and collateral",
+                "CP-4B",
+                "MEDIUM",
+                "PARTIAL",
+                "SUMMARIZE",
+                "3",
+                "Guarantees cover most but not all operating entities.",
+                "harbourline_annual_report.txt",
+                "CP-4B"
+              ]
+            },
+            {
+              "line": 243,
+              "cells": [
+                "LEAKAGE_PRIMING_FLAGS",
+                "Leakage and priming flags",
+                "CP-4; CP-4B",
+                "HIGH",
+                "PARTIAL",
+                "DEEPEN",
+                "4",
+                "Terms permit some value to leave the group.",
+                "harbourline_annual_report.txt",
+                "CP-4; CP-4B"
+              ]
+            },
+            {
+              "line": 244,
+              "cells": [
+                "CAPACITY_AVAILABILITY",
+                "Debt capacity and availability",
+                "CP-4A",
+                "MEDIUM",
+                "SUFFICIENT",
+                "SUMMARIZE",
+                "5",
+                "The remaining debt capacity is limited by the leverage test.",
+                "harbourline_annual_report.txt",
+                "CP-4A"
+              ]
+            },
+            {
+              "line": 245,
+              "cells": [
+                "PRESSURE_POINT_UPGRADE_PRIORITY",
+                "Pressure points and upgrade priority",
+                "CP-4A",
+                "HIGH",
+                "SUFFICIENT",
+                "DEEPEN",
+                "6",
+                "Document gaps are the first priority for the full assessment.",
+                "harbourline_annual_report.txt",
+                "CP-4A"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL40.3 - Decision screen",
+      "level": 4,
+      "line": 247,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 249,
+          "headers": [
+            "screen_item",
+            "assessment",
+            "evidence",
+            "credit_transmission",
+            "screening_implication",
+            "confidence",
+            "source_refs"
+          ],
+          "rows": [
+            {
+              "line": 251,
+              "cells": [
+                "OVERALL",
+                "Creditor-document screen points to a full assessment",
+                "Invented annual report",
+                "Weaker earnings and tighter refinancing reduce headroom",
+                "Full assessment recommended",
+                "MEDIUM",
+                "harbourline_annual_report.txt"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "TL40.4 - Gaps and upgrades",
+      "level": 4,
+      "line": 253,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 255,
+          "headers": [
+            "topic_id",
+            "trigger",
+            "missing_inputs",
+            "decision_impact",
+            "required_source",
+            "target_full_module_id",
+            "expected_owned_object",
+            "blocking_for_full_decision"
+          ],
+          "rows": [
+            {
+              "line": 257,
+              "cells": [
+                "CONTROLLING_DOCUMENT_AVAILABILITY",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the creditor-document screen view",
+                "Management accounts and filings",
+                "CP-4",
+                "legal_covenant_interpretation",
+                "false"
+              ]
+            },
+            {
+              "line": 258,
+              "cells": [
+                "PROTECTION_WEAKNESS_FLAGS",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the creditor-document screen view",
+                "Management accounts and filings",
+                "CP-4",
+                "legal_covenant_interpretation",
+                "false"
+              ]
+            },
+            {
+              "line": 259,
+              "cells": [
+                "LEAKAGE_PRIMING_FLAGS",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the creditor-document screen view",
+                "Management accounts and filings",
+                "CP-4",
+                "legal_covenant_interpretation",
+                "false"
+              ]
+            },
+            {
+              "line": 260,
+              "cells": [
+                "PRESSURE_POINT_UPGRADE_PRIORITY",
+                "Marked DEEPEN: decision-material topic",
+                "Detailed supporting schedules",
+                "Could change the creditor-document screen view",
+                "Management accounts and filings",
+                "CP-4A",
+                "covenant_capacity_calculation",
+                "false"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Sources",
+      "level": 2,
+      "line": 262,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 264,
+          "headers": ["Source", "Document", "Use"],
+          "rows": [
+            {
+              "line": 266,
+              "cells": [
+                "harbourline_annual_report.txt",
+                "Invented annual report for FY2024",
+                "All screens"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

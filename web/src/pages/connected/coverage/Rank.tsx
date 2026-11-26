@@ -9,7 +9,7 @@ import {
   type Issuer,
 } from "../coverageData";
 import { card } from "../layout";
-import { unitName } from "./boundUnit";
+import { unitNamer } from "./boundUnit";
 import { prose, RunLine } from "./shared";
 import { ZeroAxisBar } from "./ZeroAxisBar";
 
@@ -66,15 +66,19 @@ export function RankView({
           <section key={group} className="grid gap-3" aria-label={group || "Ranking"}>
             {group && <h3 className="font-display text-h4 text-text-primary">{group}</h3>}
             {ranking.units.map(({ unit, rows }) => {
+              const units = ranking.units.map((item) => item.unit);
               const values = rows.map(({ fact }) => fact.at ?? 0);
               const signed = values.some((value) => value < 0);
               const largest = Math.max(...values);
               const lowest = Math.min(...values);
-              const name = `${field.label}, ${period}, ${unit === "" ? unitName(unit) : `reporting unit ${unit}`}${order === "high" ? ", highest first" : ", lowest first"}`;
+              const unitName = unitNamer(
+                boundUnit === null ? units : [...units, boundUnit],
+              );
+              const name = `${field.label}, ${period}, ${unit === "" ? unitName(unit) : `reporting unit ${unitName(unit)}`}${order === "high" ? ", highest first" : ", lowest first"}`;
               return (
                 <div key={unit} className="grid gap-2">
                   <p className="text-small text-text-secondary">
-                    {`${unit === "" ? unitName(unit) : `Stated in ${unit}`} · ${order === "high" ? "highest first" : "lowest first"}`}
+                    {`${unit === "" ? unitName(unit) : `Stated in ${unitName(unit)}`} · ${order === "high" ? "highest first" : "lowest first"}`}
                   </p>
                   {boundUnit !== null && unit !== boundUnit && (
                     <p className="text-caption text-gap-text">

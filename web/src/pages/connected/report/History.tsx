@@ -19,7 +19,7 @@ import { Bento, Tile } from "./overview/Tile";
 function runDetails(snapshot: Snapshot, key: string, run: PublishedRun) {
   if (run.history)
     return {
-      modules: run.history.modules.map(moduleName),
+      modules: run.history.modules.map((id) => moduleName(id, run.pathway)),
       labels: [
         ...(run.history.earlierFormat ? ["Earlier format"] : []),
         ...(run.history.earlierMethods ? ["Earlier methods"] : []),
@@ -28,7 +28,7 @@ function runDetails(snapshot: Snapshot, key: string, run: PublishedRun) {
   if (!Object.hasOwn(run, "modules")) return null;
   const modules = moduleOrder(run).filter((id) => run.modules[id]?.outputs.length);
   return {
-    modules: modules.map(moduleName),
+    modules: modules.map((id) => moduleName(id, run.pathway)),
     labels: runLabels(outputEntries(snapshot, run, key), run),
   };
 }

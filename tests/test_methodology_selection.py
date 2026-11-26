@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 
 from deploy_workflow.owners.cpos_launch import METHODS
+from deploy_workflow.owners.cpos_launch_methods import PATHWAY_METHODS
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = "docs/reuse/selected-methods/"
@@ -59,7 +60,10 @@ def manifest() -> dict[str, dict[str, object]]:
 def sent() -> dict[str, set[str]]:
     """Per module the whole files sent; a file sent by `path § heading` section is `shared`."""
     rows: dict[str, set[str]] = {}
-    for module, names in METHODS.items():
+    # A pathway's own method (credit screening's CP-L10) is sent too: a module's row lists every
+    # whole file it is sent in any pathway.
+    every = [*METHODS.items(), *((key[1], names) for key, names in PATHWAY_METHODS.items())]
+    for module, names in every:
         for name in names:
             path, section, _ = name.partition(" § ")
             rows.setdefault("shared" if section else module, set()).add(path)

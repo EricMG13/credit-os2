@@ -3,13 +3,22 @@ import { moduleCodeName, pathwayName, RequestError } from "./api";
 import { asOfDate } from "./runFigures";
 import { changeText } from "./signal";
 import { withUnit } from "./moneyUnits";
-export { unitLabel, withUnit } from "./moneyUnits";
+export { unitLabel, withUnit, writtenUnit } from "./moneyUnits";
 
 export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };
 type Paragraph = { type: "text"; line: number; end: number; text: string };
 export type Block = Table | Paragraph | { type: "equity"; line: number; text?: string };
-export type Section = { heading: string; level: number; line: number; blocks: Block[] };
+export type Section = {
+  heading: string;
+  level: number;
+  line: number;
+  blocks: Block[];
+  /** Set by `outputEntries` (ruling M2): a credit screening CP-L10 section that is not a finding. */
+  register?: true;
+  /** Set by `outputEntries`: one of the five screens, drawn by the credit screening lead. */
+  screen?: true;
+};
 const FILE_EXTENSIONS = "jsonl?|x?html?|xml|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|txt|md|zip";
 // A file name ahead before the next ";", ",", "|" or line end: the code belongs to a stored name.
 const FILE_AHEAD = new RegExp(String.raw`^[^;,|\n]*\.(?:${FILE_EXTENSIONS})\b`, "i");
@@ -26,8 +35,8 @@ const STANDALONE_CODES =
 // A bracketed code after text: " (CP-x)".
 const BRACKETED_CODE = / \((CP-[A-Za-z0-9]+)\)/gi;
 /** The module's name for a code in either case; a code the page does not know stays as written. */
-function nameOfCode(code: string) {
-  return moduleCodeName(code.toUpperCase()) ?? code;
+function nameOfCode(code: string, pathway?: string | null) {
+  return moduleCodeName(code.toUpperCase(), pathway) ?? code;
 }
 /**
  * Findings-page text: a " (CP-x)" right after that module's own name is dropped, after any other
@@ -35,16 +44,16 @@ function nameOfCode(code: string) {
  * becomes the module's name. A code inside a stored file name stays. A code in lower case ("cp-2a")
  * reads as the upper-case code does; a gap id or a run code is not a module code (`containsReference`).
  */
-export function readerText(text: string) {
+export function readerText(text: string, pathway?: string | null) {
   const bracketed = text.replace(BRACKETED_CODE, (match, code: string, at: number) => {
-    const name = nameOfCode(code);
+    const name = nameOfCode(code, pathway);
     if (name === code || FILE_AHEAD.test(text.slice(at + match.length))) return match;
     return text.slice(0, at).toLowerCase().endsWith(name.toLowerCase()) ? "" : ` (${name})`;
   });
   return bracketed.replace(STANDALONE_CODES, (run, at: number, whole: string) => {
     const kept = whole.slice(0, at).endsWith(" (") && whole[at + run.length] === ")";
     if (kept && FILE_AHEAD.test(whole.slice(at + run.length + 1))) return run;
-    return run.replace(/CP-[A-Z0-9]+/gi, nameOfCode);
+    return run.replace(/CP-[A-Z0-9]+/gi, (code) => nameOfCode(code, pathway));
   });
 }
 export const CONFIDENCE_INPUTS = "Confidence inputs";
@@ -334,12 +343,35 @@ export function outputEntries(
         ? [
             {
               output,
-              sections: snapshot.workspace.handoffs[output.sha256] ?? [],
+              sections: screeningSections(
+                snapshot.workspace.handoffs[output.sha256] ?? [],
+                run.pathway === "credit_screening" && moduleId === "CP-L10",
+              ),
               selected: module.default === id,
             },
           ]
         : [];
     }),
+  );
+}
+
+export const SCREEN_TITLES = [
+  "Financial change screen",
+  "Credit screen",
+  "Liquidity and forward-risk screen",
+  "Security opportunity screen",
+  "Creditor-document screen",
+] as const;
+
+/** Ruling M2: in a credit screening CP-L10 handoff, a finding other than the five screens is a register. */
+function screeningSections(sections: Section[], screening: boolean) {
+  if (!screening) return sections;
+  return classifySections(sections).map(({ section, role }) =>
+    role !== "finding" || section.level <= 2
+      ? section
+      : SCREEN_TITLES.some((t) => t === section.heading)
+        ? { ...section, screen: true as const }
+        : { ...section, register: true as const },
   );
 }
 
@@ -509,10 +541,12 @@ export function classifySections(sections: Section[]) {
     if (/^Analytical appendix/.test(section.heading)) appendixLevel = section.level;
     return {
       section,
-      role: sectionRole(
-        stack.filter((item) => item.level >= 2).map((item) => item.heading),
-        appendixLevel > 0 && !readerProse(section),
-      ),
+      role: section.register
+        ? "registers"
+        : sectionRole(
+            stack.filter((item) => item.level >= 2).map((item) => item.heading),
+            appendixLevel > 0 && !readerProse(section),
+          ),
     };
   });
 }
@@ -698,6 +732,36 @@ function pageCitation(text: string) {
   );
 }
 
+/**
+ * What a cell says besides its sources: its sentences that cite none, in order. A cell that holds a
+ * limitation and then a file reference keeps the limitation; the reference alone goes to Evidence.
+ * Empty when every sentence cites.
+ */
+export function withoutReferences(text: string) {
+  return text
+    .split(/(?<=[.!?])(?<!\bpp?\.)\s+(?=[A-Z])/u)
+    .filter((sentence) => !containsReference(sentence))
+    .join(" ")
+    .trim();
+}
+
+/**
+ * A gap reason the store joined from several cells ("a; b; a; c"): each clause once, in the order
+ * written, compared without regard to case. Nothing else is changed.
+ */
+export function eachClauseOnce(reason: string) {
+  const seen = new Set<string>();
+  return reason
+    .split(/;\s+/u)
+    .filter((clause) => {
+      const key = clause.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("; ");
+}
+
 export function containsReference(text: string) {
   return (
     FILE_REFERENCE.test(text) ||
@@ -712,8 +776,11 @@ export function containsReference(text: string) {
   );
 }
 
+// A column is hidden only when written for another module (a consumer, a next or downstream module,
+// downstream use); a module's own analysis, such as its escalation consequence, is drawn. "Downstream
+// module affected" is the module's own when every cell states an effect "Within this analysis".
 const INTERMODULE =
-  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|escalation consequence|next commands?|next modules?|downstream consumers?|downstream modules? affected|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream use|consumer module id)$|^consequence for cp-/;
+  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|next commands?|next modules?|downstream consumers?|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream use|consumer module id)$|^consequence for cp-/;
 // "Evidence" and "Source / Limitation" columns carry either source references or the module's
 // own qualification; with rows to judge, they are hidden only when the cells are references.
 const MIXED_COLUMN = /^(?:evidence|sources?\s*\/\s*limitation)$/;
@@ -725,6 +792,11 @@ export function displayColumns(headers: string[], evidence: boolean, rows: Row[]
     const header = text.trim().toLowerCase().replaceAll(/[-_]/g, " ").replace(/\s+/g, " ");
     if (INTERMODULE.test(header)) return [];
     const populated = rows.map((row) => row.cells[index]?.trim() ?? "").filter(Boolean);
+    if (
+      /^downstream modules? affected$/.test(header) &&
+      !(populated.length && populated.every((cell) => /^within this analysis\b/i.test(cell)))
+    )
+      return [];
     const ambiguousId =
       /^(?:references?|ref\.?|code)$/.test(header) &&
       populated.length > 0 &&

@@ -44,7 +44,7 @@ describe("debt stack: the accepted CP-1", () => {
   it("titles the tile plainly, kicker with the unit, one trace control", () => {
     const { tile } = draw(cp1Entry());
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Debt by ranking");
-    expect(tile.textContent).toContain("Debt stack · US$m");
+    expect(tile.textContent).toContain("Debt stack · $m");
     expect(within(tile).getAllByRole("link", { name: /Source for the debt stack/ })).toHaveLength(
       1,
     );
@@ -95,7 +95,7 @@ describe("debt stack: the accepted CP-1", () => {
   it("reads every facility in the aria-label; legend by the secured flag; the module's own note", () => {
     const { tile, svg } = draw(cp1Entry());
     expect(svg?.getAttribute("aria-label")).toBe(
-      "Debt stack, US$m, in ranking order, first claim at the top: " +
+      "Debt stack, $m, in ranking order, first claim at the top: " +
         "2028 secured notes 2,100, Ranking 1 · Secured: Yes · Cumulative leverage 0.55; " +
         "2029 secured notes 2,750, Ranking 1 · Secured: Yes · Cumulative leverage 1.27; " +
         "2030 secured notes 1,450, Ranking 1 · Secured: Yes · Cumulative leverage 1.65; " +
@@ -118,7 +118,7 @@ describe("debt stack: the accepted CP-1", () => {
       "Facility",
       "Ranking",
       "Secured",
-      "Amount, US$m",
+      "Amount, $m",
       "Cumulative leverage",
       "Basis and limitation",
     ]);

@@ -11,6 +11,7 @@ import { cx } from "@/utils/cx";
 import { FindingParagraph, PublishedTable } from "../ReportContent";
 import {
   containsReference,
+  eachClauseOnce,
   evidencePath,
   readParagraph,
   readerText,
@@ -30,7 +31,7 @@ import {
   type BottomLineSource,
   type TextBlock,
 } from "./moduleFrameModel";
-import { holdsCode, proseWithoutMachinery, readableTitle } from "./moduleRecordsModel";
+import { holdsCode, proseWithoutMachinery, readableTitle, unitCells } from "./moduleRecordsModel";
 
 const MISSING_PASSAGE = "Not established for this run. The module wrote no such passage.";
 
@@ -410,6 +411,7 @@ function PassageTable({
     <PublishedTable
       table={table}
       heading={title}
+      drawCell={unitCells(table)}
       traceAt={(line) => traceKey(entry, line)}
       rowHref={(line) => evidencePath(folder, entry, line)}
     />
@@ -595,7 +597,7 @@ export function chartGaps(entry: OutputEntry): ChartGap[] {
   return [...charts, ...events, ...maps].flatMap((item) => {
     const named = [item.title, item.lane, item.name].find((value) => typeof value === "string");
     const title = typeof named === "string" ? named.trim() : "";
-    const reason = typeof item.gap === "string" ? item.gap.trim() : "";
+    const reason = typeof item.gap === "string" ? eachClauseOnce(item.gap.trim()) : "";
     return title && reason ? [{ title, reason, line: item.table }] : [];
   });
 }
@@ -661,7 +663,7 @@ function ChartGapWell({
         size="sm"
         className="min-h-8 items-center self-start max-[480px]:min-h-11"
       >
-        Source table in Evidence
+        {`${title}: source table in Evidence`}
       </Button>
     </GapWell>
   );

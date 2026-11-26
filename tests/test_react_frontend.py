@@ -1098,3 +1098,58 @@ def test_credit_snapshot_downloads_with_a_control_character_in_the_rv_worksheet(
     shown = [c.value for ws in load_workbook(io.BytesIO(body)) for r in ws.iter_rows() for c in r]
     assert "text holds a control character" in shown
     assert not any(isinstance(v, str) and "10021" in v for v in shown)
+
+
+def _post(server: _Server, path: str) -> tuple[int, Any]:
+    origin = {"Origin": f"http://127.0.0.1:{server.server_address[1]}"}
+    status, body, _ = request(server, path, "POST", headers=origin, body="")
+    return status, json.loads(body) if body else None
+
+
+def test_synthetic_server_records_standing_fetch_failures_without_the_network(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every server holds the standing portfolios' desk; a synthetic one fetches nothing."""
+    from deploy_workflow import reference_fetch
+    from deploy_workflow.research import webfetch
+
+    signal_fetch = reference_fetch.signal_fetch  # no direct import: see tests/signal_guard.py
+
+    touched: list[str] = []
+
+    def record(name: str) -> Any:
+        def called(*args: object, **kwargs: object) -> Any:
+            touched.append(name)
+            raise AssertionError(f"{name} reached the network")
+
+        return called
+
+    monkeypatch.setattr(reference_fetch, "_system_resolve", record("reference_fetch resolver"))
+    monkeypatch.setattr(signal_fetch, "_resolve", record("signal fetch resolver"))
+    monkeypatch.setattr(webfetch, "pinned_connection", record("pinned connection"))
+    with make_server(root, web=web, launcher=("unused-by-test",), synthetic=True) as server:
+        assert server.standing.wiring is not None
+        assert server.standing.wiring.resolve is not None
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        try:
+            status, listed = _post(server, "/api/reference-portfolios/ensure")
+        finally:
+            server.shutdown()
+            thread.join()
+    assert status == 200
+    entries = listed["portfolios"]
+    assert len(entries) == 3
+    fetchable = {entry["key"]: entry for entry in entries if entry["fetchable"]}
+    assert set(fetchable) == {"lvln", "jnk"}  # the loan-index and high-yield funds; CLO has no URL
+    for entry in fetchable.values():
+        assert "a synthetic run fetches nothing" in entry["failure"]["message"]
+    assert {entry["key"]: entry["failure"] for entry in entries}["clo"] is None
+    assert touched == []
+
+
+def test_live_server_refuses_a_refresh_of_a_key_with_no_file(hosted: Any) -> None:
+    assert hosted.standing.wiring is None  # live keeps the production fetching
+    status, body = _post(hosted, "/api/reference-portfolios/clo/refresh")
+    assert status == 400
+    assert "has no holdings file to fetch" in json.dumps(body)

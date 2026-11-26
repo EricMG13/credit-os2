@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isIssuerAssessment,
   issuerGroups,
   issuerPassageBody,
   leadIdentity,
@@ -85,6 +86,31 @@ describe("issuer entry", () => {
     const missing = caseRun("unknown", "2026-05-01", { lead: null });
     expect(selectIssuerEntry([legacy, lite, partial, missing], false)).toBe(lite);
     expect(selectIssuerEntry([legacy, partial, missing], false)).toBe(missing);
+  });
+
+  it("opens a credit screening when it is the only report, and never counts it as an issuer assessment", () => {
+    const screen = caseRun("screen", "2026-05-01", {
+      pathway: "credit_screening",
+      lead: {
+        module: "CP-L10",
+        output: "screen/credit-screening",
+        sha256: SHA,
+        line: 24,
+        text: "Liquidity is adequate; earnings and refinancing need a full assessment.",
+      },
+    });
+    expect(isIssuerAssessment(screen.run)).toBe(false);
+    expect(selectIssuerEntry([screen], false)).toBe(screen);
+    expect(selectIssuerEntry([screen], true)).toBe(screen);
+  });
+
+  it("prefers a Full, then a Lite assessment to a newer credit screening", () => {
+    const screen = caseRun("screen", "2026-05-01", { pathway: "credit_screening" });
+    const lite = caseRun("lite", "2026-01-01", { pathway: "lite_credit_assessment" });
+    const full = caseRun("full", "2026-02-01");
+    expect(selectIssuerEntry([screen, lite], false)).toBe(lite);
+    expect(selectIssuerEntry([screen, lite, full], false)).toBe(full);
+    expect(selectIssuerEntry([screen, lite], true)).toBe(screen);
   });
 
   it("puts unknown analysis dates after valid dates and applies one tie rule to the whole date", () => {

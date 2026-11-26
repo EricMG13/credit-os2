@@ -216,11 +216,23 @@ def _table_after(lines: list[str], start: int, name: str) -> Table | str:
     return header, rows
 
 
+def _one_start_each(lines: list[str], starts: list[int]) -> list[int]:
+    """A register's heading and its `<!-- table-id: ... -->` tag, with no table or other heading
+    between them, are one start (the heading's); a start after a table or a heading is another."""
+    kept: list[int] = []
+    for at in starts:
+        between = lines[kept[-1] + 1 : at] if kept else []
+        if kept and not any(_HEADING.match(x) or x.lstrip().startswith("|") for x in between):
+            continue
+        kept.append(at)
+    return kept
+
+
 def register_table(text: str, ident: str) -> Table | str:
     """The table of the register ``ident`` (a method id such as `T2E.5`), or why it is not read."""
     lines = _unfenced(text)
     pattern = _register_start(ident)
-    found = [i for i, line in enumerate(lines) if pattern.match(line)]
+    found = _one_start_each(lines, [i for i, line in enumerate(lines) if pattern.match(line)])
     if not found:
         return f"the handoff has no {ident} register"
     if len(found) > 1:
@@ -922,6 +934,15 @@ def _cp3c(text: str, loaded: Loaded, _upstream: Upstream) -> list[Outcome]:
     return [_funding_line(line, funding, view, loaded.tables) for line in FUNDING_RESULTS]
 
 
+def _foreign_due_currencies(funding: _Funding, view: dict[str, Any]) -> list[str]:
+    """The currencies, as read or as written, of the instruments due inside the horizon that
+    differ from the funding table's own."""
+    own = funding.payload["currency"]
+    due = view["maturity_wall"].get("due_within_horizon", [])
+    foreign = {r.get("currency") for r in due if r.get("currency") != own}
+    return [c or "no stated currency" for c in sorted({str(c).strip() for c in foreign})]
+
+
 def _funding_line(
     line: str, funding: _Funding, view: dict[str, Any], tables: types.ModuleType
 ) -> Outcome:
@@ -933,6 +954,15 @@ def _funding_line(
     recomputed = view[part].get(key)
     if recomputed is None:
         return where("not checked", stated=stated, reason=str(view[part].get("reason")))
+    if line == "Maturities due":
+        foreign = _foreign_due_currencies(funding, view)
+        if foreign:  # a total in another currency is never set against the stated figure
+            reason = (
+                f"maturities inside the horizon are in {', '.join(foreign)}, the "
+                f"`### {FUNDING_HEADING}` table in {funding.payload['currency']}; "
+                "convert at a disclosed rate before totalling"
+            )
+            return where("not checked", stated=stated, reason=reason)
     claim = _Claim(where, stated, recomputed, AMOUNT_STEP, funding.unit, formula)
     return _judged(replace(claim, slack=_funding_slack(line, funding, view)), tables)
 
@@ -952,7 +982,7 @@ NOTES = {"CP-2D": CP2D_NOTE, "CP-3C": CP3C_NOTE}
 # when the check has nothing to read for the module. `method_scripts_completeness` reads the
 # launcher's method lists, so it sits in the orchestration layer and registers itself when the
 # launcher or CP-OS imports it (`.importlinter`), not from here.
-Shared = Callable[[str, str], list[Outcome]]
+Shared = Callable[[str, str, str | None], list[Outcome]]
 SHARED_CHECKS: dict[str, Shared] = {}
 
 
@@ -980,12 +1010,13 @@ def run(module: str, text: str, upstream: Upstream | None = None) -> tuple[Outco
     return _guarded(module, path, lambda: check(text, _loaded(path), upstream or {}))
 
 
-def shared(module: str, text: str) -> tuple[Outcome, ...]:
+def shared(module: str, text: str, pathway: str | None = None) -> tuple[Outcome, ...]:
     """Every shared check's outcomes on this handoff (`completeness_check.py`), guarded as
-    `run`'s."""
+    `run`'s. ``pathway`` is the run's: a module sent its own method in one pathway only is
+    checked against that method there."""
     out: list[Outcome] = []
     for path, check in SHARED_CHECKS.items():
-        out += _guarded(module, path, partial(check, module, text))
+        out += _guarded(module, path, partial(check, module, text, pathway))
     return tuple(out)
 
 
@@ -1026,9 +1057,9 @@ def issues(module: str, text: str, upstream: Upstream | None = None) -> tuple[st
     return tuple(issue(o) for o in run(module, text, upstream) if o.status in SENT_BACK)
 
 
-def shared_issues(module: str, text: str) -> tuple[str, ...]:
+def shared_issues(module: str, text: str, pathway: str | None = None) -> tuple[str, ...]:
     """The shared checks' acceptance issues (a required register's declared column absent)."""
-    return tuple(issue(o) for o in shared(module, text) if o.status in SENT_BACK)
+    return tuple(issue(o) for o in shared(module, text, pathway) if o.status in SENT_BACK)
 
 
 def upstream_texts(handoffs: Mapping[str, bytes]) -> dict[str, str]:
@@ -1058,13 +1089,19 @@ def blocked(text: str) -> bool:
 
 
 def record(
-    module: str, raw: bytes, upstream: Mapping[str, bytes] | None = None
+    module: str,
+    raw: bytes,
+    upstream: Mapping[str, bytes] | None = None,
+    pathway: str | None = None,
 ) -> dict[str, Any] | None:
     """Every check's outcome for one response, for the run's files; None when no check applies to
-    the module."""
+    the module (in ``pathway``)."""
     try:
         text = raw.decode("utf-8")
-        outcomes = (*run(module, text, upstream_texts(upstream or {})), *shared(module, text))
+        outcomes = (
+            *run(module, text, upstream_texts(upstream or {})),
+            *shared(module, text, pathway),
+        )
     except UnicodeDecodeError:
         if module not in CHECKS:
             return None

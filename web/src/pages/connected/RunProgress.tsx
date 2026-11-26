@@ -217,7 +217,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             (output) => output.module === code && output.assessment !== null,
           ),
       )
-      .map(([code]) => moduleName(code)) ?? [];
+      .map(([code]) => moduleName(code, run.pathway)) ?? [];
   const runProblem = problem && RUN_PROBLEMS[problem];
   const reportProblem =
     run?.status === "finished" && report !== "pending" && report !== "ready"
@@ -343,7 +343,9 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             >
               {/* Why, then where, each on its own line; what to do is the notice's action. */}
               <p className="wrap-anywhere">
-                {run.reason ? sentence(serviceText(run.reason)) : "The run record gives no reason."}
+                {run.reason
+                  ? sentence(serviceText(run.reason, run.pathway))
+                  : "The run record gives no reason."}
               </p>
               <p className="mt-1 wrap-anywhere text-text-primary">
                 {stopped.names.length > 0
@@ -354,13 +356,13 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           ) : (
             run.reason && (
               <Alert tone="error" title="Why this run ended without a report">
-                <span className="wrap-anywhere">{serviceText(run.reason)}</span>
+                <span className="wrap-anywhere">{serviceText(run.reason, run.pathway)}</span>
               </Alert>
             )
           )}
           {live && run.held_reason && (
             <Alert tone="warning" title="Held by the service">
-              <span className="wrap-anywhere">{serviceText(run.held_reason)}</span>
+              <span className="wrap-anywhere">{serviceText(run.held_reason, run.pathway)}</span>
             </Alert>
           )}
           {run.status === "queued" && !run.held_reason && !run.reason && (

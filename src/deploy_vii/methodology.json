@@ -575,7 +575,9 @@
       "CP-0",
       "CP-1"
     ],
-    "optional": [],
+    "optional": [
+      "CP-DR"
+    ],
     "purpose": "Writes the one-page short credit snapshot from CP-1's figures: the view, key figures, contrary evidence and limitations.",
     "table_ids": [
       "TL40.1",

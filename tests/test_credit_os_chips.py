@@ -1017,3 +1017,170 @@ def test_a_longer_unlisted_file_name_after_any_whitespace_run_does_not_open_the_
     assert [(loc["kind"], loc.get("source")) for loc in found] == [("gap", None)]
     cited = parse_locators("Source:" + " " * spaces + "report.pdf, page 3", keys)
     assert [(loc["kind"], loc["source"]) for loc in cited] == [("issuer_page", "report.pdf")]
+
+
+# --- real shapes of the offline replay of TDG (run 20261125-162721-01), cells copied verbatim ----
+
+TDG_10K = "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl"
+TDG_PAGES = b"".join(
+    json.dumps({"page": n, "text": f"page {n} text"}).encode() + b"\n"
+    for n in (4, 9, 10, 71, 72, 120, 123)
+)
+
+
+def real_run(tmp_path, source=TDG_10K, pages=TDG_PAGES):
+    run = tmp_path / "run"
+    (run / "source-text").mkdir(parents=True)
+    (run / "source-text" / source).write_bytes(pages)
+    return run, {source: (source, hashlib.sha256(pages).hexdigest())}
+
+
+def real_table(headers, *rows, heading="H"):
+    block = {
+        "type": "table",
+        "line": 2,
+        "headers": headers,
+        "rows": [{"line": 4 + i, "cells": list(r)} for i, r in enumerate(rows)],
+    }
+    return [{"heading": heading, "level": 3, "line": 1, "blocks": [block]}]
+
+
+STRENGTH_HEADERS = [
+    *("direction", "rank", "label", "mechanism", "evidence_ids", "status"),
+    *("source_id", "source_locator", "as_of", "Source"),
+]
+
+
+def test_a_page_locator_cell_takes_its_source_from_the_rows_source_id_column(tmp_path):
+    run, inv = real_run(tmp_path)
+    m3 = (
+        *("STRENGTH", "2", "Cash generation after modest physical investment"),
+        *("Positive CFO after total capex supports debt servicing", "M3", "READY"),
+        *(TDG_10K, "pages 71, 123", "2024-09-30", "Financial foundation (CP-1)"),
+    )
+    sections = real_table(STRENGTH_HEADERS, m3)
+    got = chips_for_output(run, "x/CP-2.md", "CP-2", sections, inv)["x/CP-2.md:4"]
+    pages = [(c["kind"], c["source"], c["page"], c["file"]) for c in got if c["page"]]
+    assert pages == [("issuer_page", TDG_10K, 71, TDG_10K), ("issuer_page", TDG_10K, 123, TDG_10K)]
+    assert all(c["reason"] is None for c in got if c["page"])
+
+
+def test_a_range_in_a_source_locator_cell_is_keyed_too(tmp_path):
+    run, inv = real_run(tmp_path)
+    m5 = (
+        *("WEAKNESS", "2", "Elevated unadjusted leverage", "Recurring cost categories", "M5"),
+        *("READY", TDG_10K, "pages 71–72, 120", "2024-09-30", "Financial foundation (CP-1)"),
+    )
+    got = chips_for_output(run, "x/CP-2.md", "CP-2", real_table(STRENGTH_HEADERS, m5), inv)[
+        "x/CP-2.md:4"
+    ]
+    pages = [(c["source"], c["page"], c["page_end"]) for c in got if c["page"]]
+    assert pages == [(TDG_10K, 71, 72), (TDG_10K, 120, None)]
+
+
+PEER_HEADERS = ["Dimension", "TransDigm position", "Source"]
+
+
+def test_a_web_source_key_stays_on_the_chip_and_a_range_to_itself_is_one_page(tmp_path):
+    run, inv = real_run(tmp_path)
+    row = (
+        "Profitability",
+        "FY2024 reported EBITDA margin 48.02%",
+        "Financial foundation (CP-1); calculation P01; web-912e342c5634, pages 3–3",
+    )
+    got = chips_for_output(run, "x/CP-1C.md", "CP-1C", real_table(PEER_HEADERS, row), inv)
+    (web,) = [c for c in got["x/CP-1C.md:4"] if c["page"]]
+    assert (web["kind"], web["source"], web["page"], web["page_end"]) == (
+        "gap",
+        "web-912e342c5634",
+        3,
+        None,
+    )
+    assert web["label"] == "web-912e342c5634 p.3 · not in inventory"
+    assert "no key" not in web["label"]
+
+
+def test_a_web_key_not_in_the_inventory_is_a_labelled_gap_without_any_inventory(tmp_path):
+    (loc_,) = parse_locators("web-9705b33a6ef9, pages 8–9")
+    assert (loc_["kind"], loc_["source"], loc_["page"], loc_["page_end"]) == (
+        *("gap", "web-9705b33a6ef9", 8, 9),
+    )
+    assert loc_["label"] == "web-9705b33a6ef9 p.8-9 · not in inventory"
+
+
+def test_a_row_citing_only_an_upstream_module_says_so_in_reader_words(tmp_path):
+    run, inv = real_run(tmp_path)
+    row = (
+        "Cash extraction and leverage reset",
+        "September recap uses USD 3,000 million new secured financing",
+        "Business & governance (CP-1A); Financial foundation (CP-1)",
+    )
+    headers = ["Finding", "Evidence", "Source"]
+    got = chips_for_output(run, "x/CP-2.md", "CP-2", real_table(headers, row), inv)
+    chips_ = got["x/CP-2.md:4"]
+    assert [(c["kind"], c["module"], c["label"]) for c in chips_] == [
+        ("upstream", "CP-1A", "Business & governance output"),
+        ("upstream", "CP-1", "Financial foundation output"),
+    ]
+    assert all("no page" not in (c["reason"] or "") for c in chips_)
+    assert all("CP-" not in (c["reason"] or "") for c in chips_)
+
+
+def test_a_claim_row_that_cites_nothing_is_still_a_no_page_gap(tmp_path):
+    run, inv = real_run(tmp_path)
+    got = chips_for_output(
+        run, "x/CP-2.md", "CP-2", real_table(["Finding", "Source"], ("A", "Nothing here")), inv
+    )
+    (gap,) = got["x/CP-2.md:4"]
+    assert (gap["kind"], gap["label"]) == ("gap", "no page")
+
+
+def test_a_not_supplied_cell_beside_a_real_citation_is_not_listed_as_a_source(tmp_path):
+    name = "d887611dex101.htm.jsonl"
+    pages = json.dumps({"page": 188, "text": "maintenance covenant"}).encode() + b"\n"
+    run, inv = real_run(tmp_path, name, pages)
+    headers = ["Test", "Level", "Tested ratio", "Result", "Direction", "Unit", "Source"]
+    row = (
+        *("Ordinary springing maintenance", "7.50", "Not supplied: certified maintenance ratio"),
+        *("Not calculable: current tested ratio missing", "Passes at or below", "x"),
+        f"{name}, page 188; exposure must exceed 40%; acquisition alternative not assumed",
+    )
+    got = chips_for_output(run, "x/CP-4.md", "CP-4", real_table(headers, row), inv)
+    chips_ = got["x/CP-4.md:4"]
+    assert [(c["kind"], c["page"]) for c in chips_] == [("issuer_page", 188)]
+
+
+# --- CP-0 writes ## Sources as a "- file sha256" list (real run 20261125-162721-01) ---
+
+LIVE = ROOT / "tests" / "fixtures" / "live_2026_11_25"
+
+
+def test_a_list_form_sources_section_is_the_inventory_and_opens_the_cited_pages(tmp_path):
+    from credit_os.source import parse_source
+
+    run, _ = real_run(tmp_path)
+    # Hand-typed from the fixture: the list names the 10-K with this sha256; the context entry is
+    # no source file and the quote sheet has no source text in the run, so both stay out.
+    k_sha = "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6"
+    sources = parse_source((LIVE / "CP-0-sources-replay-tdg.md").read_text("utf-8"))
+    inv = inventory(sources, {TDG_10K})
+    assert dict(inv) == {TDG_10K: (TDG_10K, k_sha)}
+    # The run's source text is not the real file, so the stored hash differs: the chip says so but
+    # still opens the page.
+    cp2 = parse_source((LIVE / "CP-2-strengths-replay-tdg.md").read_text("utf-8"))
+    got = chips_for_output(run, "x/CP-2.md", "CP-2", cp2, inv)
+    m3 = [c for c in got["x/CP-2.md:6"] if c["page"]]
+    assert [(c["kind"], c["source"], c["page"]) for c in m3] == [
+        ("issuer_page", TDG_10K, 71),
+        ("issuer_page", TDG_10K, 123),
+    ]
+
+
+def test_a_row_citing_only_not_supplied_says_so_once_and_keeps_it_beside_nothing_real(tmp_path):
+    run, inv = real_run(tmp_path)
+    row = ("Not supplied: no prior assessment", "Not supplied: none")
+    got = chips_for_output(run, "x/CP-0.md", "CP-0", real_table(["a", "b"], row), inv)
+    assert [c["label"] for c in got["x/CP-0.md:4"]] == ["Not supplied"]
+    real = ("Not supplied: x", f"{TDG_10K}, page 71")
+    kept = chips_for_output(run, "x/CP-0.md", "CP-0", real_table(["a", "b"], real), inv)
+    assert [c["kind"] for c in kept["x/CP-0.md:4"]] == ["issuer_page"]

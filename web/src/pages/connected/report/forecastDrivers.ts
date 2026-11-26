@@ -119,7 +119,7 @@ function amountUnit(document: Record<string, unknown>) {
   return `${currency}; scale ${text || "not recorded"}`;
 }
 
-export type DriverCell = {
+type DriverCell = {
   text: string;
   /** The text year by year; null is a year the case states nothing for. */
   parts: Recorded[];

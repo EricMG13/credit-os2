@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifySections,
+  outputEntries,
   containsReference,
   comparisonRows,
   comparisonForRun,
@@ -216,6 +217,64 @@ describe("published handoff boundaries", () => {
     expect(displayColumns(["a", "consumer_module_id"], true)).toEqual([0]);
   });
 
+  // E1: a column the module wrote about its own analysis is drawn; only a hand-over to another
+  // module stays hidden. Cells are verbatim from the TDG replay handoffs CP-2A (T2B.7) and CP-2D (T2E.9).
+  it("draws the module's own Escalation Consequence column (CP-2A T2B.7)", () => {
+    const headers = ["Trigger ID", "Linked Pathway Row", "Escalation Consequence", "Source Trace"];
+    const rows = [
+      {
+        line: 1,
+        cells: [
+          "MON-01",
+          "Operating first break: shipments \u2192 margins \u2192 FCF",
+          "Challenge the assumed earnings cases before headline cash erosion",
+          "Fundamental credit",
+        ],
+      },
+      {
+        line: 2,
+        cells: [
+          "MON-05",
+          "Funding pinch",
+          "Nonrenewal makes cash repayment necessary even if EBITDA covers interest",
+          "E03",
+        ],
+      },
+    ];
+    expect(displayColumns(headers, false, rows)).toContain(2);
+    expect(displayColumns(headers, true, rows)).toContain(2);
+  });
+
+  it("draws Downstream Module Affected when it states an effect within the module (CP-2D T2E.9)", () => {
+    const headers = ["Gap", "Missing Data", "Downstream Module Affected"];
+    const within = [
+      {
+        line: 1,
+        cells: [
+          "G1",
+          "Credit agreement definitions",
+          "Within this analysis: revolver access and the risk level",
+        ],
+      },
+      {
+        line: 2,
+        cells: ["G2", "Securitization agreement", "Within this analysis: debt maturities row"],
+      },
+    ];
+    expect(displayColumns(headers, false, within)).toEqual([0, 1, 2]);
+    expect(displayColumns(headers, true, within)).toEqual([0, 1, 2]);
+    // Cells that name another module are written for that module: hidden everywhere.
+    const handed = [
+      {
+        line: 1,
+        cells: ["G1", "Credit agreement definitions", "Refinancing & LME; Ratings & triggers"],
+      },
+    ];
+    expect(displayColumns(headers, false, handed)).toEqual([0, 1]);
+    expect(displayColumns(headers, true, handed)).toEqual([0, 1]);
+    expect(displayColumns(headers, false)).toEqual([0, 1]);
+  });
+
   it("keeps real Evidence and Source / Limitation columns that carry qualifications (CP-2)", () => {
     const headers = ["Trigger", "Evidence", "Source / Limitation", "Source"];
     const rows = [
@@ -305,8 +364,8 @@ describe("published handoff boundaries", () => {
     });
     expect(rows[0]).toEqual([
       "Cash",
-      "US$0m (FY2025)",
-      "GBP 20m (FY2026)",
+      "$0m (FY2025)",
+      "£20m (FY2026)",
       "—",
       "Reporting units differ.",
       "The newer analysis uses a different cash perimeter.",
@@ -340,9 +399,9 @@ describe("published handoff boundaries", () => {
     };
     expect(comparisonRows(change)[0]).toEqual([
       "Total debt",
-      "US$110m (FY2025)",
-      "US$100m (FY2025)",
-      "-US$10m",
+      "$110m (FY2025)",
+      "$100m (FY2025)",
+      "-$10m",
       "Same definition · Same-period analysis change",
       "The updated filing reclassifies 10 US$m.",
     ]);
@@ -507,5 +566,55 @@ describe("missing reader passages", () => {
   });
   it("does not judge an earlier-format handoff", () => {
     expect(missingPassages(entry("CP-2", []))).toEqual([]);
+  });
+});
+
+describe("credit screening CP-L10 sections", () => {
+  const section = (heading: string, level: number, line: number) => ({
+    heading,
+    level,
+    line,
+    blocks: [],
+  });
+  const sections = [
+    section("Findings", 2, 1),
+    section("Bottom line", 3, 2),
+    section("Credit screen", 3, 3),
+    section("Source and scope gate", 3, 4),
+    section("Sources", 2, 5),
+  ];
+  const entriesFor = (pathway: string) => {
+    const snapshot = {
+      workspace: {
+        outputs: { o: { id: "o", module: "CP-L10", sha256: "s", run: "case" } },
+        handoffs: { s: sections },
+      },
+    } as unknown as Parameters<typeof outputEntries>[0];
+    const run = {
+      pathway,
+      modules: { "CP-L10": { outputs: ["o"], default: "o" } },
+    } as unknown as PublishedRun;
+    const [entry] = outputEntries(snapshot, run, "case");
+    return classifySections(entry?.sections ?? []).map(({ role }) => role);
+  };
+
+  it("turns a finding other than the five screens into a register, and nothing else", () => {
+    expect(entriesFor("credit_screening")).toEqual([
+      "finding",
+      "passage",
+      "finding",
+      "registers",
+      "sources",
+    ]);
+  });
+
+  it("keeps the base roles in another pathway", () => {
+    expect(entriesFor("short_snapshot")).toEqual([
+      "finding",
+      "passage",
+      "finding",
+      "finding",
+      "sources",
+    ]);
   });
 });

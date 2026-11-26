@@ -271,7 +271,7 @@ export function panelScale(panel: DownsidePanel, room: number) {
 
 type PathPoint = { period: string; display: string; value: number | null; reason: string };
 
-const NET_LEVERAGE = /^Net leverage\b/i;
+export const NET_LEVERAGE = /^Net leverage\b/i;
 /** The model marks its base case by this group name; no other group is taken for it. */
 const BASE = "Base case";
 const MOST_LIMITS = 2;

@@ -121,6 +121,9 @@ PATHWAY_MODULES = {
         *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-4", "CP-2A"),
         *("CP-2E", "CP-2D", "CP-2G", "CP-2H", "CP-3D", "CP-3C", "CP-4C", "CP-3", "CP-5", "CP-6"),
     ),
+    # Owner, 2026-11-25 (ruling R12): the credit screening is CP-0, CP-1, CP-DR and the one
+    # CP-L10 screen, in that order (CP-DR after CP-1, CP-L10 last).
+    "credit_screening": ("CP-0", "CP-1", "CP-DR", "CP-L10"),
 }
 # The owner's preset answer key (2026-11-11), hand-written as sets: what each pathway requests.
 PRESET_ANSWER_KEY = {
@@ -156,6 +159,8 @@ PRESET_ANSWER_KEY = {
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
         "CP-1B CP-1C CP-1D CP-2H CP-3D CP-4C"
     ),
+    # Owner, 2026-11-25 (ruling R12): CP-0, CP-1, CP-DR and the five-screen CP-L10.
+    "credit_screening": "CP-0 CP-1 CP-DR CP-L10",
 }
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the
@@ -689,11 +694,23 @@ OWNED_SECTIONS = {
 }
 
 
-def register_rows(module: str) -> list[str]:
+SCREENING_FIXTURE = ROOT / "tests/fixtures/credit-screening/CP-L10.md"
+
+
+def screening_sections() -> list[str]:
+    """The five reader tables, the Confidence inputs table and the 20 registers of Task 1's
+    synthetic CP-L10 handoff, as the lines CP-L10 writes in `credit_screening` (its method asks
+    for exactly those sections inside `## Findings`; the passages come from `answer`)."""
+    text = SCREENING_FIXTURE.read_text(encoding="utf-8")
+    start = text.index("### Financial change screen")
+    return [*text[start : text.index("\n## Sources")].splitlines(), ""]
+
+
+def register_rows(module: str, pathway: str | None = None) -> list[str]:
     """The in-scope registers a real handoff of the ten measured modules carries (T4 presence
     check), each with the row the method allows for one with nothing to report."""
     rows: list[str] = []
-    for ident in cpos_launch.required_registers(module):
+    for ident in cpos_launch.required_registers(module, pathway):
         note = "Not supplied: nothing to report"
         rows += [f"### {ident} - Register", "", "| Item | Value |", "| --- | --- |"]
         rows += [f"| Observed | {note} |", ""]
@@ -701,6 +718,8 @@ def register_rows(module: str) -> list[str]:
 
 
 def answer(context: dict, plan_routes: list) -> str:
+    # A context a test writes by hand carries no `run`: its pathway is then unnamed (None).
+    pathway = context.get("run", {}).get("pathway")
     lines = [f"# {context['module_id']}", "", "## Request", f"{ISSUER} as of {AS_OF}.", ""]
     lines += ["## Sources", ""]
     lines += [f"- {n} {h}" for n, h in context["sources"].items()]
@@ -716,7 +735,10 @@ def answer(context: dict, plan_routes: list) -> str:
         case = " ".join(case.split())
         lines += [*PASSAGES.format(case=case).splitlines(), ""]
     passages = {"Bottom line", "Key findings", "Contrary evidence and what would change the view"}
-    own = [r for r in plan_routes if r.module_id == context["module_id"]]
+    # CP-L10 in the credit screening writes its five reader tables whole (header and rows) from the
+    # fixture, so none of its routes is written as a stub table here.
+    screening = (context["module_id"], pathway) == ("CP-L10", "credit_screening")
+    own = [r for r in plan_routes if r.module_id == context["module_id"] and not screening]
     own = [r for r in own if r.heading not in passages]  # A selector so named is the passage.
     for route in own:
         lines += [f"### {route.heading}", ""]
@@ -738,7 +760,9 @@ def answer(context: dict, plan_routes: list) -> str:
     for heading, table in OWNER_TABLES.get(context["module_id"], {}).items():
         lines += [f"### {heading}", "", table, ""]
     lines += OWNED_SECTIONS.get(context["module_id"], [])
-    lines += register_rows(context["module_id"])
+    # The fixture slice carries the screening's own tables and registers; every other module
+    # writes the registers its pathway's method requires.
+    lines += screening_sections() if screening else register_rows(context["module_id"], pathway)
     for heading in ("Calculations", "Gaps", "Next module"):
         held = heading == "Calculations" and context["module_id"] not in DATA_MODULE_IDS
         # The passage figures (fidelity check) are held in a table outside the passages.
@@ -891,11 +915,17 @@ def _provider(monkeypatch, calls):
     yield provider
 
 
+# The cap these tests launch at: 15, except in a pathway whose own cap is lower (the credit
+# screening's USD 10, owner ruling R12), where a higher one is refused.
+LAUNCH_CAP = {"credit_screening": "10"}
+
+
 def launch(tmp_path: Path, *extra: str, pathway: str = "covenant_refinancing") -> list[str]:
     return [
         *("--context", str(context_file(tmp_path, pathway))),
         *("--sources", str(issuer_folder(tmp_path))),
-        *("--config", "sol-medium", "--cap", "15", "--out", str(tmp_path / "out")),
+        *("--config", "sol-medium", "--cap", LAUNCH_CAP.get(pathway, "15")),
+        *("--out", str(tmp_path / "out")),
         *extra,
     ]
 
@@ -1441,7 +1471,9 @@ def test_short_snapshot_plans_exactly_cp0_cp1_and_cp_l10_in_order(tmp_path):
 def test_the_other_presets_do_not_gain_cp_l10():
     from deploy_vii.contracts import PATHWAY_MODULES as PRESETS
 
-    assert all("CP-L10" not in m for p, m in PRESETS.items() if p != "short_snapshot")
+    # Owner, 2026-11-25 (R12): the credit screening runs CP-L10 for its five screens as well.
+    own = ("short_snapshot", "credit_screening")
+    assert all("CP-L10" not in m for p, m in PRESETS.items() if p not in own)
 
 
 def test_cp_l10_is_a_prose_module_sent_the_reader_passages_and_its_own_method(tmp_path):
@@ -1727,7 +1759,13 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # Measured on this file's input before (base 9e6c586) and after: only lite_credit_assessment
 # passes its ceiling, 669,952 to 677,194 (+7,242), so its ceiling rises by that growth, 675,151 to
 # 682,393. The other ceilings hold and are unchanged.
+# 2026-11-25 (owner ruling R12, the credit screening): a new row, not a change to any other.
+# Measured on this file's input: CP-0 75,257, CP-1 59,045, CP-DR 72,504, CP-L10 120,540 (its
+# five-screen method, 104,782 characters, and the 20-register rules), total 327,346; ceiling
+# 346,500, the measured total rounded up to the next 10,000 plus 5% (as for deep_credit_assessment
+# above). The other ceilings are unchanged.
 INSTRUCTION_BUDGET = {
+    "credit_screening": 346_500,
     "deep_credit_assessment": 1_903_059,
     "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
@@ -1766,18 +1804,25 @@ def test_every_pathway_runs_end_to_end_to_a_verified_report(tmp_path, provider, 
             tmp_path / "issuer",
             tmp_path / "preview",
             config="sol-medium",
-            cap="15",
+            cap=LAUNCH_CAP.get(pathway, "15"),
         ).plan.layout.routes
     )
     # CP-2G after CP-1 must write a forecast block; the declined one publishes no model.
-    provider.answer = lambda context: (
-        forecast_answer(context, routes, REAL_DECLINED_BLOCK)
-        if context["module_id"] == "CP-2G"
-        else answer(context, routes)
-    )
+    sent: dict[str, list[str]] = {}
+
+    def respond(context):
+        sent[context["module_id"]] = sorted(context["handoffs"])
+        if context["module_id"] == "CP-2G":
+            return forecast_answer(context, routes, REAL_DECLINED_BLOCK)
+        return answer(context, routes)
+
+    provider.answer = respond
     assert main(argv) == 0
     out = tmp_path / "out"
     assert_called(provider, PATHWAY_MODULES[pathway])
+    if pathway == "credit_screening":
+        # The launcher's producer join, not a hand-built context: CP-L10 is sent CP-DR's handoff.
+        assert "CP-DR" in sent["CP-L10"], sent["CP-L10"]
     receipt = next((out / "deliveries").glob("*/delivery.json"))
     assert verify_delivery(next(out.glob("delivery-*.json")), receipt.parent) == receipt
     assert str(receipt) in capsys.readouterr().out
@@ -3777,7 +3822,8 @@ def test_cpdr_and_cp2e_are_in_every_pathway_and_run_in_order(tmp_path, pathway, 
     order = list(prepared.plan.instructions)
     assert order == list(PATHWAY_MODULES[pathway])
     assert "CP-DR" in order
-    assert ("CP-2E" in order) is (pathway != "lite_credit_assessment")
+    # Owner, 2026-11-25 (R12): the credit screening has CP-DR and no CP-2E, as the lite one.
+    assert ("CP-2E" in order) is (pathway not in ("lite_credit_assessment", "credit_screening"))
     assert "CP-DR" in prepared.plan.run.requested_modules
     if "CP-1C" in order:
         assert order.index("CP-DR") < order.index("CP-1C")
@@ -8511,64 +8557,6 @@ def test_a_stopped_run_still_lists_the_modules_written_after_a_compaction(
     assert "Review: CP-4" not in err
 
 
-def copilot_readiness(tmp_path, monkeypatch, limit):
-    from deploy_workflow.model import copilot
-
-    monkeypatch.setattr(copilot, "TOKEN_LIMITS", {"gpt-6.1-sol": limit})
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="copilot-sol-medium", cap="15",
-    )  # fmt: skip
-    return prepared, cpos_launch._readiness(prepared, "copilot-sol-medium")
-
-
-def test_readiness_warns_for_each_module_whose_first_prompt_nears_the_copilot_limit(
-    tmp_path, monkeypatch
-):
-    # A limit of 60,000 tokens (80% = 48,000) with the 32,000-token output budget: a module warns
-    # when its estimated prompt passes 16,000 tokens. The estimate by hand: the instruction file's
-    # bytes + 16,384 (the request's fixed part), over 3.85 bytes per token, rounded up.
-    prepared, text = copilot_readiness(tmp_path, monkeypatch, 60_000)
-    warned = {}
-    for module in prepared.ordered:
-        size = (prepared.directory / "instructions" / f"{module}.md").stat().st_size
-        tokens = -(-(size + 16384) * 100 // 385)
-        warned[module] = tokens
-    lines = [n for n in text.splitlines() if n.startswith("Context:  CP-")]
-    expected = [m for m, t in warned.items() if t + 32000 > 0.8 * 60_000]
-    assert expected  # the instructions alone are enough for some module to warn
-    assert [n.split(":")[1].strip() for n in lines] == expected
-    for line in lines:
-        module = line.split(":")[1].strip()
-        assert f"first prompt about {warned[module]:,} tokens (" in line
-        assert "over 80% of the 60,000-token limit" in line
-    # the handoffs of earlier modules are not written yet: the report says so
-    assert "handoffs not written yet are not counted" in text
-
-
-def test_readiness_is_silent_when_every_first_prompt_is_well_inside_the_limit(
-    tmp_path, monkeypatch
-):
-    _, text = copilot_readiness(tmp_path, monkeypatch, 272_000)
-    assert "Context:  CP-" not in text
-
-
-def test_readiness_has_no_context_lines_off_the_copilot_route(tmp_path):
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="sol-medium", cap="15",
-    )  # fmt: skip
-    assert "Context:" not in cpos_launch._readiness(prepared, "sol-medium")
-
-
-def test_a_model_whose_limit_is_not_known_gets_no_first_prompt_estimate(tmp_path):
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="copilot-opus-medium", cap="15",
-    )  # fmt: skip
-    assert cpos_launch._first_prompt_lines(prepared, "copilot-opus-medium") == ()
-
-
 # ---------------------------------------------------------------- compaction, fix round 1
 
 DISCLOSURE = (
@@ -8714,24 +8702,6 @@ def test_a_failed_summary_and_an_unended_start_without_ids_are_two_summaries(tmp
             "Copilot may bill them."
         ),
     )
-
-
-def test_the_launcher_prints_the_first_prompt_warning_while_the_run_goes_on(
-    tmp_path, monkeypatch, capsys, copilot_ruling
-):
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "ghp_" + "Z" * 36)
-    runtime = tmp_path / "copilot-runtime"
-    runtime.write_text("#!/bin/sh\n")
-    monkeypatch.setenv("COPILOT_CLI_PATH", str(runtime))
-
-    def fake_run(manifest, directory, **kwargs):
-        kwargs["on_notice"]("Context:  CP-8: first prompt about 231,000 tokens")
-        return directory / "delivery.json"
-
-    monkeypatch.setattr(cpos_launch, "run_live_handoffs", fake_run)
-    argv = copilot_argv(tmp_path, "copilot-sol-medium", "--live", "--ruling", str(copilot_ruling))
-    assert main(argv) == 0
-    assert "Context:  CP-8: first prompt about 231,000 tokens" in capsys.readouterr().out
 
 
 def test_a_note_for_the_separate_cp8_comparison_prints_the_same_review_line(tmp_path, capsys):
@@ -10672,3 +10642,209 @@ def test_a_blocked_cp2_and_other_modules_owe_no_scorecard():
     for module in METHODS:
         if module != "CP-2":
             assert cpos_launch.scorecard_issues(module, "## Findings\n") == (), module
+
+
+# --- the downside figures a module writes are the ones Python computes from its block ------------
+# Real model answer of the offline TDG replay (run 20261125-162721-01): its tables hold cash
+# interest flat while its block gives only `downside_shock`, so Python's downside differs.
+REPLAY = Path(__file__).parent / "fixtures" / "live_2026_11_25"
+PROOF_HANDOFFS = Path(__file__).parent.parent / "proof" / "handoffs"
+
+
+def _replay_task(cp1: Path, cp2g: Path):
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.read_bytes()})
+    return task, cp2g.read_text(encoding="utf-8")
+
+
+def _replay():
+    return _replay_task(REPLAY / "CP-1-replay-tdg.md", REPLAY / "CP-2G-replay-tdg.md")
+
+
+def test_the_forecast_instruction_says_the_reader_is_shown_pythons_downside():
+    block = cpos_launch.FORECAST_BLOCK
+    wanted = [
+        "The reader is shown Python's computation from this block, not your tables",
+        "every downside figure you write in a table or in prose must be the one Python computes",
+        "you state in `downside_drivers`",
+        (
+            "`revenue_growth`, `ebitda_margin`, `capex_pct_revenue`, `tax_wc_pct_revenue`, "
+            "`interest_rate`, `dividends` or `debt_repayment`"
+        ),
+    ]
+    for words in wanted:
+        assert words in block, words
+
+
+_DOWNSIDE_NAMES = ("T2H.4", "T2H.5", "T2H.6")
+
+
+def _downside_issue_text():
+    task, text = _replay()
+    (issue,) = cpos_launch._forecast_issues(task, text)
+    return issue
+
+
+def test_a_downside_table_that_differs_from_pythons_is_sent_back_once_quoting_both():
+    issue = _downside_issue_text()
+    assert issue.startswith(
+        "Forecast inputs: the downside net leverage in the credit metrics table (T2H.6) differs "
+        "from the one Python computes from your block: FY2025 6.66x against 6.8089x, FY2026 "
+        "6.01x against 6.2851x, FY2027 5.43x against 5.8170x. "
+    )
+
+
+def test_the_downside_issue_names_the_remedy_that_converges():
+    issue = _downside_issue_text()
+    for words in (
+        "the downside rows of T2H.4, T2H.5 and T2H.6 must all follow the path Python computes",
+        "restating T2H.6 alone is sent back again",
+        "`downside_shock` is applied on top of `downside_drivers`",
+        "state `downside_drivers.interest_rate` before the shock",
+        "or set `downside_shock` to null and state the whole downside case in `downside_drivers`",
+        "If you cannot, set `downside_shock` and `downside_drivers` to null",
+    ):
+        assert words in issue, words
+
+
+# Downside rows of T2H.4, T2H.5 and T2H.6 for two repairs of the real answer. The figures are
+# typed by hand from the engine's own computation (cpos_forecast.model_files, run once in a
+# scratch script) for the edited block, rounded to the displayed places; they are not derived
+# here. (c): `downside_drivers.interest_rate` at 1158 / opening debt, shock kept.
+# (d): shock null; `downside_drivers` ebitda_margin 0.3842, interest_rate 1554.036 / opening debt.
+_ROWS_SHOCK_KEPT = {
+    "FY2025": (
+        "| FY2025 | Downside | 8,734.0 | 3,355.3 | 38.42% | 877.7 | 262.0 | 615.7 |",
+        "| FY2025 | Downside | 24,880 / 6,261 | 0 | 93 | 1,552.6 | 24,787 / 2,435.7 | 3,441.7 |",
+        "| FY2025 | Downside | 7.39x / 6.66x | 2.16x | 2.48% |",
+    ),
+    "FY2026": (
+        "| FY2026 | Downside | 9,345.4 | 3,590.1 | 38.42% | 1,047.0 | 280.4 | 766.6 |",
+        "| FY2026 | Downside | 24,787 / 2,435.7 | 0 | 92 | 1,553.4 | 24,695 / 3,110.4 | 4,116.4 |",
+        "| FY2026 | Downside | 6.88x / 6.01x | 2.31x | 3.10% |",
+    ),
+    "FY2027": (
+        "| FY2027 | Downside | 9,906.1 | 3,805.5 | 38.42% | 1,202.2 | 297.2 | 905.0 |",
+        "| FY2027 | Downside | 24,695 / 3,110.4 | 0 | 92 | 1,554.3 | 24,603 / 3,923.4 | 4,929.4 |",
+        "| FY2027 | Downside | 6.47x / 5.43x | 2.45x | 3.68% |",
+    ),
+}
+_ROWS_SHOCK_NULL = {
+    "FY2025": (
+        "| FY2025 | Downside | 8,734.0 | 3,355.6 | 38.42% | 875.7 | 262.0 | 613.7 |",
+        "| FY2025 | Downside | 24,880 / 6,261 | 0 | 93 | 1,555.0 | 24,787 / 2,433.7 | 3,439.7 |",
+        "| FY2025 | Downside | 7.39x / 6.66x | 2.16x | 2.48% |",
+    ),
+    "FY2026": (
+        "| FY2026 | Downside | 9,345.4 | 3,590.5 | 38.42% | 1,046.7 | 280.4 | 766.3 |",
+        "| FY2026 | Downside | 24,787 / 2,433.7 | 0 | 92 | 1,554.1 | 24,695 / 3,108.0 | 4,114.0 |",
+        "| FY2026 | Downside | 6.88x / 6.01x | 2.31x | 3.10% |",
+    ),
+    "FY2027": (
+        "| FY2027 | Downside | 9,906.1 | 3,805.9 | 38.42% | 1,203.6 | 297.2 | 906.4 |",
+        "| FY2027 | Downside | 24,695 / 3,108.0 | 0 | 92 | 1,553.3 | 24,603 / 3,922.3 | 4,928.3 |",
+        "| FY2027 | Downside | 6.46x / 5.43x | 2.45x | 3.68% |",
+    ),
+}
+
+
+def _downside_rows_replaced(text: str, rows: dict) -> str:
+    """Each year's three rows replace the Downside row of T2H.4, T2H.5 and T2H.6 in turn; cells
+    after the ones given (the evidence and definition ids) stay as the module wrote them."""
+    sections = re.split(r"(?=<!-- table-id: )", text)
+    for year, new_rows in rows.items():
+        for name, new in zip(_DOWNSIDE_NAMES, new_rows, strict=True):
+            (at,) = [
+                i for i, sec in enumerate(sections) if sec.startswith(f"<!-- table-id: {name} -->")
+            ]
+            lines = sections[at].split("\n")
+            (row,) = [
+                i for i, line in enumerate(lines) if line.startswith(f"| {year} | Downside |")
+            ]
+            kept = lines[row].split("|")[len(new.split("|")) - 1 :]
+            assert new != lines[row]
+            lines[row] = new[:-1] + "|".join(["", *kept]) if kept[:-1] else new
+            sections[at] = "\n".join(lines)
+    return "".join(sections)
+
+
+def _flat_interest_block(text: str, rates: list[str], *, shock: bool, margin: bool = False):
+    margin_driver = (
+        '"ebitda_margin": {"values": ["0.3842", "0.3842", "0.3842"], "category": "Analyst '
+        'Interpretation", "rationale": "20% below base", "limitation": "None"}, '
+    )
+    driver = (
+        f'"downside_drivers": {{{margin_driver if margin else ""}"interest_rate": '
+        f'{{"values": {json.dumps(rates)}, "category": "Analyst Interpretation", '
+        '"rationale": "Cash interest held flat in the downside", "limitation": "None"}}'
+    )
+    edited = text.replace('"downside_drivers": null', driver)
+    if not shock:
+        edited = edited.replace(
+            '"downside_shock": {"ebitda_decline": "0.2000", "rate_increase": "0.3420"}',
+            '"downside_shock": null',
+        )
+    assert edited != text
+    return edited
+
+
+def _both_checks(task, text):
+    scripts = method_scripts.issues("CP-2G", text, {"CP-1": task.handoffs["CP-1"].decode("utf-8")})
+    return cpos_launch._forecast_issues(task, text), tuple(scripts)
+
+
+def test_a_downside_at_pre_shock_flat_interest_passes_both_checks():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0465", "0.0467", "0.0469"], shock=True)
+    repaired = _downside_rows_replaced(block, _ROWS_SHOCK_KEPT)
+    assert _both_checks(task, repaired) == ((), ())
+
+
+def test_a_downside_stated_in_full_with_the_shock_null_passes_both_checks():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0625", "0.0627", "0.0629"], shock=False, margin=True)
+    repaired = _downside_rows_replaced(block, _ROWS_SHOCK_NULL)
+    assert _both_checks(task, repaired) == ((), ())
+
+
+def test_restating_only_the_credit_metrics_table_is_refused_by_the_full_check():
+    task, text = _replay()
+    for stated, fixed in (("6.66x", "6.81x"), ("6.01x", "6.29x"), ("5.43x", "5.82x")):
+        text = text.replace(f"/ {stated} |", f"/ {fixed} |")
+    forecast, scripts = _both_checks(task, text)
+    assert forecast == () and len(scripts) == 3
+    assert all("recomputes" in issue for issue in scripts)
+
+
+def test_the_flat_interest_rate_with_the_shock_kept_is_refused_with_the_remedy_named():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0625", "0.0627", "0.0629"], shock=True)
+    (issue,) = cpos_launch._forecast_issues(task, block)
+    assert "FY2025 6.66x against 6.8208x" in issue
+    assert "state `downside_drivers.interest_rate` before the shock" in issue
+
+
+def test_a_downside_within_one_unit_of_the_last_stated_place_is_accepted():
+    task, text = _replay()
+    for stated, fixed in (("6.66x", "6.80x"), ("6.01x", "6.29x"), ("5.43x", "5.8x")):
+        text = text.replace(f"/ {stated} |", f"/ {fixed} |")
+    assert cpos_launch._forecast_issues(task, text) == ()
+    assert cpos_launch._forecast_issues(task, text.replace("/ 6.80x |", "/ 6.79x |")) != ()
+
+
+def test_an_unreadable_downside_table_raises_nothing():
+    task, text = _replay()
+    unread = text.replace("Gross / net leverage (x)", "Leverage (x)")
+    assert unread != text and cpos_launch._forecast_issues(task, unread) == ()
+
+
+def test_a_blocked_module_owes_no_downside_figures():
+    task, text = _replay()
+    assert cpos_launch._forecast_issues(task, "---\nmodule_status: Blocked\n---\n" + text) == ()
+
+
+def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothing():
+    task = types.SimpleNamespace(
+        module_id="CP-2G", handoffs={"CP-1": (PROOF_HANDOFFS / "CP-1.md").read_bytes()}
+    )
+    handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
+    assert cpos_launch._forecast_issues(task, handoff) == ()

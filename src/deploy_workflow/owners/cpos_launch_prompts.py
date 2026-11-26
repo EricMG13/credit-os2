@@ -10,7 +10,7 @@ from typing import get_args
 from deploy_vii.business_context import Category
 from deploy_workflow import confidence
 from deploy_workflow import cp2_scorecard as scorecard
-from deploy_workflow.credit_os_chips import MODULE_NAMES
+from deploy_workflow.credit_os_chips import MODULE_NAMES, module_names
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.owners import cp2g, cpos_forecast
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
@@ -92,7 +92,7 @@ DATA_PASSAGE = (
     'is not blocked must not use the words "not assessable" in its Bottom line. Your tables '
     "follow as the main content, unchanged and exact.\n\n"
 )
-VOICE_RULES = (
+_VOICE_HEAD = (
     "- Write evidence, risk mechanism and credit implication as ordinary sentences, never as "
     "labels (no `Evidence:`, `Mechanic:` or `Implication:` lead-ins). This overrides method "
     "templates that write `Evidence:`, `Risk Mechanic:`, `Credit Implication:` or similar "
@@ -151,10 +151,17 @@ VOICE_RULES = (
     "forecast input sections are not sentence text.\n"
     "- Refer to another module only by its plain name from this list, never by its code or "
     "an invented name: "
-    + "; ".join(MODULE_NAMES.values())
-    + ". In a Basis item the form stays `<plain module name> (<code>)`.\n"
-    "\n"
 )
+_VOICE_TAIL = ". In a Basis item the form stays `<plain module name> (<code>)`.\n\n"
+
+
+def voice_rules(pathway: str | None = None) -> str:
+    """The voice rules sent to a module: the module-name list is the pathway's (``module_names``);
+    for a pathway with no variant name the bytes are ``VOICE_RULES``."""
+    return _VOICE_HEAD + "; ".join(module_names(pathway).values()) + _VOICE_TAIL
+
+
+VOICE_RULES = _VOICE_HEAD + "; ".join(MODULE_NAMES.values()) + _VOICE_TAIL
 # Sent only to a module that is asked for a chart table or a map (decision 11 of 2026-11-12).
 CHART_NOTE_RULE = (
     "After each `### Chart data:` table write one sentence stating the main qualification a "
@@ -369,6 +376,17 @@ FORECAST_BLOCK = (
     "unchanged from one CP-2A scenario row; `rate_increase` is that row's proportional "
     "cash-interest increase, never a yield change; null when no shock was supplied; Python "
     "applies it to your downside drivers, or to the base drivers when you set none. "
+    "The reader is shown Python's computation from this block, not your tables: every downside "
+    "figure you write in a table or in prose must be the one Python computes from "
+    "`downside_shock` over those drivers, and a driver you hold flat or at another level in the "
+    "downside (cash interest held flat, for example) you state in `downside_drivers`, whose keys "
+    "are `revenue_growth`, `ebitda_margin`, `capex_pct_revenue`, `tax_wc_pct_revenue`, "
+    "`interest_rate`, `dividends` or `debt_repayment`. `downside_shock` is applied on top of "
+    "those drivers (it lowers EBITDA and raises cash interest), so a driver held flat is stated "
+    "at its level before the shock, or you set `downside_shock` to null and state the whole "
+    "downside case in `downside_drivers`; your downside rows in the cash-flow, debt and "
+    "credit-metrics tables must all be that path, and a downside net leverage that differs from "
+    "Python's is sent back. "
     "`upside_drivers` and `downside_drivers` are your own upside and downside cases: each holds "
     "only the drivers that differ from base, in the same driver form (every other driver is "
     "inherited from base), or null when you set no such case. "

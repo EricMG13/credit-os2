@@ -12,4 +12,6 @@ export const PATHWAY_QUESTIONS: Readonly<Record<string, string>> = {
   distressed_restructuring:
     "How far is the break, what do the documents allow, and who recovers what?",
   portfolio_decision: "Which instruments to hold, and how do they fit the portfolio?",
+  credit_screening:
+    "Which financial, credit, liquidity, market and legal points matter most, and where is a full assessment needed?",
 };

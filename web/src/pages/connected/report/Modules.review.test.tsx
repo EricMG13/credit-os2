@@ -135,9 +135,11 @@ it("6: keeps a chart gap's word and its source link when the reason cites a sour
   const limits = screen.getByRole("region", { name: "Limitations of this module" });
   expect(within(limits).getByText("Not supplied.")).toBeVisible();
   expect(within(limits).queryByText(/10-K/)).toBeNull();
+  // E4: each link is named by the table it opens, never the same words twice on a page.
   expect(
-    within(limits).getAllByRole("link", { name: "Source table in Evidence" })[0],
+    within(limits).getByRole("link", { name: "Liquidity: source table in Evidence" }),
   ).toHaveAttribute("href", expect.stringContaining("#evidence/"));
+  expect(within(limits).queryByRole("link", { name: "Source table in Evidence" })).toBeNull();
   // A map that carries a gap is a limitation too.
   expect(within(limits).getByText("Transmission: not drawn")).toBeVisible();
   expect(within(limits).getByText("Withheld: no executed documents")).toBeVisible();
@@ -349,7 +351,7 @@ it("14: states the basis from the entity period key and names the module without
   expect(within(header).getByText("Issuer:")).toBeVisible();
   // The parts are read with real separators, not run together.
   expect(header).toHaveTextContent(
-    "Issuer: Fiscal year end September 30 · USD millions · US GAAP · FY2024; FY2023",
+    "Issuer: Fiscal year end September 30 · $m · US GAAP · FY2024; FY2023",
   );
   expect(
     within(header).getByRole("heading", { level: 2, name: "Financial foundation" }),

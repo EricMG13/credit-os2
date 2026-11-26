@@ -44,7 +44,7 @@ from deploy_workflow.method_scripts import (
     register_table,
     registered,
 )
-from deploy_workflow.owners.cpos_launch_methods import METHODS, REGISTER_SCOPE_MODULES
+from deploy_workflow.owners.cpos_launch_methods import METHODS, has_scope, pathway_method
 
 COMPLETENESS = SHARED + "completeness_check.py"
 # A declared column whose rows would address another module (ROUTING_RULES forbids them).
@@ -71,19 +71,18 @@ def _where(module: str, register: str, figure: str, status: Status, reason: str)
     return Outcome(module, COMPLETENESS, figure, register, figure, status, reason=reason)
 
 
-def skill(module: str) -> str | None:
-    """The archive path of the SKILL.md the module is sent, if it is sent one."""
-    sent = [
-        p for p in METHODS.get(module, ()) if p.startswith(core.ARCHIVE) and p.endswith("/SKILL.md")
-    ]
+def skill(module: str, pathway: str | None = None) -> str | None:
+    """The archive path of the SKILL.md the module is sent in ``pathway``, if it is sent one."""
+    methods = pathway_method(module, pathway) or METHODS.get(module, ())
+    sent = [p for p in methods if p.startswith(core.ARCHIVE) and p.endswith("/SKILL.md")]
     return sent[0] if sent else None
 
 
 @cache
-def contract(module: str) -> dict[str, Any] | str:
+def contract(module: str, pathway: str | None = None) -> dict[str, Any] | str:
     """The module's completeness contract as the script's own `load_contract` reads it from the
-    sent SKILL.md, or why there is none."""
-    path = skill(module)
+    SKILL.md it is sent in ``pathway``, or why there is none."""
+    path = skill(module, pathway)
     if path is None:
         return "the module is sent no SKILL.md"
     loaded = core._loaded(COMPLETENESS)
@@ -198,8 +197,11 @@ def tables(text: str, ident: str) -> list[Table] | str:
 
 
 def _register(
-    module: str, ident: str, spec: dict[str, Any], text: str, enforced: bool
+    module: str, ident: str, found: dict[str, Any], text: str, enforced: bool
 ) -> list[Outcome]:
+    """One required register against ``found``, the module's contract (its `registers[ident]`
+    is this register's)."""
+    spec = found["registers"][ident]
     read = tables(text, ident)
     if isinstance(read, str):
         return [_where(module, ident, "columns", "not checked", read)]
@@ -212,7 +214,7 @@ def _register(
     if len(rows) < spec["minimum_body_rows"]:
         why = f"{len(rows)} body row(s); the method's minimum is {spec['minimum_body_rows']}"
         out.append(_where(module, ident, "rows", "noted", why))
-    cells = [c for table in read for c in _placeholders(spec, table, contract(module))]
+    cells = [c for table in read for c in _placeholders(spec, table, found)]
     if cells:
         more = f" and {len(cells) - SHOWN} more" if len(cells) > SHOWN else ""
         why = (
@@ -268,29 +270,29 @@ def _disqualified(cell: str, found: Any) -> bool:
     return text in found["blocklist"] or any(s and s in text for s in found["substrings"])
 
 
-def check(module: str, text: str) -> list[Outcome]:
-    """Each required register's columns, rows and critical cells against the module's contract;
-    none for a module sent no SKILL.md."""
-    if skill(module) is None:
+def check(module: str, text: str, pathway: str | None = None) -> list[Outcome]:
+    """Each required register's columns, rows and critical cells against the contract of the
+    SKILL.md the module is sent in ``pathway``; none for a module sent no SKILL.md there."""
+    if skill(module, pathway) is None:
         return []
     if blocked(text):
         why = "the module stopped at its gate (`module_status: Blocked`): only the gate is owed"
         return [_where(module, "", "all", "not checked", why)]
-    found = contract(module)
+    found = contract(module, pathway)
     if isinstance(found, str):
         return [_where(module, "", "all", "not checked", found)]
     # Imported here: the launcher imports this module.
     from deploy_workflow.owners.cpos_launch import required_registers
 
-    scoped = module in REGISTER_SCOPE_MODULES
-    required = set(required_registers(module))
+    scoped = has_scope(module, pathway)
+    required = set(required_registers(module, pathway))
     out: list[Outcome] = []
-    for ident, spec in sorted(found["registers"].items()):
+    for ident in sorted(found["registers"]):
         if scoped and ident not in required:
             why = "not required in this transport (register scope or routing rule)"
             out.append(_where(module, ident, "all", "not checked", why))
             continue
-        out += _register(module, ident, spec, text, enforced=scoped)
+        out += _register(module, ident, found, text, scoped)
     return out
 
 

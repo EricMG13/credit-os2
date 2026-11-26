@@ -226,7 +226,7 @@ it("states the liquidity module's funding gap as that module's figure, with hori
   const part = within(screen.getByRole("region", { name: "Funding gap" }));
   expect(part.getByText("120.5")).toBeInTheDocument();
   // Named by the module and the row's own label, never the page's own wording.
-  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · USD millions")).toBeInTheDocument();
+  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · $m")).toBeInTheDocument();
   expect(part.queryByText(/horizon end/)).toBeNull();
   expect(part.getByRole("link", { name: "Source for Liquidity's Funding gap" })).toHaveAttribute(
     "href",
@@ -475,4 +475,36 @@ it("labels a figure with its leading multiple and keeps the module's qualificati
   expect(labels).toContain("4.88x");
   expect(labels).not.toContain(QUALIFIED);
   expect(stress.getByText(new RegExp(`Net leverage: ${QUALIFIED}`))).toBeInTheDocument();
+});
+
+// Verbatim rows of the replayed TDG refinancing handoff's "Funding gap" table: the Horizon row states a
+// dash under Amount and its one year under Years; the Funding gap row states 0 under Amount.
+it("draws the refinancing module's stated zero as 0 and no bare dash as its horizon", () => {
+  const refinancing = entryOf("CP-3C", [
+    findings,
+    bottom("Refinancing is covered."),
+    {
+      heading: "Funding gap",
+      level: 3,
+      line: 92,
+      blocks: [
+        table(
+          94,
+          ["Line", "Amount", "Drawn", "Years", "Committed", "Currency", "Scale"],
+          [
+            ["Horizon", "—", "—", "1", "—", "USD", "million"],
+            ["Available liquidity", "7104", "—", "1", "—", "USD", "million"],
+            ["Funding gap", "0", "—", "1", "—", "USD", "million"],
+          ],
+        ),
+      ],
+    },
+  ]);
+  breaks([refinancing]);
+  const part = within(screen.getByRole("region", { name: "Funding gap" }));
+  // The horizon is the one year the Horizon row states under Years, not the dash under Amount.
+  expect(part.getByText("Refinancing & LME: Funding gap · Years: 1 · $m")).toBeInTheDocument();
+  expect(part.queryByText(/ · — · /)).toBeNull();
+  const amount = part.getByText("Amount").closest("div");
+  expect(amount).toHaveTextContent("Amount0");
 });

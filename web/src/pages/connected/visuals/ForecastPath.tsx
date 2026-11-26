@@ -13,6 +13,7 @@ import {
   type MeasureCell,
   type ScheduleYear,
 } from "../report/forecastData";
+import { unitLabel } from "../publishedReport";
 import { historyNotes, periodsInOrder, unplacedNote } from "./scenarioPeriods";
 import { ticks } from "./visualData";
 import { thinTicks } from "../report/overview/chartText";
@@ -1075,7 +1076,7 @@ function PathTable({
             ))}
             {lane && (
               <th scope="col" className="py-2 pr-4 font-medium">
-                {`Debt maturing${schedule.unit ? `, ${schedule.unit}` : ""}`}
+                {`Debt maturing${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}`}
               </th>
             )}
           </tr>
@@ -1245,7 +1246,7 @@ function Chart({
         </div>
         {lane && (
           <p className="text-caption text-text-secondary">
-            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${schedule.unit}` : ""}, as the schedule writes it; a hatched bar is a year the schedule gives no amount for.`}
+            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}, as the schedule writes it; a hatched bar is a year the schedule gives no amount for.`}
           </p>
         )}
       </figure>
@@ -1317,7 +1318,7 @@ export function LeveragePath({
       {!measure || !selected ? (
         <GapNote>
           {absentText(
-            { measure, rows, what: "net leverage", basis: "net debt over Adj EBITDA" },
+            { measure, rows, what: "net leverage", basis: "net debt over EBITDA" },
             caseName,
           )}
         </GapNote>

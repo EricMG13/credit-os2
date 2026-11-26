@@ -17,6 +17,7 @@ import {
   statedInProse,
 } from "./read";
 import type { Table } from "../../publishedReport";
+import { readerReason } from "../overview/reason";
 import type { LeadProps } from "./types";
 
 const TRIGGERS = "Rating triggers";
@@ -78,6 +79,9 @@ function Triggers({
   // A chart the module wrote as prose only is the frame's, in the module's words.
   if (statedInProse(entry, `Chart data: ${TRIGGERS}`)) return null;
   const { chart, tests } = triggersOf(entry);
+  // A chart the module declared it could not draw is stated once, with its reason, in the module's
+  // limitations (the frame): not again here.
+  if (chart.state === "gap") return null;
   if (chart.state !== "ready" || !tests)
     return (
       <LeadGap
@@ -85,13 +89,11 @@ function Triggers({
         label={TRIGGERS}
         title={TRIGGERS}
         reason={
-          chart.state === "gap"
-            ? chart.reason
-            : chart.state === "ready"
-              ? "This page could not read each trigger's threshold and current value."
-              : chart.state === "withheld"
-                ? WITHHELD
-                : "This page could not read rating triggers."
+          chart.state === "ready"
+            ? "This page could not read each trigger's threshold and current value."
+            : chart.state === "withheld"
+              ? WITHHELD
+              : "This page could not read rating triggers."
         }
         trace={
           chart.state === "withheld" ? (
@@ -185,11 +187,34 @@ function Triggers({
 }
 
 /**
+ * The paragraph the module wrote directly under the register, as its words (the Basis line and any
+ * source it cites are the trace's); none when it wrote none or the words cite a source.
+ */
+function noteUnder(entry: LeadProps["entry"], register: Table) {
+  for (const { blocks } of entry.sections) {
+    const at = blocks.indexOf(register);
+    const next = at < 0 ? undefined : blocks[at + 1];
+    if (next?.type === "text") return readerReason(next.text);
+  }
+  return null;
+}
+
+/**
  * The rating register, every column drawn: each rating with its outlook, status and effective date
  * beside it (a superseded rating reads as superseded), the instrument under it, and the register as
  * written in the table view.
  */
-function Register({ found, href, span }: { found: Table | undefined; href: Href; span: 4 | 12 }) {
+function Register({
+  entry,
+  found,
+  href,
+  span,
+}: {
+  entry: LeadProps["entry"];
+  found: Table | undefined;
+  href: Href;
+  span: 4 | 12;
+}) {
   if (!found)
     return (
       <LeadGap
@@ -260,6 +285,7 @@ function Register({ found, href, span }: { found: Table | undefined; href: Href;
         </ul>
       }
       table={writtenTable(sourceOf(found), href)}
+      notes={[noteUnder(entry, found)].filter((note) => note !== null)}
     />
   );
 }
@@ -277,7 +303,7 @@ export const RatingsLead = withDraws(
       return (
         <Bento>
           <Triggers entry={entry} register={register} href={href} span={12} />
-          <Register found={register} href={href} span={12} />
+          <Register entry={entry} found={register} href={href} span={12} />
           {others}
         </Bento>
       );
@@ -286,7 +312,7 @@ export const RatingsLead = withDraws(
       <Bento>
         <Triggers entry={entry} register={register} href={href} span={8} />
         <Beside>
-          <Register found={register} href={href} span={4} />
+          <Register entry={entry} found={register} href={href} span={4} />
           {short && others}
         </Beside>
         {!short && others}

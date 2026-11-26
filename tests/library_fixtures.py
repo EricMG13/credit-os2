@@ -4,7 +4,8 @@ record, call records) without running CP-OS, so each test can damage exactly one
 
 import hashlib
 import json
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 METHOD = {
@@ -90,6 +91,7 @@ class RunSpec:
     selection: str | None = "preset"  # workflow.json `selection`; None: an older run without it
     case_kind: str = "public"
     cp8: str | None = None  # The whole CP-8 handoff, when the run has that module.
+    answers: Mapping[str, str] = field(default_factory=dict)  # module -> its whole handoff
     test_adaptations: tuple[str, ...] = ()  # workflow.json `test_adaptations`, when a test flag ran
 
 
@@ -115,6 +117,7 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
         "requested_modules": list(modules),
     }
     instructions, handoffs, selected = {}, {}, {}
+    whole = ({"CP-8": spec.cp8} if spec.cp8 is not None else {}) | dict(spec.answers)
     for module in modules:
         text = f"# {module} for {issuer_name}\n\nSelected method, verbatim:\n\n"
         text += method_block(module, spec.version) + spec.sent_extra + "\n"
@@ -130,8 +133,7 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
             confidence=spec.cp0_confidence if module == "CP-0" else "Medium",
             finding=spec.cp1_finding if module == "CP-1" else FINDING_ROW,
         )
-        if module == "CP-8" and spec.cp8 is not None:
-            answer = spec.cp8
+        answer = whole.get(module, answer)
         if module == "CP-0":
             answer += spec.cp0_extra
         if module == "CP-1":

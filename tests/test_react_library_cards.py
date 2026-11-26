@@ -87,6 +87,11 @@ def test_card_lead_keeps_exact_paragraph_basis_and_source_identity(tmp_path: Any
         ),
         ([("CP-L10", "Snapshot view."), ("CP-2", "Credit view.")], "short_snapshot", "CP-L10"),
         ([("CP-1B", "Earnings view.")], "earnings_update", "CP-1B"),
+        (
+            [("CP-L10", "Screening view."), ("CP-2", "Credit view.")],
+            "credit_screening",
+            "CP-L10",
+        ),
     ],
 )
 def test_card_lead_uses_the_pathways_verified_analytical_owner(

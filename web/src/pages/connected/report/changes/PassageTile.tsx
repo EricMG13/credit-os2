@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { evidencePath, type OutputEntry } from "../../publishedReport";
 import { PublishedTable } from "../../ReportContent";
+import { unitCells } from "../moduleRecordsModel";
 import { PublishedSource } from "../PublishedTrace";
 import { GapNote, Tile } from "../overview/Tile";
 import type { PassageItem } from "./model";
@@ -65,6 +66,7 @@ export function PassageBody({
             ) : (
               <PublishedTable
                 table={item.table}
+                drawCell={unitCells(item.table)}
                 rowSource={(line, label) => (
                   <PublishedSource
                     href={evidencePath(folder, entry, line)}
