@@ -13,6 +13,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Reviews: task review approved, calculation audit nothing at Medium or above, pre-merge review pass; no fix round. Low findings closed in two small commits.
 - Consequence to know: an Unrated instrument against a breached "CCC and below" limit is not capped (the limit is shown as not read), so it can be the portfolio's result ahead of a rated instrument held to 3.
 - Not verified: mutation after the last, test-only commit; any real file or caller; Unrated wordings outside the closed word lists (they stay not read). Predates this change: "Max CCC and below, unrated excluded" reads breached for an Unrated instrument.
+
+
 ## 2026-11-25 — Instruction and reference length: review and offline measures
 
 - Scope: review only; no method text, launcher, prompt or presentation changed, no provider
