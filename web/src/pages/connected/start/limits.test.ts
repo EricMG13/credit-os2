@@ -165,6 +165,20 @@ describe("leaveOut", () => {
     ]);
   });
 
+  it("preserves phases of retained parents and drops phases whose parent would refuse", () => {
+    const selected = ["CP-0", "CP-1", "CP-1A", "CP-2C", "CP-4", "CP-4D"];
+    const requested = ["CP-0", "CP-1", "CP-1A", "CP-4"];
+    expect(
+      leaveOut(
+        first([
+          { id: "x", scope: "CP-4", outcome: "will_refuse", reason: "r", inherited_from: [] },
+        ]),
+        requested,
+        selected,
+      ),
+    ).toEqual(["CP-0", "CP-1", "CP-1A", "CP-2C"]);
+  });
+
   it("offers nothing for a limited, gap or check group", () => {
     for (const outcome of ["limited", "gap", "check"]) {
       const item = { id: "a", scope: "CP-4", outcome, reason: "r", inherited_from: [] };

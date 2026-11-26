@@ -295,6 +295,38 @@ describe("the picker", () => {
     );
   });
 
+  it("offers readable phase scope and submits the parent with a selected phase", async () => {
+    const log = await atPicker();
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Start from" })).getByRole("button", {
+        name: "Covenant Capacity",
+      }),
+    );
+    const parent = box("Legal & covenants").closest("li") as HTMLElement;
+    const phase = within(parent).getByRole("checkbox", { name: "Covenant capacity" });
+    expect(phase).toHaveAccessibleDescription(/Measures covenant headroom.*Whole module runs/);
+    fireEvent.click(phase);
+    expect(phase).toBeChecked();
+    expect(phase).toHaveAccessibleDescription(
+      /Measures covenant headroom.*Core analysis and selected phases run/,
+    );
+    expect(parent).toHaveTextContent("Core analysis and selected phases run.");
+    expect(picker().textContent).not.toMatch(/CP-[0-9A-Z]/);
+    expect(picker()).toHaveTextContent("full module estimate");
+    fireEvent.click(phase);
+    expect(phase).not.toBeChecked();
+    expect(parent).toHaveTextContent("Whole module runs.");
+    fireEvent.click(phase);
+    fireEvent.change(screen.getByLabelText("Legal documents"), { target: { value: "none" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review run" }));
+    await screen.findByRole("region", { name: "Limits to decide" });
+    const asked = log.find(({ path }) => path.endsWith("/summary"));
+    const body = JSON.parse(typeof asked?.body === "string" ? asked.body : "{}") as {
+      modules: string[];
+    };
+    expect(body.modules).toEqual(["CP-4", "CP-4A"]);
+  });
+
   it.each(PRESET_KEY)(
     "%s at %s effort: the running sum, hold and cap are the answer key's",
     async (preset, effort, sum, cap) => {
@@ -399,7 +431,14 @@ describe("the summary and the submit", () => {
 
   it("draws the server's estimate in place of the page's, by name, with reasons and the page-only mark", async () => {
     const rows = [
-      ...PORTFOLIO_FIT_ROWS,
+      ...PORTFOLIO_FIT_ROWS.map((row) =>
+        row.module === "CP-6"
+          ? {
+              ...row,
+              phases: [{ name: "Portfolio posture", added: "Needed by Portfolio committee." }],
+            }
+          : row,
+      ),
       {
         module: "CP-8",
         name: "Changes since the last run",
@@ -420,6 +459,8 @@ describe("the summary and the submit", () => {
       "Compares this run with the earlier run named in this summary.",
     );
     expect(estimateBox()).toHaveTextContent("No report section of its own");
+    expect(estimateBox()).toHaveTextContent("Analysis scope: Portfolio posture");
+    expect(estimateBox()).toHaveTextContent("Portfolio posture: Needed by Portfolio committee.");
     expect(estimateBox().textContent).not.toMatch(/page only/i);
     expect(screen.getByLabelText("What it will cost")).toHaveTextContent("USD 14.00");
     expect(document.body.textContent).not.toMatch(/CP-[0-9A-Z]/);
@@ -495,10 +536,10 @@ describe("an earlier custom run carried into the form", () => {
     max_turns: 32,
   });
 
-  it("keeps the modules it chose that the page offers, in the page's order", () => {
-    expect(carriedModules(earlier(["CP-6", "CP-MODEL", "CP-1A", "CP-8"]))).toEqual([
-      "CP-1A",
-      "CP-6",
-    ]);
+  it("keeps scoped module phases when an earlier custom run is carried into the form", () => {
+    expect(
+      carriedModules(earlier(["CP-6", "CP-6A", "CP-MODEL", "CP-1A", "CP-2C", "CP-8"])),
+    ).toEqual(["CP-1A", "CP-2C", "CP-6", "CP-6A"]);
+    expect(carriedModules(earlier(["CP-6A"]))).toEqual([]);
   });
 });

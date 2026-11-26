@@ -19,7 +19,7 @@ from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 from deploy_workflow import platform_io
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.model.configs import CONFIGS
-from deploy_workflow.owners.cpos_launch_methods import METHODS
+from deploy_workflow.owners.cpos_launch_methods import METHODS, PHASES
 from deploy_workflow.run_events import EVENTS, progress, read_events
 from deploy_workflow.run_expectations import Item
 
@@ -278,13 +278,15 @@ def config_for(model: str, effort: str) -> str:
     return launch_options(model, effort)[0]
 
 
-def known_module(name: object) -> bool:
+def known_module(name: object, pathway: str = "") -> bool:
     """Whether ``name`` may stand in the launcher's ``--modules``: a method, or the forecast code.
 
     The launcher takes CP-MODEL there to mean "publish the forecast" (it makes no model call and
-    has no method of its own; cpos_launch.py, owner 2026-11-11), and the run start page puts it in
-    every list it sends. Nothing else is added: CP-8 stays what ``METHODS`` already makes it."""
-    return isinstance(name, str) and (name in METHODS or name == FORECAST_CODE)
+    has no method of its own; cpos_launch.py, owner 2026-11-11). Custom selections
+    may also pass known phase names. The planner checks that their parents were chosen."""
+    return isinstance(name, str) and (
+        name in METHODS or name == FORECAST_CODE or (pathway == "custom" and name in PHASES)
+    )
 
 
 def _check_options(record: Record) -> None:
@@ -301,7 +303,7 @@ def _check_options(record: Record) -> None:
     if record.config and record.config != config:
         raise ValueError("the recorded model configuration changed; review the run again")
     for name in record.modules:
-        if not known_module(name):
+        if not known_module(name, record.pathway):
             raise ValueError(f"run {record.id}: {name!r} is not a module")
     if not isinstance(record.prior, str) or (record.prior and not _PRIOR.fullmatch(record.prior)):
         raise ValueError(f"run {record.id}: prior {record.prior!r} is not a run folder name")

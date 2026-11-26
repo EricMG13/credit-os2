@@ -392,8 +392,18 @@ def _register_tie(text: str, row: str, label: str, ebitda: str) -> list[str]:
     ]
 
 
+_OWNER_TABLE_PHASES = {
+    "Chart data: covenant headroom": "CP-4A",
+    "Map: legal entities": "CP-4B",
+    "Map: intercreditor": "CP-4D",
+}
+
+
 def _owner_tables(
-    module: str, routes: Sequence[MarkdownRoute], pathway: str | None = None
+    module: str,
+    routes: Sequence[MarkdownRoute],
+    pathway: str | None = None,
+    phases: tuple[str, ...] = (),
 ) -> tuple[OwnerTable, ...]:
     """The tables a module is asked for beside its report routes. A module sent the Confidence
     Score rules only in ``pathway``'s own method (CP-L10 in credit screening) is asked for the
@@ -402,6 +412,13 @@ def _owner_tables(
     its report's chart blocks do not already route are asked as owner tables, with no new
     report section. It is also asked for the net debt table (owner, 2026-11-12, "Yes, add it")."""
     tables = OWNER_TABLES.get(module, ())
+    if phases:
+        tables = tuple(
+            table
+            for table in tables
+            if table.heading not in _OWNER_TABLE_PHASES
+            or _OWNER_TABLE_PHASES[table.heading] in phases
+        )
     own = pathway_method(module, pathway)
     if own is not None and _SCORE in own and CONFIDENCE not in tables:
         tables = (*tables, CONFIDENCE)
