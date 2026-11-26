@@ -5,6 +5,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -54,16 +55,19 @@ def test_accepts_the_synthetic_agreement_only_byte_identical(tmp_path):
         verify_upload(tmp_path, context)
 
 
-@pytest.fixture
-def offline_scheduler(monkeypatch: pytest.MonkeyPatch) -> Iterator[Scheduler]:
-    monkeypatch.setattr(sys, "dont_write_bytecode", True)
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", DUMMY_KEY)
-    monkeypatch.setenv("COPILOT_CLI_PATH", str(Path(__file__)))
-    for key in KEY_VARIABLES.values():
-        if key != "COPILOT_GITHUB_TOKEN":
-            monkeypatch.delenv(key, raising=False)
+@contextmanager
+def open_offline_scheduler() -> Iterator[Scheduler]:
     short_temp = None if sys.platform == "win32" else "/tmp"
-    with tempfile.TemporaryDirectory(prefix="cos-proof-", dir=short_temp) as root:
+    with (
+        pytest.MonkeyPatch.context() as patch,
+        tempfile.TemporaryDirectory(prefix="cos-proof-", dir=short_temp) as root,
+    ):
+        patch.setattr(sys, "dont_write_bytecode", True)
+        patch.setenv("COPILOT_GITHUB_TOKEN", DUMMY_KEY)
+        patch.setenv("COPILOT_CLI_PATH", str(Path(__file__)))
+        for key in KEY_VARIABLES.values():
+            if key != "COPILOT_GITHUB_TOKEN":
+                patch.delenv(key, raising=False)
         scheduler = Scheduler(
             Settings(Path(root), launcher=launcher_command(), copilot_models=None)
         )
@@ -75,6 +79,12 @@ def offline_scheduler(monkeypatch: pytest.MonkeyPatch) -> Iterator[Scheduler]:
                     child.kill()
                     child.wait(timeout=10)
             scheduler.close()
+
+
+@pytest.fixture
+def offline_scheduler() -> Iterator[Scheduler]:
+    with open_offline_scheduler() as scheduler:
+        yield scheduler
 
 
 def upload_case(scheduler: Scheduler, *files: Path) -> str:
@@ -106,18 +116,9 @@ def finished_run(scheduler: Scheduler, submitted: Record) -> Record:
     return record
 
 
-@pytest.mark.parametrize(
-    ("legal", "model", "effort", "config"),
-    [
-        ("executed", "luna", "xhigh", "copilot-luna-xhigh"),
-        ("none", "gpt", "balanced", "copilot-sol-medium"),
-    ],
-)
-def test_real_scheduler_exports_the_submitted_run(
-    offline_scheduler: Scheduler, legal: str, model: str, effort: str, config: str
-) -> None:
-    layout = offline_scheduler.layout
-    sid = upload_case(offline_scheduler, FILING)
+def run_full_assessment(scheduler: Scheduler, legal: str, model: str, effort: str) -> Record:
+    """Submit and finish the offline Example Synthetic Group case dated 2025-04-30."""
+    sid = upload_case(scheduler, FILING)
     data = json.loads((PROJECT / "cases/context/research-minimal.json").read_text())
     data["run"].update(
         pathway="credit_snapshot", as_of="2025-04-30", cutoff="", case_kind="synthetic"
@@ -135,16 +136,30 @@ def test_real_scheduler_exports_the_submitted_run(
             "submitted_by": "Proof T",
         }
     )
-    summary = submissions.summary(layout, sid, answers)
+    summary = submissions.summary(scheduler.layout, sid, answers)
     assert not summary["error"], summary["error"]
-    submitted = offline_scheduler.submit(sid, answers, summary["digest"])
-    record = finished_run(offline_scheduler, submitted)
+    submitted = scheduler.submit(sid, answers, summary["digest"])
+    return finished_run(scheduler, submitted)
+
+
+@pytest.mark.parametrize(
+    ("legal", "model", "effort", "config"),
+    [
+        ("executed", "luna", "xhigh", "copilot-luna-xhigh"),
+        ("none", "gpt", "balanced", "copilot-sol-medium"),
+    ],
+)
+def test_real_scheduler_exports_the_submitted_run(
+    offline_scheduler: Scheduler, legal: str, model: str, effort: str, config: str
+) -> None:
+    record = run_full_assessment(offline_scheduler, legal, model, effort)
     assert record.cap == "30"  # Full's cap (owner, 2026-11-25)
     assert (record.config, record.effort) == (config, effort)
+    layout = offline_scheduler.layout
     loop_record = layout.runs / record.id / "live" / "loop.json"
     assert json.loads(loop_record.read_text())["config"] == config
     assert cap_of(record) == Decimal(30)
-    assert_exported_report(layout, submitted.id, legal)
+    assert_exported_report(layout, record.id, legal)
 
 
 def test_real_scheduler_exports_only_the_approved_structural_phase(
