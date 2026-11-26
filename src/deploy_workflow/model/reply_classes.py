@@ -12,6 +12,9 @@ BYOK_ROUTED = "ByokRouted"
 AUTO_ROUTED = "AutoRouted"
 TOOL_CALL_MISMATCH = "ToolCallMismatch"
 TOOL_CALL_LOST = "ToolCallLost"
+# One call whose body holds more than one assistant.usage event (the runtime made more than one
+# model request); settled at the sum of their readable charges (Copilot).
+SECOND_MODEL_REQUEST = "SecondModelRequest"
 
 IDLE_TIMEOUT = "IdleTimeout"
 OVERALL_TIMEOUT = "OverallTimeout"

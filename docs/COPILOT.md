@@ -13,6 +13,22 @@ offline.
 | Claude Opus, High | `copilot-opus-high` | `claude-opus-5.5` |
 | GPT-6 Luna, Extra high | `copilot-luna-xhigh` | `gpt-6-luna` |
 
+In a run, a reader run and an instruction trial, GPT Sol and GPT-6 Luna sessions
+open on the seat's long-context tier where the seat lists one. The hold caps a
+request at about 3.1 MB (about 815,000 estimated tokens), or the seat's long
+budget where that is smaller. Signal stays on the default tier. Claude Opus stays on its
+default tier until Copilot's Opus long-tier rates are in the pricing table.
+A session is pinned only when the seat's long
+budget is at most 1,050,000 tokens and its listed long-tier prices are no dearer than
+the rates the hold is priced at; otherwise it opens on the default tier. On the long tier, modules read sources until
+a request is 991,808 bytes short of that cap: about 2.1 MB (about 557,000 estimated tokens) when
+the seat's long budget is 815,000 tokens or more, less on a smaller budget, and never less than
+the default tier's 1.1 MB. On the default tier reads stop at half of what the session's
+guard admits, at most 1.1 MB (about 271,000 bytes for GPT Sol's 272,000 tokens). The rest is room for drafts and repairs; above 272,000 tokens calls
+may bill at long-context rates. Each
+prompt is checked against the tier's limit before it is sent. Copilot may bill
+the long tier at long-context rates.
+
 Balanced applies high on the selected modules in CP-OS's effort map. The
 seat must advertise medium and high for that choice.
 
