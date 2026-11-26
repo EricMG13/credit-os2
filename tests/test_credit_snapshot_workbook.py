@@ -7,6 +7,7 @@ SYNTHETIC: the runs are the key's invented "Northbridge" cases (`tests/credit_sn
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import replace
 
 import credit_snapshot_case as cs
@@ -729,7 +730,10 @@ def test_a_module_code_in_a_first_column_cell_adds_no_row_label_column(tmp_path)
     """M-R2: the first cell of a row that is drawn with a reader name still names itself, so the
     card gains no row-label column showing the raw text."""
     old = "| Net leverage above 5.0x | Two consecutive quarters |"
-    new = "| Net leverage above 5.0x, as Financial foundation (CP-1) measures it | Two consecutive quarters |"
+    new = (
+        "| Net leverage above 5.0x, as Financial foundation (CP-1) measures it "
+        "| Two consecutive quarters |"
+    )
     counts = []
     for name, edit in (("before", old), ("after", new)):
         handoffs = dict(cs.CASES["full"].handoffs)
@@ -749,3 +753,64 @@ def test_a_module_code_in_a_first_column_cell_adds_no_row_label_column(tmp_path)
             if isinstance(c.value, str) and "CP-" in c.value
         ]
     assert counts[1] == counts[0]
+
+
+def test_a_missing_pinned_context_puts_no_path_or_hash_on_the_three_sheets(tmp_path, caplog):
+    """S1 (ruling PM-l): the reader sentence is on the sheets; the path and hash are logged and on
+    Sources."""
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    pinned = [p for p in (built.folder / "inputs").iterdir() if len(p.name) == 64]
+    assert pinned
+    for path in pinned:
+        path.unlink()
+    with caplog.at_level("WARNING"):
+        run = snap.load_run(built.folder, built.stores.both())
+    assert isinstance(run.context, snap.ContextGap)
+    opened = load_workbook(io.BytesIO(writer.workbook_bytes(snap.gather(run))))
+    shown = [
+        c.value
+        for name in THREE
+        for row in opened[name].iter_rows()
+        for c in row
+        if isinstance(c.value, str)
+    ]
+    assert not [v for v in shown if re.search(r"inputs/|[0-9a-f]{64}|sha256", v, re.IGNORECASE)]
+    sentence = "The run's inputs at run start could not be read."
+    assert sum(v == sentence for v in shown) == 3  # ratings, new issue, quotes
+    reasons = [r for r in sources(opened) if r["Column"] == "Reason"]
+    assert len(reasons) == 3 and all("inputs/" in r["Handoff text"] for r in reasons)
+    assert any("inputs/" in r.getMessage() for r in caplog.records)
+
+
+def test_every_as_written_row_is_the_text_of_the_handoff_line_it_names_and_a_reason_row_is_computed(
+    tmp_path,
+):
+    """L14 and L11: `As written` rows are copied text and sit on the line they name; a `Reason`
+    row is the app's own sentence about a gap, so kind computed with no handoff line."""
+    edits = {
+        "CP-2": (
+            "| Signals a debt-funded step up in borrowing. |",
+            (
+                "| Signals a step up in borrowing, as Financial foundation (CP-1) shows "
+                "(NBG.pdf, p. 3). |"
+            ),
+        ),
+        "CP-1C": ("| Entity Name |", "| Entity |"),
+    }
+    handoffs = dict(cs.CASES["full"].handoffs)
+    for module, (old, new) in edits.items():
+        text = handoffs[module].read_text(encoding="utf-8")
+        assert old in text
+        handoffs[module] = tmp_path / f"{module}.md"
+        handoffs[module].write_text(text.replace(old, new, 1), encoding="utf-8")
+    built = cs.build_case(tmp_path / "ws", replace(cs.CASES["full"], handoffs=handoffs))
+    shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    opened = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
+    rows = sources(opened)
+    written = [r for r in rows if r["Column"] == "As written"]
+    assert written
+    for r in written:
+        line = handoffs[r["Module"]].read_text(encoding="utf-8").split("\n")[r["Line"] - 1]
+        assert r["Kind"] == "copied" and r["Handoff text"] in line, r
+    reasons = [r for r in rows if r["Column"] == "Reason"]
+    assert reasons and all(r["Kind"] == "computed" and r["Line"] is None for r in reasons)

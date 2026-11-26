@@ -13,7 +13,9 @@ six kinds.
 - gap: what is missing, in reader words (`not in handoff` for a field the handoff does not have).
   Missing is never zero or blank.
 - computed: a value `recommendation.py` or `reference_portfolios.py` returned, or one of the two
-  ruled classifications below. Nothing is summed, converted or re-derived here.
+  ruled classifications below. Nothing is summed, converted or re-derived here. Also handoff text
+  as the reader sheets draw it when that differs from the handoff's own (a module code drawn as the
+  module's name, a source reference left out): the exact text is kept in `written`, on Sources.
 - entered at run start: text the analyst entered in the run's context, or the run record.
 - analyst: a blank cell for the analyst; the workbook paints it yellow.
 - blank: an empty cell that is not for the analyst and has no Sources row (a joined instrument's
@@ -87,6 +89,7 @@ NO_REFERENCE = "no reference stored"
 NOT_HELD = "not held / not matched"
 HELD_NO_WEIGHT = "held, weight not stated"
 NO_PEERS = "no peers named"
+CONTEXT_UNREAD = "The run's inputs at run start could not be read."
 UNCLASSIFIED = "unclassified"
 RV_MODULE = "RV worksheet"
 NO_MARKET = "no market data sheet supplied"
@@ -191,7 +194,8 @@ def reader_text(text: str, names: Mapping[str, str]) -> str:
 
 # --- Source references in text (ruling PM-k) ---------------------------------------------------
 
-# A port of `containsReference` and `withoutReferences` (web/src/pages/connected/publishedReport.ts):
+# A port of `containsReference` and `withoutReferences`
+# (web/src/pages/connected/publishedReport.ts):
 # the findings pages draw a cell's own words and move its source reference to Evidence. The cases
 # of the web tests are held, as literals, in tests/test_credit_snapshot.py.
 SOURCE_REFERENCE = "Source reference: see Sources"
@@ -768,15 +772,14 @@ class _Run:
     def heading(self, module: str, title: str) -> _Table:
         return self.table(module, "heading", title)
 
-    def need_context(self, what: str) -> RunContext:
-        """The loaded context; none means the block is hidden, a refused one is a gap line."""
+    def need_context(self) -> RunContext:
+        """The loaded context; none means the block is hidden, a refused one is a gap line in
+        reader words (the reason names a path or a hash: it is logged and kept on Sources)."""
         context = self.run.context
         if context is None:
             raise _Absent
         if isinstance(context, ContextGap):
-            raise _Said(
-                f"{what} needs the run's context, which could not be read: {context.reason}."
-            )
+            raise _Said(CONTEXT_UNREAD, context.reason)
         return context
 
     def loaded_context(self) -> RunContext | None:
@@ -860,6 +863,7 @@ _NOT_IN_RUN = {
     "Financials": "The financials are not in this run.",
     "Peers": "The peer list is not in this run.",
 }
+_PROSE_BLOCKS = frozenset({"Historical performance"})  # read as sections, not tables
 _GAP_AT = {"Credit Score": ("Credit Score", "Value")}
 
 
@@ -876,7 +880,8 @@ def _block(run: _Run, sheet: str, name: str, build: Builder) -> Block:
         if isinstance(error, _Said):
             cells = [maker.gap(row, column, str(error), error.reason)]
         else:
-            cells = [maker.unreadable(row, column, f"{name} table", error)]
+            kind = "section" if name in _PROSE_BLOCKS else "table"
+            cells = [maker.unreadable(row, column, f"{name} {kind}", error)]
     return Block(sheet, name, tuple(_numbered(cells)))
 
 
@@ -950,9 +955,7 @@ def _ratings(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """Issuer-scope ratings as entered at run start; none entered gives blank analyst cells."""
     context = run.run.context
     if isinstance(context, ContextGap):
-        raise _Said(
-            f"Corporate ratings need the run's context, which could not be read: {context.reason}."
-        )
+        raise _Said(CONTEXT_UNREAD, context.reason)
     issuer = [r for r in (context.ratings if context else ()) if r.scope == "issuer"]
     if not issuer:
         return [
@@ -969,7 +972,7 @@ def _ratings(run: _Run, mk: _Maker) -> list[SnapshotCell]:
 
 def _new_issue(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """The deal terms the analyst entered at run start; hidden when there are none."""
-    terms = run.need_context("The new issue").deal_terms
+    terms = run.need_context().deal_terms
     cells = []
     for term in terms:
         row = term.instrument or term.facility_id
@@ -1006,7 +1009,7 @@ _QUOTE_FIELDS = (
 def _quotes(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """Every field of every quote as entered, a blank field shown blank, none joined to an
     instrument."""
-    quotes = run.need_context("The quotes").quotes
+    quotes = run.need_context().quotes
     return [
         mk.entered(f"Quote {number}", column, str(getattr(quote, name)))
         for number, quote in enumerate(quotes, 1)
@@ -1478,13 +1481,19 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
     forma interest and cover` table: the figures of its `Reported EBITDA` row (the one whose Basis
     and limitation opens with those words; no such row, no figures: the Totals rows name no EBITDA
     basis, so an Adjusted-basis cover is never shown under them), each by the reader's ordinary
-    copied path. A cell that
-    states no figure is `not in handoff`; so is every row when the table, the row or a column is
-    missing. A table that is there but cannot be read is logged."""
+    copied path. A cell that states no figure is `not in handoff`; so is every row when the table,
+    the row or a column is missing. A table that is there but cannot be read, or is written twice,
+    is logged."""
     labels = ("Pro forma interest", "Pro forma interest cover")
-    try:
-        run.doc("CP-1").prose(PRO_FORMA_TABLE)
-    except _Unreadable:  # no such section (or no readable handoff, which other blocks report)
+    doc = run.doc("CP-1")
+    written = sum(1 for line in doc.lines if line.strip() == f"### {PRO_FORMA_TABLE}")
+    if written != 1:  # none: no table (or no readable handoff, which other blocks report)
+        if written:  # the section twice is as unreadable as any table: logged, not silent
+            _LOG.warning(
+                "credit snapshot: Totals: %s could not be read: it is written %s times",
+                PRO_FORMA_TABLE,
+                written,
+            )
         return {}
     try:
         table = run.heading("CP-1", PRO_FORMA_TABLE)

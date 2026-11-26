@@ -129,7 +129,7 @@ def _imported_openpyxl_roots(tree: ast.AST) -> set[str]:
     loaders = _import_module_names(tree)
     roots: set[str] = set()
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)):
+        if not (isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(node.value, ast.Call)):
             continue
         call = node.value
         first = call.args[0] if call.args else None
@@ -139,7 +139,8 @@ def _imported_openpyxl_roots(tree: ast.AST) -> set[str]:
             and isinstance(first.value, str)
             and _is_openpyxl(first.value)
         ):
-            roots.update(f"{t.id}." for t in node.targets if isinstance(t, ast.Name))
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            roots.update(f"{t.id}." for t in targets if isinstance(t, ast.Name))
     return roots
 
 
@@ -323,6 +324,14 @@ _IMPORTLIB_WRITERS = {
 @pytest.mark.parametrize("name", sorted(_IMPORTLIB_WRITERS))
 def test_workbook_writers_sees_importlib_loading(name):
     assert workbook_writers(_IMPORTLIB_WRITERS[name]) == [3]
+
+
+def test_workbook_writers_sees_an_annotated_importlib_binding():
+    source = (
+        "import importlib\nfrom typing import Any\n"
+        'x: Any = importlib.import_module("openpyxl")\nx.Workbook()\n'
+    )
+    assert workbook_writers(source) == [4]
 
 
 def test_workbook_writers_ignores_other_importlib_loading():

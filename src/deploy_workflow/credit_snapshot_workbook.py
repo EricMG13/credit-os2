@@ -11,10 +11,11 @@ Every cell a block holds is written where `SnapshotCell.sheet` says, once, and i
 Handoff sha256 | Run | As of`). A cell is one of the five kinds of `credit_snapshot` (copied, gap,
 computed, entered at run start, analyst) or one of three the writer adds: `label` (a title,
 header, row name or rubric text, never a number), `formula` (its text is the formula as written)
-and `rule` (a methodology constant, a plain number or name). Module ids, file names,
-hashes and run codes appear on `Sources` only. A `Basis:` line is kept on `Sources` beside its
-paragraph and is never a cell of the other three sheets; a scorecard row's own Basis cell is the
-comment on its level cell.
+and `rule` (a methodology constant, a plain number or name). Module ids, source references
+(file names, page locators), hashes and run codes are drawn on `Sources` only: module text that
+holds them is drawn without them on the other sheets. A `Basis:` line is kept on `Sources` beside
+its paragraph and is never a cell of the other three sheets; a scorecard row's own Basis cell is
+the comment on its level cell.
 
 A figure is stored as a number only when `credit_snapshot.figure` says so (the plain-decimal rule),
 with the number format it returns, so the cell shows the handoff's digits; everything else is text.
@@ -918,12 +919,14 @@ class _Book:
     def _row_basis(
         self, number: int, item: snap.SnapshotCell, column: str, text: str | None
     ) -> list[Any]:
-        """A scorecard or assessment row's own Basis cell, its value as the handoff wrote it
-        (`**5**`), or the reason a gap could not be read, exactly (the comment, when it is clean,
-        repeats the Basis): on Sources only, traced to its row's handoff line."""
+        """A scorecard or assessment row's own Basis cell, a cell's value as the handoff wrote it
+        (`**5**`, a module code, a source reference), exactly (the comment, when it is clean,
+        repeats the Basis): on Sources only, copied and traced to its row's handoff line. The
+        reason a gap could not be read is the app's own text: kind computed, no handoff line."""
         module = item.module
+        kind = snap.COMPUTED if item.kind == snap.GAP else snap.COPIED
         return [
-            *(SOURCES, f"{_utils.get_column_letter(TEXT_COLUMN)}{number}", snap.COPIED),
+            *(SOURCES, f"{_utils.get_column_letter(TEXT_COLUMN)}{number}", kind),
             *(item.block, item.row, column, module, item.section, item.line, text),
             self.snapshot.handoff_sha256.get(module) if module is not None else None,
             self.snapshot.run_id,

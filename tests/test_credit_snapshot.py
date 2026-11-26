@@ -296,7 +296,7 @@ def test_a_handoff_that_is_not_utf8_gaps_its_blocks_and_reads_the_rest(caplog):
     (gap,) = where(snapshot, "Historical performance")
     reader_gap(
         gap,
-        "The Historical performance table of Earnings changes could not be read.",
+        "The Historical performance section of Earnings changes could not be read.",
         "UTF-8",
     )
     assert where(snapshot, "Header", "Issuer")[0].kind == "copied"
@@ -679,7 +679,8 @@ def test_a_refused_context_is_a_reasoned_gap_line_on_each_block_that_needs_it():
     for block in ("Corporate ratings", "New issue", "Quotes as entered"):
         (cell,) = where(snapshot, block)
         assert (cell.kind, cell.row, cell.column) == ("gap", "Gap", "Text")
-        assert gap.reason in cell.text
+        assert cell.text == "The run's inputs at run start could not be read."
+        assert cell.written == gap.reason  # the technical reason is for Sources
     assert one(snapshot, "Header", "Run date", "Value").kind == "entered at run start"
     assert [c for c in snapshot.cells() if c.kind == "entered at run start"] == [
         c for c in snapshot.cells() if c.block == "Header" and c.kind == "entered at run start"
@@ -2013,7 +2014,8 @@ def test_a_table_with_only_an_adjusted_row_gives_not_in_handoff():
 
 
 # --- Source references in text (M-R1, ruling PM-k) ------------------------------------------------
-# Literal cases copied from the web tests of `containsReference` (publishedReport.reference*.test.ts*,
+# Literal cases copied from the web tests of `containsReference`
+# (publishedReport.reference*.test.ts*,
 # publishedReport.test.ts): reference-bearing and ordinary text.
 
 REFERENCES = [
@@ -2215,3 +2217,16 @@ def test_a_cell_with_a_reference_shows_its_words_and_a_cell_of_only_a_reference_
         == "Net debt rose (Financial foundation)."
     )
     assert snap.drawn_text("Plain words.", names) == "Plain words."
+
+
+def test_a_pro_forma_section_written_twice_is_logged_and_not_in_handoff(caplog):
+    twice = with_pro_forma(REPORTED)
+    cp1 = twice["CP-1"]
+    start = cp1.index("### Pro forma interest and cover")
+    snapshot_with_two = full(**{"CP-1": cp1 + "\n" + cp1[start:]})
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        snapshot = snap.gather(run_of(snapshot_with_two))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        cells = where(snapshot, "Capital structure totals", label)
+        assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]
+    assert [r for r in caplog.records if "written 2 times" in r.getMessage()]
