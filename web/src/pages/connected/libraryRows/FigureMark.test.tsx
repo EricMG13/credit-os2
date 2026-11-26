@@ -78,7 +78,7 @@ it("draws a direction for a measure the owner's table gives none, without better
   );
   expect(screen.queryByText("better")).toBeNull();
   expect(screen.queryByText("worse")).toBeNull();
-  expect(screen.getByText(/\+US\$20m/)).toBeVisible();
+  expect(screen.getByText(/\+\$20m/)).toBeVisible();
 });
 
 it("says a figure the catalogue does not quote is not shown here, never zero or 'not supplied'", () => {

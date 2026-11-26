@@ -364,8 +364,8 @@ describe("published handoff boundaries", () => {
     });
     expect(rows[0]).toEqual([
       "Cash",
-      "US$0m (FY2025)",
-      "GBP 20m (FY2026)",
+      "$0m (FY2025)",
+      "£20m (FY2026)",
       "—",
       "Reporting units differ.",
       "The newer analysis uses a different cash perimeter.",
@@ -399,9 +399,9 @@ describe("published handoff boundaries", () => {
     };
     expect(comparisonRows(change)[0]).toEqual([
       "Total debt",
-      "US$110m (FY2025)",
-      "US$100m (FY2025)",
-      "-US$10m",
+      "$110m (FY2025)",
+      "$100m (FY2025)",
+      "-$10m",
       "Same definition · Same-period analysis change",
       "The updated filing reclassifies 10 US$m.",
     ]);

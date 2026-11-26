@@ -118,7 +118,7 @@ describe("the prior and current results from the retained earnings table", () =>
   it("reads the unit from the sentence under the heading and takes the money rows only", () => {
     if (movers.kind !== "ready") throw new Error("expected movers");
     expect(movers.fallback).toBe(true);
-    expect(movers.groups.map((one) => one.unit)).toEqual(["US$m", "US$m"]);
+    expect(movers.groups.map((one) => one.unit)).toEqual(["$m", "$m"]);
     expect(movers.unstated.map((one) => one.pair.label)).toEqual([
       "Maintenance capex",
       "Growth capex",
@@ -310,8 +310,8 @@ describe("pairs from the chart tables", () => {
     );
     if (movers.kind !== "ready") throw new Error("expected movers");
     expect(movers.fallback).toBe(false);
-    // US$m in two small multiples (the larger figure in the thousands, then in the hundreds), then x.
-    expect(movers.groups.map((one) => one.unit)).toEqual(["US$m", "US$m", "x"]);
+    // $m in two small multiples (the larger figure in the thousands, then in the hundreds), then x.
+    expect(movers.groups.map((one) => one.unit)).toEqual(["$m", "$m", "x"]);
     const [money, small, times] = movers.groups;
     expect(money?.drawn.map((pair) => pair.label)).toEqual([
       "Revenue",
@@ -560,8 +560,8 @@ describe("pairs from the chart tables", () => {
     );
     if (movers.kind !== "ready") throw new Error("expected movers");
     expect(movers.groups.map((one) => [one.unit, one.axis !== null, one.drawn.length])).toEqual([
-      ["US$m", true, 2],
-      ["EURm", true, 1],
+      ["$m", true, 2],
+      ["€m", true, 1],
     ]);
   });
   it("is a gap when a required column is missing, and when the table is empty", () => {
@@ -599,7 +599,7 @@ describe("the variance bridge", () => {
     const [result] = bridges(delta(steps(GOOD)));
     if (result?.kind !== "bridge") throw new Error("expected a bridge");
     expect(result.title).toBe("Earnings bridge");
-    expect(result.unit).toBe("US$m");
+    expect(result.unit).toBe("$m");
     expect(result.steps.map((step) => [step.role, step.label, step.value])).toEqual([
       ["opening", "Revenue FY2023", 100],
       ["change", "Organic growth", 20],
@@ -736,7 +736,7 @@ describe("EarningsDeltaLead on the retained handoff", () => {
     for (const heading of screen.getAllByRole("heading"))
       expect(heading.textContent).not.toMatch(/moved most|derived|rose|fell|\d/);
     // The kicker names what is compared, from the handoff's own period labels.
-    expect(within(tile).getByText("FY2023 to FY2024, US$m")).toBeVisible();
+    expect(within(tile).getByText("FY2023 to FY2024, $m")).toBeVisible();
   });
   it("draws the bridge's absence as the one gap tile, not a caption", () => {
     const { container } = lead(cp1bEntry());
@@ -801,8 +801,8 @@ describe("EarningsDeltaLead on the retained handoff", () => {
     expect(drawings).toHaveLength(2);
     // Each group states its own scale in its head.
     expect(drawings.map((one) => textOf(one as unknown as Element, "caption").join(""))).toEqual([
-      "US$m, axis \u22122,000 to 8,000",
-      "US$m, axis \u2212500 to 1,000",
+      "$m, axis \u22122,000 to 8,000",
+      "$m, axis \u2212500 to 1,000",
     ]);
     expect(
       drawings.map((one) =>
@@ -883,7 +883,7 @@ describe("EarningsDeltaLead on the retained handoff", () => {
       .getAllByRole("img")
       .map((one) => one.getAttribute("aria-label"))
       .join(" | ");
-    expect(label).toContain("US$m, FY2023 to FY2024:");
+    expect(label).toContain("$m, FY2023 to FY2024:");
     expect(label).toContain("Revenue 6,585 in FY2023 and 7,940 in FY2024, +1,355, up, better");
     expect(label).toContain(
       "Discretionary cash flow 1,198 in FY2023 and −158 in FY2024, −1,356, down",
@@ -897,7 +897,7 @@ describe("EarningsDeltaLead on the retained handoff", () => {
     expect(rows.map((row) => row[0])).toEqual(WITH_GAPS);
     expect(rows.find((row) => row[0] === "Intangible amortization")).toEqual([
       "Intangible amortization",
-      "US$m",
+      "$m",
       "FY2023",
       "139",
       "FY2024",
@@ -1148,7 +1148,7 @@ describe("EarningsDeltaLead with a variance bridge", () => {
     const { container } = lead(delta(steps(GOOD), results(MONEY)));
     const tile = screen.getByRole("region", { name: "Earnings bridge" });
     expect(within(tile).getByRole("heading", { name: "Earnings bridge" })).toBeVisible();
-    expect(within(tile).getByText("Prior to current, US$m")).toBeVisible();
+    expect(within(tile).getByText("Prior to current, $m")).toBeVisible();
     const bar = (label: string) =>
       container.querySelector(`rect[data-label="${label}"]`) as SVGRectElement;
     expect(bar("Organic growth").getAttribute("data-from")).toBe("100");
@@ -1177,7 +1177,7 @@ describe("EarningsDeltaLead with a variance bridge", () => {
     const tile = screen.getByRole("region", { name: "Earnings bridge" });
     const rows = rowsOf(tile);
     const head = [...tile.querySelectorAll("table thead th")].map((cell) => cell.textContent);
-    expect(head).toEqual(["Step", "Role", "Amount (US$m)"]);
+    expect(head).toEqual(["Step", "Role", "Amount ($m)"]);
     expect(rows[2]).toEqual(["Disposal", "Change", "−10"]);
   });
   it("does not draw a bridge that does not add up, and says so in the gap tile", () => {
@@ -1347,7 +1347,7 @@ describe("rows with no stated unit and screened text", () => {
     const { movers } = earningsDelta(delta(results([...MONEY.slice(0, 2), ...NO_UNIT_ROWS])));
     if (movers.kind !== "ready") throw new Error("expected movers");
     expect(movers.groups.map((one) => [one.unit, one.rows.length])).toEqual([
-      ["US$m", 2],
+      ["$m", 2],
       ["", 1],
       ["", 1],
     ]);

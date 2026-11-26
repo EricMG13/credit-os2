@@ -170,7 +170,7 @@ describe("connected library and report design", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: /Show runs and detail for Northbridge/ }),
     );
-    const value = await screen.findByText("US$965m", { selector: "span" });
+    const value = await screen.findByText("$965m", { selector: "span" });
     expect(value).toHaveClass("font-mono", "tabular-nums");
     const strip = value.closest("dl");
     expect(strip).toHaveAccessibleName("More figures, Northbridge");

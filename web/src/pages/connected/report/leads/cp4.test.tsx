@@ -175,7 +175,7 @@ it("draws a headroom bullet per test, each on its own scale, a gap row with its 
   const liquidity = rows[2];
   if (!liquidity) throw new Error("gap row");
   // F9: the stated threshold is drawn; the current and headroom carry their own reasons.
-  expect(within(liquidity).getByText("US$100m")).toBeVisible();
+  expect(within(liquidity).getByText("$100m")).toBeVisible();
   expect(within(liquidity).getAllByText("Not supplied")).toHaveLength(2);
   expect(within(liquidity).getByText("Not stated")).toBeVisible();
   expect(within(liquidity).getByText("No current")).toBeVisible();

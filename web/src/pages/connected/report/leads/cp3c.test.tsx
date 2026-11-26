@@ -92,7 +92,7 @@ it("draws debt maturing and committed resources as two marks per year, as writte
   expect(within(tile).getByRole("heading", { level: 3 })).toHaveTextContent(/^Refinancing need$/);
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
-    "Debt maturing against committed resources in US$m. FY2026: debt maturing 500, committed resources 300. FY2027: debt maturing 1,250, committed resources not supplied (no commitment is stated).",
+    "Debt maturing against committed resources in $m. FY2026: debt maturing 500, committed resources 300. FY2027: debt maturing 1,250, committed resources not supplied (no commitment is stated).",
   );
   // Each amount labelled as written under its year.
   expect([...figure.querySelectorAll("[data-figure]")].map((label) => label.textContent)).toEqual([
@@ -111,7 +111,7 @@ it("draws debt maturing and committed resources as two marks per year, as writte
     ],
     ["FY2027", [["1,250", "100%"]]],
   ]);
-  expect(within(tile).getByText("US$m")).toBeVisible();
+  expect(within(tile).getByText("$m")).toBeVisible();
   expect(within(tile).getByText("Synthetic.")).toBeVisible();
 });
 

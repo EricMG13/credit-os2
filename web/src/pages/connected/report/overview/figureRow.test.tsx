@@ -527,7 +527,7 @@ describe("the small figure tiles", () => {
     expect(better).toHaveClass("whitespace-nowrap");
     expect(better).not.toHaveClass("border");
     const cash = screen.getByRole("region", { name: "Cash" });
-    expect(within(cash).getByText("(-US$25m)")).toHaveClass("whitespace-nowrap");
+    expect(within(cash).getByText("(-$25m)")).toHaveClass("whitespace-nowrap");
   });
 
   it("are tiles with the small head, the title a real h3", () => {
@@ -755,8 +755,8 @@ describe("the cash tile", () => {
     const legend = within(cash).getByRole("list", { name: "Parts of the bar" });
     const items = within(legend).getAllByRole("listitem");
     expect(items.map((item) => item.textContent)).toEqual([
-      "Cash US$275m",
-      "Undrawn committed facilities US$400m",
+      "Cash $275m",
+      "Undrawn committed facilities $400m",
     ]);
   });
 });
@@ -820,8 +820,8 @@ describe("a figure stated for one period only (real TransDigm lite CP-1 chart ta
     draw(single());
     const tile = screen.getByRole("region", { name: "Cash" });
     const parts = within(tile).getByRole("list", { name: "Parts of the bar" });
-    expect(parts).toHaveTextContent("US$6,261m");
-    expect(parts).toHaveTextContent("US$843m");
+    expect(parts).toHaveTextContent("$6,261m");
+    expect(parts).toHaveTextContent("$843m");
     expect(tile.querySelector(".gap-hatch")).toBeNull();
   });
 });

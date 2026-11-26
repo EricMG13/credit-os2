@@ -110,7 +110,7 @@ it("draws the value allocation of the first scenario as a waterfall, steps as wr
   const tile = screen.getByRole("region", { name: "Value allocation" });
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
-    "Value allocation — scenario 1 in US$m: Enterprise value 1,000, Administrative claims -50, First lien term loan -700, Senior unsecured notes -250, Value not distributed 0.",
+    "Value allocation — scenario 1 in $m: Enterprise value 1,000, Administrative claims -50, First lien term loan -700, Senior unsecured notes -250, Value not distributed 0.",
   );
   for (const text of ["1,000", "-50", "-700", "-250"])
     expect(within(figure).getAllByText(text).length).toBeGreaterThan(0);
@@ -191,7 +191,7 @@ it("draws claim against recovery per class and scenario, the stated recovery % a
   const tile = screen.getByRole("region", { name: "Recovery by class" });
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
-    "Recovery by class in US$m. First lien term loan, Scenario 1: claim 700, recovery 700, recovery 100%. First lien term loan, Scenario 2: claim 700, recovery 700, recovery 100%. Senior unsecured notes, Scenario 1: claim 600, recovery 250, recovery 41.7%. Senior unsecured notes, Scenario 2: claim 600, recovery not supplied (distribution not settled), recovery % not supplied (recovery not settled).",
+    "Recovery by class in $m. First lien term loan, Scenario 1: claim 700, recovery 700, recovery 100%. First lien term loan, Scenario 2: claim 700, recovery 700, recovery 100%. Senior unsecured notes, Scenario 1: claim 600, recovery 250, recovery 41.7%. Senior unsecured notes, Scenario 2: claim 600, recovery not supplied (distribution not settled), recovery % not supplied (recovery not settled).",
   );
   expect(within(figure).getByText("41.7%")).toBeInTheDocument();
   // G7: the shared gap cell, the word and the reason, never "Recovery: Not supplied: reason".
