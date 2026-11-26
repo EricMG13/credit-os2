@@ -1,9 +1,11 @@
-"""Review findings C9-F1 and C9-F3 on the web lookup core (C9-F2 is not covered here). Offline: the
-fakes of test_weblookup stand in for the network; expected values are literal."""
+"""Review findings C9-F1, C9-F2 and C9-F3 and the round-2 findings C9-R1 to C9-R4 on the web lookup
+core. Offline: the fakes of test_weblookup stand in for the network; expected values are literal."""
 
 import hashlib
+import json
 from pathlib import Path
 
+import pytest
 from test_weblookup import (
     FILING_URL,
     UA_ENV,
@@ -46,7 +48,7 @@ def test_f1_a_redated_page_is_usable_for_the_handoff_check(tmp_path: Path) -> No
         "## Request\nx\n## Sources\n"
         "| Source | URL | Publisher | Stated date | Source type |\n|---|---|---|---|---|\n"
         f"| {item.source_id} | {FILING_URL} | Example | 2024-11-01 | Issuer filing |\n"
-        "## Findings\nNet sales rose.\n## Calculations\nNone\n## Gaps\nNone.\n"
+        "## Findings\nNet sales rose.\n## Calculations\nNone\n## Gaps\n{gaps}\n"
         "## Next module\nCP-1\n"
     )
     assert weblookup.web_handoff_issues(md, found) == []
@@ -76,7 +78,7 @@ def test_f1_usable_then_redated_later_is_later_event(tmp_path: Path) -> None:
         "## Request\nx\n## Sources\n"
         "| Source | URL | Publisher | Stated date | Source type |\n|---|---|---|---|---|\n"
         f"| {first.source_id} | {FILING_URL} | Example | 2025-07-01 | Issuer filing |\n"
-        "## Findings\nNet sales rose.\n## Calculations\nNone\n## Gaps\nNone.\n"
+        "## Findings\nNet sales rose.\n## Calculations\nNone\n## Gaps\n{gaps}\n"
         "## Next module\nCP-1\n"
     )
     assert any("Later event" in issue for issue in weblookup.web_handoff_issues(md, found))
@@ -176,3 +178,134 @@ def test_f2_utf8_bom_wins_over_a_wrong_header_and_is_stripped(tmp_path: Path) ->
 
 def test_f2_undeclared_non_utf8_text_still_uses_replacement(tmp_path: Path) -> None:
     assert _decoded(tmp_path, b"caf\xe9 ok", "text/plain") == "caf� ok"
+
+
+# C9-R1 and C9-R2: only a WHATWG label in a real <meta> tag declares the charset ----------------
+
+
+def test_r1_a_meta_utf16_label_is_read_as_utf8(tmp_path: Path) -> None:
+    body = '<html><head><meta charset="utf-16"></head><body>Crédit £1m</body></html>'.encode()
+    assert "Crédit £1m" in _decoded(tmp_path, body, "text/html")
+
+
+@pytest.mark.parametrize("label", ["punycode", "utf-7", "unicode_escape", "rot13", "idna"])
+def test_r1_a_python_only_codec_name_in_meta_is_ignored(tmp_path: Path, label: str) -> None:
+    body = f'<meta charset="{label}"><p>Crédit £1m</p>'.encode()
+    assert "Crédit £1m" in _decoded(tmp_path, body, "text/html")
+
+
+def test_r1_whatwg_latin1_and_ascii_labels_are_windows_1252(tmp_path: Path) -> None:
+    body = b'<meta charset="latin1"><p>Cr\x93dit \x80</p>'
+    assert "Cr\u201cdit \u20ac" in _decoded(tmp_path, body, "text/html")
+    ascii_body = body.replace(b"latin1", b"us-ascii")
+    assert "Cr\u201cdit" in _decoded(tmp_path / "ascii", ascii_body, "text/html")
+
+
+def test_r1_a_header_non_text_codec_is_still_not_used(tmp_path: Path) -> None:
+    assert "Crédit" in _decoded(tmp_path, "Crédit".encode(), "text/html; charset=rot13")
+
+
+def test_r2_a_commented_out_meta_is_skipped(tmp_path: Path) -> None:
+    body = '<!-- <meta charset="ascii"> --><meta charset="utf-8">café'.encode()
+    assert "café" in _decoded(tmp_path, body, "text/html")
+
+
+def test_r2_a_metadata_tag_is_not_a_meta_tag(tmp_path: Path) -> None:
+    body = '<metadata charset="ascii"></metadata><meta charset="utf-8">café'.encode()
+    assert "café" in _decoded(tmp_path, body, "text/html")
+
+
+def test_r2_charset_text_inside_another_attribute_is_not_a_declaration(tmp_path: Path) -> None:
+    body = '<meta name="description" content="see charset=ascii"><p>café</p>'.encode()
+    assert "café" in _decoded(tmp_path, body, "text/html")
+
+
+def test_r2_a_self_closed_meta_tag_declares_the_charset(tmp_path: Path) -> None:
+    body = b'<meta charset="windows-1252"/><p>\x80</p>'
+    assert "\u20ac" in _decoded(tmp_path, body, "text/html")
+
+
+def test_r2_http_equiv_needs_content_type(tmp_path: Path) -> None:
+    body = b'<meta http-equiv="refresh" content="0; charset=windows-1252"><p>caf\xc3\xa9</p>'
+    assert "café" in _decoded(tmp_path, body, "text/html")
+
+
+# C9-R3: one canonical key for the fetch and the handoff compare --------------------------------
+
+
+def _cited(tmp_path: Path, fetched: str, cited: str) -> list[str]:
+    page = ok(html("<p>a</p>"))
+    net = FakeNet({(HOST, "/a"): page, (f"{HOST}.", "/a"): page})
+    lookup = make(tmp_path, net)
+    item = retained(lookup.fetch_page(fetched))
+    found = weblookup.known_pages(tmp_path / "run")
+    return weblookup.web_handoff_issues(handoff_rows(item.source_id, cited), found)
+
+
+def handoff_md(rows: str, gaps: str = "None.") -> str:
+    return (
+        "## Request\nx\n## Sources\n"
+        "| Source | URL | Publisher | Stated date | Source type |\n|---|---|---|---|---|\n"
+        f"{rows}\n## Findings\nNet sales rose.\n## Calculations\nNone\n## Gaps\n{gaps}\n"
+        "## Next module\nCP-1\n"
+    )
+
+
+def handoff_rows(sid: str, url: str) -> str:
+    gaps = f"The page states no date.\nBasis: {sid}"
+    return handoff_md(f"| {sid} | {url} | Example | Undated | Issuer filing |", gaps)
+
+
+def test_r3_a_dotted_host_citation_is_the_fetched_page(tmp_path: Path) -> None:
+    assert _cited(tmp_path, f"https://{HOST}/a", f"https://{HOST}./a") == []
+
+
+def test_r3_a_dotted_host_fetch_is_cited_by_the_plain_host(tmp_path: Path) -> None:
+    assert _cited(tmp_path, f"https://{HOST}./a", f"https://{HOST}/a") == []
+
+
+def test_r3_empty_path_before_a_query_is_one_address(tmp_path: Path) -> None:
+    net = FakeNet({(HOST, "/?x=1"): ok(html("<p>a</p>"))})
+    lookup = make(tmp_path, net)
+    item = retained(lookup.fetch_page(f"https://{HOST}/?x=1"))
+    found = weblookup.known_pages(tmp_path / "run")
+    md = handoff_rows(item.source_id, f"https://{HOST}?x=1")
+    assert weblookup.web_handoff_issues(md, found) == []
+
+
+def test_r3_a_different_page_is_still_not_fetched(tmp_path: Path) -> None:
+    issues = _cited(tmp_path, f"https://{HOST}/a", f"https://{HOST}./b")
+    assert any("was not fetched in this run" in issue for issue in issues)
+
+
+# C9-R4: every retained source id stays known, only the status is the latest per address --------
+
+
+def _two_ids_one_address(tmp_path: Path) -> tuple[str, str]:
+    net = FakeNet({(HOST, "/a"): ok(html("<p>one</p>")), (HOST, "/b"): ok(html("<p>two</p>"))})
+    lookup = make(tmp_path, net)
+    first = retained(lookup.fetch_page(f"https://{HOST}/a"))
+    second = retained(lookup.fetch_page(f"https://{HOST}/b"))
+    path = web_dir(tmp_path) / "index.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[1]["url"] = f"https://{HOST}/a#x"  # an old index: the same address, changed bytes
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    assert first.source_id != second.source_id
+    return first.source_id, second.source_id
+
+
+def test_r4_known_pages_keeps_every_source_id(tmp_path: Path) -> None:
+    a, b = _two_ids_one_address(tmp_path)
+    assert sorted(weblookup.known_pages(tmp_path / "run")) == sorted([a, b])
+
+
+def test_r4_a_handoff_citing_the_older_id_is_accepted(tmp_path: Path) -> None:
+    a, _b = _two_ids_one_address(tmp_path)
+    found = weblookup.known_pages(tmp_path / "run")
+    issues = weblookup.web_handoff_issues(handoff_rows(a, f"https://{HOST}/a"), found)
+    assert not [issue for issue in issues if "not a page retained in this run" in issue]
+
+
+def test_r4_retained_pages_keeps_every_source_id(tmp_path: Path) -> None:
+    a, b = _two_ids_one_address(tmp_path)
+    assert sorted(p.source_id for p in weblookup.retained_pages(tmp_path / "run")) == sorted([a, b])

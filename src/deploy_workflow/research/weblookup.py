@@ -229,21 +229,64 @@ _BOMS = (
     (codecs.BOM_UTF16_LE, "utf-16"),
     (codecs.BOM_UTF16_BE, "utf-16"),
 )
-_META_CHARSET = re.compile(
-    rb"<meta[^>]+?charset\s*=\s*[\"']?([A-Za-z0-9][A-Za-z0-9._:+-]*)", re.IGNORECASE
-)
 _META_WINDOW = 1024
+_COMMENT = re.compile(rb"<!--.*?(?:-->|\Z)", re.DOTALL)
+_META_TAG = re.compile(rb"<meta(?=[\s/])([^>]*)>", re.IGNORECASE)
+_META_ATTR = re.compile(
+    rb"""([^\s"'=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?""", re.IGNORECASE
+)
+_CONTENT_CHARSET = re.compile(r"charset\s*=\s*[\"']?\s*([^\s\"';]+)", re.IGNORECASE)
+_WHATWG_LABELS: dict[str, str] = {
+    **dict.fromkeys(
+        ("utf-8", "utf8", "unicode-1-1-utf-8", "utf-16", "utf-16le", "utf-16be"), "utf-8"
+    ),
+    **dict.fromkeys(("utf-32", "utf-32le", "utf-32be"), "utf-8"),  # WHATWG: a meta label is UTF-8
+    **dict.fromkeys(
+        ("windows-1252", "latin1", "iso-8859-1", "iso8859-1", "us-ascii", "ascii", "l1"), "cp1252"
+    ),
+    **{f"iso-8859-{n}": f"iso8859-{n}" for n in (2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16)},
+    **{f"windows-125{n}": f"cp125{n}" for n in range(9)},
+    "koi8-r": "koi8-r",
+    "koi8-u": "koi8-u",
+    **dict.fromkeys(("shift_jis", "shift-jis", "sjis", "x-sjis"), "shift_jis"),
+    "euc-jp": "euc-jp",
+    "iso-2022-jp": "iso-2022-jp",
+    "euc-kr": "euc-kr",
+    **dict.fromkeys(("gbk", "gb2312"), "gbk"),
+    "gb18030": "gb18030",
+    "big5": "big5",
+}
+
+
+def _meta_label(body: bytes) -> str | None:
+    """The charset label a real ``<meta>`` tag in the first kilobyte declares: a ``charset``
+    attribute, or ``content`` with ``charset=`` under ``http-equiv=content-type``. Comments are
+    skipped and the tag name must be exactly ``meta``."""
+    head = _COMMENT.sub(b" ", body[:_META_WINDOW])
+    for tag in _META_TAG.finditer(head):
+        attrs = {
+            m.group(1).lower().decode("latin-1"): (m.group(2) or m.group(3) or m.group(4) or b"")
+            for m in _META_ATTR.finditer(tag.group(1))
+        }
+        if attrs.get("charset"):
+            return attrs["charset"].decode("latin-1").strip().lower()
+        equiv = attrs.get("http-equiv", b"").decode("latin-1").strip().lower()
+        found = _CONTENT_CHARSET.search(attrs.get("content", b"").decode("latin-1"))
+        if equiv == "content-type" and found:
+            return found.group(1).lower()
+    return None
 
 
 def _declared_charsets(body: bytes, content_type: str | None) -> list[str]:
     """The charsets the bytes declare, strongest first: a byte-order mark, the Content-Type
-    charset, then for HTML a ``<meta>`` charset in the first kilobyte."""
+    charset, then for HTML a ``<meta>`` charset in the first kilobyte, accepted only as a WHATWG
+    encoding label (mapped to its Python codec; any other label is ignored)."""
     names = [name for bom, name in _BOMS if body.startswith(bom)][:1]
     header = _CHARSET.search(content_type or "")
     names += [header.group(1)] if header else []
     if _media_type(content_type) in ("text/html", "application/xhtml+xml"):
-        meta = _META_CHARSET.search(body[:_META_WINDOW])
-        names += [meta.group(1).decode("ascii")] if meta else []
+        label = _meta_label(body)
+        names += [_WHATWG_LABELS[label]] if label in _WHATWG_LABELS else []
     return names
 
 
@@ -252,7 +295,7 @@ def _decode(body: bytes, content_type: str | None) -> str:
         try:
             return body.decode(name, errors="replace")
         except (LookupError, UnicodeError):
-            # An unknown name (LookupError) or a codec that is not a text decoder, such as
+            # An unknown header name (LookupError) or a codec that is not a text decoder, such as
             # ``undefined`` or ``idna`` (UnicodeError): the next declaration is tried, and an
             # undeclared body is read as UTF-8.
             pass
@@ -450,6 +493,12 @@ def _fetch_key(url: str) -> str:
     except webfetch.UrlRefused:
         return url
     return f"https://{split.host.rstrip('.')}{split.path_query}"
+
+
+def _address_key(url: str) -> str:
+    """The address as one page for the handoff compare: its fetch key, further normalised by
+    ``_norm_url`` (so every spelling that is one fetch is also one cited page)."""
+    return _norm_url(_fetch_key(url))
 
 
 def _spent_bytes(rows: list[dict[str, Any]]) -> int:
@@ -1120,14 +1169,25 @@ def _latest_rows(items: Iterable[Retained]) -> list[Retained]:
     return list(latest.values())
 
 
+def _page_rows(rows: list[Retained]) -> dict[str, Retained]:
+    """One row per ``source_id``, in retention order: the id's first address, as of that address's
+    latest row. An id whose address was later taken by another id keeps its own first row, so no
+    id registered by ``retained_rows`` is lost."""
+    latest = {_fetch_key(item.url): item for item in rows}
+    pages: dict[str, Retained] = {}
+    for item in rows:
+        if item.source_id not in pages:
+            newest = latest[_fetch_key(item.url)]
+            pages[item.source_id] = newest if newest.source_id == item.source_id else item
+    return pages
+
+
 def retained_pages(run_dir: Path) -> list[Retained]:
     """Every page retained under ``run_dir/web``, once per ``source_id`` (its first address, as of
-    that address's latest row), in retention order. Raises ``ResearchError`` like
+    that address's latest row; an id never disappears because a later row took its address), in
+    retention order. Callers get one row per id, never per address. Raises ``ResearchError`` like
     ``retained_rows``."""
-    found: dict[str, Retained] = {}
-    for item in _latest_rows(retained_rows(run_dir)):
-        found.setdefault(item.source_id, item)
-    return list(found.values())
+    return list(_page_rows(retained_rows(run_dir)).values())
 
 
 def bare_host_problem(text: str) -> str | None:
@@ -1185,9 +1245,9 @@ def _page_text(folder: Path, item: Retained) -> list[str]:
 
 
 class KnownPages(dict[str, tuple[Retained, str]]):
-    """The retained pages by ``source_id`` (the first row of each id, with its extracted text) and
-    ``rows``, every index row: two URLs that serve the same bytes share one ``source_id`` but are
-    both addresses fetched in this run, and each may have its own status."""
+    """The retained pages by ``source_id`` (every id, with its extracted text) and ``rows``, the
+    latest index row of every address: two URLs that serve the same bytes share one ``source_id``
+    but are both addresses fetched in this run, and each may have its own status."""
 
     def __init__(self, pages: Mapping[str, tuple[Retained, str]], rows: Sequence[Retained]) -> None:
         super().__init__(pages)
@@ -1196,23 +1256,21 @@ class KnownPages(dict[str, tuple[Retained, str]]):
 
 def known_pages(run_dir: Path) -> KnownPages:
     """The pages retained under ``run_dir/web`` as the handoff checks read them, built the way a
-    module's tools register them: each id once (its first address) with its extracted text, the
-    latest row of every address kept. A page whose file cannot be read is logged and left out, so
-    a quote cited to it is rejected. A run that retained nothing has no index and gives no pages.
+    module's tools register them: every ``source_id`` once (its first address, as of that
+    address's latest row) with its extracted text, and ``rows`` the latest row of every address
+    (the status and date of the later-event rule). A page whose file cannot be read is logged and
+    left out, so a quote cited to it is rejected. A run that retained nothing has no index and
+    gives no pages.
 
     Raises ``ResearchError`` when the index is damaged and ``OSError`` when it cannot be read."""
+    all_rows = retained_rows(run_dir)
     pages: dict[str, tuple[Retained, str]] = {}
-    rows: list[Retained] = []
-    for item in _latest_rows(retained_rows(run_dir)):
-        if item.source_id not in pages:
-            try:
-                text = "".join(_page_text(run_dir / "web", item))
-            except OSError as exc:
-                log.warning("retained page %s could not be read: %s", item.source_id, exc)
-                continue
-            pages[item.source_id] = (item, text)
-        rows.append(item)
-    return KnownPages(pages, rows)
+    for sid, item in _page_rows(all_rows).items():
+        try:
+            pages[sid] = (item, "".join(_page_text(run_dir / "web", item)))
+        except OSError as exc:
+            log.warning("retained page %s could not be read: %s", sid, exc)
+    return KnownPages(pages, _latest_rows(all_rows))
 
 
 def _trim_url(url: str) -> str:
@@ -1348,7 +1406,9 @@ class _Handoff:
             listed += known.rows
         items = [(item.source_id, item) for item in _latest_rows(listed)]
         addresses = {
-            _norm_url(address): sid for sid, item in items for address in (item.url, item.final_url)
+            _address_key(address): sid
+            for sid, item in items
+            for address in (item.url, item.final_url)
         }
         by_id: dict[str, list[str]] = {}
         for sid, item in items:
@@ -1372,7 +1432,7 @@ class _Handoff:
         """The retained pages ``text`` names: by id (any case) or by address."""
         found = {sid.lower() for sid in _WEB_ID.findall(text)} & self.known.keys()
         for url in _urls_in(text):
-            if (sid := self.addresses.get(_norm_url(url))) is not None and sid in self.known:
+            if (sid := self.addresses.get(_address_key(url))) is not None and sid in self.known:
                 found.add(sid)
         return found
 
@@ -1400,7 +1460,7 @@ def _unfetched(doc: _Handoff, row: str, label: str) -> list[str]:
         f"{label} cites {url[:200]}, which was not fetched in this run: fetch it with "
         "fetch_page or remove the row."
         for url in _urls_in(row)
-        if _norm_url(url) not in doc.addresses
+        if _address_key(url) not in doc.addresses
     ]
 
 
@@ -1627,8 +1687,9 @@ def web_handoff_issues(
     markdown: str, known: Mapping[str, tuple[Retained, str]], *, hosted_search: bool = False
 ) -> list[str]:
     """What is wrong with a handoff's use of the run's retained web pages; ``known`` maps each
-    retained ``source_id`` to its index row and extracted text (a ``KnownPages`` also carries every
-    index row). ``hosted_search`` is whether hosted web_search is also on for the module: a URL it
+    retained ``source_id`` to its index row and extracted text (a ``KnownPages`` also carries the
+    latest index row of every address, which gives the status of the later-event rule).
+    ``hosted_search`` is whether hosted web_search is also on for the module: a URL it
     found is then a citation, so the fetched-URL rule is skipped. Pure and deterministic: it reads
     no network and never raises on odd Markdown. Each issue is one sentence saying what to
     change."""
