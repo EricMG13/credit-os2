@@ -775,8 +775,8 @@ def _net_debt_change(by_key: Mapping[str, Mapping[str, Any]]) -> tuple[dict[str,
 
 def _maturities(text: str) -> tuple[str | None, dict[str, str | None]] | None:
     """(unit, period -> value) of the table directly under the CP-1 debt maturities chart heading;
-    None when the heading or that table is absent, has no unit or mixes units, or repeats a
-    period."""
+    None when the heading or that table is absent, has no unit or mixes units (white space aside),
+    has a row of another width than its header, or repeats a period."""
     lines = text.replace("\r\n", "\n").split("\n")
     try:
         start = lines.index(f"### Chart data: {MATURITIES}")
@@ -795,10 +795,12 @@ def _maturities(text: str) -> tuple[str | None, dict[str, str | None]] | None:
     ):
         return None
     header = rows[0]
-    body = [dict(zip(header, row, strict=False)) for row in rows[2:] if len(row) == len(header)]
-    units = {row["Reporting unit"] for row in body}
+    if any(len(row) != len(header) for row in rows[2:]):
+        return None  # a row that does not fit the header is not read as a gap
+    body = [dict(zip(header, row, strict=True)) for row in rows[2:]]
+    units = {" ".join(row["Reporting unit"].split()) for row in body}
     periods = [row["Period"] for row in body]
-    if len(units) != 1 or len(set(periods)) != len(periods):
+    if len(units) != 1 or "" in units or len(set(periods)) != len(periods):
         return None
     return units.pop(), {row["Period"]: number(row["Debt maturing"]) for row in body}
 

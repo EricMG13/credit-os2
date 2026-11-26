@@ -109,7 +109,7 @@ _CODES = (
 # `XEUR437`, `ABC123` are identifiers).
 _FIGURE = re.compile(
     rf"(?:(?<![\w.])|(?<=(?<![\w.])(?:{_CODES})))"
-    r"(?:(?:19|20)\d{2}(?=,(?!\d{3}(?!\d)))|\d[\d,]*(?:\.\d+)?)"
+    r"(?:(?:19|20)\d{2}(?=,(?!\d{3}(?!\d)))|(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:\.\d+)?|\.\d+)"
 )
 _MONTH = (
     r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?"
@@ -121,7 +121,9 @@ _MONTH = (
 # a whole, also after such a marker (`Q3 2024-09-30`).
 _EXEMPT = re.compile(
     rf"\b(?:(?:FY|CY|LTM|[QH][1-4])\s?|(?i:fiscal\s+|{_MONTH}\s+))(?:19|20)\d{{2}}\b(?![.,]\d|-\d)"
-    r"|\d{4}-\d{2}(?:-\d{2}|(?!\d))|\b(?:FY|CY)\d{2,4}E?\b|\b[QH][1-4]\b|\bLTM\b|\b(?:[1-9]|1[0-2])M\b"
+    r"|\d{4}-\d{2}(?:-\d{2}|(?!\d))|\b(?:FY|CY)\d{2,4}E?\b|\b[QH][1-4]\b|\bLTM\b"
+    # a month count (`9M`), but not an amount in millions after a currency (`US$7M`, `USD 7M`)
+    rf"|(?<![$€£¥])(?<!(?:{_CODES}))(?<!(?:{_CODES})\s)\b(?:[1-9]|1[0-2])M\b"
 )
 _YEAR_TOKEN = re.compile(r"(?:19|20)\d{2}")
 # A unit ends its word: no letter, digit or `&` after it, and no hyphen or slash and a letter
@@ -379,6 +381,7 @@ def _direction_issues(text: str, differences: set[Decimal], where: str) -> list[
     the difference; a sign written after a direction word is refused (write the size and the
     word)."""
     issues = []
+    text = _DATE.sub(_blanks, text)
     for figure in _figures(text, counts=False):
         lead = text[max(0, figure.start - 60) : figure.start]
         if not _AS_DIFFERENCE.search(lead + text[figure.start : figure.start + 1]):
@@ -507,7 +510,7 @@ def _fact_row_issues(
     sizes = {abs(d) for d in differences if d != 0}
     issues = []
     for index in (0, 1, 2, 4):
-        cell = row[index]
+        cell = _DATE.sub(_blanks, row[index])
         for figure in dict.fromkeys(f.size for f in _figures(cell, counts=False)):
             if figure in sizes and figure not in own:
                 issues.append(
@@ -870,7 +873,8 @@ def _withheld_sizes(
             continue
         if measure["key"] in exempt or abs(difference) in own:
             continue
-        if abs(difference) not in {abs(v) for v in _measure_values(measure) - {difference}}:
+        values = (_signed((measure[side] or {}).get("value")) for side in ("prior", "current"))
+        if abs(difference) not in {abs(v) for v in _present(list(values))}:
             found[abs(difference)] = measure["label"]
     return found
 
