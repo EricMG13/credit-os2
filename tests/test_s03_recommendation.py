@@ -74,17 +74,6 @@ def test_c2_1_a_qualifier_in_another_list_item_leaves_a_sector_row_not_read(
     assert outcome(limit, sector="Energy") == expected
 
 
-@pytest.mark.parametrize(
-    ("category", "expected"),
-    [("Sector and rating concentration", "breached"), ("Rating", "breached")],
-)
-def test_c2_2_a_rating_parameter_is_read_as_rating_whatever_the_category_says(
-    category: str, expected: str
-) -> None:
-    limit = row(category, "CCC max", "≤ 7.5% NAV", "-1.00%", "Breach")
-    assert outcome(limit, sector="Energy", bucket="CCC") == expected
-
-
 def test_c2_2_a_parameter_naming_the_sector_in_a_sector_category_stays_a_sector_row() -> None:
     limit = row("Sector and rating", "Energy max", "≤ 15% NAV", "-1.00%", "Breach")
     assert outcome(limit, sector="Energy", bucket="CCC") == "breached"
@@ -126,17 +115,6 @@ def test_f1_a_per_sector_rating_limit_is_not_read(category: str, parameter: str)
 
 
 @pytest.mark.parametrize(
-    ("parameter", "bucket"),
-    [("CCC max", "CCC"), ("Max Caa1 and below", "CCC"), ("Max BB+ and above", "BB")],
-)
-def test_f1_a_rating_parameter_under_a_sector_and_rating_category_is_breached(
-    parameter: str, bucket: str
-) -> None:
-    limit = row("Sector and rating concentration", parameter, "≤ 7.5% NAV", "-1.00%", "Breach")
-    assert outcome(limit, sector="Software", bucket=bucket) == "breached"
-
-
-@pytest.mark.parametrize(
     "parameter",
     [
         "Max Healthcare exposure $50m",
@@ -157,3 +135,21 @@ def test_f2_a_figure_with_a_unit_suffix_is_ignored_in_a_sector_row(parameter: st
 def test_f2_a_figure_with_a_unit_suffix_is_ignored_in_a_price_floor(parameter: str) -> None:
     limit = row("Price", parameter, "≥ 80", "", "")
     assert outcome(limit, price="75") == "breached"
+
+
+@pytest.mark.parametrize(
+    "parameter", ["Software CCC max", "Software investment max", "Software $5b max"]
+)
+def test_c2r_1_a_row_naming_another_sector_stays_a_sector_row(parameter: str) -> None:
+    limit = row("Sector and rating concentration", parameter, "≤ 7.5% NAV", "2.00%", "Pass")
+    assert outcome(limit, sector="Energy", bucket="CCC") == "does_not_apply"
+
+
+def test_a_dollar_figure_in_a_sector_row_is_not_breached() -> None:
+    limit = row("Sector", "Max exposure $5b", "≤ 15% NAV", "-1.00%", "Breach")
+    assert outcome(limit, sector="Software", bucket="B") == "not_read"
+
+
+def test_a_rating_parameter_under_another_sectors_category_is_not_breached() -> None:
+    limit = row("Healthcare sector", "CCC max", "≤ 7.5% NAV", "-1.00%", "Breach")
+    assert outcome(limit, sector="Energy", bucket="CCC") == "not_read"

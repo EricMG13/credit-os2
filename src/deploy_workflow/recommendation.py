@@ -384,12 +384,9 @@ def _kind(
     words = set(_words(text))
     if "price" in words:
         return "price"
-    names_sector = _sector_rest(limit.parameter, sector) is not None
-    parameter_words = _words(limit.parameter)
-    named = any(pe.label_bucket(_stem(word)) for word in parameter_words)
-    in_parameter = bool(SECTOR_WORDS.intersection(parameter_words))
-    if names_sector or in_parameter or (words & SECTOR_WORDS and not named):
+    if words & SECTOR_WORDS or _sector_rest(limit.parameter, sector) is not None:
         return "sector"
+    named = any(pe.label_bucket(_stem(word)) for word in _words(limit.parameter))
     return "rating" if words & {"rating", "rated"} or named else "other"
 
 
