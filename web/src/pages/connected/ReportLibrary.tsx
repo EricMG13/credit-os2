@@ -32,8 +32,10 @@ import {
   type Snapshot,
 } from "./publishedReport";
 import { ReportEvidence } from "./report/Evidence";
-import { getRun, moduleName, RequestError, type Mode, type ConnectedRun } from "./api";
+import { getRun, moduleName, PATHWAYS, RequestError, type Mode, type ConnectedRun } from "./api";
 import { buildReportView, runMoneyUnit, type ReportView } from "./reportView";
+import { asOfDate } from "./runFigures";
+import { reportDate } from "./issuerEntry";
 import { Calendar, buildCalendar } from "./report/Calendar";
 import { ReportChanges, ComparisonTable } from "./report/Changes";
 import { Forecast } from "./report/Forecast";
@@ -529,12 +531,47 @@ function FactChips({
   catalogue,
   ratings,
   facts,
+  deliverables = false,
 }: {
   run: PublishedRun;
   catalogue: CatalogueRun | undefined;
   ratings: ReturnType<typeof reportIdentity>["ratings"];
   facts: { mode: Mode; preview: boolean; labels: string[] };
+  deliverables?: boolean;
 }) {
+  if (deliverables) {
+    const route =
+      run.pathway && Object.hasOwn(PATHWAYS, run.pathway) ? PATHWAYS[run.pathway]?.label : "";
+    const asOf = run.asOf ?? "";
+    const date = reportDate(asOf) ? `As of ${asOfDate(asOf)}` : "";
+    const test = facts.preview
+      ? "Test preview"
+      : facts.mode === "synthetic"
+        ? "Synthetic test"
+        : "";
+    const partial = run.publicationVerified === true && run.assessmentScope === "partial";
+    const status = [test, partial ? "Partial assessment" : ""].filter(Boolean);
+    return (
+      <ul aria-label="Run facts" className="flex flex-wrap items-center gap-2">
+        {status.map((label) => (
+          <li
+            key={label}
+            className={cx(
+              CHIP,
+              label === "Test preview" || label === "Synthetic test" ? TEST : QUIET,
+            )}
+          >
+            {label}
+          </li>
+        ))}
+        {[route, date].filter(Boolean).map((fact) => (
+          <li key={fact} className={cx(CHIP, QUIET)}>
+            {fact}
+          </li>
+        ))}
+      </ul>
+    );
+  }
   const unit = runMoneyUnit(catalogue);
   // A verified publication also names the ticker, and the financial period where it is not the
   // run's own period or as-of date.
@@ -621,14 +658,22 @@ function ReportHeader({
           >
             {issuer}
           </h1>
-          {sector && <p className="text-small text-text-secondary">{sector}</p>}
+          {tab !== "deliverables" && sector && (
+            <p className="text-small text-text-secondary">{sector}</p>
+          )}
         </div>
       </div>
       {/* The facts take the header's full width under the name and the sections, so they hold
           one line at 1024 px instead of wrapping in the column the section control leaves. */}
       <div className="flex min-w-0 flex-col gap-2.5 lg:col-span-2 lg:row-start-3">
-        <FactChips run={run} catalogue={catalogue} ratings={ratings} facts={facts} />
-        <DifferingRating differing={differing} />
+        <FactChips
+          run={run}
+          catalogue={catalogue}
+          ratings={ratings}
+          facts={facts}
+          deliverables={tab === "deliverables"}
+        />
+        {tab !== "deliverables" && <DifferingRating differing={differing} />}
       </div>
       <div className="mt-2.5 min-w-0 lg:col-start-2 lg:row-start-2 lg:mt-0 lg:self-end">
         <ReportNav tab={tab} modules={view.modules.length} />

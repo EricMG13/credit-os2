@@ -1,10 +1,9 @@
 import type { ReactElement } from "react";
-import type { Mode } from "../api";
+import { moduleCodeName, type Mode } from "../api";
 import {
   containsReference,
   publishedRunForFolder,
   runLabels,
-  readerText,
   type PublishedRun,
   type Snapshot,
 } from "../publishedReport";
@@ -127,7 +126,10 @@ function previewQualification(
   pathway: string | null,
 ) {
   const text = plainText(value).trim();
-  return readerText(text, pathway) === text ? publicationText(text, privateIds) : "";
+  for (const [code] of text.matchAll(/(?<![A-Za-z0-9])CP-[A-Z0-9]+(?![A-Za-z0-9])/gi)) {
+    if (moduleCodeName(code.toUpperCase(), pathway)) return "";
+  }
+  return publicationText(text, privateIds);
 }
 
 export function reportSpecialistOverview(view: ReportView, run: PublishedRun, routeKey: string) {

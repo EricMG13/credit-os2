@@ -231,14 +231,17 @@ it("synthetic Example Credit as of 2025-02-04 shows a workbook tile with no repo
   expect(screen.queryByText(/CP-2/)).toBeNull();
 });
 
-it("synthetic Example Credit as of 2025-02-04 withholds a purpose print for a module-code preview qualification", async () => {
-  const snapshot = fixture({ isPreview: true });
-  if (snapshot.preview) snapshot.preview.reason = "Scoped check of CP-1B.";
-  open("#deliverables", snapshot);
-  expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
-  expect(screen.queryByText(/Scoped check|CP-1B/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Earnings Update.*Open print dialog/ })).toBeNull();
-});
+it.each(["Scoped check of CP-1B.", "CP-1B-only review", "CP-1B/earnings review"])(
+  "synthetic Example Credit as of 2025-02-04 withholds a purpose print for module-coded qualification %s",
+  async (reason) => {
+    const snapshot = fixture({ isPreview: true });
+    if (snapshot.preview) snapshot.preview.reason = reason;
+    open("#deliverables", snapshot);
+    expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
+    expect(screen.queryByText(/CP-1B|Scoped check/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Earnings Update.*Open print dialog/ })).toBeNull();
+  },
+);
 
 it.each([
   ["unverified", fixture({ verified: false })],
