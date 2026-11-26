@@ -4,6 +4,38 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 2: sessions, the one check, the switch and `/auth/me` (PR #119)
+
+- Scope: `deploy_workflow.accounts` (sessions; folder rules and display names moved or fixed) and
+  `react_frontend` (the gate, the start-up switch, `/auth/me`, the sign-in meta) with their tests.
+  Sign-in stays off unless `make_server(sign_in=True, accounts_dir=...)` is used; nothing does yet.
+  No request to Microsoft, no model call, no live fetch, no new dependency. Stacked on #108.
+  Trimmed here: the oldest entries (2026-11-18).
+- Sessions: a `secrets.token_urlsafe(32)` token, only its SHA-256 stored, 12 real hours from
+  sign-in (UTC arithmetic; a London time across the clock change was 13 h before the fix); lookup
+  writes nothing; unknown, expired, ended, malformed or disabled → no session.
+- The check: after Host, `Sec-Fetch-Site` and `Origin`, before `Transfer-Encoding` and every route.
+  Only GET `/sign-in` and GET `/auth/me` pass without a session (exact method and path); app pages
+  and `/library` paths → 303 to `/sign-in`; the rest → 401. The cookie counts only when its name
+  appears once across all `Cookie` headers; a store error is a 500, never "no session".
+- Start-up: sign-in refused in read-only and synthetic modes; the store's folder must be given,
+  absolute, private, outside `--root` by path and by file identity (case variants, the macOS
+  firmlink and `..` caught), and `--root` must exist. Linux POSIX ACLs refused; on Windows the folder
+  must be inside `%LOCALAPPDATA%` (simulated here). Display names: first free of three candidates,
+  at most 60 characters, "before accounts" reserved.
+- Checked: `tests/test_accounts_*.py` 147 and `tests/test_auth_*.py` 44 passed (440 with the server,
+  Signal-host, standing-portfolio and repo-rules tests), expected values written by hand;
+  `tools/quality_gate.py`, `lint-imports`, `mypy --strict` on the package, `ruff` exit 0. The
+  deny-by-default test sends every path the code names, 200 seeded hostile paths and all seven
+  methods: no route runs without a session, every route runs with one; with the gate call removed
+  22 tests fail. The log test finds no 8-character piece of any token and no stored hash anywhere.
+  Reviews: per-task `mx-precise` (four Mediums fixed), `mx-adversary` on the slice (two Mediums and
+  a Low fixed over two rounds, re-review passed), confidence review, rewrite tournament (incumbent
+  holds), sweep (3 Info), `mx-architect` pre-merge PASS, 2 Low and 3 Info (Opus 5.5 at xhigh: Fable
+  usage was exhausted).
+- Not verified: Windows and a real Linux ACL (both simulated); SMB or OneDrive ownership mapping;
+  real browsers' cookies; concurrent load; CI on the PR head until it runs.
+
 ## 2026-11-26 — Sign-in slice 1: account store, passcodes, lockout, accounts command line
 
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
@@ -960,36 +992,3 @@ then 5; the narrow layout and the controls listed below.
 ## 2026-11-18 — Desktop review follow-up after PR #64
 
 - Astra reviewed the merged desktop diff. Fixed activity polling after a malformed response, source-run provenance for reused inputs, Forecast copy for missing calculations, and the retry action named by the service. Verified the regressions, exact source-run link and draft preservation, retained layout, 680 Forecast cells and three confidence scores in the live desktop checks. Chrome and Edge passed offline workflow proof (`run-ryqfCu`), and all 83 file routes rendered. 1,161 frontend and 42 Python tests, build, lint, formatting and the quality gate passed. Fallow passed against merged main with zero new findings and against the original base with 12 styling advisories for values already on that base.
-
-## 2026-11-18 — Desktop Impeccable refinement
-
-- Distill, Clarify, Layout, Typeset, Quieter, Harden, Animate and Polish covered the connected and file-based React workflow. The retained Caesars desktop preview checked Library, History, Overview, Calendar, Changes, Modules, Forecast and Evidence. All 680 Forecast display cells and confidence scores of 33, 0 and 54 matched, including source trace access.
-- Chrome and Edge passed the synthetic desktop workflow (`run-0lS2Cg`). Local browser fixtures verified long text, stale-filter recovery, keyboard focus as runs changed groups, stable feed and module rows, and the reduced-motion setting. Chrome rendered 83 file-based Library, Model and Run routes.
-- All 3,844 focused tests, production build, changed-file ESLint and Prettier, and the quality gate passed. The confidence review checked report figures, source destinations, run approval and caps, polling behavior, and missing values.
-
-## 2026-11-18 — Fallow follow-up on main
-
-- Verified all 18 original warnings with per-file Fallow inspection before refactoring. Fallow 3.8.1 audit against `origin/main` passed with zero new complexity, dead-code, or duplication findings. Seven styling advisories point to arbitrary utility literals already present on main. No suppressions or threshold changes.
-- All 570 focused tests passed. Build, changed-file lint and formatting, and Python quality gate passed. Desktop synthetic proof passed in Chrome and Edge (`run-LeBkY9`). Retained Caesars matched all 680 display cells and confidence scores of 33, 0, and 54 with their trace controls. Post-edit review retained the separate intake session, validation, and report trace responsibilities.
-
-## 2026-11-18 — Module Bottom line confidence
-
-- Retained Caesars desktop preview. Verified 33/100 and 0/100 as Insufficient Information and 54/100 as Low, with distinct fills and the original confidence and prose traces. The tile remains available when the score has no rendered Bottom line. All 97 focused tests, build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded.
-
-## 2026-11-18 — Forecast redesign
-
-- Desktop preview verified at 1440 × 900 and 1280 × 900. Cash flow and scenario comparison open together. Compared all 680 historical and forecast display cells with the retained Caesars calculation record, including periods, missing values and zeros.
-- In-app preview verified FY2029E scenario comparison, Growth rates, Chart or Table and the downside source drawer. Design review confirmed the stronger selected-control state after recapture. Claude Model handoff and RBOT-HTML `fc010a7` informed the layout.
-- 174 focused tests passed. Chrome and Edge completed the synthetic desktop proof in `run-ikJ2Lt`. Build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded. Post-edit review retained exact row matching and the separate-grid fallback.
-
-## 2026-11-18 — Desktop Forecast case comparison
-
-- Retained Caesars, Chrome at 1440 × 900. The four FY2029E figures fit on one row, reducing the case section from 384 to 230 px. Each value matched the retained preview. The opening qualification and shared rounding note appeared once in the comparison. Verified all four source buttons, arrow-key case selection, active comparison row and downside trace.
-- The focused frontend suite passed 134 tests. Chrome and Edge passed desktop synthetic proof (run-1oq0zs). Build, formatting and changed-component lint passed. The unfiltered Python gate found 3,008 issues in the untracked predecessor copy; excluding it yielded zero. Post-edit review confirmed the model supplies a common period and unit, and only exact matches to visible qualification text are removed from case labels.
-
-## 2026-11-18 — Connected desktop findings and Forecast proof
-
-- Retained Caesars preview at 1440 × 900 in Chrome. Library identified the test preview in both layouts and labelled 4.19× using the retained debt cash-interest basis. Read-only intake and progress controls were checked.
-- All 49 limitations across 12 modules matched the previous preview in order, prose and trace labels. Chart index focused Run charts 16 px from the top, including on reload. The Evidence model register appeared for Forward credit model and was absent under Legal.
-- Chrome and Edge passed the desktop-only synthetic proof (run-DQdHfb), including both intake cost labels, the qualification immediately preceding case figures, the scope disclosure and scenario comparison. An earlier Edge run timed out loading intake. The complete rerun passed on both browsers.
-- 314 focused frontend and 94 backend tests passed, as did build, lint and formatting. The Python gate reported 3,008 findings in the untracked predecessor copy and zero on the changed project code. Post-edit review retained grouped rows and per-history-entry scroll offsets.
