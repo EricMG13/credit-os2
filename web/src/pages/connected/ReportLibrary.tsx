@@ -54,8 +54,8 @@ import { StructureRow } from "./report/overview/StructureRow";
 import { Bento } from "./report/overview/Tile";
 import { overviewView } from "./report/overview/decision";
 import { useResource } from "./useResource";
-import { ExportMenu, ReportExportPreview } from "./export/ReportExportPreview";
-import { exportRoute, reportExports } from "./export/reportExport";
+import { ReportExportPreview } from "./export/ReportExportPreview";
+import { exportHref, exportRoute, reportExports } from "./export/reportExport";
 
 /**
  * The report's sections in the section control's order. History is reached from the issuer crumb and the
@@ -66,6 +66,7 @@ const tabs = [
   ["modules", "Modules"],
   ["forecast", "Forecast"],
   ["evidence", "Evidence"],
+  ["deliverables", "Deliverables"],
   ["calendar", "Calendar"],
 ] as const;
 type ReportTab = (typeof tabs)[number][0];
@@ -80,6 +81,22 @@ function listenHash(fn: () => void) {
 
 const readHash = () => window.location.hash;
 const tabHref = (tab: ReportTab) => `#${tab}`;
+
+function openPurposePrint(id: ReportExports["options"][number]["id"]) {
+  const currentState: unknown = window.history.state;
+  const state =
+    typeof currentState === "object" && currentState !== null && !Array.isArray(currentState)
+      ? currentState
+      : {};
+  window.history.replaceState({ ...state, reportDeliverableFocusId: id }, "", window.location.href);
+  const oldURL = window.location.href;
+  window.history.pushState(
+    { reportExportFrom: "#deliverables", reportPrintOnReady: true },
+    "",
+    exportHref(id),
+  );
+  window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL, newURL: window.location.href }));
+}
 
 function readerPageName(tab: Tab, parts: string[], pathway?: string | null) {
   if (tab === "calendar") return "Issuer calendar";
@@ -269,6 +286,20 @@ const ReportPage = memo(function ReportPage({
   exports: ReportExports;
 }) {
   const view = useMemo(() => buildReportView(snapshot, routeKey, run), [snapshot, routeKey, run]);
+  useEffect(() => {
+    if (tab !== "deliverables") return;
+    const state: unknown = window.history.state;
+    if (
+      typeof state !== "object" ||
+      state === null ||
+      !("reportDeliverableFocusId" in state) ||
+      typeof state.reportDeliverableFocusId !== "string"
+    )
+      return;
+    [...document.querySelectorAll<HTMLButtonElement>("button[data-deliverable-id]")]
+      .find((button) => button.dataset.deliverableId === state.reportDeliverableFocusId)
+      ?.focus();
+  }, [tab]);
   const labels = runLabels(outputEntries(snapshot, run, routeKey), run);
   const calendar = tab === "calendar" ? buildCalendar(view.entries, run.folder, run.pathway) : null;
   const change = comparisonForRun(run, snapshot.workspace.runs);
@@ -297,8 +328,8 @@ const ReportPage = memo(function ReportPage({
                 id={run.folder}
                 preview={Boolean(snapshot.preview)}
                 evidence={tab === "evidence"}
+                deliverables={tab === "deliverables"}
                 history={tab === "history"}
-                exports={exports}
               />
             }
           />
@@ -336,11 +367,75 @@ const ReportPage = memo(function ReportPage({
               comparison={<ComparisonMeasures change={change} />}
             />
           )}
+          {tab === "deliverables" && (
+            <Deliverables
+              folder={run.folder}
+              exports={exports}
+              workbookAvailable={
+                !snapshot.preview &&
+                snapshot.reportFolder === run.folder &&
+                run.publicationVerified === true
+              }
+            />
+          )}
         </PublishedTraceProvider>
       </PortfolioBasisProvider>
     </div>
   );
 });
+
+function Deliverables({
+  folder,
+  exports,
+  workbookAvailable,
+}: {
+  folder: string;
+  exports: ReportExports;
+  workbookAvailable: boolean;
+}) {
+  const printOptions = exports.options;
+  return (
+    <section aria-labelledby="deliverables-title" className="grid min-w-0 gap-4">
+      <h2 id="deliverables-title" className="font-display text-h2 font-semibold text-text-primary">
+        Deliverables
+      </h2>
+      <ul className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
+        {workbookAvailable && (
+          <li className="min-w-0">
+            <a
+              className="group grid min-h-32 w-full content-between gap-3 rounded-ds-lg border border-border-subtle bg-surface-card p-5 shadow-1 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-4"
+              href={`/connected/deliverables/${encodeURIComponent(folder)}/credit-snapshot.xlsx`}
+            >
+              <span className="font-display text-h4 font-semibold text-text-primary group-hover:text-text-link">
+                Credit Snapshot
+              </span>
+              <span className="text-small font-semibold text-action">
+                Download Excel workbook · XLSX
+              </span>
+            </a>
+          </li>
+        )}
+        {printOptions.map(({ id, name }) => (
+          <li key={id} className="min-w-0">
+            <button
+              type="button"
+              data-deliverable-id={id}
+              onClick={() => {
+                openPurposePrint(id);
+              }}
+              className="group grid min-h-32 w-full content-between gap-3 rounded-ds-lg border border-border-subtle bg-surface-card p-5 text-left shadow-1 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-4"
+            >
+              <span className="font-display text-h4 font-semibold text-text-primary group-hover:text-text-link">
+                {name}
+              </span>
+              <span className="text-small font-semibold text-action">Open print dialog</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /** A quiet fact chip; a long fact wraps inside it rather than widening the page. */
 const CHIP =
@@ -388,21 +483,20 @@ function ReportUtilities({
   id,
   preview,
   evidence,
+  deliverables,
   history,
-  exports,
 }: {
   id: string;
   preview: boolean;
   evidence: boolean;
+  deliverables: boolean;
   /** The Runs page is open: its own link is not offered on it. */
   history: boolean;
-  exports: ReportExports;
 }) {
   const [sources, setSources] = useSourcesOn();
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      <ExportMenu options={exports.options} reason={exports.reason} />
-      {!evidence && (
+      {!evidence && !deliverables && (
         <SourcesSwitch isSelected={sources} onChange={setSources} label="Highlight source icons" />
       )}
       {!history && (
@@ -677,11 +771,13 @@ function ReaderStatus({
   found,
   id,
   retry,
+  hidePreviewReason = false,
 }: {
   loaded: Loaded | undefined;
   found: boolean;
   id: string;
   retry: () => void;
+  hidePreviewReason?: boolean;
 }) {
   if (loaded === undefined)
     return (
@@ -704,7 +800,7 @@ function ReaderStatus({
   if (!("snapshot" in loaded)) return <ReportUnavailable loaded={loaded} id={id} retry={retry} />;
   return (
     <>
-      {loaded.snapshot?.preview?.reason && (
+      {!hidePreviewReason && loaded.snapshot?.preview?.reason && (
         <div className="mt-4">
           <Callout title="Test preview">{loaded.snapshot.preview.reason}</Callout>
         </div>
@@ -815,14 +911,27 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   useReportPlace(root, hash, Boolean(run));
   const { exportId, exports, preview } = useReportExport(value, id, mode, hash);
   const readyPreview = preview?.state === "ready" ? preview : null;
+  const historyState: unknown = window.history.state;
+  const autoPrint =
+    exportId !== undefined &&
+    typeof historyState === "object" &&
+    historyState !== null &&
+    "reportPrintOnReady" in historyState &&
+    historyState.reportPrintOnReady === true;
   const reportPage = run ? readerPageName(tab, parts, run.pathway) : "Credit report";
   const page = exportId === undefined ? reportPage : (readyPreview?.name ?? "PDF preview");
   useReportTitle(exportId === undefined ? issuer : (readyPreview?.document.issuer ?? null), page);
   if (exportId !== undefined)
     return (
       <div ref={root}>
-        <ReportExportPreview key={exportId ?? "unsupported"} report={preview}>
-          <ReaderStatus loaded={loaded} found={Boolean(found)} id={id} retry={retry} />
+        <ReportExportPreview key={exportId ?? "unsupported"} report={preview} autoPrint={autoPrint}>
+          <ReaderStatus
+            loaded={loaded}
+            found={Boolean(found)}
+            id={id}
+            retry={retry}
+            hidePreviewReason
+          />
         </ReportExportPreview>
       </div>
     );
@@ -833,7 +942,13 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
       data-sources={sources ? "on" : "off"}
     >
       {!run && <PlainHeader issuer={issuer} />}
-      <ReaderStatus loaded={loaded} found={Boolean(found)} id={id} retry={retry} />
+      <ReaderStatus
+        loaded={loaded}
+        found={Boolean(found)}
+        id={id}
+        retry={retry}
+        hidePreviewReason={tab === "deliverables"}
+      />
       {value && found && (
         <ReportPage
           snapshot={value}

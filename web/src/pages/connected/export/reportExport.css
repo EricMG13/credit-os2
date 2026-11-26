@@ -6,11 +6,6 @@
   min-width: 0;
 }
 
-/* The unavailable Export PDF control draws its own icon, not the disclosure marker. */
-.report-export-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
 /* The preview's toolbar: one tile of the redesign, above the paper. */
 .report-export-controls {
   display: flex;
