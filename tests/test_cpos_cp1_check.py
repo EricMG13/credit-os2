@@ -41,6 +41,58 @@ def table(heading: str, header: list[str], rows: list[list[str]]) -> str:
     return "\n".join(out)
 
 
+@pytest.mark.parametrize(
+    ("instrument", "type_value", "valid"),
+    [
+        ("Synthetic revolver", "loan", True),
+        ("Synthetic notes", "bond", True),
+        ("Synthetic receivables facility", "other", True),
+        ("Synthetic term loan", "Not supplied: no governing document", True),
+        ("Financing cost adjustment", "Not applicable", True),
+        ("Financing cost adjustment", "loan", False),
+        ("Synthetic term loan", "not applicable", False),
+        ("Synthetic term loan", "Not supplied: ", False),
+        ("Synthetic term loan", "Not supplied: <reason>", False),
+        ("Synthetic term loan", "loan and bond", False),
+        ("Synthetic term loan", "lo*an", False),
+        ("Synthetic term loan", "", False),
+    ],
+)
+def test_launcher_checks_the_controlled_cp1_asset_type(instrument, type_value, valid):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, selected method T4.18 rule."""
+    fixture = "## Findings\n" + table(
+        "T4.18 Debt instruments",
+        ["Instrument", "Type", "Asset type"],
+        [[instrument, "Term loan", type_value]],
+    )
+    issues = [issue for issue in _owned_issues("CP-1", (), fixture) if "T4.18 Asset type" in issue]
+    assert bool(issues) is not valid
+    if issues:
+        assert instrument in issues[0]
+
+
+def test_cp1_checks_that_the_stated_asset_type_column_is_unique():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting explicit asset types."""
+    fixture = "## Findings\n" + table(
+        "T4.18 Debt instruments",
+        ["Instrument", "Asset type", "Asset type"],
+        [["Synthetic facility", "loan", "bond"]],
+    )
+    assert "T4.18 Asset type must appear in exactly one column." in _owned_issues(
+        "CP-1", (), fixture
+    )
+
+
+def test_a_current_cp1_draft_requires_asset_type_on_the_instrument_table():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, older T4.18 table shape."""
+    fixture = "## Findings\n" + table(
+        "T4.18 Debt instruments", ["Instrument", "Type"], [["Synthetic facility", "Term loan"]]
+    )
+    proposal = _owned_issues("CP-1", (), fixture)
+    assert "T4.18 Asset type must appear in exactly one column." in proposal
+    assert not [issue for issue in check.cp1_issues(fixture) if "T4.18 Asset type" in issue]
+
+
 def statement(heading: str, rows: dict[str, tuple[str, str]], unit: str = UNIT) -> str:
     body = [[label, a, b, unit, BASIS, "10-K"] for label, (a, b) in rows.items()]
     return table(heading, ["Line item", "FY2024", "FY2023", "Unit", "Basis", "Source"], body)

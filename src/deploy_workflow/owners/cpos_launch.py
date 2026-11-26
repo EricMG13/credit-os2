@@ -1628,7 +1628,11 @@ def _owned_issues(
         issues += found
         if owned is PRO_FORMA and not found:  # CP-1's own rows check, after the shape check
             issues += _pro_forma_issues(text)
-    return [*issues, *_net_debt_issues(text), *_cp1_issues(text)] if module == "CP-1" else issues
+    return (
+        [*issues, *_net_debt_issues(text), *_cp1_issues(text, require_asset_type=True)]
+        if module == "CP-1"
+        else issues
+    )
 
 
 _FRONT_SCORE_KEY = re.compile(r"(confidence_score|confidence_band|qa_status)\s*:")
