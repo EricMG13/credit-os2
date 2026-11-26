@@ -11,7 +11,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
   the four oldest entries (2026-11-17).
 - Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
-  (absolute path only; never under `--root`), WAL, one numbered migration, a made-here guard. On
+  (absolute path only; the command line has no `--root`, and refusing a folder under the root is
+  slice 2's start-up check), WAL, one numbered migration, a made-here guard. On
   POSIX the folder and file must belong to the running account and be open to no one else; the
   file is created 0600. Not checked: access-control lists, and anything on Windows (owner's call).
 - Passcodes: Analyst and Admin only, 12 to 1,024 characters, scrypt (n 2^14, r 8, p 5) with a
@@ -30,7 +31,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   five-character piece of any passcode, nor any stored hash or salt. A pty run of the real prompt
   did not echo (review probe). Reviews: per-task `mx-precise`, `mx-invariants` on the account race
   and the lockout, `mx-adversary` on the slice (two Mediums fixed, re-review passed), `mx-architect`
-  pre-merge review not yet run (its model's limit resets 2 December).
+  pre-merge PASS, 6 Low and 5 Info (run on Opus 5.5 at xhigh: Fable usage was exhausted).
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
 

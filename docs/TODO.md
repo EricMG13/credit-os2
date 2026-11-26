@@ -25,13 +25,14 @@ Owner decisions, 2026-11-25:
 |---|---|---|---|
 | 1 | Landing page: one entry point for the library, run start and Signal, where sign-in is applied | This repository | Not started |
 | 2 | Entra sign-in in the Python service with `msal`: identity checked server-side, a session cookie, and every API route and report or source download protected, not only the page controls | This repository, proved against a stand-in identity provider only | Not started |
-| 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Not started |
+| 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Slice 1 (store, passcodes, lockout, accounts command line): ericmg13/credit-os2#108 |
 | 4 | Registration on first Entra sign-in: a first sign-in creates a Reader; a valid passcode makes the account an Analyst or an Admin | This repository | Not started |
 | 5 | Replace Signal's display-name cookie (`deploy_workflow.signal.identity.current_user`) with the signed-in account, and move the owner's source and AI-cap powers into the browser | This repository | Not started |
 | 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting. May not be needed now that colleagues use the live app; owner to confirm | This repository | Not started |
 | 7 | **Full deployment: Entra app registration limited to the organisation's own tenant, tenant and client ids, the network address, a certificate colleagues' browsers trust, any firewall rule, and a sign-in with real work accounts from a colleague's PC** | **Work PC only, with IT** | Not started |
 | 8 | Security audit of the sign-in code with `cloudflare/security-audit-skill` once items 2 to 5 exist | This repository | Not started |
 | 14 | Serve the app on the office network over HTTPS: a `--host` option refused unless sign-in is on and a certificate is configured, plus the per-address request limits. Proved here with a test certificate | This repository, then work PC with IT | Not started |
+| 15 | Before sign-in can switch on (slice 3): the account store's folder check on Windows and for access-control lists, which slice 1 leaves unchecked (ruling R17 in #108); a person whose display name and bracketed name are both taken cannot register, and display names have no cap while Signal cuts user names at 60 characters (#108 pre-merge review L1, L2) | This repository; Windows check on the work PC | Open; Windows and ACLs are the owner's call |
 
 Items 2 to 5: draft spec `docs/superpowers/specs/2026-11-26-sign-in-and-accounts.md`.
 
