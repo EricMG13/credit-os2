@@ -4,6 +4,46 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 5, browser Admin actions
+
+- Slice 5 is stacked on draft #131 at `7fd98c58`. The new routes cover source approval and pause,
+  thread, comment and group moderation, account disable and profile changes. Signal uses its
+  existing request-start authorization and moderation operations. The account mutations re-read
+  the enabled Admin inside the same write lock as the last-Admin guard, write and summary read.
+- Reader and Analyst can inspect the signed-in Sources and Accounts views. Analyst still has the
+  source proposal action. Account rows expose the safe summary and `Last recorded sign-in` from
+  the newest retained `sessions.created_at`. The internal `sessions.last_used_at` also represents
+  sign-in time under write-free lookup. The old Signal name editor and write are retired. The
+  existing CLI retains moderation actions and authority over the AI cap.
+- The real concurrent disable and demotion tests each leave one enabled Admin and deny the stale
+  actor. A forced SQLite summary failure returned 500 and rolled back the write. All five Signal
+  routes deny a later request after demotion and disable without changing Signal rows. The local
+  MSAL credential-log test exercised passcode promotion and Admin mutation with positive access
+  logging and no passcode, session or Entra credential values in the captured log.
+- Browser regressions cover denial, cascade confirmation, role changes and snapshot compatibility.
+  An ordinary authenticated 401 clears the held snapshot immediately. A successful passcode
+  promotion queues one snapshot read on the same page. The Accounts table updates its cached
+  rows across a role change and its named scroller owns the keyboard-accessible overflow.
+- Targeted macOS runs passed 289 Signal and application tests, 134 account tests after the guard
+  rewrite, 398 Signal web tests and 158 focused browser tests after the profile refresh fix.
+  The Python gate reported zero findings and all four import contracts passed. Web lint,
+  formatting, type checking, unused code and duplication checks passed.
+- Precise, ordering, defensive and architecture reviews passed. GPT handled the advisor and
+  architecture reviews with the owner's approval after Opus 5.5 xhigh OAuth expired. The
+  confidence review and changed-update sweep closed the stale controls and layout issues. The
+  rewrite tournament kept the live reducer and made the account guard's existing count explicit.
+- Desktop fidelity used the built app, separate local accounts and Signal stores, and the pinned
+  MSAL loopback provider. Chromium captured Sources and Accounts for Reader, Analyst and Admin at
+  1024, 1280 and 1440 px. The 1024 Accounts region scrolled 124 px by keyboard to expose every
+  profile trigger. The long display name, sign-in label, account profiles and blue focus treatments
+  were inspected. Reader and Analyst controls matched their permissions.
+- The browser promoted a Reader to Admin in the same document, changed an Analyst profile, and
+  verified the deliberate last-Admin 409. It approved source 6, removed comment 4, removed thread 2
+  and cascaded the remaining threads with group 1. Independent SQLite queries confirmed each
+  change. The removal text accurately applies to both author and Admin actions. Browser traffic
+  stayed on loopback. The expected 409 produced Chromium's resource notice.
+- Not verified: draft CI, native Windows, real Entra and work-PC deployment.
+
 ## 2026-11-26 — Sign-in slice 4, Signal account identity and store upgrade
 
 - Scope is slice 4, stacked on draft #129 at `d778e9ab` and earlier slices. Signal uses the
@@ -953,35 +993,3 @@ then 5; the narrow layout and the controls listed below.
 - Passed 1,882 connected and route tests, 3,468 offline web tests, 581 targeted Python tests, and 76 Node script checks. Build, ESLint, formatting, the changed-code Python gate and 126 offline route probes passed. The Python rerun used a short temporary directory to stay within the app's 80-character workspace limit.
 - Fallow found zero dead-code issues or duplicate groups. The six structural complexity findings also appear on main with the same scores.
 - In the earlier integration on `2e488751`, six pages of the retained Caesars preview matched at 1440 × 900. Forecast preserved all 118 controls and showed the four recorded FY2029E date spans. The earlier scanner benchmark over the same 9,537 tokens took 41–43 ms versus 84–85 ms at `1112176d`. Other prototype results were 326 to 1.4 ms for the 25-run library index, 323 to 151 ms for a repeated identical report response, and 770 to 693 ms for cold Chrome Overview rendering.
-
-## 2026-11-18 — Modules at once: an opt-in, off by default
-
-- Scope: synthetic adapters and canned replies only, one shared Linux container. Nothing above
-  width 1 has run against a live provider; no Windows. Ruling:
-  `docs/rulings/2026-11-18-parallel-modules.md` (owner, 2026-11-18: "Parallel modules
-  permitted.").
-- Changed: CP-OS can run up to four modules whose producers are accepted at once
-  (`--parallel-modules`, `CREDIT_OS_PARALLEL_MODULES`). The default is 1. Modules start and are
-  accepted in plan order, one budget serves the run, and a reserve blocked only by another
-  module's open hold waits for it to settle.
-- Width 1, two independent reviews: 35 launches over 19 scenarios (clean, rejections, kills,
-  interrupts, overruns, cap stops, relaunches) leave the same run folder, library, stdout and
-  exit codes as before, apart from one new `launch_started` event that every reader ignores.
-- Width 2 to 4: the cap held in every stress (3,114 rounds, never above the cap; no call sent
-  twice), and accepted handoffs, deliveries and the library are byte-identical to width 1 over
-  14 seeded runs. Three review rounds found and closed: a module that started and paid after
-  another had failed; a cap stop reported as a provider failure; a running module shown stopped
-  after a relaunch; a hang after an observer stop; a budget wait on a hold whose thread had
-  ended; an interrupt that did not exit.
-- Known limits of the opt-in, each stated in the ruling: a module in flight when another fails
-  keeps its request without an answer and must be repaired too before the run resumes; a call
-  can still begin in the instant between a bad reply and its report (5 of 80 trials built to
-  hit it, within 0.05 ms median); a later module's result waits for the modules before it,
-  which a live provider has not been seen to tolerate.
-- Commands: `tools/quality_gate.py` 0 findings; `tests/test_cpos_parallel.py` (58) with the
-  handoff, model, inbox, run page and proof files 1,453 passed; `tests/test_cpos_launch.py` and
-  the run start scheduler and service 1,172 passed. The reviewer's reproductions for the last
-  four findings were run again on the final commit: hang gone (1.1 s), second interrupt exits
-  in 1.3 s, no start after a bad reply, no call after its report.
-- Not verified: any live run above width 1; two sessions on one seat; Windows locks. The last
-  fix round was checked against its four findings only, not by a further open review.

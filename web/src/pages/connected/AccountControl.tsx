@@ -60,9 +60,11 @@ function redirectToSignIn() {
 export function AccountControl({
   enabled = true,
   navigate = redirectToSignIn,
+  onProfileUpdated,
 }: {
   enabled?: boolean;
   navigate?: (path: string) => void;
+  onProfileUpdated?: () => void;
 }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -116,6 +118,7 @@ export function AccountControl({
       }
       setAccount(updated);
       setMessage("Profile updated.");
+      onProfileUpdated?.();
     } catch {
       setMessage("The passcode could not be checked. Try again.");
     } finally {

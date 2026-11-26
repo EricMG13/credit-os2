@@ -2,7 +2,11 @@
 // page inside the frame that writes under that name. Null name: none is set yet.
 import { createContext, useContext } from "react";
 
-export type SignalViewerName = { name: string | null; initials: string | null };
+export type SignalViewerName = {
+  name: string | null;
+  initials: string | null;
+  profileType?: "reader" | "analyst" | "admin";
+};
 
 export const SignalViewerContext = createContext<SignalViewerName | null>(null);
 

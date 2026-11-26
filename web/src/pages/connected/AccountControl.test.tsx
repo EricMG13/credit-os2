@@ -54,9 +54,10 @@ describe("AccountControl", () => {
       throw new Error(`Unexpected request ${path}`);
     });
     const navigate = vi.fn();
+    const onProfileUpdated = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<AccountControl navigate={navigate} />);
+    render(<AccountControl navigate={navigate} onProfileUpdated={onProfileUpdated} />);
     const trigger = await screen.findByRole("button", { name: /Ada Analyst.*Reader/ });
     expect(trigger).toHaveClass("outline-focus-ring");
     fireEvent.click(trigger);
@@ -68,6 +69,7 @@ describe("AccountControl", () => {
     expect(await screen.findByRole("button", { name: /Ada Analyst.*Admin/ })).toBeInTheDocument();
     expect(passcode).toHaveValue("");
     expect(passcodeBodyMatches).toBe(true);
+    expect(onProfileUpdated).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls.filter(([path]) => requestPath(path) === "/auth/me")).toHaveLength(
       2,
     );
@@ -101,17 +103,44 @@ describe("AccountControl", () => {
     ];
     logSpies.forEach((spy) => spy.mockImplementation(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
-    render(<AccountControl navigate={vi.fn()} />);
+    const onProfileUpdated = vi.fn();
+    render(<AccountControl navigate={vi.fn()} onProfileUpdated={onProfileUpdated} />);
     fireEvent.click(await screen.findByRole("button", { name: /Ada Analyst.*Reader/ }));
     fireEvent.change(screen.getByLabelText("Admin passcode"), { target: { value: submitted } });
     fireEvent.click(screen.getByRole("button", { name: "Use passcode" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("That passcode was not accepted.");
     expect(!document.body.textContent.includes(submitted)).toBe(true);
+    expect(onProfileUpdated).not.toHaveBeenCalled();
     const logsContainPasscode = logSpies.some((spy) =>
       spy.mock.calls.some((call) => call.some((entry: unknown) => containsText(entry, submitted))),
     );
     expect(!logsContainPasscode).toBe(true);
+  });
+
+  it("does not notify Signal when the post-passcode account refresh is unreadable", async () => {
+    let meCalls = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL): Promise<Response> => {
+      if (requestPath(input) === "/auth/me") {
+        meCalls += 1;
+        return Promise.resolve(meCalls === 1 ? response(reader) : response(null));
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const onProfileUpdated = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AccountControl navigate={vi.fn()} onProfileUpdated={onProfileUpdated} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Ada Analyst.*Reader/ }));
+    fireEvent.change(screen.getByLabelText("Admin passcode"), {
+      target: { value: "submitted-passcode" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use passcode" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your profile could not be refreshed. Refresh to try again.",
+    );
+    expect(onProfileUpdated).not.toHaveBeenCalled();
+    expect(meCalls).toBe(2);
   });
 
   it("shows a fixed sign-out failure without rendering the server response or redirecting", async () => {

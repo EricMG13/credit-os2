@@ -51,6 +51,8 @@ type ListProps = {
   onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
   /** Absent or null with no service (the sample): no Edit and no Remove is drawn, whatever a comment says. */
   own?: OwnComments | null;
+  /** A live Admin's separate removal path; it does not replace the author's own permission. */
+  onModerate?: ((comment: SignalComment) => void) | null;
 };
 
 /** Own comments are labelled "You" whatever name they carry. */
@@ -110,7 +112,7 @@ function MessageText({ comment, quote }: { comment: SignalComment; quote: string
   if (comment.removed) {
     return (
       <p className="rounded-ds-sm border border-border-hairline bg-surface-card px-3 py-2 text-text-tertiary">
-        This comment was removed by its author.
+        This comment was removed.
       </p>
     );
   }
@@ -207,11 +209,12 @@ function OwnActions({
   isReply,
   onReply,
   own,
+  onModerate,
 }: {
   comment: SignalComment;
   author: string;
   isReply: boolean;
-} & Pick<ListProps, "onReply" | "own">) {
+} & Pick<ListProps, "onReply" | "own" | "onModerate">) {
   const mine = own ?? null;
   return (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -252,6 +255,18 @@ function OwnActions({
           Remove
         </button>
       )}
+      {onModerate == null || comment.removed ? null : (
+        <button
+          type="button"
+          aria-label={`Remove comment by ${author}`}
+          onClick={() => {
+            onModerate(comment);
+          }}
+          className={ACTION}
+        >
+          Remove
+        </button>
+      )}
     </span>
   );
 }
@@ -264,15 +279,23 @@ function MessageActions({
   isPressed,
   onToggle,
   own,
+  onModerate,
 }: {
   comment: SignalComment;
   author: string;
   isReply: boolean;
-} & Pick<ListProps, "onReply" | "isPressed" | "onToggle" | "own">) {
+} & Pick<ListProps, "onReply" | "isPressed" | "onToggle" | "own" | "onModerate">) {
   if (comment.removed) return null;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <OwnActions comment={comment} author={author} isReply={isReply} onReply={onReply} own={own} />
+      <OwnActions
+        comment={comment}
+        author={author}
+        isReply={isReply}
+        onReply={onReply}
+        own={own}
+        onModerate={onModerate}
+      />
       <Reactions comment={comment} isPressed={isPressed} onToggle={onToggle} />
     </div>
   );
@@ -297,6 +320,7 @@ function Message({
   isPressed,
   onToggle,
   own,
+  onModerate,
 }: {
   comment: SignalComment;
   /** What a reply quotes: its parent's text (none when the parent was removed). */
@@ -335,6 +359,7 @@ function Message({
               isPressed={isPressed}
               onToggle={onToggle}
               own={own}
+              onModerate={onModerate}
             />
           </>
         )}
@@ -344,6 +369,7 @@ function Message({
           isPressed={isPressed}
           onToggle={onToggle}
           own={own}
+          onModerate={onModerate}
         />
       </article>
     </li>

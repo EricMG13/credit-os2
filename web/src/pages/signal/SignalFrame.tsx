@@ -3,16 +3,7 @@
 // on the right, each scrolling on its own. Where the window has no room for the list beside the
 // page (parts/useWide.ts) the page takes the whole region and the list opens from a button ahead
 // of the page (ChannelPanel.tsx).
-import {
-  createContext,
-  useContext,
-  useId,
-  useRef,
-  useState,
-  type FC,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { createContext, useContext, useId, useRef, useState, type FC, type ReactNode } from "react";
 import {
   Bookmark,
   Building07,
@@ -26,18 +17,13 @@ import {
 } from "@untitledui/icons";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { StatusBadge } from "@/components/status/StatusBadge";
-import { Button as AriaButton } from "react-aria-components";
-import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
 import { AvatarLabelGroup } from "./parts/Avatar";
 import { PHONE_TARGETS } from "./parts/classes";
 import { useWide } from "./parts/useWide";
-import { useSignalActions } from "./actions";
 import { ChannelPanel } from "./ChannelPanel";
-import { NameDialog, initialsOf } from "./NameDialog";
 import { SignalViewerContext } from "./viewer";
 import type { SignalIssuerChannel, SignalScene } from "./slice";
-import { writes } from "./writes";
 
 /** Which channel the page is on; the item with the same key is marked current. */
 export type SignalCurrent =
@@ -337,37 +323,25 @@ function DigestMark({ paused, unread }: { paused: boolean; unread: boolean }) {
   );
 }
 
-/** Ruling 19: the viewer's name and role; the chip is a button that opens the name dialog either way. */
+/** The signed-in account's name and profile, as held by the actual Signal snapshot. */
 function NameChip({
   name,
   initials,
   roleLabel,
-  chipRef,
-  onPress,
 }: {
   name: string | null;
   initials: string | null;
   roleLabel: string;
-  chipRef: RefObject<HTMLButtonElement | null>;
-  onPress: () => void;
 }) {
   return (
     <div className="mt-auto px-2 pt-4 pb-1">
-      <Tooltip title="A display name, not a login. It only labels what you save and follow.">
-        <AriaButton
-          ref={chipRef}
-          onPress={onPress}
-          className="min-h-8 rounded-ds-sm text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          <AvatarLabelGroup
-            size="sm"
-            initials={initials ?? "?"}
-            own={name !== null}
-            title={name ?? <span className="text-text-link">Set your name</span>}
-            subtitle={roleLabel}
-          />
-        </AriaButton>
-      </Tooltip>
+      <AvatarLabelGroup
+        size="sm"
+        initials={initials ?? "?"}
+        own={name !== null}
+        title={name ?? "Account"}
+        subtitle={roleLabel}
+      />
     </div>
   );
 }
@@ -400,59 +374,6 @@ function anyUnread(scene: SignalScene): boolean {
   );
 }
 
-/** The viewer's name as the frame shows it, and the dialog that sets it. */
-function useViewerName(viewer: SignalScene["snapshot"]["viewer"]) {
-  const actions = useSignalActions();
-  // With no service a typed name is in memory only and lasts until the page is left. With one it
-  // shows at once and is sent, and once answered the slice says who is reading: accepted, the
-  // snapshot read again holds the name as the service keeps it; refused, the slice still holds the
-  // name before, and the dialog opens again on the refused name with the service's sentence.
-  const [typed, setTyped] = useState<string | null>(null);
-  const [open, setOpen] = useState(viewer.name === null);
-  const [refused, setRefused] = useState<{ name: string; reason: string } | null>(null);
-  const send = (next: string) => {
-    if (actions === null) return;
-    void actions.write(writes.rename(next)).then(({ refusal: reason }) => {
-      setTyped(null);
-      if (reason === null) return;
-      setRefused({ name: next, reason });
-      setOpen(true);
-    });
-  };
-  // What the live region says, with a counter: the region stays on the page and each name set puts a
-  // fresh node inside it (as Share does), so the same sentence twice is announced twice.
-  const [said, setSaid] = useState({ count: 0, text: "" });
-  const name = typed ?? viewer.name;
-  // A typed name with no letter or digit has no initials: the avatar draws "?" as it does with no name.
-  const typedInitials = typed === null ? "" : initialsOf(typed);
-  const initials =
-    typed === null || typed === viewer.name
-      ? viewer.initials
-      : typedInitials === ""
-        ? "?"
-        : typedInitials;
-  return {
-    name,
-    initials,
-    said,
-    dialog: { open, current: name, refused },
-    ask: () => {
-      setOpen(true);
-    },
-    submit: (next: string) => {
-      setTyped(next);
-      setSaid({ count: said.count + 1, text: `Signed in as ${next}` });
-      setOpen(false);
-      setRefused(null);
-      send(next);
-    },
-    cancel: () => {
-      setOpen(false);
-      setRefused(null);
-    },
-  };
-}
-
 const SKIP =
   "sr-only outline-focus-ring focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-ds-sm focus:bg-surface-card focus:px-3 focus:py-2 focus:text-text-primary";
 
@@ -468,28 +389,20 @@ export function SignalFrame({
   children: ReactNode;
 }) {
   const content = useRef<HTMLDivElement>(null);
-  const chipRef = useRef<HTMLButtonElement>(null);
   const listButton = useRef<HTMLButtonElement>(null);
-  const viewer = useViewerName(scene.snapshot.viewer);
   const wide = useWide();
   // The list's panel, in a narrow window only: choosing a destination closes it.
   const [listOpen, setListOpen] = useState(false);
   // A window made wide has the list beside the page; made narrow again, the panel starts closed.
   if (wide && listOpen) setListOpen(false);
-  const { name, initials } = viewer;
+  const { name, initials, profileType } = scene.snapshot.viewer;
   const list = (
     <ChannelList
       scene={scene}
       current={current}
       follows={follows}
       chip={
-        <NameChip
-          name={name}
-          initials={initials}
-          roleLabel={scene.snapshot.viewer.roleLabel}
-          chipRef={chipRef}
-          onPress={viewer.ask}
-        />
+        <NameChip name={name} initials={initials} roleLabel={scene.snapshot.viewer.roleLabel} />
       }
     />
   );
@@ -506,16 +419,6 @@ export function SignalFrame({
         Skip to the feed
       </a>
       {wide ? list : null}
-      <NameDialog
-        {...viewer.dialog}
-        onSubmit={viewer.submit}
-        onCancel={viewer.cancel}
-        // The chip is in the list: beside the page, or in the panel while that is open.
-        onGone={() => (chipRef.current ?? listButton.current)?.focus()}
-      />
-      <div role="status" className="sr-only">
-        {viewer.said.count > 0 ? <span key={viewer.said.count}>{viewer.said.text}</span> : null}
-      </div>
       <div
         id="signal-content"
         ref={content}
@@ -550,7 +453,9 @@ export function SignalFrame({
         )}
         {/* The shell's page padding; beside the list the left side is the 16px gap between tiles. */}
         <div className={cx("p-4 sm:p-8", wide && "sm:pl-4")}>
-          <SignalViewerContext value={{ name, initials }}>{children}</SignalViewerContext>
+          <SignalViewerContext value={{ name, initials, profileType }}>
+            {children}
+          </SignalViewerContext>
         </div>
       </div>
     </div>

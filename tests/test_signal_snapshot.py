@@ -357,6 +357,7 @@ def test_the_writer_sees_every_view_with_its_follows_and_saves(sample):
         "name": "Mara L",
         "initials": "ML",
         "role": "writer",
+        "profileType": "analyst",
         "roleLabel": "Writer",
     }
     feed = snap["feed"]
@@ -458,6 +459,7 @@ def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):
         "name": "Tobias O",
         "initials": "TO",
         "role": "reader",
+        "profileType": "reader",
         "roleLabel": "Reader",
     }
     assert snap["feed"]["views"]["for-you"] == EMPTY_RANKED
@@ -470,7 +472,13 @@ def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):
 
 def test_an_owner_writes_and_is_labelled_owner(sample):
     viewer = _snap(sample, User("Ida Owner", "owner"))["viewer"]
-    assert viewer == {"name": "Ida Owner", "initials": "IO", "role": "writer", "roleLabel": "Owner"}
+    assert viewer == {
+        "name": "Ida Owner",
+        "initials": "IO",
+        "role": "writer",
+        "profileType": "admin",
+        "roleLabel": "Owner",
+    }
 
 
 def test_a_save_and_a_follow_show_in_the_next_snapshot(sample):

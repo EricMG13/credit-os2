@@ -146,6 +146,7 @@ def test_the_snapshot_of_a_named_reader(svc, cookie):
         "name": "Reader",
         "initials": "R",
         "role": "reader",
+        "profileType": "reader",
         "roleLabel": "Reader",
     }
     latest = snap["feed"]["views"]["latest"]
