@@ -55,6 +55,19 @@ Owner actions before Signal's sources and AI are switched on (none is taken by t
 - AI pass: set the cap with `signal ai cap` (at most USD 25 a month) and start the application
   with `CREDIT_OS_SIGNAL_AI=1`.
 
+## Credit Snapshot workbook
+
+Owner, 2026-11-26: Bloomberg is not installed on this Mac, so cells fed by Bloomberg formulas
+cannot be populated here, and formulas other than arithmetic stay unfilled. The spec
+(`docs/superpowers/specs/2026-11-25-deliverables-credit-snapshot.md`, R4 and R9b) keys the
+Bloomberg-fed cells on each instrument's FIGI, extracted from the RV book; that extraction, of
+the FIGI and the Bloomberg ID, is being built in the Credit Snapshot workbook PR, not yet merged.
+The same formula works with either identifier, so one is enough.
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 14 | **Bloomberg formulas in the Credit Snapshot workbook: the Bloomberg-fed cells (R4) filled by formulas keyed on each instrument's FIGI or Bloomberg ID cell** | **Work PC only** | Not started |
+
 ## Open decisions
 
 - Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).
