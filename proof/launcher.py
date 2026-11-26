@@ -11,15 +11,20 @@ import sys
 import tempfile
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 from proof import DUMMY_KEY
+
+if TYPE_CHECKING:
+    from deploy_workflow.owners.cpos_launch import Prepared
 
 FILING = Path(__file__).with_name("northbridge-filing.txt")
 PORTFOLIO = Path(__file__).with_name("northbridge-portfolio.xlsx")
 AGREEMENT = Path(__file__).with_name("northbridge-credit-agreement.txt")
 HANDOFFS = Path(__file__).with_name("handoffs")
+STRUCTURAL_PHASES = {"CP-4": ("CP-4B",)}
+STRUCTURAL_SCOPE = "Analysis scope: Core analysis and Structural priority."
 
 NO_DOCUMENT = "Not supplied: no executed governing document"
 EDGES = ("From", "Relationship", "Edge type", "To", "Evidence")
@@ -118,12 +123,19 @@ def reject_network(*_args: object, **_kwargs: object) -> None:
 def canned_handoff(context: dict[str, Any], case: str, *, gated: bool = False) -> str:
     """The synthetic reply for one module: its canned handoff. In a run that declares no legal
     documents (``gated``), CP-4 gets the blocked handoff its source gate requires and CP-3, which
-    then owns the report's Capital structure, gets that section as well."""
+    then owns the report's Capital structure, gets that section as well. The approved CP-4B
+    case gets its own findings and scope line."""
     module = context["module_id"]
     if not re.fullmatch(r"CP-[A-Z0-9]+", module):
         raise ValueError("unexpected module in the synthetic request")
     blocked = module == "CP-4" and gated
-    findings = BLOCKED_CP4 if blocked else (HANDOFFS / f"{module}.md").read_text(encoding="utf-8")
+    structural = module == "CP-4" and context.get("run", {}).get("phase_selection") == {
+        "CP-4": ["CP-4B"]
+    }
+    fixture = "CP-4-structural" if structural else module
+    findings = BLOCKED_CP4 if blocked else (HANDOFFS / f"{fixture}.md").read_text(encoding="utf-8")
+    if structural:
+        case += f"\n\n{STRUCTURAL_SCOPE}"
     if module == "CP-3" and gated:
         findings = findings.replace(
             "\n## Calculations", f"\n{capital_structure()}\n## Calculations", 1
@@ -135,6 +147,21 @@ def canned_handoff(context: dict[str, Any], case: str, *, gated: bool = False) -
             *(BLOCKED_FRONT if blocked else ()),
             *(f"# {module}", "", "## Request", case, "", "## Sources", "", *sources, "", findings),
         ]
+    )
+
+
+def supports_custom_case(prepared: Prepared, legal: str, source_names: set[str]) -> bool:
+    """The one scoped case whose canned reply matches its sources and approved method."""
+    run = prepared.plan.run
+    return (
+        run.pathway == "custom"
+        and run.case_kind == "synthetic"
+        and run.issuer_name == "Northbridge Synthetic Group"
+        and run.as_of.isoformat() == "2025-03-31"
+        and prepared.ordered == ("CP-0", "CP-1", "CP-4")
+        and run.phase_selection == STRUCTURAL_PHASES
+        and legal == "executed"
+        and source_names == {FILING.name, AGREEMENT.name}
     )
 
 
@@ -156,11 +183,13 @@ def run_engine(argv: list[str]) -> int:
     if args.out is None or not args.no_library or not args.live:
         raise ValueError("synthetic proof requires a scheduler output and library ownership")
     digest = verify_upload(args.sources, args.context)
-    gated = no_legal_documents(load_context(args.context.read_bytes()))
-    workbook = args.sources / PORTFOLIO.name
-    workbook_digest = (
-        hashlib.sha256(workbook.read_bytes()).hexdigest() if workbook.is_file() else None
-    )
+    submitted_context = load_context(args.context.read_bytes())
+    gated = no_legal_documents(submitted_context)
+    source_digests = {FILING.name: digest}
+    for fixture in (PORTFOLIO, AGREEMENT):
+        uploaded = args.sources / fixture.name
+        if uploaded.is_file():
+            source_digests[fixture.name] = hashlib.sha256(fixture.read_bytes()).hexdigest()
 
     with tempfile.TemporaryDirectory(prefix="credit-os-proof-") as temp:
         prepared = cpos_launch.prepare(
@@ -173,18 +202,22 @@ def run_engine(argv: list[str]) -> int:
             prior="none",
         )
     run = prepared.plan.run
-    if run.pathway != "credit_snapshot" or args.prior != "none":
-        raise ValueError("synthetic proof requires a first Credit Snapshot run")
+    if args.prior != "none" or (
+        run.pathway != "credit_snapshot"
+        and not supports_custom_case(
+            prepared, submitted_context.attachments.legal_documents, set(source_digests)
+        )
+    ):
+        raise ValueError(
+            "synthetic proof requires a first Credit Snapshot run or the documented "
+            "Northbridge Structural priority case"
+        )
 
     def complete(_adapter: CopilotAdapter, request: TurnRequest, **_kwargs: object) -> AdapterReply:
         context = json.loads(request.messages[1].text)
-        if context["sources"].get(FILING.name) != digest:
-            raise ValueError("CP-OS request did not retain the uploaded filing digest")
-        if (
-            workbook_digest is not None
-            and context["sources"].get(PORTFOLIO.name) != workbook_digest
-        ):
-            raise ValueError("CP-OS request did not retain the uploaded workbook digest")
+        for name, digest in source_digests.items():
+            if context["sources"].get(name) != digest:
+                raise ValueError(f"CP-OS request did not retain the uploaded {name} digest")
         if context["run"] != run.model_dump(mode="json"):
             raise ValueError("CP-OS request did not retain the submitted run identity")
         text = canned_handoff(context, f"{run.issuer_name} as of {run.as_of}.", gated=gated)

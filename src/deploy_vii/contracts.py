@@ -211,6 +211,11 @@ class Run(Contract):
         default_factory=lambda data: PATHWAY_MODULES[data.get("pathway", "credit_snapshot")],
     )
 
+    # Effective custom phases by parent. A missing parent uses the whole module.
+    phase_selection: dict[str, tuple[str, ...]] = Field(
+        default_factory=dict, exclude_if=lambda v: not v
+    )
+
 
 class Span(Contract):
     locator: Text

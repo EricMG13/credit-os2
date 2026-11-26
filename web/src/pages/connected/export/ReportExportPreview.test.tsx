@@ -12,7 +12,7 @@ const body = `${finding}\nBasis: https://private.example/filing`;
 
 function fixture({
   scope = folder,
-  pathway = "credit_snapshot",
+  pathway = "earnings_update",
   verified = true,
   leadBody = body,
   asOf = "2025-02-04",
@@ -35,7 +35,10 @@ function fixture({
     publicationVerified: verified,
     assessmentScope: "partial",
     methodChanges: ["Internal detail"],
-    modules: { "CP-2": { outputs: [cp2], default: cp2 } },
+    modules: {
+      "CP-2": { outputs: [cp2], default: cp2 },
+      "CP-1B": { outputs: [`${folder}/CP-1B.md`], default: `${folder}/CP-1B.md` },
+    },
     lead: { module: "CP-2", output: cp2, sha256: sha, line: 10, text: leadBody },
     evidence: {
       sources: [],
@@ -55,6 +58,14 @@ function fixture({
       runs: { [folder]: run },
       outputs: {
         [cp2]: { id: cp2, run: folder, module: "CP-2", sha256: sha, href: cp2, label: "" },
+        [`${folder}/CP-1B.md`]: {
+          id: `${folder}/CP-1B.md`,
+          run: folder,
+          module: "CP-1B",
+          sha256: sha,
+          href: `${folder}/CP-1B.md`,
+          label: "",
+        },
       },
       handoffs: {
         [sha]: [
@@ -72,6 +83,33 @@ function fixture({
     chips: {},
     preview: isPreview ? { reason: "Qualified retained evidence only." } : undefined,
   } satisfies Snapshot;
+}
+
+function earningsFixture() {
+  const snapshot = fixture({ pathway: "earnings_update" });
+  const run = snapshot.workspace.runs[folder];
+  const id = `${folder}/CP-1B.md`;
+  const digest = "f".repeat(64);
+  run.modules["CP-1B"] = { outputs: [id], default: id };
+  run.lead = { module: "CP-1B", output: id, sha256: digest, line: 10, text: finding };
+  snapshot.workspace.outputs[id] = {
+    id,
+    run: folder,
+    module: "CP-1B",
+    sha256: digest,
+    href: id,
+    label: "",
+  };
+  snapshot.workspace.handoffs[digest] = [
+    { heading: "Findings", level: 2, line: 3, blocks: [] },
+    {
+      heading: "Bottom line",
+      level: 3,
+      line: 8,
+      blocks: [{ type: "text", line: 10, end: 10, text: finding }],
+    },
+  ];
+  return snapshot;
 }
 
 function open(hash: string, data: Snapshot = fixture()) {
@@ -113,7 +151,7 @@ it("prints the exact qualified scoped read after fonts and layout, without addin
     },
   });
   const print = vi.spyOn(window, "print").mockImplementation(() => {});
-  const fetch = open("#export/credit-snapshot", fixture({ isPreview: true }));
+  const fetch = open("#export/earnings-update", fixture({ isPreview: true }));
   const button = await screen.findByRole("button", { name: "Print / Save PDF" });
   expect(button).toBeDisabled();
   expect(screen.getByText("Preparing print layout…")).toBeInTheDocument();
@@ -123,7 +161,7 @@ it("prints the exact qualified scoped read after fonts and layout, without addin
   expect(screen.getByText(/Partial assessment.*Earlier methods.*Test preview/)).toBeInTheDocument();
   expect(screen.getByText(/Turn off/)).toHaveTextContent("Headers and footers");
   await waitFor(() => {
-    expect(document.title).toBe("Credit Snapshot — Example Credit — Credit OS");
+    expect(document.title).toBe("Earnings Update — Example Credit — Credit OS");
   });
   expect(document.querySelector(".report-export-paper")?.textContent).not.toContain(
     "private.example",
@@ -147,23 +185,82 @@ it("prints the exact qualified scoped read after fonts and layout, without addin
   expect(window.location.hash).toBe("#overview");
 });
 
-it("opens from the menu and returns to the same evidence tab on the same run", async () => {
-  const fetch = open("#evidence/sources");
-  const button = await screen.findByRole("button", { name: "Export PDF" });
-  fireEvent.keyDown(button, { key: "ArrowDown" });
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Credit Snapshot" }));
-  await screen.findByRole("button", { name: "Print / Save PDF" });
-  expect(window.location.hash).toBe("#export/credit-snapshot");
+it("synthetic Example Credit as of 2025-02-04 opens the applicable purpose tile in print", async () => {
+  const print = vi.spyOn(window, "print").mockImplementation(() => {});
+  const fetch = open("#deliverables", earningsFixture());
+  expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Earnings Update.*Open print dialog/ }));
+  await waitFor(() => {
+    expect(print).toHaveBeenCalledOnce();
+  });
+  expect(window.location.hash).toBe("#export/earnings-update");
+  expect(window.history.state).not.toHaveProperty("reportPrintOnReady");
   fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
   await waitFor(() => {
-    expect(window.location.hash).toBe("#evidence/sources");
+    expect(window.location.hash).toBe("#deliverables");
   });
+  expect(screen.getByRole("button", { name: /Earnings Update.*Open print dialog/ })).toHaveFocus();
   expect(window.location.pathname).toBe(address);
   expect(fetch).toHaveBeenCalledOnce();
-  // Closing hands focus back to the control that opened the preview, not to the page body.
+  window.history.forward();
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Export PDF" })).toHaveFocus();
+    expect(window.location.hash).toBe("#export/earnings-update");
   });
+  const printButton = await screen.findByRole("button", { name: "Print / Save PDF" });
+  await waitFor(() => expect(printButton).toBeEnabled());
+  expect(print).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
+  await waitFor(() => {
+    expect(window.location.hash).toBe("#deliverables");
+  });
+  expect(screen.getByRole("button", { name: /Earnings Update.*Open print dialog/ })).toHaveFocus();
+});
+
+it("synthetic Example Credit as of 2025-02-04 shows a workbook tile with no report contents", async () => {
+  open("#deliverables");
+  expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
+  const download = screen.getByRole("link", { name: /Credit Snapshot.*Excel workbook/i });
+  expect(download).toHaveAttribute(
+    "href",
+    `/connected/deliverables/${encodeURIComponent(folder)}/credit-snapshot.xlsx`,
+  );
+  expect(screen.queryByRole("button", { name: "Export PDF" })).toBeNull();
+  expect(screen.queryByRole("switch", { name: "Highlight source icons" })).toBeNull();
+  expect(screen.queryByText(finding)).toBeNull();
+  expect(screen.queryByText(/private\.example/)).toBeNull();
+  expect(screen.queryByText(/CP-2/)).toBeNull();
+});
+
+it.each(["Scoped check of CP-1B.", "CP-1B-only review", "CP-1B/earnings review"])(
+  "synthetic Example Credit as of 2025-02-04 withholds a purpose print for module-coded qualification %s",
+  async (reason) => {
+    const snapshot = fixture({ isPreview: true });
+    if (snapshot.preview) snapshot.preview.reason = reason;
+    open("#deliverables", snapshot);
+    expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
+    expect(screen.queryByText(/CP-1B|Scoped check/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Earnings Update.*Open print dialog/ })).toBeNull();
+  },
+);
+
+it.each([
+  ["unverified", fixture({ verified: false })],
+  ["preview-only", fixture({ isPreview: true })],
+  ["wrong-scope", fixture({ scope: "another-run" })],
+  ["unscoped", fixture({ scope: null })],
+])(
+  "synthetic Example Credit as of 2025-02-04 does not offer a workbook for a %s report",
+  async (_case, snapshot) => {
+    open("#deliverables", snapshot);
+    expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Excel workbook/i })).toBeNull();
+  },
+);
+
+it("synthetic Example Credit as of 2025-02-04 has retired the Credit Snapshot PDF route", async () => {
+  open("#export/credit-snapshot");
+  expect(await screen.findByText("This PDF format is unavailable.")).toBeInTheDocument();
+  expect(document.querySelector(".report-export-paper")).toBeNull();
 });
 
 it.each([
@@ -175,26 +272,30 @@ it.each([
   [
     "private URL in finding",
     fixture({ leadBody: "See file:///private/ledger for analysis." }),
-    "no verified credit view",
+    "no assessable comparative earnings finding",
   ],
   [
     "local Windows path in finding",
     fixture({ leadBody: "See C:\\broker\\secret for analysis." }),
-    "no verified credit view",
+    "no assessable comparative earnings finding",
   ],
-  ["invalid chronology", fixture({ asOf: "2025-02-30" }), "no verified credit view"],
+  [
+    "invalid chronology",
+    fixture({ asOf: "2025-02-30" }),
+    "no assessable comparative earnings finding",
+  ],
   [
     "tilde path in finding",
     fixture({ leadBody: "The work is stored in ~/private/ledger." }),
-    "no verified credit view",
+    "no assessable comparative earnings finding",
   ],
   [
     "actual folder in finding",
     fixture({ leadBody: `Reviewed ${folder}.` }),
-    "no verified credit view",
+    "no assessable comparative earnings finding",
   ],
 ])("rejects direct entry with %s", async (_case, snapshot, reason) => {
-  open("#export/credit-snapshot", snapshot);
+  open("#export/earnings-update", snapshot);
   expect(await screen.findByText(new RegExp(reason))).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Print / Save PDF" })).toBeNull();
   expect(document.querySelector("[data-print-ready]")).toBeNull();
@@ -203,72 +304,9 @@ it.each([
 it("withholds the template and title for an issuer heading that exposes the actual run key", async () => {
   const snapshot = fixture();
   snapshot.workspace.runs[folder].issuer = `Example Credit (${folder})`;
-  open("#export/credit-snapshot", snapshot);
-  expect(await screen.findByText(/no verified credit view/)).toBeVisible();
+  open("#export/earnings-update", snapshot);
+  expect(await screen.findByText(/no assessable comparative earnings finding/)).toBeVisible();
   expect(document.title).not.toContain(folder);
-});
-
-it("does not call a generically unavailable decision an owner-recorded hold", async () => {
-  const snapshot: Snapshot = fixture();
-  const run = snapshot.workspace.runs[folder];
-  if (!run) throw new Error("Expected the fixture run");
-  const id = "committee";
-  run.modules["CP-6"] = { outputs: [id], default: id };
-  snapshot.workspace.outputs[id] = {
-    id,
-    run: folder,
-    module: "CP-6",
-    sha256: "d".repeat(64),
-    href: "",
-    label: "",
-  };
-  open("#export/credit-snapshot", snapshot);
-  await screen.findByText("A published decision is unavailable for this run.");
-  const footer = document.documentElement.style.getPropertyValue("--report-export-scope");
-  expect(footer).toContain("Committee action and size unavailable");
-  expect(footer).not.toContain("Committee action and size withheld");
-  expect(screen.queryByText(/clearance/)).toBeNull();
-});
-
-it("prints a readable decision with no recorded hold as not shown, in the body and the footer", async () => {
-  const snapshot: Snapshot = fixture();
-  const run = snapshot.workspace.runs[folder];
-  if (!run) throw new Error("Expected the fixture run");
-  const id = "committee";
-  const committeeSha = "d".repeat(64);
-  run.modules["CP-6"] = { outputs: [id], default: id };
-  snapshot.workspace.outputs[id] = {
-    id,
-    run: folder,
-    module: "CP-6",
-    sha256: committeeSha,
-    href: "",
-    label: "",
-  };
-  snapshot.workspace.handoffs[committeeSha] = [
-    { heading: "Findings", level: 2, line: 3, blocks: [] },
-    {
-      heading: "Bottom line",
-      level: 3,
-      line: 8,
-      blocks: [{ type: "text", line: 10, end: 10, text: "Add 1.00% NAV." }],
-    },
-  ];
-  open("#export/credit-snapshot", snapshot);
-  const paper = await screen.findByText(
-    "This decision is not shown in this report because no clearance for it is recorded.",
-  );
-  expect(paper.closest(".report-export-paper")).not.toBeNull();
-  await waitFor(() => {
-    expect(document.documentElement.style.getPropertyValue("--report-export-scope")).toContain(
-      "Committee action and size not shown",
-    );
-  });
-  const footer = document.documentElement.style.getPropertyValue("--report-export-scope");
-  expect(footer).not.toMatch(/Committee action and size (?:unavailable|withheld)/);
-  expect(document.querySelector(".report-export-paper")?.textContent).not.toMatch(
-    /Overview|holds|Add 1\.00% NAV/,
-  );
 });
 
 it("keeps an obsolete font completion from unlocking an unsupported route", async () => {
@@ -281,10 +319,10 @@ it("keeps an obsolete font completion from unlocking an unsupported route", asyn
       }),
     },
   });
-  open("#export/credit-snapshot");
+  open("#export/earnings-update");
   await screen.findByText("Preparing print layout…");
   act(() => {
-    window.location.hash = "#export/credit-snapshot/extra";
+    window.location.hash = "#export/earnings-update/extra";
     window.dispatchEvent(new HashChangeEvent("hashchange"));
   });
   expect(screen.getByText("This PDF format is unavailable.")).toBeInTheDocument();
@@ -305,7 +343,7 @@ it("unlocks print only once every chart has a laid-out SVG", async () => {
       }),
     },
   });
-  open("#export/credit-snapshot");
+  open("#export/earnings-update");
   const button = await screen.findByRole("button", { name: "Print / Save PDF" });
   const chart = document.createElement("div");
   chart.className = "recharts-responsive-container";
@@ -327,7 +365,7 @@ it("unlocks print only once every chart has a laid-out SVG", async () => {
 it("keeps an unsafe preview qualification out of the document", async () => {
   const snapshot = fixture({ isPreview: true });
   if (snapshot.preview) snapshot.preview.reason = "Uses material under /private/tmp/sources.";
-  open("#export/credit-snapshot", snapshot);
+  open("#export/earnings-update", snapshot);
   expect(
     await screen.findByText("The test preview qualification could not be included in the PDF."),
   ).toBeInTheDocument();
@@ -344,7 +382,7 @@ it("withholds print when a figure supplies unsafe visible text", async () => {
       }),
     },
   });
-  open("#export/credit-snapshot");
+  open("#export/earnings-update");
   const button = await screen.findByRole("button", { name: "Print / Save PDF" });
   const label = document.createElement("p");
   label.textContent = "https://internal.example/chart-data";
@@ -363,7 +401,7 @@ it("keeps the layout message and a retry when the print layout does not become r
     configurable: true,
     value: () => Promise.reject(new Error("decode failed")),
   });
-  open("#export/credit-snapshot");
+  open("#export/earnings-update");
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The print layout could not be prepared.",
   );
@@ -380,7 +418,7 @@ async function previewWith(build: (paper: Element) => void) {
       }),
     },
   });
-  open("#export/credit-snapshot");
+  open("#export/earnings-update");
   const button = await screen.findByRole("button", { name: "Print / Save PDF" });
   const paper = document.querySelector(".report-export-paper");
   if (!paper) throw new Error("Expected the paper");

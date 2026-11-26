@@ -12,6 +12,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal
 
@@ -19,6 +20,7 @@ import pytest
 from openpyxl import load_workbook
 from test_cpos_launch import context_file, issuer_folder
 
+from deploy_vii.contracts import Span
 from deploy_vii.inputs import portfolio_export as pe
 from deploy_vii.inputs.__main__ import main as self_check
 from deploy_vii.inputs.csv_text import CsvDecodeError, decode_csv_text
@@ -1492,6 +1494,48 @@ def test_outside_a_reading_each_call_parses_again_and_inside_one_it_does_not(mon
         assert pe.sheet_rows(raw, "Holdings") == pe.sheet_rows(raw, "Holdings")
         pe.far_cells(raw, "Holdings")
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("exact_first", [False, True])
+def test_exact_sheet_reads_keep_distinct_titles_and_share_the_resolved_cache(
+    monkeypatch: pytest.MonkeyPatch, *, exact_first: bool
+) -> None:
+    """Mocked workbook for Northbridge Holdings plc, 2026-03-31, synthetic quotes."""
+    first = {(1, 1): Span(locator="sheet:Loan%20quotes!A1", text="97.25")}
+    later = {(1, 1): Span(locator="sheet:Loan%20%20quotes!A1", text="98.50")}
+    raw = b"synthetic quote workbook"
+    parses: list[bytes] = []
+    layouts: list[str] = []
+    layout = pe._layout
+
+    def parse(raw: bytes) -> pe.Book:
+        parses.append(raw)
+        return pe.Book({"Loan quotes": first, "Loan  quotes": later, "Empty": {}})
+
+    def layout_counted(
+        sheet: Mapping[tuple[int, int], Span], date1904: bool, cached: bool
+    ) -> tuple[pe.Rows, int]:
+        layouts.append(sheet[1, 1].text if sheet else "empty")
+        return layout(sheet, date1904, cached)
+
+    monkeypatch.setattr(pe, "_parse_book", parse)
+    monkeypatch.setattr(pe, "_layout", layout_counted)
+
+    with pe.reading():
+        assert pe.workbook_sheets(raw) == ("Loan quotes", "Loan  quotes", "Empty")
+        if exact_first:
+            assert pe.sheet_rows(raw, "Loan  quotes", exact=True) == [(1, [pe.Cell("98.50")])]
+        assert pe.sheet_rows(raw, "  LOAN   QUOTES ") == [(1, [pe.Cell("97.25")])]
+        assert pe.sheet_rows(raw, "Loan  quotes") == [(1, [pe.Cell("97.25")])]
+        assert pe.sheet_rows(raw, "Loan quotes", exact=True) == [(1, [pe.Cell("97.25")])]
+        assert pe.sheet_rows(raw, "Loan  quotes", exact=True) == [(1, [pe.Cell("98.50")])]
+        assert pe.sheet_rows(raw, "Loan   quotes", exact=True) is None
+        assert pe.sheet_rows(raw, "LOAN QUOTES", exact=True) is None
+        assert pe.sheet_rows(raw, "Empty", exact=True) == []
+        assert pe.far_cells(raw, "loan quotes") == 0
+
+    assert parses == [raw]
+    assert sorted(layouts) == ["97.25", "98.50", "empty"]
 
 
 SHEET = "xl/worksheets/sheet1.xml"

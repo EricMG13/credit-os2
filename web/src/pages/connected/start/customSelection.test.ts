@@ -8,6 +8,32 @@
 import { describe, expect, it } from "vitest";
 import cases from "./customSelection.cases.json";
 import { OFFERED, PRESETS, complete, estimate, usd, type CustomEffort } from "./customSelection";
+import { PHASES, phaseScopeNote, togglePhase } from "./customSelection";
+
+describe("custom phase selections", () => {
+  it("keeps the whole module as the default until a phase is selected", () => {
+    expect(PHASES["CP-4"]?.map(({ id }) => id)).toEqual(["CP-4A", "CP-4B", "CP-4D"]);
+  });
+
+  it("labels the offered phases by reader name and explains scope", () => {
+    const phases = Object.values(PHASES).flat();
+    expect(phases.map(({ name }) => name)).not.toContain("Unnamed module");
+    expect(
+      phases.every(({ answers, upstream }) => answers.length > 20 && upstream.length > 10),
+    ).toBe(true);
+    expect(phaseScopeNote("CP-4", false)).toBe("Whole module runs.");
+    expect(phaseScopeNote("CP-4", true)).toMatch(/Core analysis and selected phases run/);
+    expect(PHASES["CP-4"]?.find(({ id }) => id === "CP-4D")?.related).toMatch(
+      /Structural priority also runs/,
+    );
+  });
+
+  it("submits a parent and its chosen phases, reverting to full scope after the last phase is cleared", () => {
+    expect(togglePhase(["CP-4"], "CP-4", "CP-4D")).toEqual(["CP-4", "CP-4D"]);
+    expect(togglePhase(["CP-4", "CP-4D"], "CP-4", "CP-4B")).toEqual(["CP-4", "CP-4B", "CP-4D"]);
+    expect(togglePhase(["CP-4", "CP-4D"], "CP-4", "CP-4D")).toEqual(["CP-4"]);
+  });
+});
 
 /** The custom pathway's ceiling in the caps table the page loads (contracts.PATHWAY_CAP_USD). */
 const CEILING = 50;
