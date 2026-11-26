@@ -10,7 +10,7 @@ import subprocess
 import sys
 import unicodedata
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Literal, cast, get_args
@@ -160,15 +160,43 @@ def save(layout: Layout, record: Record) -> None:
     platform_io.write_atomic(target, json.dumps(asdict(record), indent=2), sync=True)
 
 
+def _typed(record: Record) -> None:
+    """``ValueError`` naming the first field whose value is not its declared type.
+
+    A hand-edited record must not reach ``alive`` or the clock code as a wrong type, which would
+    stop the poll loop; it lands in the unreadable path instead. ``approved_summary_limits`` is
+    checked by its own validator."""
+    kinds = {"int": int, "bool": bool, "str": str, "Status": str}
+    for field in fields(Record):
+        value, kind = getattr(record, field.name), str(field.type)
+        if kind in ("int", "bool"):  # bool is an int: neither may stand in for the other
+            good = type(value) is kinds[kind]
+        elif kind in kinds:
+            good = isinstance(value, str)
+        elif kind == "tuple[str, ...]":
+            good = isinstance(value, tuple) and all(isinstance(v, str) for v in value)
+        else:
+            continue
+        if not good:
+            raise ValueError(f"{field.name} is not a valid {kind}")
+
+
+def _names(value: object) -> tuple[object, ...]:
+    if not isinstance(value, list):
+        raise TypeError("a name list is not a list")
+    return tuple(value)
+
+
 def _load(path: Path) -> Record:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        data["files"] = tuple(data.get("files", ()))
-        data["modules"] = tuple(data.get("modules", ()))
+        data["files"] = _names(data.get("files", []))
+        data["modules"] = _names(data.get("modules", []))
         data["approved_summary_limits"] = approved_summary_limits(
             data.get("approved_summary_limits")
         )
         record = Record(**data)
+        _typed(record)
         if record.status not in get_args(Status):
             raise ValueError(f"unknown status {record.status!r}")
         return record

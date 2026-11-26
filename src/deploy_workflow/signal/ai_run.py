@@ -110,18 +110,26 @@ def story_pass(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_pass.R
 
 
 class DigestsLeftDue(RuntimeError):
-    """A pass left digests due by a fault (a busy database, or a call the adapter did not send);
-    digests left waiting for a limit or a refusal are not a fault."""
+    """A pass left digests due by a fault (a busy database before anything was sent, or a call the
+    adapter did not send), or holds digests whose claim it could not release (a busy database after
+    a paid call: not due again, the claim is held until older than ``ai_ledger.CALL_BOUND``, when
+    the next pass or the digest's "Run once now" records it as unrecorded); digests left waiting
+    for a limit or a refusal are not a fault."""
 
 
 def digest_pass(
     db: sqlite3.Connection, now: datetime, setup: Setup
 ) -> list[tuple[int, digests.Run]]:
     """The due digests, with the AI pass's writer while it is on. DigestsLeftDue when the pass
-    left any due for the next tick, so the loop's digest error says so."""
+    left any due for the next tick or holds any claim, so the loop's digest error says so."""
     with session(db, now, setup) as job:
         writer = None if job is None else ai_digest.Writer(db, job.model, job.guard, now)
         ran = digests.run_due(db, now, writer)
+    said = []
     if ran.left_due:
-        raise DigestsLeftDue(f"{len(ran.left_due)} digests were left due for the next tick")
+        said.append(f"{len(ran.left_due)} digests were left due for the next tick")
+    if ran.held:
+        said.append(f"{len(ran.held)} digests hold their claim (not due again; see the log)")
+    if said:
+        raise DigestsLeftDue("; ".join(said))
     return list(ran)

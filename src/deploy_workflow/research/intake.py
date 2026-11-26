@@ -255,6 +255,9 @@ def _decode(raw: bytes, html: bool) -> str:
             raise _ItemRefused("holds NUL bytes, which prepare does not accept")
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise _ItemRefused(f"expands beyond {MAX_BYTES} bytes")
+    if not text.strip():
+        # prepare_source marks a source with no non-blank span unreadable (run start would abort).
+        raise _ItemRefused("holds no readable text")
     return text
 
 

@@ -414,6 +414,7 @@ class Scheduler:
             issuer_id=context["identity"]["issuer_id"],
             issuer_name=context["identity"]["issuer_name"],
             as_of=context["run"]["as_of"],
+            files=tuple(submissions.document_names(sealed)),
             prepared=True,  # a submission arrives already checked
             submission=sid,
             modules=tuple(answers["modules"]),
