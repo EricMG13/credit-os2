@@ -109,8 +109,9 @@ class HandoffPlan(Contract):
     changes_note: str | None = Field(default=None, exclude_if=lambda v: v is None)
     # How the run's modules were chosen: the pathway's preset or an explicit `--modules` list.
     # Only a preset run is a comparison base (`deploy_workflow.changes.find_prior`), except that a
-    # custom run (always `explicit`) is the base of a custom run of the same completed modules; an
-    # older manifest records neither and is left unchanged.
+    # custom run is the base of a custom run of the same completed modules. A custom run records
+    # `explicit` unless it names no modules or exactly the pathway's preset ones, which record
+    # `preset`; an older manifest records neither and is left unchanged.
     selection: Literal["preset", "explicit"] | None = Field(
         default=None, exclude_if=lambda v: v is None
     )

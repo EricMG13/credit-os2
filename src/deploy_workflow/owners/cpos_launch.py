@@ -1952,9 +1952,13 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal | None:
         ruling = {"credit_screening": CREDIT_SCREENING_CAP_RULING, "custom": CUSTOM_CAP_RULING}.get(
             pathway, LAYER_1_RULING
         )
+        advice = (
+            "the cap is computed from the chosen modules, so leave --cap out"
+            if pathway == "custom"
+            else "a lower cap is allowed"
+        )
         raise LaunchRefused(
-            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); "
-            "a lower cap is allowed"
+            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); {advice}"
         )
     return asked
 
