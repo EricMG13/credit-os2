@@ -219,3 +219,17 @@ it("B21 a focus whose module is no longer requested is refused at Review, naming
   );
   expect(screen.getByRole("heading", { name: "More context" })).toBeTruthy();
 });
+
+it("B26 a preset run's focus is offered and checked against the modules kept, not the whole preset", async () => {
+  await runWithQuestion(false);
+  fireEvent.change(screen.getByLabelText("Focus module"), { target: { value: "CP-1C" } });
+  const kept = within(screen.getByRole("group", { name: "Requested modules" }));
+  fireEvent.click(kept.getByRole("checkbox", { name: "Peer benchmark" }));
+  expect(kept.getByRole("checkbox", { name: "Peer benchmark" })).not.toBeChecked();
+  expect(focusOptions().map(([value]) => value)).toEqual(["", "CP-2", "CP-DR", "CP-1C"]);
+  fireEvent.click(screen.getByRole("button", { name: "Review run" }));
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Choose the focus again for the research question \u201cRun-rate savings?\u201d: Peer benchmark is not requested in this run.",
+  );
+  expect(screen.getByRole("heading", { name: "More context" })).toBeTruthy();
+});

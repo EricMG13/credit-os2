@@ -24,7 +24,7 @@ import {
 } from "./api";
 import { fileRoles } from "./start/contextSummary";
 import { sendableAssumptions } from "./start/assumptions";
-import { checkQuestionFocus } from "./start/focus";
+import { checkQuestionFocus, runModules } from "./start/focus";
 import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start/rows";
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
 import { Breadcrumb } from "./layout";
@@ -926,7 +926,7 @@ function IntakeForm({
     }
     checkQuestionFocus(
       details.research_questions ?? context.research_questions,
-      requested,
+      runModules(run.pathway, requested, modules),
       run.pathway,
     );
     return details;
