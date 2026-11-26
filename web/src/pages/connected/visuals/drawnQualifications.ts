@@ -17,6 +17,47 @@ export function drawnReason(reason: string) {
   return ROW_ID.test(reason) ? EVIDENCE_REASON : (readerReason(reason) ?? EVIDENCE_REASON);
 }
 
+/** Whether text cites a source, a file, a page, a register id or a marker the trace carries. */
+const citesSource = (text: string) => ROW_ID.test(text) || readerReason(text) === null;
+
+/** A bracketed group: "(see p. 45)", "[E3]", "【4†source】". */
+const GROUP = /(\s*)(?:\(([^()]*)\)|\[([^\]]*)\]|【([^】]*)】)/gu;
+/** The cue words that open a citation at the end of a text: "per …", "see p. …", "; from …". */
+const CUE = /\s*[,;]?(?:\s*\b(?:per|see|from|sources?:?|pp?\.|pages?)(?=[\s\d]))+/giu;
+
+/** Text without the closing clauses that cite a source, the last first; the rest as written. */
+function withoutTrailingCitation(text: string) {
+  let rest = text;
+  for (const cue of [...text.matchAll(CUE)].reverse())
+    if (cue.index < rest.length && citesSource(rest.slice(cue.index).trim()))
+      rest = rest.slice(0, cue.index);
+  return rest.trimEnd();
+}
+
+/** What a schedule cell's amount is drawn as when its source cannot be set aside. */
+export const EVIDENCE_AMOUNT = "Amount recorded in model evidence.";
+
+/**
+ * An amount written as text, as a reader sees it: every bracketed group and closing clause that
+ * cites a source set aside (the trace holds them), everything else exactly as written, sign and
+ * qualification included. Null when what is left still cites a source.
+ */
+export function drawnAmount(text: string): string | null {
+  const grouped = text
+    .trim()
+    .replace(GROUP, (whole: string, space: string, ...inner: unknown[]) => {
+      const group = whole.slice(space.length);
+      if (!citesSource(group)) return whole;
+      const words =
+        inner.slice(0, 3).find((part): part is string => typeof part === "string") ?? "";
+      const kept = withoutTrailingCitation(words);
+      if (kept === words.trimEnd() || !kept.trim() || citesSource(kept)) return "";
+      return `${space}${group.slice(0, 1)}${kept}${group.slice(-1)}`;
+    });
+  const rest = withoutTrailingCitation(grouped).trim();
+  return rest && !citesSource(rest) ? rest : null;
+}
+
 /** One sentence from a drawn reason: ended by a single full stop, never two. */
 export const sentence = (text: string) => (/[.!?]$/u.test(text) ? text : `${text}.`);
 

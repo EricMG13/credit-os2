@@ -101,16 +101,106 @@ const scheduleOf = (...cells: { text: string; value: number | null; reason: stri
     offAxis: [],
   }) satisfies PathSchedule;
 
-it("keeps an unparsed amount with a citation exactly, in the table and the reading", () => {
-  const { container } = drawn(scheduleOf({ text: "250 (see p. 45)", value: null, reason: null }), [
-    ok,
-    ok,
-  ]);
+it.each([
+  ["250 (T2E.3.r03)", "250", "T2E.3.r03"],
+  ["250 per Annual Report FY25.pdf", "250", "FY25.pdf"],
+  ["250 [E3]", "250", "[E3]"],
+  ["250 (see p. 45)", "250", "p. 45"],
+  ["1,250 (of which RCF 200; see p. 45)", "1,250 (of which RCF 200)", "p. 45"],
+])("draws %j as its amount, its citation left to the trace", (text, amount, citation) => {
+  const { container } = drawn(scheduleOf({ text, value: null, reason: null }), [ok, ok]);
+  const label = container.querySelector("figure svg text title")?.parentElement;
+  expect(label?.querySelector("title")?.textContent).toBe(amount);
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+    `Debt maturing: FY2026 ${amount}.`,
+  );
   expect(container.querySelector('[data-lane-gap="FY2026"]')).toBeNull();
-  expect(screen.getByRole("img").getAttribute("aria-label")).toContain("FY2026 250 (see p. 45)");
-  expect(container.textContent).not.toContain(EVIDENCE);
   fireEvent.click(screen.getByRole("button", { name: "Table" }));
-  expect(screen.getByText("250 (see p. 45)")).toBeInTheDocument();
+  expect(screen.getByText(amount)).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain(citation);
+  expect(document.body.textContent).not.toContain(EVIDENCE);
+});
+
+it("draws an off-axis and a beyond-axis amount without its citation in the notes", () => {
+  render(
+    <LeveragePath
+      measure={measureOf([ok, ok])}
+      group="Base case"
+      caseName="Base case"
+      schedule={{
+        years: [
+          {
+            year: 2034,
+            label: "FY2034",
+            key: "FY2034",
+            cell: { text: "900 [E3]", value: null, reason: null },
+          },
+        ],
+        offAxis: [
+          {
+            year: 0,
+            label: "Thereafter",
+            key: "Thereafter",
+            cell: { text: "4,768 (see p. 45)", value: null, reason: null },
+          },
+        ],
+      }}
+    />,
+  );
+  expect(
+    screen.getByText("Debt maturing in years not on this axis: FY2034 900."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Debt maturing, not by fiscal year: Thereafter 4,768."),
+  ).toBeInTheDocument();
+});
+
+it.each([["approx. 500"], ["- 250 (approx.)"], ["1,250 (of which RCF 200)"]])(
+  "keeps a qualified amount %j whole",
+  (text) => {
+    drawn(scheduleOf({ text, value: null, reason: null }), [ok, ok]);
+    expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+      `Debt maturing: FY2026 ${text}.`,
+    );
+  },
+);
+
+it("draws the evidence sentence for an amount whose citation cannot be set aside", () => {
+  drawn(scheduleOf({ text: "250 FY25.pdf", value: null, reason: null }), [ok, ok]);
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+    "Debt maturing: FY2026 Amount recorded in model evidence.",
+  );
+});
+
+it("fits three unparsed rows of one year in their slots, whole in the title", () => {
+  const schedule: PathSchedule = {
+    years: ["approx. 500", "- 250 (approx.)", "1,250 (of which RCF 200)"].map((text, at) => ({
+      year: 2026,
+      label: "FY2026",
+      key: `FY2026-${String(at)}`,
+      cell: { text, value: null, reason: null },
+    })),
+    offAxis: [],
+  };
+  const { container } = drawn(schedule, [ok, ok]);
+  const labels = [...container.querySelectorAll("figure svg text")].filter((node) =>
+    node.querySelector("title"),
+  );
+  expect(labels.map((node) => node.lastChild?.textContent)).toEqual(["\u2026", "\u2026", "\u2026"]);
+  expect(labels.map((node) => node.querySelector("title")?.textContent)).toEqual([
+    "approx. 500",
+    "- 250 (approx.)",
+    "1,250 (of which RCF 200)",
+  ]);
+});
+
+it("cuts a lone unparsed row at a word, never inside a figure", () => {
+  const { container } = drawn(
+    scheduleOf({ text: "1,250 (of which RCF 200)", value: null, reason: null }),
+    [ok, ok],
+  );
+  const label = container.querySelector("figure svg text title")?.parentElement;
+  expect(label?.lastChild?.textContent).toBe("1,250\u2026");
 });
 
 it("keeps the sign of an unparsed negative amount", () => {

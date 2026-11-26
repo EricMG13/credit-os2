@@ -14,7 +14,7 @@ import {
   type ScheduleYear,
 } from "../report/forecastData";
 import { unitLabel } from "../publishedReport";
-import { drawnReason, sentence } from "./drawnQualifications";
+import { drawnAmount, drawnReason, EVIDENCE_AMOUNT, sentence } from "./drawnQualifications";
 import { historyNotes, periodsInOrder, unplacedNote } from "./scenarioPeriods";
 import { ticks } from "./visualData";
 import { thinTicks } from "../report/overview/chartText";
@@ -750,7 +750,7 @@ const isStatedGap = (cell: ScheduleCell | null): boolean =>
  * gap is read by the reader rule (a cited source stays in Evidence), after its own lead words.
  */
 function scheduleText(cell: ScheduleCell) {
-  if (!isStatedGap(cell)) return cell.text;
+  if (!isStatedGap(cell)) return drawnAmount(cell.text) ?? EVIDENCE_AMOUNT;
   const reason = cell.reason ?? "";
   if (reason && cell.text.endsWith(reason))
     return `${cell.text.slice(0, cell.text.length - reason.length)}${drawnReason(reason)}`;
@@ -763,14 +763,32 @@ const scheduleLine = (item: ScheduleYear) =>
 const gapWords = (text: string) => /^(Not \w+|n\.[am]\.)/iu.exec(text.trim())?.[1] ?? "No amount";
 
 /** An amount written as text, cut to what its lane slot holds; the whole text stays in the title. */
-const clamp = (text: string, room: number) => {
-  const fits = Math.max(4, Math.floor(room / 6.5));
-  return text.length > fits ? `${text.slice(0, fits - 1)}\u2026` : text;
+const clamp = (text: string, room: number, char: number) => {
+  const fits = Math.floor((room - 2) / char);
+  if (text.length <= fits) return text;
+  if (fits < 1) return "";
+  const cut = text.slice(0, fits - 1);
+  const whole = /\s/u.test(text.charAt(cut.length)) ? cut : cut.replace(/\S*$/u, "");
+  const kept = whole.trimEnd();
+  // A sign or a bracket alone says nothing: only the ellipsis is drawn.
+  return /[\p{L}\p{N}]/u.test(kept) ? `${kept}\u2026` : "\u2026";
 };
 
 /** The maturity schedule as written, by fiscal year, under the path on the same axis. A year with
  * several rows draws each, side by side; a year with no row draws nothing. */
-function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g: Geometry }) {
+function Lane({
+  schedule,
+  slots,
+  g,
+  widthOf,
+}: {
+  schedule: PathSchedule;
+  slots: Slot[];
+  g: Geometry;
+  widthOf: TextWidth;
+}) {
+  // Lane text is the figure face (mono, medium) at caption size: 12px against the probe's 14px.
+  const char = widthOf("0", "figure") * (12 / 14);
   const placed = schedule.years.filter((item) => yearAt(slots, item.year) >= 0);
   const most = Math.max(0, ...placed.map((item) => item.cell?.value ?? 0));
   return (
@@ -833,8 +851,8 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
               textAnchor="middle"
               className="fill-text-primary font-mono text-caption"
             >
-              <title>{item.cell.text}</title>
-              {clamp(item.cell.text, room)}
+              <title>{scheduleText(item.cell)}</title>
+              {clamp(scheduleText(item.cell), room, char)}
             </text>
           );
         const height =
@@ -889,7 +907,9 @@ function reading(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule
         .join(", ")}`,
   );
   const placed = schedule.years.filter((item) => yearAt(slots, item.year) >= 0);
-  const lane = placed.length ? ` Debt maturing: ${placed.map(scheduleLine).join(", ")}.` : "";
+  const lane = placed.length
+    ? ` ${sentence(`Debt maturing: ${placed.map(scheduleLine).join(", ")}`)}`
+    : "";
   const last = measure.unplaced.length
     ? [
         `${UNPLACED}: ${measure.unplaced.map((cell) => `${cell.period} ${cell.display}`).join(", ")}`,
@@ -940,10 +960,14 @@ function notes(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule: 
       out.push(sentence(`Debt maturing, ${item.label}: ${scheduleText(item.cell)}`));
   const beyond = schedule.years.filter((item) => item.cell && yearAt(slots, item.year) < 0);
   if (beyond.length)
-    out.push(`Debt maturing in years not on this axis: ${beyond.map(scheduleLine).join(", ")}.`);
+    out.push(
+      sentence(`Debt maturing in years not on this axis: ${beyond.map(scheduleLine).join(", ")}`),
+    );
   if (schedule.offAxis.length)
     out.push(
-      `Debt maturing, not by fiscal year: ${schedule.offAxis.map(scheduleLine).join(", ")}.`,
+      sentence(
+        `Debt maturing, not by fiscal year: ${schedule.offAxis.map(scheduleLine).join(", ")}`,
+      ),
     );
   return out;
 }
@@ -1285,14 +1309,14 @@ function Chart({
             <History measure={measure} slots={slots} g={g} />
             <Lines drawn={drawn} selected={selected} slots={slots} g={g} />
             <Axis slots={slots} g={g} />
-            {lane && <Lane schedule={schedule} slots={slots} g={g} />}
+            {lane && <Lane schedule={schedule} slots={slots} g={g} widthOf={widthOf} />}
             {/* Labels last, over every mark, each placed clear of the marks and of one another. */}
             <Labels labels={pointLabels(drawn, selected, slots, g, measure, keyed, widthOf)} />
           </svg>
         </div>
         {lane && (
           <p className="text-caption text-text-secondary">
-            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}, as the schedule writes it; a hatched bar is a year the schedule states no amount for; text it gives without a figure is drawn as written.`}
+            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}, as the schedule writes it; a hatched bar is a year the schedule states no amount for; text it gives without a figure is drawn as written; sources stay in Evidence, and long text is cut where the year is narrow.`}
           </p>
         )}
       </figure>
