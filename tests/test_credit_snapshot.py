@@ -1321,6 +1321,39 @@ def test_market_sheets_reads_the_whole_run_inside_one_reading_scope(tmp_path, mo
     assert len(calls) == 1
 
 
+def test_each_source_is_read_in_its_own_reading_scope(tmp_path, monkeypatch):
+    # One scope per source: a workbook's parse is released before the next source is read.
+    held = []
+    real = snap._source_rows
+    monkeypatch.setattr(
+        snap, "_source_rows", lambda raw: held.append(pe._READING.get()) or real(raw)
+    )
+    pins = {}
+    (tmp_path / "inputs").mkdir()
+    for name in ("a.csv", "b.csv"):
+        raw = name.encode()
+        digest = cs.sha256(raw)
+        (tmp_path / "inputs" / digest).write_bytes(raw)
+        pins[name] = {"path": name, "sha256": digest}
+    snap._market_sheets(tmp_path, pins)
+    assert len(held) == 2 and held[0] is not None and held[0] is not held[1]
+    assert pe._READING.get() is None
+
+
+def test_a_tab_over_the_row_cap_never_hides_a_valid_rv_tab(monkeypatch):
+    # The writer's own workbook has no RV tab, so the sheets come from `portfolio_export`.
+    head = [pe.Cell(h) for h in RV_HEADER]
+    rv = [(1, head), (2, [pe.Cell("x") for _ in RV_HEADER])]
+    big = [(n, [pe.Cell("v")]) for n in range(1, 6)]
+    monkeypatch.setattr(rp, "MAX_ROWS", 3)
+    monkeypatch.setattr(pe, "workbook_sheets", lambda raw: ("RV", "Data"))
+    monkeypatch.setattr(pe, "sheet_rows", lambda raw, name: rv if name == "RV" else big)
+    assert snap._source_rows(b"PK\x03\x04") == [rv]
+    monkeypatch.setattr(rp, "MAX_ROWS", 1)
+    with pytest.raises(ValueError, match="more than 1 rows"):
+        snap._source_rows(b"PK\x03\x04")
+
+
 def test_a_csv_without_the_rv_headers_is_not_read_past_its_first_row():
     junk = b"a,b,c\n" + b"x,y,z\n" * 10
     assert snap._source_rows(junk) == []
@@ -1378,7 +1411,7 @@ def test_run_kind_joins_the_distinct_execution_words_in_the_libraries_order(exec
 def test_the_illegal_character_pattern_is_the_workbook_writers():
     from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
-    assert snap._ILLEGAL.pattern == ILLEGAL_CHARACTERS_RE.pattern
+    assert snap.ILLEGAL.pattern == ILLEGAL_CHARACTERS_RE.pattern
 
 
 def test_a_control_character_in_a_row_label_is_a_gap_and_the_workbook_still_writes():

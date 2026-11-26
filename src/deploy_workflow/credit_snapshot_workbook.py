@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import importlib
 import io
+import logging
 import math
 import re
 from collections import Counter
@@ -44,6 +45,7 @@ from deploy_workflow import credit_snapshot_formulas as fx
 from deploy_workflow.cp2_scorecard import level_text
 from deploy_workflow.recommendation import RECOMMENDATION_NAMES
 
+_LOG = logging.getLogger(__name__)
 _xl = importlib.import_module("openpyxl")
 _styles = importlib.import_module("openpyxl.styles")
 _comments = importlib.import_module("openpyxl.comments")
@@ -938,7 +940,65 @@ class _Book:
         ]
 
 
+def _safe(text: str, where: str) -> str:
+    """`text`, or `snap.CONTROL_CHARACTER` (logged with `where`) when it holds a character a
+    workbook cell cannot hold. Never stripped: the documented fail-open, so the download succeeds
+    and the cell says why it is not the text."""
+    if not snap.ILLEGAL.search(text):
+        return text
+    _LOG.warning("credit snapshot: %s holds a control character", where)
+    return snap.CONTROL_CHARACTER
+
+
+def _clean(snapshot: snap.Snapshot) -> snap.Snapshot:
+    """The one check every string the writer is given passes, before any is written: each text of
+    a cell (a changed `text` makes it a gap), its row, column, section, basis and written text,
+    each Basis line and the run's names."""
+
+    def cell(item: snap.SnapshotCell) -> snap.SnapshotCell:
+        where = f"{item.sheet} / {item.block} / {item.row} / {item.column}"
+        text = _safe(item.text, where)
+
+        def optional(value: str | None) -> str | None:
+            return None if value is None else _safe(value, where)
+
+        return replace(
+            item,
+            row=_safe(item.row, where),
+            column=_safe(item.column, where),
+            kind=snap.GAP if text != item.text else item.kind,
+            text=text,
+            section=optional(item.section),
+            basis=optional(item.basis),
+            written=optional(item.written),
+        )
+
+    blocks = tuple(
+        replace(block, name=_safe(block.name, block.name), cells=tuple(map(cell, block.cells)))
+        for block in snapshot.blocks
+    )
+    lines = tuple(
+        replace(
+            line,
+            text=_safe(line.text, f"Basis line of {line.module}"),
+            section=_safe(line.section, f"Basis line of {line.module}"),
+            row=_safe(line.row, f"Basis line of {line.module}"),
+        )
+        for line in snapshot.basis_lines
+    )
+    return replace(
+        snapshot,
+        blocks=blocks,
+        basis_lines=lines,
+        issuer=_safe(snapshot.issuer, "the issuer"),
+        as_of=_safe(snapshot.as_of, "the as-of date"),
+        pathway=_safe(snapshot.pathway, "the pathway"),
+        pathway_title=_safe(snapshot.pathway_title, "the pathway title"),
+        run_id=_safe(snapshot.run_id, "the run id"),
+    )
+
+
 def workbook_bytes(snapshot: snap.Snapshot) -> bytes:
     """The Credit Snapshot workbook for `snapshot`, as the bytes of an `.xlsx` file: four sheets,
     `Snapshot`, `Inputs`, `Matrix`, `Sources`."""
-    return _Book(snapshot).build()
+    return _Book(_clean(snapshot)).build()

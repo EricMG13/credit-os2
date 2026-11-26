@@ -499,3 +499,34 @@ def test_bloomberg_id_sits_beside_figi_and_the_joined_blank_has_no_sources_row(b
     blank = sheet.cell(row=int(loan["Cell"][1:]), column=sheet[loan["Cell"]].column - 1)
     assert blank.value is None and blank.fill.fill_type is None
     assert ("Inputs", blank.coordinate) not in listed_cells
+
+
+# --- A control character reaching the writer by any path (fix round 2) ----------------------------
+
+
+def _with_control_characters(shot: snap.Snapshot) -> snap.Snapshot:
+    """The snapshot with a control character in a Basis line, a cell's section and a gap's text."""
+    basis = [replace(line, text=line.text + "\x01") for line in shot.basis_lines[:1]]
+    basis += shot.basis_lines[1:]
+    marked = {"section": False, "gap": False}
+    blocks = []
+    for block in shot.blocks:
+        cells = []
+        for cell in block.cells:
+            if cell.section and not marked["section"]:
+                cell, marked["section"] = replace(cell, section=cell.section + "\x1b"), True
+            elif cell.kind == snap.GAP and not marked["gap"]:
+                cell, marked["gap"] = replace(cell, text="no ### \x08 section"), True
+            cells.append(cell)
+        blocks.append(replace(block, cells=tuple(cells)))
+    assert all(marked.values()) and basis
+    return replace(shot, basis_lines=tuple(basis), blocks=tuple(blocks))
+
+
+def test_a_control_character_on_any_path_is_written_as_the_gap_text(full, caplog):
+    with caplog.at_level("WARNING", logger="deploy_workflow.credit_snapshot_workbook"):
+        opened = load_workbook(io.BytesIO(writer.workbook_bytes(_with_control_characters(full[1]))))
+    texts = [c.value for ws in opened for row in ws.iter_rows() for c in row]
+    assert not any(isinstance(v, str) and snap.ILLEGAL.search(v) for v in texts)
+    assert texts.count(snap.CONTROL_CHARACTER) >= 3
+    assert "holds a control character" in caplog.text

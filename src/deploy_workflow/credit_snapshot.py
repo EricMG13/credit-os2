@@ -79,7 +79,7 @@ NOT_IN_HANDOFF = "not in handoff"
 CONTROL_CHARACTER = "text holds a control character"
 # The characters a workbook cell cannot hold: the workbook writer's library's
 # `ILLEGAL_CHARACTERS_RE`, copied because this module imports none (a test holds them equal).
-_ILLEGAL = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
+ILLEGAL = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
 NO_REFERENCE = "no reference stored"
 NOT_HELD = "not held / not matched"
@@ -451,7 +451,7 @@ class _Maker:
         self, row: str, column: str, kind: str, text: str, at: _At | None = None
     ) -> SnapshotCell:
         where = (at.module, at.section, at.line) if at else (None, None, None)
-        if _ILLEGAL.search(row + column) or (kind != GAP and _ILLEGAL.search(text)):
+        if ILLEGAL.search(row + column) or (kind != GAP and ILLEGAL.search(text)):
             _LOG.warning(
                 "credit snapshot: %s: a cell, its row or its column holds a control character "
                 "(module %s, line %s)",
@@ -459,8 +459,8 @@ class _Maker:
                 where[0],
                 where[2],
             )
-            row = CONTROL_CHARACTER if _ILLEGAL.search(row) else row
-            column = CONTROL_CHARACTER if _ILLEGAL.search(column) else column
+            row = CONTROL_CHARACTER if ILLEGAL.search(row) else row
+            column = CONTROL_CHARACTER if ILLEGAL.search(column) else column
             kind, text = GAP, CONTROL_CHARACTER
         return SnapshotCell(self.sheet, self.block, row, column, kind, text, *where)
 
@@ -1838,11 +1838,10 @@ def _market_sheets(
         _LOG.warning("credit snapshot: no market data sheet is read: %s", reason)
         return MarketGap(reason)
     found = []
-    with pe.reading():  # each workbook is parsed once, however many sheets it has
-        for name, pin in sources.items():
-            sheet = None if name == "context" else _market_source(folder, name, pin)
-            if sheet is not None:
-                found.append(sheet)
+    for name, pin in sources.items():
+        sheet = None if name == "context" else _market_source(folder, name, pin)
+        if sheet is not None:
+            found.append(sheet)
     return tuple(found)
 
 
@@ -1859,10 +1858,11 @@ def _market_source(folder: Path, name: str, pin: object) -> MarketSheet | None:
     path = pin["path"] if isinstance(pin, dict) and isinstance(pin.get("path"), str) else name
     file = str(path)
     try:
-        for rows in _source_rows(raw):
-            sheet = market_sheet(file, digest, rows)
-            if sheet is not None:
-                return sheet
+        with pe.reading():  # this workbook is parsed once, then released before the next source
+            for rows in _source_rows(raw):
+                sheet = market_sheet(file, digest, rows)
+                if sheet is not None:
+                    return sheet
     except (csv.Error, ValueError) as error:
         _LOG.warning(
             "credit snapshot: source %s is skipped: it cannot be read as a sheet: %s", name, error
@@ -1881,9 +1881,16 @@ def _filled(cells: Sequence[pe.Cell]) -> bool:
 
 def _capped(rows: Cells) -> Cells:
     """`rows`, or `ValueError` when more than `reference_portfolios.MAX_ROWS` have text."""
+    if not _has_rv_head(rows):
+        return []
     if sum(1 for _, cells in rows if _filled(cells)) > rp.MAX_ROWS:
         raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
     return rows
+
+
+def _has_rv_head(rows: Cells) -> bool:
+    first = next((cells for _, cells in rows if _filled(cells)), None)
+    return first is not None and _market_index(first) is not None
 
 
 def _source_rows(raw: bytes) -> list[Cells]:
@@ -1893,7 +1900,8 @@ def _source_rows(raw: bytes) -> list[Cells]:
     more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
     if raw.startswith(b"PK\x03\x04"):
         sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
-        return [_capped(rows) for rows in sheets if rows is not None]
+        # The cap applies to a sheet with the RV headers only: another tab never hides one.
+        return [_capped(rows) for rows in sheets if rows is not None and _has_rv_head(rows)]
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
