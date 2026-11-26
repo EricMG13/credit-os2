@@ -168,8 +168,8 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
   apply in this transport and eight exact repeats are cut; no register is lost.
 - The PR's controller: a credit screening is not an issuer assessment; the pathway is listed last
   on the run start page; the five screens are shown in the Modules lead and not repeated below it.
-- Not amended: the cap sentence of `AGENTS.md` (it does not list USD 10), as this record already
-  said of the two new caps.
+- The cap sentence of `AGENTS.md` lists Credit Screening 10 (owner, 2026-11-26: "add it"), after
+  PR 6 merged.
 
 ## Amends
 
@@ -190,9 +190,10 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
   a phase the analyst ticks; and the CP-8 bullet of `AGENTS.md` is refined so that a custom run is
   compared only with an earlier custom run of the same module and phase selection. Neither text
   is edited in PR 0.
-- Not amended: the cap sentence of `AGENTS.md` and the cap tables of
-  `2026-11-15-pathway-tiers-and-caps.md` and `2026-11-25-layer-1-in-all-assessment-pathways.md`
-  (Lite USD 20, Full 30, Deep 50). The two caps above are recorded here only. By those rulings a
+- Not amended: the cap tables of `2026-11-15-pathway-tiers-and-caps.md` and
+  `2026-11-25-layer-1-in-all-assessment-pathways.md` (Lite USD 20, Full 30, Deep 50). The two caps
+  above are recorded here; the cap sentence of `AGENTS.md` gained Credit Screening 10 on
+  2026-11-26 (owner: "add it"), and the custom routing cap waits for PR 7. By those rulings a
   cap enters `PATHWAY_CAP_USD` and `RULED_CAPS_USD` by deliberate edits, which belong to the
   pathway PRs (6 and 7).
 - `PRODUCT.md`, its Excel line: brought into step with the `AGENTS.md` Excel bullet (owner,
