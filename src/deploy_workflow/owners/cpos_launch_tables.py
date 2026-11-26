@@ -179,7 +179,8 @@ def _net_debt_issues(text: str) -> tuple[str, ...]:
     if not rows or rows[0] != _chart_header(NET_DEBT):
         return ()
     liquid = _stated_rows(text, liquidity) if liquidity in lines else []
-    cash_of = [(row[0], row[1]) for row in liquid[2:] if len(row) == 5 and liquid[0][1] == "Cash"]
+    cash_header = liquid[0][1:2] == ["Cash"] if liquid else False
+    cash_of = [(row[0], row[1]) for row in liquid[2:] if len(row) == 5 and cash_header]
     issues = []
     unordered = _unorderable_period(lines, rows)
     if unordered is not None:
@@ -1489,6 +1490,12 @@ def _header_issue(spec: OwnerTable, heading: str, header: list[str]) -> str:
     )
 
 
+def _no_rows_issues(spec: OwnerTable, heading: str, body: list[list[str]]) -> list[str]:
+    """A period table with a header and no row states no figure and no gap; a step table's own
+    check refuses it."""
+    return [] if body or spec.steps else [f"`{heading}` needs at least one row."]
+
+
 def chart_issues(
     text: str, table: MarkdownRoute | OwnerTable, *, money: str | None = None
 ) -> tuple[str, ...]:
@@ -1509,6 +1516,7 @@ def chart_issues(
         return tuple(_row_table_issues(spec, heading, header, rows[2:]))
     stated: list[list[str]] = []
     body, issues = _first_table(heading, rows[2:])
+    issues += _no_rows_issues(spec, heading, body)
     skipped = False
     for row in body:
         if len(row) != len(header):
