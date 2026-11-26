@@ -4,6 +4,36 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 1: account store, passcodes, lockout, accounts command line
+
+- Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
+  only. No route uses it; no request to Microsoft, no model call, no network access; no new
+  dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
+  the two oldest entries (2026-11-17).
+- Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
+  (absolute path only; never under `--root`), WAL, one numbered migration, a made-here guard. On
+  POSIX the folder and file must belong to the running account and be open to no one else; the
+  file is created 0600. Not checked: access-control lists, and anything on Windows (owner's call).
+- Passcodes: Analyst and Admin only, 12 to 1,024 characters, scrypt (n 2^14, r 8, p 5) with a
+  16-byte salt each time, compared in constant time, the two must differ (checked in one
+  transaction). Lockout: five wrong in an hour (from the first failure) lock the identity for an
+  hour from the fifth; counted in the store before the passcode is checked, so a store that cannot
+  record a failure refuses rather than answers.
+- Command line: `python -m deploy_workflow.accounts passcode set {analyst,admin}` reads the
+  passcode twice at a terminal prompt that does not echo; a pipe, closed input, an argument or a
+  non-text byte is refused, and no usage error repeats what was typed. `accounts list`,
+  `accounts disable`, `accounts type`.
+- Checked: `tests/test_accounts_{store,passcodes,cli,logs}.py` 94 passed, expected values
+  written by hand by the coordinator; `tools/quality_gate.py` exit 0; `lint-imports` exit 0
+  (`accounts` in the services layer); `mypy --strict` on the package exit 0. The log test captures
+  every logger at DEBUG, stdout, stderr and exception text across the hostile cases and finds no
+  five-character piece of any passcode, nor any stored hash or salt. A pty run of the real prompt
+  did not echo (review probe). Reviews: per-task `mx-precise`, `mx-invariants` on the account race
+  and the lockout, `mx-adversary` on the slice (two Mediums fixed, re-review passed), `mx-architect`
+  pre-merge review not yet run (its model's limit resets 2 December).
+- Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
+  processes (threads only); a real full disk; CI on the PR head until it runs.
+
 ## 2026-11-25 — Instruction and reference length: review and offline measures
 
 - Scope: review only; no method text, launcher, prompt or presentation changed, no provider
@@ -957,33 +987,3 @@ then 5; the narrow layout and the controls listed below.
   Actual Windows setup, live or paid runs, real Submit and Teams remain unverified.
 - [Final gates](docs/audit/2026-11-16-final/output/7-send-off/gates.md) ·
   [Audit summary](docs/audit/2026-11-16-final/output/SUMMARY.md)
-
-## 2026-11-17 — Stage 6 sweep
-
-- Scope: six reviewed refactors on the repaired app, with the same tests, public routes,
-  handoffs and protected inputs. Nine production files add 21 and remove 66 lines.
-- Passed: 5,259 frontend tests including 630 Signal tests, native 97.69% lines,
-  6,285 Python tests plus one existing skip, 573 Node checks, both quality gates,
-  73 script checks, 138 native file checks, and synthetic Chrome and Edge proof.
-- Measured: 20 fewer duplicated frontend lines. Paired History row data 2,168 to
-  109 bytes with the same requests and markup.
-- Source pins, retry outcomes and limits: [sweep report](docs/audit/2026-11-16-final/output/6-sweep/report.md).
-
-## 2026-11-17 final audit presentation fidelity
-
-On repair tree `bb94ddce`, rebuilt both surfaces and captured connected
-synthetic Northbridge and the static fixture with native Chrome 157.0.8103.78
-at 1440 by 900. Both captures exited 0. Checked 267 distinct screens
-(29 connected, 238 static), 654 sourced drawers, 419 explicit missing-source
-markers and zero coverage gaps, trace errors or outside application-context
-attempts. The immutable comparator and baseline matched 126 stored hashes.
-Its 28 self-test cases passed. The full comparison covered 7,761 entries.
-The unmodified diff exited 1, reporting seven new differences, fourteen
-omissions and 352 not-found items. Each is explained in
-`docs/audit/2026-11-16-final/output/5-repair/fidelity/after-report.md`
-and the item readbacks, including scoped event counts, retained drawer basis
-and inputs, static sample notices and unchanged call totals. Static had no
-difference flags. Browser background proxy denials are counted separately.
-This evidence covers values, units, periods, source statements and
-qualifications in the captured screens. Other browsers, CSS presentation,
-remaining controls, work-PC and real-run behavior were outside this check.
