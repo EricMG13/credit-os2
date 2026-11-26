@@ -182,6 +182,19 @@ def canned(module):
     return f"# {module}\n\n## Request\nCase.\n\n## Sources\n\n{sources}\n\n{text}"
 
 
+def test_synthetic_earnings_quality_copies_the_bridge_ids():
+    """Synthetic Example Synthetic Group, 2025-04-30."""
+    from deploy_workflow.method_scripts import register_table
+
+    reply = canned_handoff(request_context("CP-1D"), "Case.")
+    for register in ("T1D.1", "T1D.2"):
+        table = register_table(reply, register)
+        assert not isinstance(table, str), table
+        headings, rows = table
+        column = headings.index("Add-Back ID")
+        assert [row[column] for row in rows] == ["AB-1", "AB-2"]
+
+
 def capital_structure_of_cp4(handoffs=HANDOFFS):
     """CP-4's `### Capital structure` section, cut out by its neighbouring headings."""
     text = (handoffs / "CP-4.md").read_text(encoding="utf-8")
