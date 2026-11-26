@@ -248,12 +248,12 @@ describe("report wayfinding", () => {
     expect(document.activeElement).toBe(screen.getByRole("main"));
   });
 
-  it("keeps the six report tabs at least 44px tall on a phone", async () => {
+  it("keeps all seven report tabs at least 44px tall on a phone", async () => {
     useSnapshot();
     open("");
     const nav = await screen.findByRole("navigation", { name: "Report sections" });
     const links = within(nav).getAllByRole("link");
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(7);
     for (const link of links) expect(link).toHaveClass("max-[480px]:min-h-11");
   });
 

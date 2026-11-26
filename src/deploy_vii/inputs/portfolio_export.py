@@ -267,9 +267,15 @@ class Book:
     sheets: Mapping[str, Mapping[tuple[int, int], Span]]
     date1904: bool = False
 
+    def _sheet_name(self, name: str, *, exact: bool = False) -> str | None:
+        if exact:
+            return name if name in self.sheets else None
+        wanted = folded(name)
+        return next((title for title in self.sheets if folded(title) == wanted), None)
+
     def sheet(self, name: str) -> Mapping[tuple[int, int], Span] | None:
         """The sheet named `name`, whatever its case and spacing; None when there is none."""
-        wanted = next((sheet for sheet in self.sheets if folded(sheet) == folded(name)), None)
+        wanted = self._sheet_name(name)
         return None if wanted is None else self.sheets[wanted]
 
 
@@ -473,26 +479,27 @@ def _layout(
     return rows, far
 
 
-def _sheet(raw: bytes, name: str) -> tuple[Rows, int] | None:
+def _sheet(raw: bytes, name: str, *, exact: bool = False) -> tuple[Rows, int] | None:
     """The sheet's rows and far cells (`_layout`), within a `reading` laid out once."""
     parsed = book(raw)
-    sheet = parsed.sheet(name)
-    if sheet is None:
+    title = parsed._sheet_name(name, exact=exact)
+    if title is None:
         return None
     scope = _scope()
     cached = scope is not None and scope.cached_formulas
     return _once(
         None if scope is None else scope.sheets,
-        (raw, folded(name)),
-        lambda: _layout(sheet, parsed.date1904, cached),
+        (raw, title),
+        lambda: _layout(parsed.sheets[title], parsed.date1904, cached),
     )
 
 
-def sheet_rows(raw: bytes, name: str) -> Rows | None:
+def sheet_rows(raw: bytes, name: str, *, exact: bool = False) -> Rows | None:
     """A workbook sheet's rows as (row number, cells), or None when the sheet is not there. A row
     runs to its last cell, so rows differ in length; a cell far to the right of the rest of its
-    row is left out (`FAR_COLUMNS`, `far_cells`)."""
-    found = _sheet(raw, name)
+    row is left out (`FAR_COLUMNS`, `far_cells`). Use `exact=True` to require the worksheet
+    title's exact case and spacing. The default uses the first case- and space-folded match."""
+    found = _sheet(raw, name, exact=exact)
     return None if found is None else found[0]
 
 

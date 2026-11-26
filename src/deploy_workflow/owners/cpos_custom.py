@@ -1,7 +1,7 @@
 """A custom run's handoff rules, estimate and cap (owner, 2026-11-26).
 
-The analyst chooses whole modules; the launcher completes the choice by the registry's rules and
-says why it added each module (`complete`), prices the run from the per-module figures of
+The analyst chooses whole modules or phases within them. The launcher applies the registry's
+rules and says why it added each module (`complete`), prices the run from the per-module figures of
 `contracts.MODULE_ESTIMATE_USD` and sets the cap the run launches at (`estimate`):
 
     cap = min(USD 50, ceiling(sum of the modules' figures + one call's hold))
@@ -18,6 +18,7 @@ from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from deploy_vii.contracts import MODULE_ESTIMATE_USD, PATHWAY_CAP_USD
 from deploy_vii.registry import dependencies, modules, plan
 from deploy_workflow.credit_os_chips import MODULE_NAMES
+from deploy_workflow.owners.cpos_launch_methods import PHASES, complete_phases
 
 SOURCE_REASON = "Every run needs the source register and the financial base."
 CP8_REASON = "Compares this run with the earlier run named in this summary."
@@ -55,6 +56,8 @@ class Completion:
     modules: tuple[str, ...]
     reasons: dict[str, str]
     modules_page_only: frozenset[str]
+    phases: dict[str, tuple[str, ...]]
+    phase_reasons: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -66,6 +69,7 @@ class EstimateRow:
     high: bool  # The figure is the high-effort one: the module is sent at high effort.
     added: str | None  # Why the launcher added the module; None for a chosen one.
     modules_page_only: bool
+    phases: tuple[tuple[str, str | None], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -77,7 +81,7 @@ class Estimate:
 
 
 def _name(entry: str) -> str:
-    return MODULE_NAMES.get(entry, entry)
+    return PHASES[entry].name if entry in PHASES else MODULE_NAMES.get(entry, entry)
 
 
 def _refusal(entry: str) -> CustomRefused | None:
@@ -110,12 +114,15 @@ def complete(chosen: Sequence[str], *, owned: Collection[str]) -> Completion:
     module added. ``owned`` is the set of modules that own a block of the custom composition.
 
     CP-0 and CP-1 are always added; any other module is added only as a required producer of
-    a module in the run. Refuses (`CustomRefused`) an alias, CP-8, CP-L10, CP-MEMO, CP-OS or an
-    unknown name; CP-MODEL is accepted and ignored."""
+    a module in the run. A selectable phase may be named with its parent. CP-MODEL is ignored.
+    Unsupported choices raise `CustomRefused`."""
+    aliases = {p for p in chosen if p in PHASES and PHASES[p].parent in chosen}
     for entry in chosen:
+        if entry in aliases:
+            continue
         if entry != PUBLISHES_FORECAST and (refused := _refusal(entry)):
             raise refused
-    picked = tuple(dict.fromkeys(m for m in chosen if m != PUBLISHES_FORECAST))
+    picked = tuple(dict.fromkeys(m for m in chosen if m != PUBLISHES_FORECAST and m not in aliases))
     planned = tuple(m for m in plan((*ALWAYS, *picked)) if m != PUBLISHES_FORECAST)
     required = {m.module_id: set(m.required) for m in modules()}
     reasons: dict[str, str] = {}
@@ -127,7 +134,10 @@ def complete(chosen: Sequence[str], *, owned: Collection[str]) -> Completion:
             continue
         needed_by = [m for m in planned if module in required[m]]
         reasons[module] = f"Needed by {_names(needed_by)}."
-    return Completion(planned, reasons, frozenset(m for m in planned if m not in owned))
+    phases, added = complete_phases(aliases, planned)
+    return Completion(
+        planned, reasons, frozenset(m for m in planned if m not in owned), phases, added
+    )
 
 
 def _round(amount: Decimal) -> Decimal:
@@ -163,6 +173,10 @@ def estimate(
                 is_high,
                 CP8_REASON if module == "CP-8" else completion.reasons.get(module),
                 module in completion.modules_page_only,
+                tuple(
+                    (PHASES[phase].name, completion.phase_reasons.get(phase))
+                    for phase in completion.phases.get(module, ())
+                ),
             )
         )
     total = sum((row.figure for row in rows), Decimal(0))

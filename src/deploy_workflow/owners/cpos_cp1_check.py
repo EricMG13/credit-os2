@@ -28,6 +28,7 @@ from typing import NamedTuple
 from deploy_vii.model._cells import beyond_rounding, half_unit
 from deploy_workflow.credit_os_catalogue import period_order
 from deploy_workflow.handoff_delivery import heading_of, plain
+from deploy_workflow.method_scripts import register_table
 from deploy_workflow.model_handoff_delivery import BOLD_LABEL
 from deploy_workflow.owners.cpos_cp1_statements import (
     _SEPARATOR,
@@ -1268,7 +1269,63 @@ def _reconciliation(
 # --- the check -----------------------------------------------------------------------------
 
 
-def cp1_issues(text: str) -> tuple[str, ...]:
+def asset_type_columns(headers: Sequence[str]) -> tuple[int, ...]:
+    return tuple(
+        at
+        for at, header in enumerate(headers)
+        if " ".join(plain(header).casefold().split()) == "asset type"
+    )
+
+
+def stated_asset_type(text: str, *, instrument: str = "") -> str | None:
+    if _financing_adjustment(instrument):
+        return None
+    kind = plain(text).strip().casefold()
+    return kind if kind in {"loan", "bond", "other"} else None
+
+
+def _asset_type_issues(lines: list[str], *, required: bool) -> list[str]:
+    register = register_table("\n".join(lines), "T4.18", raw_cells=True)
+    if isinstance(register, str):
+        return []
+    headers, rows = register
+    columns = asset_type_columns(headers)
+    if not columns and not required:  # Inspecting a historical handoff permits the old shape.
+        return []
+    if len(columns) != 1:
+        return ["T4.18 Asset type must appear in exactly one column."]
+    names = {plain(header).strip().casefold(): index for index, header in enumerate(headers)}
+    instrument = names.get("instrument", names.get("facility_name", 0))
+    issues = []
+    for row in rows:
+        name = row[instrument]
+        value = row[columns[0]]
+        if _valid_asset_type(name, value):
+            continue
+        requirement = (
+            "must be `Not applicable`"
+            if _financing_adjustment(name)
+            else "must be `loan`, `bond`, `other`, or `Not supplied: <reason>`"
+        )
+        issues.append(f"T4.18 Asset type for `{name}` {requirement}.")
+    return issues
+
+
+def _financing_adjustment(name: str) -> bool:
+    return " ".join(plain(name).casefold().split()) == "financing cost adjustment"
+
+
+def _valid_asset_type(name: str, value: str) -> bool:
+    stated = plain(value).strip()
+    if _financing_adjustment(name):
+        return stated.casefold() == "not applicable"
+    gap, _, reason = stated.partition(":")
+    return stated_asset_type(stated) is not None or (
+        gap.casefold() == "not supplied" and reason.strip().casefold() not in {"", "<reason>"}
+    )
+
+
+def cp1_issues(text: str, *, require_asset_type: bool = False) -> tuple[str, ...]:
     """Each way CP-1's statement tables, calculation register and debt reconciliation fail the
     method's own arithmetic and completeness, one sentence each, for the rejection path."""
     lines = _findings(text)
@@ -1306,5 +1363,6 @@ def cp1_issues(text: str) -> tuple[str, ...]:
         lambda: _statement_sums(balance, BALANCE_RULES),
         lambda: _statement_sums(flow, CASH_RULES),
         lambda: _reconciliation(lines, net_debt, periods),
+        lambda: _asset_type_issues(lines, required=require_asset_type),
     ]
     return tuple(dict.fromkeys(issue for step in steps for issue in step()))

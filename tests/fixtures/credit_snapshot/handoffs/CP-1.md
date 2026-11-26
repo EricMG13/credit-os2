@@ -45,13 +45,13 @@ Build the financial foundation for Northbridge Holdings plc as of 2026-03-31 und
 
 All money columns below are in the instrument's own currency unless the Reporting Currency Amount column says otherwise.
 
-| Instrument | Type | Carrying Value | Principal | Drawn | Commitment | Security | Ranking | Currency | Reporting Currency Amount | FX Rate | Coupon or Margin | Rate Type | Reference Rate | Spread (bps) | Floor (bps) | Maturity | Annual Amortisation | Source |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Term Loan B | Term loan | 588.0 | 600.0 | 600.0 | Not applicable: term loan | First lien | Senior secured | USD | 472.5 | 0.7875 | SOFR + 3.75% | floating | Term SOFR | 375 | 50 | 2031-03-31 | 6.0 | NBG_annual_2025.pdf, page 80 |
-| Revolving Credit Facility | Revolver | Not supplied: no balance printed | Not supplied: no drawn principal printed | Not supplied: no drawn balance printed | 150.0 | First lien | Senior secured | GBP | Not supplied: no drawn balance | 1.0000 | SONIA + 2.50% | floating | SONIA | 250 | Not supplied: floor not stated | 2029-06-30 | Not supplied: none stated | NBG_annual_2025.pdf, page 81 |
-| 4.50% Senior Notes 2030 | Notes | 349.1 | 350.0 | 350.0 | Not applicable: notes | Unsecured | Senior unsecured | GBP | 350.0 | 1.0000 | 4.50% | fixed | Not applicable: fixed | Not applicable: fixed | Not applicable: fixed | 2030-06-15 | Not supplied: none stated | NBG_annual_2025.pdf, page 82 |
-| 6.25% Senior Notes 2032 | Notes | 495.0 | 500.0 | 500.0 | Not applicable: notes | Unsecured | Senior unsecured | EUR | 430.0 | 0.8600 | 6.25% | fixed | Not applicable: fixed | Not applicable: fixed | Not applicable: fixed | 2032-09-01 | Not supplied: none stated | NBG_annual_2025.pdf, page 82 |
-| Receivables facility | Receivables facility | 80.0 | 80.0 | 80.0 | 100.0 | Trade receivables | Secured | GBP | 80.0 | 1.0000 | SONIA + 1.75% | floating | SONIA | 175 | Not supplied: floor not stated | 2027-12-31 | Not supplied: none stated | NBG_annual_2025.pdf, page 83 |
+| Instrument | Type | Asset type | Carrying Value | Principal | Drawn | Commitment | Security | Ranking | Currency | Reporting Currency Amount | FX Rate | Coupon or Margin | Rate Type | Reference Rate | Spread (bps) | Floor (bps) | Maturity | Annual Amortisation | Source |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Term Loan B | Term loan | loan | 588.0 | 600.0 | 600.0 | Not applicable: term loan | First lien | Senior secured | USD | 472.5 | 0.7875 | SOFR + 3.75% | floating | Term SOFR | 375 | 50 | 2031-03-31 | 6.0 | NBG_annual_2025.pdf, page 80 |
+| Revolving Credit Facility | Revolver | loan | Not supplied: no balance printed | Not supplied: no drawn principal printed | Not supplied: no drawn balance printed | 150.0 | First lien | Senior secured | GBP | Not supplied: no drawn balance | 1.0000 | SONIA + 2.50% | floating | SONIA | 250 | Not supplied: floor not stated | 2029-06-30 | Not supplied: none stated | NBG_annual_2025.pdf, page 81 |
+| 4.50% Senior Notes 2030 | Notes | bond | 349.1 | 350.0 | 350.0 | Not applicable: notes | Unsecured | Senior unsecured | GBP | 350.0 | 1.0000 | 4.50% | fixed | Not applicable: fixed | Not applicable: fixed | Not applicable: fixed | 2030-06-15 | Not supplied: none stated | NBG_annual_2025.pdf, page 82 |
+| 6.25% Senior Notes 2032 | Notes | bond | 495.0 | 500.0 | 500.0 | Not applicable: notes | Unsecured | Senior unsecured | EUR | 430.0 | 0.8600 | 6.25% | fixed | Not applicable: fixed | Not applicable: fixed | Not applicable: fixed | 2032-09-01 | Not supplied: none stated | NBG_annual_2025.pdf, page 82 |
+| Receivables facility | Receivables facility | other | 80.0 | 80.0 | 80.0 | 100.0 | Trade receivables | Secured | GBP | 80.0 | 1.0000 | SONIA + 1.75% | floating | SONIA | 175 | Not supplied: floor not stated | 2027-12-31 | Not supplied: none stated | NBG_annual_2025.pdf, page 83 |
 
 ### T4.9 Calculation register
 

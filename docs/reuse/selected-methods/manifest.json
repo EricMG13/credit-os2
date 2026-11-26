@@ -3,6 +3,14 @@
   "note": "Original project skills paths absent at final audit; origin of disappearance not established. Hash-identical sources located read-only in cp-os and preserved here. Historical methods are evidence, not inherited authority. Run outputs and prior calculation hashes remain unchanged.",
   "files": [
     {
+      "consumed_path": "skills/cp-1d-earnings-quality/scripts/add_back_ids.py",
+      "archive_path": "docs/reuse/selected-methods/skills/cp-1d-earnings-quality/scripts/add_back_ids.py",
+      "exact_copy_found_at": null,
+      "sha256": "39e92870aa4405d48e8535234e444d3fcf8f6958ceba094469636f80ab1bccbb",
+      "source_revision": "project-written 2026-11-26 for the CP-1D Add-Back ID preservation check",
+      "use": "run by Python at acceptance (deploy_workflow.method_scripts) on CP-1D T1D.1 and T1D.2 against the CP-1 T4.17 bridge IDs"
+    },
+    {
       "consumed_path": "skills/cp-2g-forward-credit-model/SKILL.md",
       "archive_path": "docs/reuse/selected-methods/skills/cp-2g-forward-credit-model/SKILL.md",
       "exact_copy_found_at": "/Users/USER/Documents/cp-os/skills/cp-2g-forward-credit-model/SKILL.md",
@@ -563,13 +571,13 @@
     {
       "consumed_path": "skills/cp-1d-earnings-quality/SKILL.md",
       "archive_path": "docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md",
-      "sha256": "56b74b7274a9f0130419efd52e4b9dfe0b8820cff8749bee762e3266980ec344",
+      "sha256": "e896bd58ed7fa05d5e13d6c702f05c1ab791aea8b2c13be274edf6a0cf1b11fc",
       "exact_copy_found_at": null,
       "edited_copy_of": "/Users/USER/Documents/cp-os/skills/cp-1d-earnings-quality/SKILL.md",
       "source_revision": "cp-os e67bf0cda2dc80d7a744bee371c4fb3c7b8b8df7 (selected files clean)",
       "use": "Selected CP-1D/absorbed CP-1E analytical duties; current project transport, orchestration, delivery and Excel-input-only rules govern.",
       "source_sha256": "9682b2da83fe7fd3288cae31fc5d1cf7f6d2daa3de2fac297637fe13d5e8e2ae",
-      "edit": "named edit: hard rule 7 added: an empty CP-1 bridge gives T1D.1-T1D.4 one `NONE` row each and Steps 5-7 still run (caos line 165), and the completion check `(one `NONE` row when the bridge is empty)` (caos line 183); no other caos hunk ported; wording from caos-databricks vendor/deploy-v (last changed 99069f83, repo HEAD dfff264); sha256 is this edited file, source_sha256 the previously archived file"
+      "edit": "named edits: project rule 7 specifies copying each CP-1 Add-Back ID unchanged into T1D.1 and T1D.2; requires `Not supplied: CP-1 bridge has no Add-Back ID` for each adjustment when an older bridge lacks the column; requires `Not supplied: CP-1 does not state an Add-Back ID for this adjustment` for a named all-gap adjustment whose ID is unavailable; and requires `Not supplied: CP-1 bridge amounts do not establish whether add-backs exist` when only gap-valued boundary rows are present. These uncertain states are not NONE. Rule 8 retains the known-empty-bridge NONE rows from caos-databricks vendor/deploy-v revision 99069f83 (repo HEAD dfff264). No other caos hunk ported; sha256 is this edited file, source_sha256 the previously archived file"
     },
     {
       "consumed_path": "skills/cp-1d-earnings-quality/references/CP-1D_SCHEMA_REFERENCE.md",
