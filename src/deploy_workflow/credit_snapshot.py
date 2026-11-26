@@ -581,13 +581,22 @@ class _Maker:
 
 def _numbered(cells: list[SnapshotCell]) -> list[SnapshotCell]:
     """A row label that repeats within a block (two events on one date) gets ` (2)`, ` (3)`...,
-    so no two cells share a row and column."""
-    seen: Counter[tuple[str, str]] = Counter()
+    so no two cells share a row and column. The number is the first that makes a label no cell
+    of the block holds or has been given (a literal `Term Loan B (2)` is never taken over)."""
+    taken = {(cell.row, cell.column) for cell in cells}
+    seen: set[tuple[str, str]] = set()
     numbered = []
     for cell in cells:
-        seen[cell.row, cell.column] += 1
-        count = seen[cell.row, cell.column]
-        numbered.append(cell if count == 1 else replace(cell, row=f"{cell.row} ({count})"))
+        key = (cell.row, cell.column)
+        if key not in seen:
+            seen.add(key)
+            numbered.append(cell)
+            continue
+        count = 2
+        while (f"{cell.row} ({count})", cell.column) in taken:
+            count += 1
+        taken.add((f"{cell.row} ({count})", cell.column))
+        numbered.append(replace(cell, row=f"{cell.row} ({count})"))
     return numbered
 
 

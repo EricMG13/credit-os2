@@ -1963,3 +1963,33 @@ def test_an_unreadable_dr_peer_table_names_research_questions():
     snapshot = snap.gather(run_of(full(**{"CP-DR": broken})))
     (gap,) = [c for c in where(snapshot, "Peers") if c.kind == "gap"]
     reader_gap(gap, "The Research questions peer table could not be read.", "`name` column")
+
+
+# --- Repeated labels (L2, ruling PM-g) ------------------------------------------------------------
+
+
+def test_a_repeated_label_is_numbered_until_it_is_a_label_the_block_does_not_hold():
+    first = next(line for line in FIXTURE["CP-1"].split("\n") if line.startswith("| Term Loan B |"))
+    renamed = first.replace("| Term Loan B |", "| Term Loan B (2) |", 1)
+    cp1 = FIXTURE["CP-1"].replace(first, "\n".join([first, renamed, first]), 1)
+    snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
+    rows = list(dict.fromkeys(c.row for c in where(snapshot, "Capital structure")))
+    assert rows[:4] == [
+        "Term Loan B",
+        "Term Loan B (2)",
+        "Term Loan B (3)",
+        "Revolving Credit Facility",
+    ]
+    principal = [where(snapshot, "Capital structure", r, "Principal")[0].text for r in rows[:3]]
+    assert principal == ["600.0", "600.0", "600.0"]
+    for block in snapshot.blocks:  # no two cells of any block share a row and column
+        keys = [(c.row, c.column) for c in block.cells]
+        assert len(keys) == len(set(keys)), block.name
+
+
+def test_a_literal_label_that_comes_after_the_repeat_keeps_its_name():
+    cells = [
+        snap.SnapshotCell("Snapshot", "B", row, "Text", "copied", row)
+        for row in ("Event", "Event", "Event (2)")
+    ]
+    assert [c.row for c in snap._numbered(cells)] == ["Event", "Event (3)", "Event (2)"]
