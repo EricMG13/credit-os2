@@ -459,11 +459,42 @@ def test_cp3c_a_wall_in_another_currency_than_the_funding_table_is_not_compared(
     text = cp3c(wall=_due_in("USD"))
     outcomes = ms.run("CP-3C", text)
     assert statuses(outcomes)["Maturities due"] == "not checked"
-    assert outcomes[0].recomputed is None
+    assert outcomes[0].recomputed is None and outcomes[0].unit is None
     assert "USD" in outcomes[0].reason and "EUR" in outcomes[0].reason
     assert "convert at a disclosed rate before totalling" in outcomes[0].reason
     assert not any("Maturities due" in issue for issue in ms.issues("CP-3C", text))
     assert [o.status for o in outcomes[1:]] == ["agreed", "not checked"]
+
+
+def test_cp3c_a_converted_total_is_not_sent_back_against_the_foreign_sum():
+    # 750 USD at 0.92 is 690 EUR: the handoff states 690 and a gap of 690 - (470 + 80) = 140, which
+    # is right. The foreign 750 must not be set against the 690.
+    funding = replaced(FUNDING, "Maturities due", amount="690")
+    funding = replaced(funding, "Funding gap", amount="140")
+    text = cp3c(wall=_due_in("USD"), funding=funding)
+    outcomes = ms.run("CP-3C", text)
+    assert statuses(outcomes) == {
+        "Maturities due": "not checked",
+        "Available liquidity": "agreed",
+        "Funding gap": "not checked",
+    }
+    assert outcomes[0].recomputed is None and outcomes[0].unit is None
+    assert ms.issues("CP-3C", text) == ()
+
+
+def test_cp3c_a_blank_currency_on_a_due_row_is_named_in_the_reason():
+    wall = [
+        ("Term Loan A", "300", "", "m", "1.5"),
+        ("Senior Notes 2027", "450", "USD", "m", "2.0"),
+        WALL[2],
+    ]
+    outcomes = ms.run("CP-3C", cp3c(wall=wall))
+    assert outcomes[0].status == "not checked"
+    assert outcomes[0].recomputed is None and outcomes[0].unit is None
+    assert outcomes[0].reason == (
+        "maturities inside the horizon are in no stated currency, USD, the `### Funding gap` "
+        "table in EUR; convert at a disclosed rate before totalling"
+    )
 
 
 def test_cp3c_a_foreign_instrument_beyond_the_horizon_changes_nothing():

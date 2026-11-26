@@ -939,7 +939,8 @@ def _foreign_due_currencies(funding: _Funding, view: dict[str, Any]) -> list[str
     differ from the funding table's own."""
     own = funding.payload["currency"]
     due = view["maturity_wall"].get("due_within_horizon", [])
-    return sorted({str(r["currency"]) for r in due if r.get("currency") != own})
+    foreign = {r.get("currency") for r in due if r.get("currency") != own}
+    return [c or "no stated currency" for c in sorted({str(c).strip() for c in foreign})]
 
 
 def _funding_line(
