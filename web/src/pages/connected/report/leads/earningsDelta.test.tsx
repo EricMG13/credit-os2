@@ -648,6 +648,18 @@ describe("the variance bridge", () => {
         "This page could not draw the variance bridge because Disposals is not supplied (Detail is in Evidence.).",
     });
   });
+  it("reads only CP-1B's own four-column step header: CP-1's Add-Back ID bridge is not one of its tables", () => {
+    const withId = section(
+      "Chart data: EBITDA bridge",
+      40,
+      table(
+        42,
+        ["Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation"],
+        GOOD.map((row) => [...row.slice(0, 2), "Not applicable", ...row.slice(2)]),
+      ),
+    );
+    expect(bridges(delta(withId))).toEqual([]);
+  });
   it("is not a bridge with a gap amount, with two units or with no changes", () => {
     const only = (rows: string[][]) => bridges(delta(steps(rows)))[0];
     const gap = [GOOD[0] ?? [], ["Organic", "Not supplied: x", "US$m", "x"], GOOD[3] ?? []];
