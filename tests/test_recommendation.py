@@ -21,9 +21,7 @@ from deploy_workflow.recommendation import (
     CreditScore,
     Instrument,
     Issuer,
-    Valuation,
     band,
-    best,
     credit_score,
     eligible_types,
     instrument_proposal,
@@ -477,20 +475,6 @@ def test_valuation_reason_carries_no_module_ids() -> None:
             assert banned not in result.reason
 
 
-def _valued(score: int | None) -> Valuation:
-    return Valuation(score, None, None, "BB", 5, 5, (), "r")
-
-
-def test_best_is_the_lowest_score_first_on_a_tie_and_skips_blanks() -> None:
-    assert best([_valued(None), _valued(3), _valued(2), _valued(2), _valued(4)]) == 2
-    assert best([_valued(5)]) == 0
-
-
-def test_best_is_none_when_every_valuation_is_blank() -> None:
-    assert best([_valued(None), _valued(None)]) is None
-    assert best([]) is None
-
-
 decimals = st.fractions(min_value=-2000, max_value=2000, max_denominator=100).map(
     lambda f: Decimal(f.numerator) / f.denominator
 )
@@ -791,9 +775,11 @@ def test_blank_when_no_credit_score_or_no_valuation_and_the_limits_are_still_rea
     assert "No Valuation" in thin.reason and "4 names" in thin.reason
 
 
-def test_the_best_eligible_instrument_decides_and_its_bucket_is_the_one_limits_read_on() -> None:
-    # First: BB, level 250 against a BB median of 300 -> Valuation 4, price 99 (above the floor).
-    # Second: CCC, level 400 against a CCC median of 300 -> Valuation 1, price 80 (below the floor).
+def test_the_best_result_decides_and_its_bucket_and_price_are_the_ones_limits_read_on() -> None:
+    # First: BB, level 250 against a BB median of 300 -> Valuation 4, price 99 (above the floor):
+    # cell (1, 4) = 3, not capped. Second: CCC, level 400 against a CCC median of 300 -> Valuation
+    # 1, price 80 (below the floor): cell 1 held to 3. Both give 3; the one not capped is taken
+    # (ruling of 2026-11-25, tie key).
     first = Instrument("First", "loan", "BB", Decimal(250), Decimal(99))
     second = Instrument("Second", "loan", "CCC", Decimal(400), Decimal(80))
     held = tuple(pos(f"Ccc {i}", "300", asset="loan", bucket="CCC") for i in range(5))
@@ -801,17 +787,17 @@ def test_the_best_eligible_instrument_decides_and_its_bucket_is_the_one_limits_r
         "clo", limit_row(*CCC_ROW), limit_row("Price", "Minimum price", "≥ 90"), extra=held
     )
     result = portfolio_reading(credit(1), [first, second], book_)
-    assert result.instrument is second
+    assert result.instrument is first
     assert result.valuation is not None
     assert (
         result.valuation.score,
         result.valuation.difference_bp,
         result.valuation.median_bp,
         result.valuation.bucket,
-    ) == (1, Decimal(100), Decimal(300), "CCC")
-    # Read on First (BB, price 99) neither limit would be breached and the cell would stay 1.
-    assert [r.outcome for r in result.limits] == ["breached", "breached"]
-    assert (result.uncapped, result.recommendation, len(result.capped_by)) == (1, 3, 2)
+    ) == (4, Decimal(-50), Decimal(300), "BB")
+    # Read on First (BB, price 99) the CCC row does not apply and the price floor is within.
+    assert [r.outcome for r in result.limits] == ["does_not_apply", "within"]
+    assert (result.uncapped, result.recommendation, len(result.capped_by)) == (3, 3, 0)
 
 
 def test_per_instrument_proposal_uses_the_index_for_its_type_and_no_cap() -> None:
@@ -1799,3 +1785,380 @@ def test_an_unread_row_adds_one_sentence_after_the_cell_reason() -> None:
         "of 300 bp (5 names, 5 positions).) 1 limit row could not be read and the "
         "recommendation does not reflect it: Max CCC basket."
     )
+
+
+# --- PR 4a: the best result across every eligible instrument, and Unrated against "and below" ---
+# Rulings of 2026-11-25 (docs/rulings/2026-11-25-deliverables-and-recommendations.md, "Two rulings
+# after PR 2"). The tie key is the coordinator's. Every expected value is a literal from the ruling
+# record, the brief or a reviewer's probe; none is read from the code under test.
+
+_THREE = "≤ 7.5% NAV"
+
+
+def _loan(name: str, bucket: str, valuation_score: int, price: str | None = "99") -> Instrument:
+    """A loan whose level, against a bucket median of 300, gives `valuation_score` (400 -> 1)."""
+    return Instrument(
+        name, "loan", bucket, Decimal(LEVEL_FOR_VALUATION[valuation_score]), _price(price)
+    )
+
+
+def _ccc_members() -> tuple[Position, ...]:
+    return tuple(pos(f"Ccc {i}", "300", asset="loan", bucket="CCC") for i in range(5))
+
+
+def _two_lien_book() -> Portfolio:
+    """A CLO of five B names and five CCC names at 300 bp whose CCC limit is breached."""
+    return reference("clo", limit_row(*CCC_ROW), bucket="B", extra=_ccc_members())
+
+
+def test_worked_example_a_breaching_instrument_with_the_better_valuation_and_a_clean_one() -> None:
+    # Methodology section 7, worked example (probe wb_two_instruments, case b). Credit Score 2.
+    # First lien: B, Valuation 2, breaches nothing -> table cell (2, 2) = 2, not capped.
+    # Second lien: CCC, Valuation 1, the CCC limit is breached -> cell (2, 1) = 2 held to 3.
+    first = _loan("First lien TL", "B", 2)
+    second = _loan("Second lien TL", "CCC", 1, price="97")
+    for listed in ([first, second], [second, first]):
+        result = portfolio_reading(credit(2), listed, _two_lien_book())
+        assert (result.status, result.recommendation, result.uncapped) == ("proposed", 2, 2)
+        assert result.instrument == first
+        assert result.capped_by == ()
+        assert result.valuation is not None and result.valuation.score == 2
+        assert result.valuation.bucket == "B"
+        assert [r.outcome for r in result.limits] == ["does_not_apply"]
+        assert result.reason.startswith("Modest OW: Credit Score 2 and Valuation 2 (First lien TL")
+    alone = portfolio_reading(credit(2), [second], _two_lien_book())
+    assert (alone.uncapped, alone.recommendation, len(alone.capped_by)) == (2, 3, 1)
+
+
+def test_the_instrument_the_recommendation_rests_on_is_the_same_in_either_list_order() -> None:
+    # Probe adv_tie_order: both loans are Valuation 1; only the first is below the 90 price floor.
+    row = limit_row("Price", "Minimum price", "≥ 90")
+    cheap = Instrument("TL B (85)", "loan", "BB", Decimal(400), Decimal(85))
+    dear = Instrument("TL B2 (98)", "loan", "BB", Decimal(410), Decimal(98))
+    for listed in ([cheap, dear], [dear, cheap]):
+        result = portfolio_reading(credit(1), listed, reference("clo", row))
+        assert (result.recommendation, result.uncapped, result.capped_by) == (1, 1, ())
+        assert result.instrument == dear
+
+
+def test_a_tie_on_the_result_goes_to_the_instrument_that_is_not_capped() -> None:
+    # Both give 3. "A capped" is Valuation 1 held from 1 to 3 (price 80 under the 90 floor) and
+    # sorts first by name; "Z clean" is Valuation 4, cell (1, 4) = 3, not capped. Not capped wins.
+    row = limit_row("Price", "Minimum price", "≥ 90")
+    capped = _loan("A capped", "BB", 1, price="80")
+    clean = _loan("Z clean", "BB", 4)
+    for listed in ([capped, clean], [clean, capped]):
+        result = portfolio_reading(credit(1), listed, reference("clo", row))
+        assert result.instrument == clean
+        assert (result.uncapped, result.recommendation, len(result.capped_by)) == (3, 3, 0)
+
+
+def test_a_tie_on_result_and_capping_goes_to_the_lower_valuation() -> None:
+    # Credit Score 3: Valuation 2 and Valuation 3 both give cell 3, neither capped.
+    # "A" is Valuation 3 and sorts first; "Z" is Valuation 2. The lower Valuation wins.
+    worse = _loan("A", "BB", 3)
+    better = _loan("Z", "BB", 2)
+    for listed in ([worse, better], [better, worse]):
+        result = portfolio_reading(credit(3), listed, reference("clo"))
+        assert result.instrument == better
+        assert result.valuation is not None and result.valuation.score == 2
+        assert (result.uncapped, result.recommendation) == (3, 3)
+
+
+def test_a_tie_on_result_capping_and_valuation_goes_to_the_name_in_alphabetical_order() -> None:
+    # Both Valuation 3 (300 and 310 against a median of 300), cell 3, not capped.
+    later = Instrument("B loan", "loan", "BB", Decimal(300), Decimal(99))
+    earlier = Instrument("A loan", "loan", "BB", Decimal(310), Decimal(99))
+    for listed in ([later, earlier], [earlier, later]):
+        result = portfolio_reading(credit(3), listed, reference("clo"))
+        assert result.instrument == earlier
+        assert result.valuation is not None and result.valuation.score == 3
+
+
+def test_names_are_compared_as_plain_case_sensitive_strings() -> None:
+    upper = Instrument("B loan", "loan", "BB", Decimal(300), Decimal(99))
+    lower = Instrument("a loan", "loan", "BB", Decimal(300), Decimal(99))
+    for listed in ([upper, lower], [lower, upper]):
+        assert portfolio_reading(credit(3), listed, reference("clo")).instrument == upper
+
+
+def test_two_instruments_sharing_every_key_but_the_price_resolve_by_a_total_order() -> None:
+    # The coordinator's key ends at the name; ruling R1 breaks a tie on the name by the remaining
+    # fields so the result still does not depend on list order. Here the lower price is taken.
+    dearer = Instrument("TL", "loan", "BB", Decimal(300), Decimal(99))
+    cheaper = Instrument("TL", "loan", "BB", Decimal(300), Decimal(98))
+    for listed in ([dearer, cheaper], [cheaper, dearer]):
+        assert portfolio_reading(credit(3), listed, reference("clo")).instrument == cheaper
+
+
+def test_a_missing_level_or_price_orders_among_same_named_instruments_without_error() -> None:
+    bare = Instrument("TL", "loan", "BB", None, None)
+    priced = Instrument("TL", "loan", "BB", Decimal(300), Decimal(99))
+    for listed in ([bare, priced], [priced, bare]):
+        assert portfolio_reading(credit(3), listed, reference("clo")).instrument == priced
+
+
+def test_no_valuation_on_any_instrument_joins_the_reasons_by_instrument_name() -> None:
+    # Ruling R2: blank as before, and the joined reasons do not follow the list order.
+    no_level = Instrument("Zed", "loan", "BB", None, Decimal(99))
+    no_price = Instrument("Abe", "loan", "BB", Decimal(300), None)
+    expected = "No Valuation: Abe has no price. No Valuation: Zed has no level."
+    for listed in ([no_level, no_price], [no_price, no_level]):
+        result = portfolio_reading(credit(3), listed, reference("clo", names=5))
+        assert result.status == "blank" and result.recommendation is None
+        assert (result.instrument, result.valuation) == (None, None)
+        assert result.reason == expected
+        assert [r.outcome for r in result.limits] == []
+
+
+def test_no_credit_score_with_valuations_names_the_instrument_by_valuation_then_name() -> None:
+    # Ruling R3: no instrument has a result; blank with the Credit Score reason; the instrument
+    # named is the lower Valuation, then the name, and limits are read on it.
+    no_credit = credit_score(card([3] * 11))
+    row = limit_row("Price", "Minimum price", "≥ 90", "-1.00%", "Breach")
+    dear = Instrument("B loan", "loan", "BB", Decimal(300), Decimal(99))
+    cheap = Instrument("A loan", "loan", "BB", Decimal(310), Decimal(80))
+    for listed in ([dear, cheap], [cheap, dear]):
+        result = portfolio_reading(no_credit, listed, reference("clo", row))
+        assert result.status == "blank" and result.recommendation is None
+        assert result.reason == no_credit.reason
+        assert result.instrument == cheap
+        assert result.valuation is not None and result.valuation.score == 3
+        assert [r.outcome for r in result.limits] == ["breached"]
+        assert result.capped_by == ()
+
+
+def test_a_better_valuation_is_taken_first_when_there_is_no_credit_score() -> None:
+    no_credit = credit_score(card([3] * 11))
+    worse = _loan("A", "BB", 4)
+    better = _loan("Z", "BB", 2)
+    for listed in ([worse, better], [better, worse]):
+        assert portfolio_reading(no_credit, listed, reference("clo")).instrument == better
+
+
+def test_a_non_finite_level_on_a_shared_name_is_refused_in_every_list_order() -> None:
+    nan = Instrument("TL", "loan", "BB", Decimal("NaN"), Decimal(99))
+    fine = Instrument("TL", "loan", "BB", Decimal(300), Decimal(99))
+    for listed in ([nan, fine], [fine, nan]):
+        with pytest.raises(ValueError, match=r"The level of TL must be a finite number"):
+            portfolio_reading(credit(3), listed, reference("clo"))
+
+
+_POOL_NAMES = ["A", "B", "C"]  # three names, so that sharing one is still common
+_POOL_LEVELS = [None, Decimal(200), Decimal(300), Decimal(350), Decimal("350.0"), Decimal(400)]
+_POOL_PRICES = [None, Decimal(80), Decimal(99), Decimal("99.0")]
+
+
+def _pool_instruments(blanks: int) -> st.SearchStrategy[Instrument]:
+    """Mostly loans with a level and a price, in the buckets that have a Valuation (BB and CCC; the
+    CCC row breaches), a minority of bonds, missing figures and the thin bucket B (its Valuation
+    is blank); `blanks` is how many times the missing figures and bucket B are drawn."""
+    return st.builds(
+        Instrument,
+        st.sampled_from(_POOL_NAMES),
+        st.sampled_from(["loan"] * 6 + ["bond"]),
+        st.sampled_from(["BB"] * 3 + ["CCC"] * 3 + ["B"] * blanks),
+        st.sampled_from(_POOL_LEVELS[1:] * 3 + _POOL_LEVELS[:1] * blanks),
+        st.sampled_from(_POOL_PRICES[1:] * 3 + _POOL_PRICES[:1] * blanks),
+    )
+
+
+_POOL_CREDITS = [credit(1), credit(2), credit(3), credit(5), credit_score(card([3] * 11))]
+
+
+def _pool_book() -> Portfolio:
+    thin = tuple(pos(f"B {i}", "300", asset="loan", bucket="B") for i in range(4))
+    return reference(
+        "clo",
+        limit_row(*CCC_ROW),
+        limit_row("Price", "Minimum price", "≥ 90"),
+        extra=_ccc_members() + thin,
+    )
+
+
+@settings(max_examples=150, deadline=None)
+@given(
+    st.lists(_pool_instruments(3), min_size=2, max_size=4).flatmap(
+        lambda items: st.tuples(st.just(items), st.permutations(items))
+    ),
+    st.sampled_from(_POOL_CREDITS),
+)
+def test_property_the_order_of_the_instruments_never_changes_any_field_of_the_reading(
+    listed: tuple[list[Instrument], list[Instrument]], score: CreditScore
+) -> None:
+    items, permuted = listed
+    book_ = _pool_book()
+    assert portfolio_reading(score, items, book_) == portfolio_reading(score, permuted, book_)
+
+
+@settings(max_examples=150, deadline=None)
+@given(
+    st.lists(_pool_instruments(1), min_size=2, max_size=4),
+    st.sampled_from([credit(1), credit(2), credit(3), credit(4), credit(5)]),
+)
+def test_property_the_portfolio_takes_the_lowest_result_of_its_eligible_instruments(
+    items: list[Instrument], score: CreditScore
+) -> None:
+    book_ = _pool_book()
+    combined = portfolio_reading(score, items, book_)
+    singles = [
+        portfolio_reading(score, [item], book_) for item in items if item.asset_type == "loan"
+    ]
+    proposed = [one.recommendation for one in singles if one.recommendation is not None]
+    # Each single reading's own limits are read on its instrument, as the ruling reads them.
+    assert combined.recommendation == (min(proposed) if proposed else None)
+
+
+# Unrated against a rating row worded "and below": the row does not say whether it covers unrated.
+_NOT_SAID = "does not say whether it covers unrated instruments"
+
+
+@pytest.mark.parametrize(
+    ("parameter", "headroom", "status", "outcome"),
+    [
+        ("Max CCC and below", "-1.00%", "Breach", "not_read"),
+        ("Max CCC & below", "-1.00%", "Breach", "not_read"),
+        ("Max B and lower", "-1.00%", "Breach", "not_read"),
+        ("Max CCC and below incl. Unrated & Other", "-1.00%", "Breach", "breached"),
+        ("Max CCC and below", "2.00%", "Pass", "not_read"),
+        ("Max CCC and below", "", "", "not_read"),
+        ("Max B or worse", "-1.00%", "Breach", "not_read"),
+        ("Max B & lower & unrated", "-1.00%", "Breach", "breached"),
+        ("Max BB and above", "-1.00%", "Breach", "does_not_apply"),
+    ],
+)
+def test_an_unrated_instrument_against_an_and_below_row_is_not_read_unless_it_is_named(
+    parameter: str, headroom: str, status: str, outcome: str
+) -> None:
+    row = limit_row("Rating", parameter, _THREE, headroom, status)
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="Unrated", price=None)
+    assert reading.outcome == outcome
+    assert (_NOT_SAID in reading.reason) == (outcome == "not_read")
+
+
+@pytest.mark.parametrize(
+    ("parameter", "bucket", "outcome"),
+    [
+        ("Max CCC and below", "CCC", "breached"),
+        ("Max CCC and below", "B", "does_not_apply"),
+        ("Max CCC & below", "CCC", "breached"),
+        ("Max B and lower", "CCC", "breached"),
+        ("Max B and lower", "B", "breached"),
+        ("Max B and lower", "BB", "does_not_apply"),
+        ("Max B or worse", "CCC", "breached"),
+        ("Max B or worse", "BB", "does_not_apply"),
+        ("Max BB and above", "IG", "breached"),
+        ("Max BB and above", "B", "does_not_apply"),
+    ],
+)
+def test_a_rated_instrument_reads_an_and_below_row_as_it_always_did(
+    parameter: str, bucket: str, outcome: str
+) -> None:
+    row = limit_row("Rating", parameter, _THREE, "-1.00%", "Breach")
+    assert _one(row, rating_bucket=bucket) == outcome
+
+
+def test_an_unrated_instrument_keeps_the_minimum_the_group_and_the_information_readings() -> None:
+    minimum = limit_row("Rating", "Min CCC and below", _THREE, "-1.00%", "Breach")
+    info = limit_row("Rating", "Max CCC and below", "Info only", "-1.00%", "Breach")
+    group = limit_row("Rating", "Max sub-IG", _THREE, "-1.00%", "Breach")
+    below = limit_row("Rating", "Max below B3", _THREE, "-1.00%", "Breach")
+    book_ = reference("clo", minimum, info, group, below)
+    got = read_limits(book_, sector=None, rating_bucket="Unrated", price=None)
+    assert [r.outcome for r in got] == ["not_read", "does_not_apply", "not_read", "not_read"]
+    assert "a minimum cannot be read as a limit on adding the name" in got[0].reason
+    assert _NOT_SAID not in got[0].reason
+    assert "it is an information row" in got[1].reason
+    for reading in got[2:]:
+        assert "an unrated instrument cannot be placed against a group" in reading.reason
+        assert _NOT_SAID not in reading.reason
+
+
+def test_a_not_read_unrated_row_never_caps_and_the_reading_says_it_could_not_be_read() -> None:
+    # Credit Score 1. Unrated: Valuation 1, the "and below" row is not read, so the cell 1 stays.
+    # Rated CCC: Valuation 1, the same row is breached, so its cell 1 is held to 3. With ruling 1
+    # the unheld Unrated instrument gives the portfolio 1.
+    row = limit_row("Rating", "Max CCC and below", _THREE, "-1.00%", "Breach")
+    unrated = _loan("Unrated loan", "Unrated", 1)
+    rated = _loan("Rated loan", "CCC", 1)
+    members = tuple(pos(f"Nr {i}", "300", asset="loan", bucket="Unrated") for i in range(5))
+    book_ = reference("clo", row, bucket="CCC", extra=members)
+    for listed in ([unrated, rated], [rated, unrated]):
+        result = portfolio_reading(credit(1), listed, book_)
+        assert result.instrument == unrated
+        assert (result.uncapped, result.recommendation, result.capped_by) == (1, 1, ())
+        assert [r.outcome for r in result.not_read] == ["not_read"]
+        assert "1 limit row could not be read and the recommendation does not reflect it" in (
+            result.reason
+        )
+
+
+def test_an_unrated_row_not_read_says_so_in_full_and_a_group_row_keeps_its_own_reason() -> None:
+    and_below = limit_row("Rating", "Max CCC and below", _THREE, "-1.00%", "Breach")
+    group = limit_row("Rating", "Max sub-IG", _THREE, "-1.00%", "Breach")
+    got = read_limits(
+        reference("clo", and_below, group), sector=None, rating_bucket="Unrated", price=None
+    )
+    assert [r.reason for r in got] == [
+        (
+            "Max CCC and below (≤ 7.5% NAV) is not read: it does not say whether it covers "
+            "unrated instruments."
+        ),
+        (
+            "Max sub-IG (≤ 7.5% NAV) is not read: an unrated instrument cannot be placed "
+            "against a group of rated buckets."
+        ),
+    ]
+
+
+def test_a_capped_result_of_3_beats_an_uncapped_result_of_4() -> None:
+    # Credit Score 2. "A" is Valuation 1 (cell 2) held to 3 by the price floor; "B" is Valuation 5
+    # (cell 4), not capped. The portfolio takes the lower result, 3, though "B" is not capped.
+    row = limit_row("Price", "Minimum price", "≥ 90")
+    held = _loan("A", "BB", 1, price="80")
+    weak = _loan("B", "BB", 5)
+    for listed in ([held, weak], [weak, held]):
+        result = portfolio_reading(credit(2), listed, reference("clo", row))
+        assert result.instrument == held
+        assert (result.uncapped, result.recommendation, len(result.capped_by)) == (2, 3, 1)
+
+
+def test_same_named_instruments_are_ordered_by_figure_not_by_text_and_by_form_on_equal_value() -> (
+    None
+):
+    # 99 is below 100 as a number, though "100" sorts before "99" as text.
+    low = Instrument("TL", "loan", "BB", Decimal(300), Decimal(99))
+    high = Instrument("TL", "loan", "BB", Decimal(300), Decimal(100))
+    for listed in ([low, high], [high, low]):
+        assert portfolio_reading(credit(3), listed, reference("clo")).instrument == low
+    # 350 and 350.0 are equal figures written differently; the written form decides, so the
+    # reading is the same in either order and shows the plain "50 bp".
+    plain = Instrument("TL", "loan", "BB", Decimal(350), Decimal(99))
+    long = Instrument("TL", "loan", "BB", Decimal("350.0"), Decimal(99))
+    readings = [
+        portfolio_reading(credit(3), listed, reference("clo"))
+        for listed in ([plain, long], [long, plain])
+    ]
+    assert readings[0] == readings[1]
+    assert readings[0].valuation is not None and readings[0].valuation.difference_bp == Decimal(50)
+    assert str(readings[0].valuation.difference_bp) == "50"
+
+
+def test_a_missing_level_orders_before_a_missing_price_among_same_named_instruments() -> None:
+    no_level = Instrument("TL", "loan", "BB", None, Decimal(99))
+    no_price = Instrument("TL", "loan", "BB", Decimal(300), None)
+    for listed in ([no_level, no_price], [no_price, no_level]):
+        result = portfolio_reading(credit(3), listed, reference("clo"))
+        assert result.reason == "No Valuation: TL has no level. No Valuation: TL has no price."
+
+
+def test_with_no_valuation_the_sector_rows_are_still_read_on_the_issuers_sector() -> None:
+    row = limit_row("Sector", "Max Software exposure", _THREE, "-1.00%", "Breach")
+    result = portfolio_reading(
+        credit(3),
+        [Instrument("TL", "loan", "BB", None, None)],
+        reference("clo", row),
+        Issuer(sector="Software"),
+    )
+    assert result.status == "blank" and result.instrument is None
+    assert [r.outcome for r in result.limits] == ["breached"]
