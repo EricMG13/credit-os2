@@ -185,4 +185,18 @@ describe("FileUpload.DropZone file classification", () => {
     fireEvent.change(input, { target: { files: [retry] } });
     expect(screen.getByText("PDF only")).not.toHaveClass("text-error-primary");
   });
+
+  it("S24-1-2 cancels a file dragged over or dropped on a disabled zone and takes none", () => {
+    const onDropFiles = vi.fn();
+    const { container } = render(
+      <FileUpload.DropZone hint="Add files." isDisabled onDropFiles={onDropFiles} />,
+    );
+    const zone = container.querySelector<HTMLElement>("[data-dropzone]");
+    if (zone === null) throw new Error("drop zone is missing");
+    const file = new File(["x"], "report.pdf", { type: "application/pdf" });
+    const dataTransfer = { types: ["Files"], files: [file] };
+    expect(fireEvent.dragOver(zone, { dataTransfer })).toBe(false);
+    expect(fireEvent.drop(zone, { dataTransfer })).toBe(false);
+    expect(onDropFiles).not.toHaveBeenCalled();
+  });
 });

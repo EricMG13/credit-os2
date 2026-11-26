@@ -5,7 +5,13 @@ import { scenarioShareLabel } from "../Downside";
 import { forecastMeasure } from "../forecastData";
 import { forecastInput } from "../ForecastRecord";
 import { GapPattern } from "../overview/figureParts";
-import { forwardPath, NET_LEVERAGE, pathPeriods } from "../overview/stressData";
+import {
+  forwardPath,
+  forwardStatement,
+  NET_LEVERAGE,
+  pathPeriods,
+  unbased,
+} from "../overview/stressData";
 import { Bento, Figure, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
 import { GapCell, KeyValues, LeadFigure, LeadGap, Notes, TableRegion, Trace } from "./parts";
@@ -264,7 +270,7 @@ const FOCUS = "outline-focus-ring focus-visible:outline-2 focus-visible:outline-
  * one downside), and the model holds its other cases (the upside) in the `other` grid, which
  * `forecastMeasure` reads. A case the path already draws is kept as it is; the others follow it.
  */
-export function withOtherCases(path: Path, model: unknown): Path {
+function withOtherCases(path: Path, model: unknown): Path {
   const drawn = new Set(path.cases.map(({ group }) => group));
   const extra = (forecastMeasure(model, NET_LEVERAGE)?.cases ?? [])
     .filter(({ group }) => !drawn.has(group))
@@ -277,14 +283,39 @@ export function withOtherCases(path: Path, model: unknown): Path {
         reason,
       })),
     }))
-    .filter(({ points }) => points.some((point) => point.value !== null));
+    .filter(({ points }) => points.length > 0);
   return extra.length ? { ...path, cases: [...path.cases, ...extra] } : path;
 }
 
+/**
+ * The path a lead draws: the main grid's, with the model's other cases after it; when the main grid
+ * states no figure but another case does (an upside beside a base and downside that are n.m.), the
+ * cases the model publishes alone. Null when no published case states a figure.
+ */
+export function leadPath(model: unknown): Path | null {
+  const base = forwardPath(model);
+  if (base) return withOtherCases(base, model);
+  const measure = forecastMeasure(model, NET_LEVERAGE);
+  if (!measure) return null;
+  const grouped = withOtherCases(
+    { measure: measure.label, cases: [], based: false, unbased: null, limits: [] },
+    model,
+  );
+  const cases = [...grouped.cases].sort(
+    (a, b) => Number(hasFigure(b.points)) - Number(hasFigure(a.points)),
+  );
+  if (!cases.some(({ points }) => hasFigure(points))) return null;
+  const groups = cases.map(({ group }) => group);
+  const based = cases[0]?.group === "Base case";
+  return { ...grouped, cases, based, unbased: based ? null : unbased(groups) };
+}
+
+const hasFigure = (points: readonly { value: number | null }[]) =>
+  points.some(({ value }) => value !== null);
+
 function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string }) {
   const model = view.models[0];
-  const base = model ? forwardPath(model) : null;
-  const path = base && model ? withOtherCases(base, model) : null;
+  const path = model ? leadPath(model) : null;
   if (!path)
     return (
       <LeadGap
@@ -293,7 +324,8 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
         title={PATH_TITLE}
         reason={
           model
-            ? "This page could not read a net leverage path from the published model."
+            ? (forwardStatement(model) ??
+              "This page could not read a net leverage path from the published model.")
             : "No forecast model was published for this run."
         }
       />
@@ -342,7 +374,7 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
           }),
         })),
       }}
-      notes={[...highest, ...gaps]}
+      notes={[...(path.unbased ? [path.unbased] : []), ...highest, ...gaps]}
     />
   );
 }

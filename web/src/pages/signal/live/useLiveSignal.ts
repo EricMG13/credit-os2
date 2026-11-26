@@ -43,9 +43,10 @@ function reduce(state: State, event: Event): State {
         asOf: event.asOf,
         query: event.query,
         // A snapshot asked to carry more (a topic's older stories) is not a later reading of the
-        // same lists: what it adds was always there, so nothing is held against it as new.
+        // same lists: what it adds was always there, so nothing is held against it as new. The
+        // plain query carries less, so it is held against whatever view the reader is back on.
         held:
-          event.query === state.query
+          event.query === state.query || event.query === ""
             ? holdAfterRead(state.fresh, state.held, event.slice, event.at)
             : null,
         failure: null,
@@ -97,11 +98,16 @@ class Line {
 }
 
 /** Read the snapshot and say what came; `hold` keeps the view on screen as the reader has it. */
-async function load(line: Line, stop: AbortSignal, dispatch: Dispatch<Event>, hold: boolean) {
+async function load(
+  line: Line,
+  stop: AbortSignal,
+  dispatch: Dispatch<Event>,
+  hold: boolean,
+): Promise<boolean> {
   const { query } = line;
   const got = await readSnapshot(stop, query);
-  if (stop.aborted) return;
-  if (got.ok)
+  if (stop.aborted) return false;
+  if (got.ok) {
     dispatch({
       type: "read",
       slice: got.slice,
@@ -109,7 +115,10 @@ async function load(line: Line, stop: AbortSignal, dispatch: Dispatch<Event>, ho
       query,
       at: hold ? viewNow() : null,
     });
-  else dispatch({ type: "failed", failure: got.failure });
+    return true;
+  }
+  dispatch({ type: "failed", failure: got.failure });
+  return false;
 }
 
 function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
@@ -117,8 +126,9 @@ function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
     write: (request) =>
       line.add(async (stop) => {
         const answer = await sendWrite(request, stop);
-        if (answer.refusal === null) await load(line, stop, dispatch, request.fresh !== true);
-        return answer;
+        if (answer.refusal !== null) return answer;
+        const read = await load(line, stop, dispatch, request.fresh !== true);
+        return read ? answer : { ...answer, stale: true };
       }),
     reveal: () => {
       dispatch({ type: "reveal", at: viewNow() });
@@ -160,7 +170,11 @@ function useFullerSnapshot(line: Line, dispatch: Dispatch<Event>, wanted: string
   const behind = state.fresh !== null && wanted !== "" && wanted !== state.query;
   useEffect(() => {
     line.want(wanted);
-    if (behind) void line.add((stop) => load(line, stop, dispatch, true));
+    if (behind) {
+      // An earlier read's failure is not this read's: the page says it only if this one fails too.
+      dispatch({ type: "retry" });
+      void line.add((stop) => load(line, stop, dispatch, true));
+    }
   }, [line, dispatch, wanted, behind]);
 }
 

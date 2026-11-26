@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, Self
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, TypedDict, Unpack
 
 from pydantic import model_validator
 
@@ -2094,16 +2094,16 @@ def _cp1_marks(
         fact, fact_refs = current(point.fact_id)
         cell = _chart_fact_cell(fact, spec.unit_class, fact_refs)
         caption = captions[point.series]
-        labels = [f"{caption} · {point.category}"]
         for companion_id in point.companion_fact_ids:
-            companion, companion_refs = current(companion_id)
-            companion_cell = _cell(companion, companion_refs)
-            companion_ref = companion_cell.gap_ref or companion_cell.ref_id
-            label = f"{companion.label}: {companion_cell.text}"
-            labels.append(label + (f" [{companion_ref}]" if companion_ref else ""))
+            current(companion_id)  # a companion the report does not hold fails closed
         marks.append(_chart_mark(fact, cell, series=caption, label=point.category))
+        # Reader text only: field names, ids and refs are Evidence's; the cell keeps its trace.
         rows.append(
-            Row(row_id=f"{spec.fig_id}.point.{index}", label=" · ".join(labels), cells=(cell,))
+            Row(
+                row_id=f"{spec.fig_id}.point.{index}",
+                label=f"{caption} · {point.category}",
+                cells=(cell,),
+            )
         )
     return marks, rows
 
@@ -2148,7 +2148,7 @@ def _cp1_figure(
         scale=spec.unit,
         columns=("Value",),
         rows=tuple(rows),
-        note=" ".join(text for text in (reason, gaps) if text) or None,
+        note=" ".join(text for text in (reason, gaps, spec.note) if text) or None,
     )
     return Figure(
         fig_id=spec.fig_id,
@@ -2853,20 +2853,25 @@ def _shown_module(view: View, module_id: str) -> ModuleView | None:
     return module if module is not None and module.status in SHOWN_STATUSES else None
 
 
+class _FigureSpec(TypedDict):
+    """What a figure of points states about itself: the arguments its callers pass together."""
+
+    fig_id: str
+    title: str
+    kind: ChartKind
+    unit_class: UnitClass
+    unit: str
+    series: tuple[str, ...]
+    points: tuple[_ChartPoint, ...]
+    placement: FigurePlacement
+    summary: NotRequired[str | None]
+
+
 def _figure_of_points(
     block_id: str,
     module: ModuleView,
     refs: Mapping[tuple[str, str], tuple[str, ...]],
-    *,
-    fig_id: str,
-    title: str,
-    kind: ChartKind,
-    unit_class: UnitClass,
-    unit: str,
-    series: tuple[str, ...],
-    points: tuple[_ChartPoint, ...],
-    placement: FigurePlacement,
-    summary: str | None = None,
+    **spec: Unpack[_FigureSpec],
 ) -> Figure:
     """The figure of these points: each mark and twin row is read from its settled fact."""
     facts = {fact.fact_id: fact for fact in module.facts}
@@ -2877,40 +2882,41 @@ def _figure_of_points(
         return facts[fact_id], refs.get((module.module_id, fact_id), ())
 
     marks, rows = [], []
-    for index, point in enumerate(points):
+    for index, point in enumerate(spec["points"]):
         fact, fact_refs = current(point.fact_id)
-        cell = _settled_cell(fact, unit_class, fact_refs, strict_text=point.strict_text)
-        labels = [f"{point.series} · {point.category}"]
+        cell = _settled_cell(fact, spec["unit_class"], fact_refs, strict_text=point.strict_text)
         for companion_id in point.companions:
-            companion, companion_refs = current(companion_id)
-            companion_cell = _cell(companion, companion_refs)
-            companion_ref = companion_cell.ref_id  # a gap states its G# in its text
-            label = f"{companion.label}: {companion_cell.text}"
-            labels.append(label + (f" [{companion_ref}]" if companion_ref else ""))
+            current(companion_id)  # a companion the report does not hold fails closed
         marks.append(_chart_mark(fact, cell, series=point.series, label=point.category))
-        rows.append(Row(row_id=f"{fig_id}.point.{index}", label=" · ".join(labels), cells=(cell,)))
+        rows.append(
+            Row(
+                row_id=f"{spec['fig_id']}.point.{index}",
+                label=f"{point.series} · {point.category}",
+                cells=(cell,),
+            )
+        )
     twin = Block(
-        block_id=f"{block_id}-{fig_id.replace('.', '').lower()}-twin",
-        title=f"{title} table",
+        block_id=f"{block_id}-{spec['fig_id'].replace('.', '').lower()}-twin",
+        title=f"{spec['title']} table",
         owner=module.module_id,
         state="populated" if rows else "absent",
         kind="dense",
-        scale=unit,
+        scale=spec["unit"],
         columns=("Value",),
         rows=tuple(rows),
     )
     return Figure(
-        fig_id=fig_id,
-        title=title,
-        placement=placement,
-        summary=summary,
+        fig_id=spec["fig_id"],
+        title=spec["title"],
+        placement=spec["placement"],
+        summary=spec.get("summary"),
         chart=ChartSpec(
-            kind=kind,
-            series=series,
+            kind=spec["kind"],
+            series=spec["series"],
             table_twin=twin,
             marks=tuple(marks),
-            unit=unit,
-            unit_class=unit_class,
+            unit=spec["unit"],
+            unit_class=spec["unit_class"],
         ),
     )
 
@@ -3029,7 +3035,7 @@ def _cr1_figures(
     """Covenant tests and headroom: a Threshold, Current and Headroom bullet row per T4.9 row.
 
     The threshold is the settled text ("4.00x") read by the strict parse. A row whose comparison
-    text is not a ceiling or a floor is not drawn and the figure names its comparison fact. No
+    text is not a ceiling or a floor is not drawn and the figure names its reader label. No
     legal verdict is drawn: the figure holds the three settled numbers and the companion texts.
     """
     module = _shown_module(view, "CP-4")
@@ -3048,20 +3054,30 @@ def _cr1_figures(
     def fact_id(row_id: str, field: str) -> str:
         return fact_of(row_id, field).fact_id
 
+    # A label two rows share is numbered "(1)", "(2)" in row order, so a reader never meets an id.
+    totals = Counter(row.label for row in table.rows)
+    seen: Counter[str] = Counter()
+    names: dict[str, str] = {}
+    for row in table.rows:
+        seen[row.label] += 1
+        names[row.row_id] = (
+            f"{row.label} ({seen[row.label]})" if totals[row.label] > 1 else row.label
+        )
     drawn, skipped = [], []
     for row in table.rows:
         comparison = facts.get((row.row_id, "comparison"))
         if comparison is None or comparison.text not in _CR1_COMPARISONS:
+            fact_id(row.row_id, "comparison")  # the row must hold its comparison fact
             skipped.append(
-                f"{fact_id(row.row_id, 'comparison')} is neither 'Not more than' nor 'Not less than'"
+                f"{names[row.row_id]} (its comparison is not 'Not more than' or 'Not less than')"
             )
             continue
         # A settled number in a unit other than the multiple is not drawn on the x axis; the figure
-        # says which fact (the report still builds, and the table shows the fact in its own unit).
+        # says which row (the report still builds, and the table shows the fact in its own unit).
         numbers = [fact_of(row.row_id, name) for name in ("current", "headroom")]
         odd = next((f for f in numbers if f.status == "known" and not _is_plain_multiple(f)), None)
         if odd is not None:
-            skipped.append(f"{odd.fact_id} is not a plain multiple")
+            skipped.append(f"{names[row.row_id]} (its {odd.label} is not a plain multiple)")
             continue
         drawn.append(row)
     note = "Not drawn: " + "; ".join(skipped) if skipped else None
@@ -3076,7 +3092,6 @@ def _cr1_figures(
         )
         chart = ChartSpec(kind="na", series=(), table_twin=twin, marks=(), unit="x", reason=note)
         return (Figure(fig_id="CR.1", title=_CR1_TITLE, chart=chart, placement="beside"),)
-    repeated = {label for label, n in Counter(row.label for row in drawn).items() if n > 1}
     points: list[_ChartPoint] = []
     for row in drawn:
         for series, field, companions, strict in (
@@ -3084,11 +3099,10 @@ def _cr1_figures(
             ("Current", "current", ("cp_1_metric", "test_on_cp_1_metric"), False),
             ("Headroom", "headroom", ("headroom_share", "test_on_cp_1_metric"), False),
         ):
-            category = f"{row.label} ({row.row_id})" if row.label in repeated else row.label
             points.append(
                 _ChartPoint(
                     series,
-                    category,
+                    names[row.row_id],
                     fact_id(row.row_id, field),
                     tuple(fact_id(row.row_id, name) for name in companions),
                     strict_text=strict,

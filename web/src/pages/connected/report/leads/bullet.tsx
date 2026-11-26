@@ -13,6 +13,8 @@ export type LeadTest = HeadroomTest & {
   headroomGap?: string | null;
   /** The row's own "Basis and limitation" in the reader's words: the condition the test carries. */
   condition?: string;
+  /** The reason the module gives for a unit it did not supply; the figures then carry no unit. */
+  unitGap?: { word: string; reason: string };
 };
 
 /**
@@ -30,8 +32,13 @@ export function leadTests(
   return (
     headroomTests(table, descriptor)?.map((test, at): LeadTest => {
       const gap = column === null ? null : statedGap(table.rows[at]?.[column] ?? "");
+      // A unit cell that states a gap is not a unit: the figures stay bare and the gap is said once.
+      const unitGap = statedGap(test.unit);
       return {
         ...test,
+        ...(unitGap
+          ? { unit: "", unitGap: { word: unitGap.word, reason: readerCell(unitGap.reason) } }
+          : {}),
         label: readerCell(test.label),
         threshold: readerCellOf(test.threshold),
         current: readerCellOf(test.current),
@@ -118,6 +125,11 @@ function BulletRow({ test, href }: { test: LeadTest; href?: string }) {
         )}
         {test.direction && (
           <span className="text-caption text-text-tertiary">{test.direction}</span>
+        )}
+        {test.unitGap && (
+          <Term name="Unit">
+            <GapCell word={test.unitGap.word} reason={test.unitGap.reason} />
+          </Term>
         )}
       </span>
       {test.condition && (

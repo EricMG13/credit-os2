@@ -98,7 +98,7 @@ LABELS: Mapping[str, re.Pattern[str]] = MappingProxyType(
                     rf"{_B}{_DAY} {_MONTH} {_YEAR}{_E}",
                     rf"{_B}{_MONTH} {_DAY}, {_YEAR}{_E}",
                     rf"{_B}{_YEAR}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01]){_E}",
-                    rf"{_B}{_YEAR}{_YEAR_E}",
+                    rf"(?<![$\u20ac\u00a3\u00a5]){_B}{_YEAR}{_YEAR_E}",
                 )
             )
         ),

@@ -242,6 +242,37 @@ describe("ModelLead", () => {
     expect(screen.getByRole("link", { name: "Open the forecast" })).toBeVisible();
   });
 
+  it("states the model's own reason when every net leverage figure is a stated gap, not a read failure", () => {
+    const gaps = model({
+      "Base case": [
+        ["n.m.", null],
+        ["n.m.", null],
+      ],
+    });
+    render(<ModelLead {...props([gaps])} />);
+    expect(screen.getByText(/the inputs do not state this period/)).toBeVisible();
+    expect(screen.queryByText(/could not read a net leverage path/)).toBeNull();
+  });
+
+  it("keeps a six-character negative axis label inside the drawing's left edge", () => {
+    const cash = model({
+      "Base case": [
+        ["1.00x", "1.0"],
+        ["0.40x", "0.4"],
+        ["-0.12x", "-0.12"],
+      ],
+    });
+    const { container } = render(<ModelLead {...props([cash])} />);
+    const labels = [...container.querySelectorAll("svg[data-zero] text[text-anchor='end']")];
+    expect(labels.map((label) => label.textContent)).toContain("-0.25x");
+    for (const label of labels) {
+      const start =
+        Number(label.getAttribute("x")) -
+        label.textContent.length * Number(label.getAttribute("font-size")) * 0.6;
+      expect(start, label.textContent).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("draws one case with one period as a single point, and ignores a second model", () => {
     const one = model({ "Base case": [["2.00x", "2.0"]] });
     const { container } = render(<ModelLead {...props([one, TWO])} />);
@@ -394,5 +425,37 @@ describe("ModelLead other grid", () => {
     expect(container.querySelectorAll('[data-line="Upside case"]')).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: /Table view/ }));
     expect(screen.getByRole("row", { name: /Upside case.*FY2027E.*3\.19x/ })).toBeInTheDocument();
+  });
+});
+
+describe("ModelLead net-cash path", () => {
+  const netCash = () =>
+    model({
+      "Base case": [
+        ["3.00x", "3.0"],
+        ["1.00x", "1.0"],
+        ["-2.00x", "-2.0"],
+      ],
+    });
+  it("S16-3-3 keeps the last end label above the period labels", () => {
+    measuredAs(600);
+    const { container } = render(<ModelLead {...props([netCash()])} />);
+    const svg = container.querySelector("svg[data-zero]");
+    const label = svg?.querySelector("[data-case-label]");
+    const last = [...(label?.querySelectorAll("tspan") ?? [])].reduce(
+      (sum, t) => sum + Number(t.getAttribute("dy") ?? 0),
+      num(label, "y"),
+    );
+    const periodY = num(svg?.querySelector("text[text-anchor='middle']"), "y");
+    // The label's glyphs (3 px below its baseline) end above the period labels' glyphs (9 px above theirs).
+    expect(last + 3).toBeLessThan(periodY - 9);
+  });
+  it("S16-3-4 does not say from zero when the axis starts below zero", () => {
+    measuredAs(600);
+    const { container } = render(<ModelLead {...props([netCash()])} />);
+    expect(container.textContent).not.toMatch(/from zero/);
+    expect(container.querySelector("svg[data-zero]")?.getAttribute("aria-label")).not.toMatch(
+      /from zero/,
+    );
   });
 });

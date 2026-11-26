@@ -18,7 +18,13 @@ import re
 from dataclasses import dataclass
 from functools import cache
 
-from deploy_workflow.method_scripts import ROOT, _register_start, _unfenced, register_table
+from deploy_workflow.method_scripts import (
+    ROOT,
+    _one_start_each,
+    _register_start,
+    _unfenced,
+    register_table,
+)
 
 SCORECARD_ID = "T2.13"
 SCORECARD_TITLE = "Credit scorecard"
@@ -170,7 +176,7 @@ def _basis(cell: str, *, evidence: bool) -> str:
 def _starts(lines: list[str], ident: str) -> list[int]:
     """The lines a register starts at, as `register_table` finds them."""
     start = _register_start(ident)
-    return [number for number, line in enumerate(lines) if start.match(line)]
+    return _one_start_each(lines, [n for n, line in enumerate(lines) if start.match(line)])
 
 
 def _misplaced(lines: list[str], register: _Register) -> list[str]:

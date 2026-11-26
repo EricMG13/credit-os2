@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IN_EVIDENCE, namesSource, reasonText, safeText } from "./reader";
+import { citesSource, clauses, IN_EVIDENCE, namesSource, reasonText, safeText } from "./reader";
 
 describe("safeText", () => {
   it("passes plain reader wording and turns module codes into names", () => {
@@ -54,5 +54,53 @@ describe("reasonText", () => {
     expect(reasonText(" Source dash ")).toBe("—");
     expect(reasonText("source dash in TDG_10-K.htm page 45")).toBe(IN_EVIDENCE);
     expect(reasonText("no split [E3]")).toBe("no split");
+  });
+});
+
+describe("citesSource", () => {
+  it("counts a named filing or a Source: lead-in as a source reference", () => {
+    expect(citesSource("Annual Form 10-K subsequent-events note")).toBe(true);
+    expect(citesSource("Source: the lender's note.")).toBe(true);
+    expect(citesSource("No later event is stated.")).toBe(false);
+  });
+});
+
+describe("clauses", () => {
+  it("splits at a full stop or semicolon followed by a space", () => {
+    expect(clauses("Carrying debt; reported EBITDA. Pro forma.")).toEqual([
+      "Carrying debt;",
+      "reported EBITDA.",
+      "Pro forma.",
+    ]);
+  });
+  it("does not split after the page abbreviations p., pp. or pg., in any case (S15-4-1)", () => {
+    expect(clauses("Debt; annual p. 120, P. 71; pp. 3-4 and PG. 9; Pg. 2. Up.")).toEqual([
+      "Debt;",
+      "annual p. 120, P. 71;",
+      "pp. 3-4 and PG. 9;",
+      "Pg. 2.",
+      "Up.",
+    ]);
+  });
+  it("still splits after a word that only ends in p", () => {
+    expect(clauses("Debt rose in the group. Cash fell.")).toEqual([
+      "Debt rose in the group.",
+      "Cash fell.",
+    ]);
+  });
+  it("still splits after S&P., L.P. and a percentage-point pp. that no page number follows (S15-5-2)", () => {
+    // Answer key (S15-5-2 probe): only a page locator followed by its page number holds the cut.
+    expect(clauses("Rated B+ by S&P. Annual p120.")).toEqual(["Rated B+ by S&P.", "Annual p120."]);
+    expect(clauses("Borrower Holdings L.P. Annual p120.")).toEqual([
+      "Borrower Holdings L.P.",
+      "Annual p120.",
+    ]);
+    expect(clauses("Cost of debt up 0.4 pp. Annual p71.")).toEqual([
+      "Cost of debt up 0.4 pp.",
+      "Annual p71.",
+    ]);
+  });
+  it("drops empty pieces", () => {
+    expect(clauses("   ")).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { publishedTables, ticks } from "./visualData";
+import { publishedTables, rangeTicks, ticks } from "./visualData";
 
 const values = (series: number[], zero: boolean) => ticks(series, zero).map((t) => t.value);
 const labels = (series: number[], zero: boolean) => ticks(series, zero).map((t) => t.label);
@@ -85,4 +85,10 @@ it("rejects a duplicate table line when the malformed occurrence follows a valid
   };
   const malformed = { type: "table", line: 13, headers: ["Label"], rows: [] };
   expect(publishedTables([{ blocks: [valid, malformed] }]).has(13)).toBe(false);
+});
+
+it("labels range ticks without binary float noise and keeps the value", () => {
+  const result = rangeTicks([3.07, 4.74]);
+  expect(result.map((tick) => tick.label)).toEqual(["3.07", "3.905", "4.74"]);
+  expect(result[1]?.value).toBe(3.07 + (4.74 - 3.07) / 2);
 });

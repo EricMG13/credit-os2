@@ -25,7 +25,7 @@ from deploy_workflow.inbox.scheduler import Scheduler
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.run_events import EVENTS, ModuleState, append_event
 from deploy_workflow.run_start.service import _Server
-from react_frontend import make_server, run_activity
+from react_frontend import _app_page, make_server, run_activity
 
 PROJECT = Path(__file__).resolve().parents[1]
 
@@ -1098,6 +1098,13 @@ def test_credit_snapshot_downloads_with_a_control_character_in_the_rv_worksheet(
     shown = [c.value for ws in load_workbook(io.BytesIO(body)) for r in ws.iter_rows() for c in r]
     assert "text holds a control character" in shown
     assert not any(isinstance(v, str) and "10021" in v for v in shown)
+
+
+@pytest.mark.parametrize("page", ["/start", "/runs", "/coverage"])
+def test_a_client_page_with_a_trailing_slash_is_the_same_page(page: str) -> None:
+    # The client router (ConnectedApp routeOf) accepts each with one trailing slash.
+    assert _app_page(page + "/")
+    assert not _app_page(page + "//")
 
 
 def _post(server: _Server, path: str) -> tuple[int, Any]:

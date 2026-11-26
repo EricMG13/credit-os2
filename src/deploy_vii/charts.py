@@ -514,6 +514,8 @@ def _waterfall(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
     left, right, top = 44.0, 8.0, 18.0
     steps = list(spec.marks)
     bottom = 58.0 if (width - 52) / len(steps) < 56 else 40.0
+    # Every wrapped line of a bar's label is drawn, so the margin grows with the longest one.
+    bottom = max(bottom, 24.0 + 10.0 * max((len(_wrap(m.label)) for m in steps), default=0))
     running = Decimal(0)
     spans: list[tuple[Decimal, Decimal]] = []
     for step in steps:
@@ -562,7 +564,7 @@ def _waterfall(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
             else "",
         )
         lines = _wrap(step.label)
-        for k, part in enumerate(lines[:2]):
+        for k, part in enumerate(lines):
             _el(
                 root,
                 "text",
@@ -577,7 +579,6 @@ def _waterfall(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
             _mark_group(root, step, _label(step), x + bar_width / 2, y_of(0) - 6, None)
             continue
         top_y, bottom_y = y_of(float(max(start, end))), y_of(float(min(start, end)))
-        kind = _step_kind(step)
 
         def draw(
             group: ET.Element,
@@ -585,8 +586,8 @@ def _waterfall(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
             b: float = bottom_y,
             xx: float = x,
             m: ChartMark = step,
-            k: str = kind,
         ) -> None:
+            k = _step_kind(m)
             attrs = {"class_": f"bar wf-{k}"}
             if _is_synthetic(m):
                 attrs = {"class_": f"bar wf-{k}-edge", "fill": f"url(#hatch-{chart_id}-wf-{k})"}
@@ -623,6 +624,9 @@ def _waterfall(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
             )
 
 
+_DEBT_TICKS_AT_MOST = 10
+
+
 def _debt_stack(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
     if spec.denominator is None:  # ChartSpec guarantees it; refuse rather than assume
         raise ValueError("A debt stack needs a denominator")
@@ -636,7 +640,8 @@ def _debt_stack(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
     def x_of(multiple: Decimal) -> float:
         return pad_left + (width - pad_left - pad_right) * float(multiple) / axis_max
 
-    for tick in range(1, axis_max + 1):
+    stride = math.ceil(axis_max / _DEBT_TICKS_AT_MOST)  # a huge multiple draws every n-th line
+    for tick in range(stride, axis_max + 1, stride):
         _el(
             root,
             "line",
@@ -675,7 +680,6 @@ def _debt_stack(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
         start = cumulative / spec.denominator
         cumulative += row.value
         end = cumulative / spec.denominator
-        cls = _series_class(spec, row.series)
         label = _label(row, "cumulative " + format_value(end, "multiple", "known"))
 
         def draw(
@@ -684,8 +688,8 @@ def _debt_stack(spec: ChartSpec, root: ET.Element, chart_id: str) -> None:
             b: Decimal = end,
             yy: float = y,
             r: ChartMark = row,
-            c: int = cls,
         ) -> None:
+            c = _series_class(spec, r.series)
             _el(
                 group,
                 "rect",

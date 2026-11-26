@@ -124,7 +124,7 @@ describe("final audit: connected intake", () => {
     expect(screen.queryByText(/may have expired/)).toBeNull();
   });
 
-  it("J2-005 bounds content reads across overlapping selections and keeps compact digests", async () => {
+  it("J2-005 bounds content reads across overlapping selections without Web Crypto", async () => {
     const choices = [
       new File(["one"], "first.txt"),
       new File(["two"], "second.txt"),
@@ -167,8 +167,7 @@ describe("final audit: connected intake", () => {
     expect(await screen.findByText("3 documents inspected, 0 ignored.")).toBeVisible();
     expect(mostReads).toBe(1);
     expect(base64).not.toHaveBeenCalled();
-    expect(digest.mock.calls.length).toBeGreaterThanOrEqual(3);
-    expect(digest.mock.calls.every(([, bytes]) => bytes.byteLength === 3)).toBe(true);
+    expect(digest).not.toHaveBeenCalled();
   });
   it("C1-014 gives a browser tab the start page's visible title", async () => {
     setup();
@@ -203,6 +202,22 @@ describe("final audit: connected intake", () => {
       within(screen.getByRole("list", { name: "Documents added" })).getAllByRole("listitem"),
     ).toHaveLength(2);
   });
+  it("S19-1-1 compares equal-size files where the browser has no crypto.subtle", async () => {
+    vi.stubGlobal("crypto", { getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
+    setup();
+    const input = await screen.findByLabelText("Documents");
+    fireEvent.change(input, {
+      target: {
+        files: [filing, new File(["report"], "different.txt"), new File(["filing"], "copy.txt")],
+      },
+    });
+    expect(
+      await screen.findByText("Same content as annual.txt. Remove one copy before inspection."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Cannot read properties/)).toBeNull();
+    expect(screen.queryAllByText(/Same content as/)).toHaveLength(1);
+  });
+
   it("C2-012 names an oversized selected file and never adds it to the upload list", async () => {
     const fetchMock = setup();
     const input = await screen.findByLabelText("Documents");

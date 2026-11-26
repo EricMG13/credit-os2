@@ -90,3 +90,33 @@ def test_tab_stops_in_paragraph_properties_are_not_text() -> None:
         "<w:r><w:rPr><w:b/></w:rPr><w:t>Cash</w:t></w:r><w:r><w:tab/><w:t>1,200</w:t></w:r></w:p>"
     )
     assert docx_text(docx(body)) == "Cash\t1,200"
+
+
+def test_text_under_custom_xml_and_content_controls_around_blocks_rows_and_cells_is_read() -> None:
+    """S09-1-2: wrappers are looked through at body, row and cell level."""
+
+    def cell(text: str) -> str:
+        return "<w:tc>" + para(f"<w:t>{text}</w:t>") + "</w:tc>"
+
+    body = (
+        para("<w:t>Plain paragraph</w:t>")
+        + "<w:customXml>"
+        + para("<w:t>Inside custom XML</w:t>")
+        + "</w:customXml>"
+        + "<w:tbl>"
+        + f"<w:tr>{cell('Cell A')}{cell('Cell B')}</w:tr>"
+        + "<w:tr><w:sdt><w:sdtContent>"
+        + cell("Control cell")
+        + "</w:sdtContent></w:sdt>"
+        + cell("Cell C")
+        + "</w:tr>"
+        + "<w:sdt><w:sdtContent><w:tr>"
+        + cell("Row in control")
+        + cell("Cell D")
+        + "</w:tr></w:sdtContent></w:sdt>"
+        + "</w:tbl>"
+    )
+    assert docx_text(docx(body)) == (
+        "Plain paragraph\nInside custom XML\nCell A | Cell B\n"
+        "Control cell | Cell C\nRow in control | Cell D"
+    )

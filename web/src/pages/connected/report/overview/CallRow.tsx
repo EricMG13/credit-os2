@@ -20,6 +20,7 @@ import { PublishedSource } from "../PublishedTrace";
 import { decisionActions, type Action, type SpecialistOverview } from "../frontPage";
 import { reportSpecialistOverview } from "../../export/reportExport";
 import { plainText, richParts } from "../../richText";
+import { problemSentence } from "../changes/model";
 import { callBlocks } from "./decision";
 import { readerReason } from "./reason";
 import { useSvgScale } from "./svgScale";
@@ -601,7 +602,7 @@ function ClearanceTile({ view }: Pick<RowProps, "view">) {
 function ChangesBody({ snapshot, run, view }: RowProps): ReactNode {
   const change = comparisonForRun(run, snapshot.workspace.runs);
   const entry = entryOf(view, "CP-8");
-  if (change?.problem) return <GapSentence>{change.problem}</GapSentence>;
+  if (change?.problem) return <GapSentence>{problemSentence(change.problem)}</GapSentence>;
   if (change?.pack && !entry)
     return <GapSentence>The changes module is not part of this run.</GapSentence>;
   if (!change?.pack || !entry)

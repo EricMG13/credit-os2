@@ -387,3 +387,33 @@ def test_one_fetch_stores_at_most_500_entries_the_newest_and_the_rest_come_later
     assert db_a.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 1200
     run_due(db_a, NOW + timedelta(minutes=30), fn)
     assert fn.calls[3][1] == '"v1"'  # the whole feed is stored: validators again
+
+
+def test_a_failed_topic_match_does_not_leave_the_story_stored_and_never_matched(db_a, monkeypatch):
+    """S05-signal-backend-1-5: store and match are one transaction, so the next clean pass offers
+    the story again and the topic's rule (its keyword "Phase", in RSS's first headline) meets it."""
+    import sqlite3
+
+    from deploy_workflow.signal import ingest
+    from deploy_workflow.signal.topics import add_topic
+
+    topic = add_topic(db_a, "Phases", ["phase two"], [], "x")
+    real = ingest.match_story
+    calls = []
+
+    def flaky(held, story_id):
+        calls.append(story_id)
+        if len(calls) == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return real(held, story_id)
+
+    monkeypatch.setattr(ingest, "match_story", flaky)
+    first = run_due(db_a, NOW, recorded(RSS))
+    assert first[0][1] is False  # the pass is recorded as failed
+    assert db_a.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 0
+    run_due(db_a, NOW + timedelta(minutes=11), recorded(RSS))
+    assert db_a.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 2
+    assert (
+        db_a.execute("SELECT COUNT(*) FROM topic_stories WHERE topic_id=?", (topic,)).fetchone()[0]
+        == 1
+    )

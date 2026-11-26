@@ -171,3 +171,21 @@ def test_issuer_skips_an_unreadable_record_and_still_answers(scheduler, root):
     assert got["latest_run"] != "" and got["issuer_name"] == "Acme Corp"
     assert prior.issuer(layout(root), "nobody")["runs"] == 0
     assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+
+
+def test_the_latest_run_offered_is_a_finished_run_not_a_later_failed_one(root):
+    """S08-1-4: "the latest is as of D" names a date a finished run has."""
+    lay = ensure_layout(root)
+    base = runs.Record(id="x", pathway="p", folder="f", status="failed", claimed_at="")
+    for rid, as_of, status in (
+        ("20261105-000000-01", "2026-11-05", "finished"),
+        ("20261120-000000-01", "2026-11-20", "failed"),
+    ):
+        runs.save(
+            lay,
+            replace(base, id=rid, as_of=as_of, status=status, issuer_id="acme", issuer_name=rid),
+        )
+    got = prior.issuer(lay, "acme")
+    assert got["runs"] == 1 and got["latest_as_of"] == "2026-11-05"
+    assert got["latest_run"] == "20261105-000000-01"
+    assert got["issuer_name"] == "20261120-000000-01"  # the filed name still follows the latest

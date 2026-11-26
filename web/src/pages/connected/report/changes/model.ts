@@ -73,6 +73,10 @@ const UNNAMED_BRACKET = ` (${UNNAMED_MODULE})`;
 export const words = (text: string) =>
   readerText(text).replace(MODULE_CODE, "").replaceAll(UNNAMED_BRACKET, "");
 
+/** A comparison's stated problem for the reader: a problem that cites a file or path is not drawn. */
+export const problemSentence = (problem: string) =>
+  containsReference(problem) ? "The comparison could not be read." : words(problem);
+
 const plain = (text = "") =>
   text.replaceAll("**", "").replaceAll("`", "").trim().replace(/\s+/g, " ");
 const nothing = (text: string) => text === "" || /^[—–-]$/.test(text);

@@ -1049,3 +1049,18 @@ def test_a_eur_context_reviewed_on_the_service_has_no_item_about_us_dollars(svc)
     text = json.dumps(summary)
     assert "USD millions" not in text and "US$" not in text
     assert "in USD" not in text and "not USD" not in text
+
+
+def test_a_carry_leave_out_is_applied_and_a_bad_one_is_400(svc, fake_env):
+    run = _finished_run(svc, fake_env, b"Net sales were 100.")
+    sid = svc.new()
+    for bad in ({"run": run, "leave_out": "notes/a.txt"}, {"run": run, "leave_out": [3]}):
+        assert svc.call("POST", f"/api/submissions/{sid}/carry", bad).status == 400
+    unknown = svc.call("POST", f"/api/submissions/{sid}/carry", {"run": run, "leave_out": ["x"]})
+    assert unknown.status == 400
+    assert not any(submissions.files_folder(layout(svc.root), sid).iterdir())
+    left = svc.call(
+        "POST", f"/api/submissions/{sid}/carry", {"run": run, "leave_out": ["NOTES/a.txt"]}
+    )
+    assert left.status == 200 and left.json() == {"carried": [], "kept": []}
+    assert not any(submissions.files_folder(layout(svc.root), sid).iterdir())

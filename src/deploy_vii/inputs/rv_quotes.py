@@ -296,6 +296,9 @@ def row_findings(
 ) -> tuple[list[tuple[str, str, str]], tuple[str, ...] | None]:
     """One data row's findings as (cell, problem, fix), and its duplicate key when every key
     column holds a valid value."""
+    # Imported here: portfolio imports this module's template contract at load time.
+    from deploy_vii.inputs.portfolio import percent_formatted
+
     values: dict[str, str] = {}
     findings: list[tuple[str, str, str]] = []
     flagged: set[str] = set()
@@ -307,6 +310,11 @@ def row_findings(
                 f"{name} holds a formula; prepare freezes stored values and never recalculates"
             )
             findings.append((f"{LETTERS[column - 1]}{row}", problem, FIX["formula"]))
+            flagged.add(name)
+        elif span is not None and name in LEVELS and percent_formatted(span):
+            # Excel stores `8.5%` as 0.085 and the frozen lexeme drops the display scale.
+            problem = f"{name} '{echo(values[name])}' is formatted as a percentage"
+            findings.append((f"{LETTERS[column - 1]}{row}", problem, FIX["number"]))
             flagged.add(name)
     for name in COLUMNS:
         if name in flagged:

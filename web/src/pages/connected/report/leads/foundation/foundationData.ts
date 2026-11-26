@@ -2,7 +2,7 @@ import { unitLabel, type OutputEntry, type Row, type Table } from "../../../publ
 import { tone } from "../../../signal";
 import { difference, readCell, signOf, sum, type Reading } from "../kit/numbers";
 import { changeBetween, type Change } from "../kit/changes";
-import { IN_EVIDENCE, reasonText, safeText } from "../kit/reader";
+import { citesSource, clauses, IN_EVIDENCE, reasonText, safeText } from "../kit/reader";
 import {
   allTables,
   columnOf,
@@ -106,8 +106,30 @@ function columnCells(read: PeriodTable, column: string): PeriodCell[] | null {
 /** A statement table (`| Line item | FY2024 | FY2023 | Unit | …`): its period columns, in order. */
 type Statement = { table: Table; columns: { period: Period; at: number }[] } & Placing;
 
+/**
+ * The statement headings the owner check reads by their first table (`cpos_cp1_statements.STATEMENTS`,
+ * read through `_table`): the statement is the first table under the heading, and a module may write
+ * further tables under it (the 2026-11-25 replay's segment EBITDA under T4.4, S15-5-1). Those further
+ * tables are not read here, as any table no figure reads.
+ */
+const FIRST_TABLE = ["T4.4 Income statement", "T4.5 Cash flow statement", "T4.6 Balance sheet"];
+
+/**
+ * The table a statement heading is read by: for a `FIRST_TABLE` heading the first table of its one
+ * section (null when the heading is absent, written twice, or holds no table); for any other
+ * heading the kit's `tableUnder`.
+ */
+function statementTable(entry: OutputEntry, heading: string): Table | null {
+  if (!FIRST_TABLE.includes(heading)) return tableUnder(entry, heading);
+  const same = entry.sections.filter((section) => section.heading === heading);
+  const [only] = same;
+  if (same.length !== 1 || !only) return null;
+  const first = only.blocks.find((block) => block.type === "table");
+  return first?.type === "table" ? first : null;
+}
+
 function statement(entry: OutputEntry, heading: string): Statement | string {
-  const table = tableUnder(entry, heading);
+  const table = statementTable(entry, heading);
   if (!table) return NOT_IN(`the ${inSentence(tableName(heading))}`);
   const read = statementColumns(table);
   if ("reason" in read) return periodsGap(tableName(heading), read.reason);
@@ -170,15 +192,12 @@ const SHORT_ID = /\b[CD]\d{1,3}\b/;
 
 /** The module's own words of a Basis and limitation cell, without the clauses that cite a source. */
 export function basisText(cell: string): string | null {
-  const clauses = cell
-    .trim()
-    .split(/(?<=[;.])\s+/)
-    .filter(Boolean);
-  const kept = clauses.filter((clause) => {
+  const parts = clauses(cell);
+  const kept = parts.filter((clause) => {
     const words = clause.replace(/[;.]$/, "");
-    return words && !SHORT_ID.test(words) && safeText(words) !== IN_EVIDENCE;
+    return words && !SHORT_ID.test(words) && !citesSource(words) && safeText(words) !== IN_EVIDENCE;
   });
-  if (kept.length === 0) return clauses.length ? IN_EVIDENCE : null;
+  if (kept.length === 0) return parts.length ? IN_EVIDENCE : null;
   const text = kept.map((clause) => safeText(clause)).join(" ");
   return text.replace(/;$/, ".");
 }
@@ -210,6 +229,8 @@ const ROW_TABLES = [
 ] as const;
 const STATEMENTS = ["T4.4 Income statement", "T4.5 Cash flow statement"] as const;
 
+const repeated = (heading: string) => periodsGap(tableName(heading), "it appears more than once");
+
 /** The periods the CP-1 figures cover, read from the tables they draw (the maturity buckets are not periods). */
 export function statedPeriods(entry: OutputEntry): StatedPeriods {
   const tables: StatedPeriods["tables"] = [];
@@ -225,21 +246,19 @@ export function statedPeriods(entry: OutputEntry): StatedPeriods {
     tables.push({ table, labels: read.periods.map(({ period }) => period.label) });
   };
   const found = allTables(entry);
-  for (const heading of [...ROW_TABLES, ...STATEMENTS]) {
+  for (const heading of ROW_TABLES) {
     const same = found.filter((item) => item.heading === heading);
     const [only] = same;
-    if (same.length > 1)
-      gaps.push({
-        table: tableName(heading),
-        reason: periodsGap(tableName(heading), "it appears more than once"),
-      });
-    else if (only)
-      add(
-        heading,
-        (STATEMENTS as readonly string[]).includes(heading)
-          ? statementColumns(only.table)
-          : periodRows(only.table),
-      );
+    if (same.length > 1) gaps.push({ table: tableName(heading), reason: repeated(heading) });
+    else if (only) add(heading, periodRows(only.table));
+  }
+  // A statement is read by its first table (`statementTable`): it is stated twice only when its
+  // heading is written twice, never because further tables follow it under the heading.
+  for (const heading of STATEMENTS) {
+    const table = statementTable(entry, heading);
+    if (entry.sections.filter((section) => section.heading === heading).length > 1)
+      gaps.push({ table: tableName(heading), reason: repeated(heading) });
+    else if (table) add(heading, statementColumns(table));
   }
   const segments = segmentSchedule(entry);
   if (typeof segments !== "string")
@@ -667,7 +686,12 @@ export type NetDebtView = {
   /** Cash and undrawn committed facilities per period, as stated; never summed here. */
   liquidity: LiquidityPeriod[];
   /** The handoff's own stated cash-plus-revolver figure, when it writes one. */
-  liquidityTotal: { label: string; values: PeriodCell[]; line: number } | null;
+  liquidityTotal: {
+    label: string;
+    values: PeriodCell[];
+    line: number;
+    reason: string | null;
+  } | null;
   tableLine: number;
 } & Placing;
 
@@ -700,11 +724,22 @@ function adjustmentsOf(entry: OutputEntry) {
   return { adjustments, none: null };
 }
 
-function liquidityTotal(entry: OutputEntry): NetDebtView["liquidityTotal"] {
+function liquidityTotal(entry: OutputEntry, unit: string): NetDebtView["liquidityTotal"] {
   const read = statement(entry, "Financials and credit metrics");
   if (typeof read === "string") return null;
   const row = findRow(read, ["Cash plus available revolver"], "Cash plus available revolver");
-  return typeof row === "string" ? null : { label: row.label, values: row.values, line: row.line };
+  if (typeof row === "string") return null;
+  // Never converted, never drawn bare: a total in another unit than the Net debt data is not a figure of this tile.
+  if (row.unit !== unit) {
+    const named = row.unit ? ` (${row.unit})` : "";
+    return {
+      label: row.label,
+      values: [],
+      line: row.line,
+      reason: BECAUSE(row.label, `it is in another unit${named} than the net debt data`),
+    };
+  }
+  return { label: row.label, values: row.values, line: row.line, reason: null };
 }
 
 /** See the exported reader below; a string is the reason the figure is not drawn. */
@@ -773,7 +808,7 @@ function readNetDebt(entry: OutputEntry): NetDebtView | string {
     noAdjustments: none !== null,
     noAdjustmentsWords: none,
     liquidity,
-    liquidityTotal: liquidityTotal(entry),
+    liquidityTotal: liquidityTotal(entry, read.unit),
     tableLine: read.table.line,
   };
 }
@@ -849,12 +884,20 @@ function bridgeRuns(steps: readonly BridgeStep[]): (boolean | null)[] {
 }
 
 /**
+ * Handoff words a foundation figure draws: "Detail is in Evidence." when they cite a source, a
+ * named filing included ("see the annual report", "Form 10-K"; S15-4-2), else `safeText`.
+ */
+export const handoffWords = (text: string) => (citesSource(text) ? IN_EVIDENCE : safeText(text));
+
+/**
  * A cell as drawn: a stated gap keeps its words with its reason through `reasonText` (a source
- * dash is "—"); a number or words through `safeText`.
+ * dash is "—"), a reason that cites a source left to Evidence; a number or words through
+ * `handoffWords`.
  */
 export function cellText(cell: Reading): string {
-  if (cell.kind !== "gap") return safeText(cell.text);
-  return `${cell.text.slice(0, cell.text.length - cell.reason.length)}${reasonText(cell.reason)}`;
+  if (cell.kind !== "gap") return handoffWords(cell.text);
+  const reason = citesSource(cell.reason) ? IN_EVIDENCE : reasonText(cell.reason);
+  return `${cell.text.slice(0, cell.text.length - cell.reason.length)}${reason}`;
 }
 
 /**

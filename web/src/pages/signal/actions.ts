@@ -15,7 +15,16 @@ export type SignalWrite = {
  * `refusal` is null once the service has accepted the write and the snapshot has been read again,
  * else the sentence to show: the service's own where it gave one. `reply` is what the service said.
  */
-export type SignalAnswer = { refusal: string | null; reply: unknown };
+export type SignalAnswer = {
+  refusal: string | null;
+  reply: unknown;
+  /** The service accepted the write but the re-read after it failed: the slice on screen predates it. */
+  stale?: true;
+};
+
+/** What a page says when the service accepted a write but the read after it failed (`stale`). */
+export const STALE_SENTENCE =
+  "Saved, but this page could not be refreshed to show it. Retry in a moment, or reload the page.";
 
 export type SignalActions = {
   write: (request: SignalWrite) => Promise<SignalAnswer>;

@@ -104,7 +104,7 @@ from deploy_workflow.model.pricing import (
     web_search_usd,
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
-from deploy_workflow.owners import cpos_custom, cpos_forecast, cpos_reader
+from deploy_workflow.owners import cpos_custom, cpos_forecast, cpos_periods, cpos_reader
 from deploy_workflow.owners.cpos import (
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
@@ -1673,6 +1673,43 @@ _BOTH_KEY_OPERAND = re.compile(
 _UNNAMED_AT_SCALE = re.compile(r"^[\w-]+: a block at scale 1000 must name the row and period")
 
 
+_NAME_THE_CELLS = (
+    "Name the row and the period or column of each base operand; if you cannot, set every "
+    "driver's values to [null, null, null] and say why in scope_limits."
+)
+
+
+def _unnamed_flow_issues(inputs: cpos_forecast.ForecastInputs) -> tuple[str, ...]:
+    """The repair line when a flow operand states an amount and names no row, period or column.
+    Acceptance only. `parse` and `model_files` are unchanged, so delivery reads a retained block
+    as before; resume re-checks a retained CP-2G through acceptance (`cpos._handoff`), so one
+    that names no cell is refused there (`cpos_retained_rejected`), fail-closed."""
+    if all(
+        inputs.base[key].amount is None
+        or inputs.base[key].row
+        or inputs.base[key].period
+        or inputs.base[key].column
+        for key in cpos_forecast.FLOWS
+    ):
+        return ()
+    return (f"Forecast inputs: CP-2G: a block {cpos_forecast.UNNAMED_FLOW}. {_NAME_THE_CELLS}",)
+
+
+def _reported_year_issues(
+    task: HandoffTask, inputs: cpos_forecast.ForecastInputs
+) -> tuple[str, ...]:
+    """A forecast whose first year CP-1 already reports is sent back (owner items 9, amended
+    ruling): the year meets the condition under which the history leaves it out and prints
+    `IN_FORECAST` (`cpos_periods.reported_forecast_years`). Acceptance only: `parse` and
+    `model_files` are unchanged, so delivery reads a retained block as before."""
+    reported = cpos_periods.reported_forecast_years(task.handoffs["CP-1"].decode("utf-8"), inputs)
+    if not reported:
+        return ()
+    last = int(reported[-1].removeprefix("FY"))
+    advice = f"start the forecast after it (from FY{last + 1})."
+    return (f"Forecast inputs: CP-1 reports {reported[-1]}; {advice}",)
+
+
 def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
     """Live run tdg-forecast-004 (2026-11-10): a forecast block delivery cannot parse is sent
     back for repair here, not dropped after payment. Declining (all null) stays the method's call
@@ -1700,10 +1737,7 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             advice = f"State either `period` or `column` for {who}, not both."
             return (f"Forecast inputs: {stem}. {advice}",)
         if _UNNAMED_AT_SCALE.match(message):
-            fix = "Name the row and the period or column of each base operand; if you cannot, "
-            advice = (
-                f"{fix}set every driver's values to [null, null, null] and say why in scope_limits."
-            )
+            advice = _NAME_THE_CELLS
         elif _FACILITY_REFUSAL.match(message):
             fallback = "write `facilities` as null and keep the drivers."
             advice = f"Correct the facilities; if you cannot, {fallback}"
@@ -1712,9 +1746,13 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             advice = f"{fix}[null, null, null] and say why in scope_limits."
         return (f"Forecast inputs: {stem}. {advice}",)
     return (
-        *_unstated_currency(inputs),
-        *_shock_issues(task, inputs),
-        *_downside_issues(task, text, inputs),
+        _unnamed_flow_issues(inputs)
+        or _reported_year_issues(task, inputs)
+        or (
+            *_unstated_currency(inputs),
+            *_shock_issues(task, inputs),
+            *_downside_issues(task, text, inputs),
+        )
     )
 
 

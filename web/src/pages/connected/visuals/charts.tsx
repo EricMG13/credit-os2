@@ -139,29 +139,41 @@ function periods(authored: SourceTable, descriptor: Descriptor, frame: Frame) {
   );
 }
 
+/** The decimal places a drawn number states; `String` gives the shortest text that reads back as it. */
+function decimalPlaces(value: number) {
+  const [mantissa = "", exponent = "0"] = String(Math.abs(value)).split("e");
+  return Math.max(0, (mantissa.split(".")[1]?.length ?? 0) - Number(exponent));
+}
+
 function waterfallSteps(table: SourceTable, column: number): WaterfallStep[] | null {
   const labels = table.rows.map((row) => row[0] ?? "");
   if (!distinct(labels)) return null;
   const amounts = columnAmounts(table, column);
+  // The running sum is kept in whole counts of the table's smallest stated decimal unit, so the
+  // closing equality is exact on the amounts as written, not on binary floats.
+  const places = Math.max(0, ...amounts.map((value) => (value == null ? 0 : decimalPlaces(value))));
+  const scale = 10 ** places;
   let running = 0;
   const steps: WaterfallStep[] = [];
   for (const [index, row] of table.rows.entries()) {
+    const value = amounts[index];
     const result = waterfallStep(
       row,
       column,
-      amounts[index],
+      value == null ? value : Math.round(value * scale),
       labels[index],
       index,
       running,
       table.rows.length,
     );
     if (!result) return null;
-    steps.push(result.step);
+    steps.push({ ...result.step, from: result.step.from / scale, to: result.step.to / scale });
     running = result.running;
   }
   return steps;
 }
 
+/** `amount`, `running`, `from` and `to` are whole counts of the table's smallest decimal unit. */
 function waterfallStep(
   row: string[],
   column: number,
@@ -176,24 +188,22 @@ function waterfallStep(
   const total = index === 0 || last;
   const from = total ? 0 : running;
   const to = total ? amount : running + amount;
-  if (!Number.isFinite(to) || to < 0 || !validWaterfallTotal(last, running, amount, count))
+  if (!Number.isSafeInteger(to) || to < 0 || !validWaterfallTotal(last, running, amount))
     return null;
   return {
     step: {
       label: label ?? "",
-      kind: total ? "total" : amount < 0 ? "down" : "up",
+      kind: total ? ("total" as const) : amount < 0 ? ("down" as const) : ("up" as const),
       from,
       to,
       text: row[column] ?? "",
-    } as WaterfallStep,
+    },
     running: to,
   };
 }
 
-function validWaterfallTotal(last: boolean, running: number, value: number, count: number) {
-  if (!last) return true;
-  const tolerance = Number.EPSILON * Math.max(Math.abs(value), Math.abs(running), 1) * count;
-  return Math.abs(running - value) <= tolerance;
+function validWaterfallTotal(last: boolean, running: number, value: number) {
+  return !last || running === value;
 }
 
 function waterfall(table: SourceTable, descriptor: Descriptor, frame: Frame) {

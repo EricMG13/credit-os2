@@ -12,6 +12,7 @@ type Figure = {
   unit?: string | null;
   period?: string | null;
   basis?: string;
+  label?: string;
   prior?: { value: string; period: string };
   change?: string;
 };
@@ -23,7 +24,9 @@ export function figureName(key: string, name: string, figure: Figure | undefined
     /^LTM reported EBITDA over LTM cash interest for debt(?: [\d.,]+)?(?:;|$)/iu.test(
       figure?.basis ?? "",
     );
-  return debtCashInterest ? "Reported EBITDA / cash interest on debt" : name;
+  if (debtCashInterest) return "Reported EBITDA / cash interest on debt";
+  const stated = figure?.label?.trim();
+  return stated && stated !== name ? stated : name;
 }
 
 /** Better is the accent with its word, worse the signal colour with its word; never colour alone. */

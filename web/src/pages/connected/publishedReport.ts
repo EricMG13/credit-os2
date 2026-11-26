@@ -257,6 +257,8 @@ type Metric = {
   value?: number | string | null;
   unit?: string | null;
   period?: string | null;
+  /** The heading the catalogue states the figure under, set when it is not the plain name (the adjusted twin). */
+  label?: string;
   /** The same metric one year earlier, and `current - prior` as the back end computed it. */
   prior?: { value: string; period: string };
   change?: string;

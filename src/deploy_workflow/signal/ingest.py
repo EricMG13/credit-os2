@@ -81,6 +81,15 @@ def _match_new(db: sqlite3.Connection, source_id: int, link: str) -> None:
     match_story(db, story["id"])
 
 
+def _matcher(source_id: int, link: str) -> Callable[[sqlite3.Connection], None]:
+    """What ``add_story`` runs in its transaction once the story is new: match it."""
+
+    def match(held: sqlite3.Connection) -> None:
+        _match_new(held, source_id, link)
+
+    return match
+
+
 def _check_source(db: sqlite3.Connection, source: sqlite3.Row, now: datetime, plan: _Plan) -> Check:
     previous = last_check(db, source["id"])
     etag = previous["etag"] if previous else None
@@ -99,11 +108,10 @@ def _check_source(db: sqlite3.Connection, source: sqlite3.Row, now: datetime, pl
         if stored >= ENTRIES_PER_FETCH:
             rest = len(entries) - position
             break
-        outcome = add_story(db, source["id"], entry, now)
+        # stored and matched in one transaction: a failed match leaves nothing stored to be "seen"
+        outcome = add_story(db, source["id"], entry, now, on_new=_matcher(source["id"], entry.link))
         stored += outcome != "seen"
-        if outcome == "new":
-            new += 1
-            _match_new(db, source["id"], entry.link)
+        new += outcome == "new"
     if rest:  # no validators kept: the next pass reads the whole feed again and takes the rest
         reason = f"{new} new; up to {rest} older entries wait for the next pass"
         return Check(now, True, reason, None, None, new)

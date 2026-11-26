@@ -161,6 +161,7 @@ def _reserve(layout: Layout, folder: Path, name: str, length: int) -> str:
         root = _open_root(folder)
         submissions._refuse_links(root, [name])
         existing = submissions._stored(root) if root.is_dir() else {}
+        submissions._refuse_fold_clash(name, [*existing, *(held for held, _ in _pending(sid))])
         others = (set(existing) | {pending for pending, _ in _pending(sid)}) - {name}
         if len(others) + 1 > MAX_FILES:
             raise Refused(f"a comparison portfolio is at most {MAX_FILES} files")

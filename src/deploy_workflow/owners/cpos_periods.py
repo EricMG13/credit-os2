@@ -12,7 +12,16 @@ from decimal import Decimal, Inexact, localcontext
 from typing import NamedTuple
 
 from deploy_workflow.owners import cp2g
-from deploy_workflow.owners.cpos_forecast import _agrees, _cut, _plain, _signed, _units_named
+from deploy_workflow.owners.cpos_cp1_statements import _cells, _findings, _unseparated
+from deploy_workflow.owners.cpos_forecast import (
+    ForecastInputs,
+    _agrees,
+    _cut,
+    _plain,
+    _signed,
+    _tables,
+    _units_named,
+)
 
 Period = tuple[str, int, int]
 """`(kind, fiscal year, quarters to date)`; kind is `QUARTER`, `YTD` or `FY`."""
@@ -50,6 +59,7 @@ def period_label(period: Period) -> str:
     return f"Q{quarters} {year}"
 
 
+PERIOD_HEADER = ["Period", "Start", "End"]
 Span = tuple[date, date]
 Dates = dict[Period, Span]
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
@@ -79,12 +89,47 @@ def _dated_row(row: list[str]) -> tuple[Period, Span] | None:
     return period, (start, end)
 
 
+def _blocks(lines: list[str]) -> list[list[list[str]]]:
+    """Every table of the lines, whatever its heading, as rows of cells (separator dropped)."""
+    found: list[list[list[str]]] = []
+    current: list[list[str]] = []
+    for line in [*lines, ""]:
+        if line.startswith("|"):
+            current.append(_cells(line))
+        elif current:
+            found.append(_unseparated(current))
+            current = []
+    return found
+
+
+def period_tables(text: str) -> list[list[list[str]]]:
+    """The tables CP-1's period dates are read from: the ones the CP-1 check reads, every table of
+    `## Findings` outside code fences, reader passages included (S04-5-1, S04-6-1). A text with no
+    `## Findings` lines, which the CP-1 check never accepts, is read by `_tables`."""
+    lines = _findings(text)
+    return _blocks(lines) if lines else _tables(text)
+
+
+class Cp1Tables(NamedTuple):
+    """CP-1's tables as the history reads them: `cells`, where base cells are read (`_tables`,
+    never a reader passage), and `periods`, where the period dates are read (`period_tables`)."""
+
+    cells: list[list[list[str]]]
+    periods: list[list[list[str]]]
+
+
+def cp1_tables(text: str) -> Cp1Tables:
+    return Cp1Tables(_tables(text), period_tables(text))
+
+
 def period_dates(tables: list[list[list[str]]]) -> tuple[Dates, tuple[str, ...]]:
-    """The dated periods of CP-1's period tables (header `Period`, `Start`, `End`, more columns
-    allowed) and the labels of periods whose rows disagree, which are left undated."""
+    """The dated periods of CP-1's Period tables (header exactly `| Period | Start | End |`, as the
+    CP-1 check reads it) and the labels of periods whose rows disagree, which are left undated.
+    Rows are keyed by `period_of`, so `FY2024` and `FY2024 recast` date one period; the CP-1 check
+    refuses a period this reading finds dated twice."""
     seen: dict[Period, set[Span]] = {}
     for table in tables:
-        if not table or [_plain(cell) for cell in table[0][:3]] != ["Period", "Start", "End"]:
+        if not table or table[0] != PERIOD_HEADER:
             continue
         for row in table[1:]:
             if (found := _dated_row(row)) is not None:
@@ -900,7 +945,9 @@ def _limits(
     forecast: tuple[str, ...],
     own: tuple[str, str] | None,
 ) -> list[str]:
-    limits = list(first)
+    # A period dated twice is undated for a stated reason; "CP-1 dates no period table" would
+    # contradict it.
+    limits = [line for line in first if not (twice and line == NOT_DATED)]
     limits += [
         f"{cp2g._OPERAND_WORDS[key]}: {line.reason}"
         for key, line in found.items()
@@ -955,8 +1002,28 @@ def _before_forecast(
     return kept, tuple(period_label(p) for p in sorted(dropped))
 
 
+def reported_forecast_years(cp1: str, inputs: ForecastInputs) -> tuple[str, ...]:
+    """The fiscal years from the forecast's first year on that CP-1 reports a value (or a stated
+    gap) for in the columns the history reads: the years `history` leaves out and discloses with
+    `IN_FORECAST`, found by the same `_locate` and `_before_forecast`. Labels (`FY2024`),
+    ascending; empty when the forecast starts after every year CP-1 prints."""
+    named: dict[str, tuple[str, str]] = {
+        key: ByColumn(o.row, o.header) if o.column is not None else (o.row, o.header)
+        for key, o in inputs.base.items()
+        if o.amount is not None and o.row is not None and o.header != ""
+    }
+    operands = cp2g.Operands(
+        **{
+            key: cp2g.Val(None if o.amount is None else Decimal(o.amount), o.reason)
+            for key, o in inputs.base.items()
+        }
+    )
+    located, base = _locate(cp1_tables(cp1).cells, operands, named, inputs.scale or 1)
+    return _before_forecast(located, inputs.years[0].year, base)[1]
+
+
 def history(
-    tables: list[list[list[str]]],
+    tables: list[list[list[str]]] | Cp1Tables,
     operands: cp2g.Operands,
     *,
     named: Mapping[str, tuple[str, str]] | None = None,
@@ -967,13 +1034,15 @@ def history(
     the forecast inputs' row and period for each operand, a `ByColumn` where it names a measure
     column; `forecast_year`: the first forecast year, from which no fiscal year is history;
     `scale`: 1000 when CP-1's cells are in thousands and the operands in millions, then every
-    figure is published in millions). Never raises: a value that cannot be built is missing with
-    its reason."""
+    figure is published in millions). `tables` is `cp1_tables` of the handoff, or one list read
+    for both cells and dates. Never raises: a value that cannot be built is missing with its
+    reason."""
+    tables, periods = tables if isinstance(tables, Cp1Tables) else (tables, tables)
     located_lines, base = _locate(tables, operands, named or {}, scale)
     found, forecast = _before_forecast(located_lines, forecast_year, base)
     located = [line for line in found.values() if line.reason is None]
     printed = frozenset(p for line in located for p in (*line.values, *line.gaps))
-    dates, twice = period_dates(tables)
+    dates, twice = period_dates(periods)
     anchor = _anchor_of(found)
     nothing_named = not any(key in (named or {}) for key in ("revenue", "ebitda"))
     unnamed = (

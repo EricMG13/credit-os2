@@ -66,7 +66,7 @@ from deploy_vii.contracts import (
 )
 from deploy_vii.execution import Attempt, Execution, Qualification, StepValidation, text_sha256
 from deploy_vii.preparation import PreparedPack
-from deploy_vii.quotes import normalise, quoted_whole
+from deploy_vii.quotes import needles, normalise, quoted_whole, readings
 from deploy_vii.readiness import (
     absence_issues,
     citation_issues,
@@ -279,12 +279,20 @@ def upstream_of(store: Execution, attempt: Attempt) -> Upstream:
 
 # --- thresholds and headroom (Python arithmetic) ---------------------------------------------
 
-_NUMBER = r"([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)"
+# A decimal may lack its leading zero (".50" is 0.50); `_BEFORE` lets the point start a number
+# only when no letter or digit stands before it, so "7.10" and "1.00." read as before; a point
+# after another point is a dot leader ("Ratio.....4 to 1" reads 4).
+_NUMBER = r"([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?|(?<!\.)\.[0-9]+)"
 # A number starts after no letter, digit or digit-separator pair ("1,000" is one number) and the
 # ratio's denominator ends before no further digit ("1.00," ends at the comma).
 _BEFORE = r"(?<![0-9A-Za-z])(?<![0-9][.,])"
 _AFTER = r"(?![0-9A-Za-z])"
 _END = r"(?![0-9]|[.,][0-9])"
+# A leader run is no decimal point: two or more consecutive "." or "\u2026" marks, or three or
+# more marks each separated by one space ("Ratio . . . . .4 to 1" reads 4). Two spaced marks are
+# an abbreviation's full stop and a point ("approx. .5x" reads 0.5); a mark right after a digit
+# ends that number ("7.1. .50x" reads 0.50).
+_LEADER = re.compile(r"(?<![0-9])(?:[.\u2026](?: ?[.\u2026]){2,}|[.\u2026]{2,})")
 # "N to D" with any denominator; "N:1" only to one (confidence review: "12:00" is a clock time).
 _RATIO = re.compile(
     rf"{_BEFORE}{_NUMBER}\s*(?:to\s*{_NUMBER}|:\s*(1(?:\.0+)?)){_END}", re.IGNORECASE
@@ -303,6 +311,7 @@ def _decimal(text: str) -> Decimal:
 def _threshold_values(plain: str, unit: str) -> tuple[list[Decimal], str | None]:
     """Every multiple or percent threshold a normalised text writes, in order, and the reason
     one of them cannot be read (a ratio to other than one, a fractional percentage)."""
+    plain = _LEADER.sub(" ", plain)
     values: list[Decimal] = []
     issue: str | None = None
     if unit == "multiple":
@@ -528,22 +537,30 @@ def _row_issues(path: str, row: BaseModel, upstream: Upstream) -> list[str]:
 # a quote that words the limit only so is rejected, because the verdict flips at the threshold.
 # "or less" / "or more" count only as a figure's own tail ("0.75x or less", "2.0 to 1.0 or more"):
 # "one or more occasions", "four or more quarters" and "more or less" name no limit.
+# S11-4-1: "permit ... to exceed" is read within its clause (it stops at "." or ";", a decimal
+# point between digits aside), with no window on the subject ("the Fixed Charge Coverage Ratio,
+# calculated as of the last day of ..., to be less than"); a "not" right before "permit" is part
+# of the phrase.
 _FIGURE_OR = r"\d(?:\s*(?:x|%|times))?\s+or "
+_CLAUSE = r"(?:[^.;]|(?<=[0-9])\.(?=[0-9])){0,400}?"
 _CAP_WORDS = (
     r"not exceed|not to exceed|not more than|no more than|not greater than|no greater than|"
     rf"shall not be greater|maximum|less than or equal to|{_FIGURE_OR}less|"
-    r"permit\b[^.;]{0,80}?\bto (?:exceed|be (?:greater|more) than)"
+    rf"(?:not )?permit\b{_CLAUSE}\bto (?:exceed|be (?:greater|more) than)"
 )
 _FLOOR_WORDS = (
     r"not less than|no less than|at least|minimum|greater than or equal to|"
     rf"{_FIGURE_OR}(?:more|greater)|"
-    r"permit\b[^.;]{0,80}?\bto (?:be less than|fall below)"
+    rf"(?:not )?permit\b{_CLAUSE}\bto (?:be less than|fall below)"
 )
 _FLOOR = re.compile(rf"(?<![A-Za-z])(?:{_FLOOR_WORDS})(?![A-Za-z])", re.IGNORECASE)
 _CAP = re.compile(rf"(?<![A-Za-z])(?:{_CAP_WORDS})(?![A-Za-z])", re.IGNORECASE)
-_STRICT_WORDS = re.compile(
-    r"(?<![A-Za-z])(?:less than|greater than|more than|fewer than|below|above|exceed\w*|"
-    r"in excess of)(?![A-Za-z])",
+# S11-r5: any comparative or negating word left once the known phrases are taken out means the
+# quote words a limit, or a negation, the phrase lists do not read, so the direction is the
+# model's (`methods/cp4.md` "Direction"). A strict word ("less than", "exceeds") is one of them.
+_OPEN_WORDS = re.compile(
+    r"(?<![A-Za-z])(?:less\w*|lower|fewer|below|beneath|great\w*|higher|more|above|exceed\w*|"
+    r"excess|least|most|maxim\w*|minim\w*|up to|not|no|never|nor|neither)(?![A-Za-z])",
     re.IGNORECASE,
 )
 
@@ -563,18 +580,39 @@ def _threshold_quotes(row: Covenant) -> tuple[Quote, ...]:
 # ("U.S. Borrower") or a common abbreviation ("Inc. Holdings") is no end: wrongly keeping a
 # sentence open only widens the context read, wrongly ending one would hide a step of the
 # schedule that precedes it.
-_ABBREVIATIONS = ("Inc", "Corp", "Co", "Ltd", "No", "Nos", "Sec", "Art", "St", "Mr", "Ms", "Dr")
+# S11-4-2: nor is one after "i.e.", "e.g.", "approx.", "c.", "no." or "Sect.", inside a leader
+# run (`_LEADER`), or after "per cent." / "percent." before a bracket: the sentence continues
+# there, as "65% (or ... 60%)" does.
+_ABBREVIATIONS = (
+    *("Inc", "Corp", "Co", "Ltd", "No", "Nos", "Sec", "Art", "St", "Mr", "Ms", "Dr"),
+    *("i.e", "I.e", "e.g", "E.g", "approx", "Approx", "c", "no", "Sect"),
+)
 _SENTENCE_END = re.compile(
     r"(?<!\b[A-Z])"
-    + "".join(rf"(?<!\b{a})" for a in _ABBREVIATIONS)
+    + "".join(rf"(?<!\b{re.escape(a)})" for a in _ABBREVIATIONS)
     + r"[.!?](?=\s+[A-Z(\"']|\s*$)"
 )
+_PERCENT_STOP = re.compile(
+    r"\b(?:per cent|percent)\.(?=\s+\((?![A-Za-z0-9]{1,5}\)))", re.IGNORECASE
+)
+
+
+def _sentence_ends(text: str) -> list[int]:
+    """The end offsets of the sentences of a normalised text (`_SENTENCE_END`)."""
+    leaders = [m.span() for m in _LEADER.finditer(text)]
+    kept = {m.end() for m in _PERCENT_STOP.finditer(text)}
+    return [
+        m.end()
+        for m in _SENTENCE_END.finditer(text)
+        if m.end() not in kept and not any(a <= m.start() < b for a, b in leaders)
+    ]
 
 
 def _sentence_context(quote: Quote, sources: Sequence[Source]) -> str:
     """The normalised sentences of the quote's span that the quote lies in, or the quote alone
-    when its span or its exact normalised text is not found there."""
-    plain = normalise(quote.quote)
+    when its span or its exact normalised text is not found there. The span is read as written
+    and with its hyphenated line wraps joined, and every occurrence of the quote counts
+    (S11-4-4), so a quote across a wrap or repeated in the span reads each sentence it lies in."""
     spans = (
         span.text
         for source in sources
@@ -582,14 +620,22 @@ def _sentence_context(quote: Quote, sources: Sequence[Source]) -> str:
         for span in source.spans
         if span.locator == quote.locator
     )
-    text = normalise(next(spans, ""))
-    at = text.find(plain) if plain else -1
-    if at < 0:
-        return plain
-    ends = [m.end() for m in _SENTENCE_END.finditer(text)]
-    start = max((end for end in ends if end <= at), default=0)
-    stop = min((end for end in ends if end >= at + len(plain)), default=len(text))
-    return text[start:stop]
+    found: list[str] = []
+    for text in readings(next(spans, "")):
+        for needle in filter(None, needles(quote.quote)):
+            at = text.find(needle)
+            while at >= 0:
+                start, stop = _sentence_around(text, at, at + len(needle))
+                found.append(text[start:stop])
+                at = text.find(needle, at + 1)
+    return " ".join(dict.fromkeys(found)) or normalise(quote.quote)
+
+
+def _sentence_around(text: str, at: int, end: int) -> tuple[int, int]:
+    """The (start, stop) offsets of the sentences of normalised `text` holding `text[at:end]`."""
+    ends = _sentence_ends(text)
+    start = max((stop for stop in ends if stop <= at), default=0)
+    return start, min((stop for stop in ends if stop >= end), default=len(text))
 
 
 def _schedule_issues(
@@ -623,22 +669,24 @@ def _schedule_issues(
 
 
 def _direction_issues(path: str, row: Covenant) -> list[str]:
-    """A maximum comparison on a quote that names only a floor, or the reverse; a strict
-    comparison on a quote whose only limit wording is inclusive."""
+    """A maximum comparison on threshold quotes whose only limit wording is a floor, or the
+    reverse; a strict comparison where that wording is inclusive. Wording is unambiguous only
+    when every limit phrase found is of one side and no other comparative or negating word is
+    left (`_OPEN_WORDS`); otherwise the direction is the model's."""
     if row.comparison == "none":
         return []
     wording = " ".join(normalise(quote.quote) for quote in _threshold_quotes(row))
     floor, cap = bool(_FLOOR.search(wording)), bool(_CAP.search(wording))
+    if floor == cap or _OPEN_WORDS.search(_CAP.sub(" ", _FLOOR.sub(" ", wording))):
+        return []
     maximum = row.comparison in ("<=", "<")
-    if (maximum and floor and not cap) or (not maximum and cap and not floor):
+    if maximum == floor:
         named = "a minimum" if floor else "a maximum"
         return [f"{path}: comparison {row.comparison} contradicts the quote, which states {named}"]
-    if row.comparison in ("<", ">") and (cap if maximum else floor):
-        bare = _CAP.sub(" ", _FLOOR.sub(" ", wording))  # the wording left once inclusive phrases go
-        if not _STRICT_WORDS.search(bare):
-            inclusive = "<=" if maximum else ">="
-            said = "contradicts the quote, which words the limit as inclusive"
-            return [f"{path}: comparison {row.comparison} {said}; use {inclusive}"]
+    if row.comparison in ("<", ">"):
+        inclusive = "<=" if maximum else ">="
+        said = "contradicts the quote, which words the limit as inclusive"
+        return [f"{path}: comparison {row.comparison} {said}; use {inclusive}"]
     return []
 
 

@@ -154,3 +154,63 @@ def test_entries_with_malformed_links_are_skipped():
     )
     body = f"<rss version='2.0'><channel>{items}</channel></rss>".encode()
     assert [e.link for e in parse_feed(body)] == ["https://example.org/good"]
+
+
+_ONE = (
+    b'<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><item>'
+    b"<title>Hello there world</title><link>https://e.org/1</link></item></channel></rss>"
+)
+
+
+@pytest.mark.parametrize("prefix", [b"\n", b"\r\n", b"  ", b"\xef\xbb\xbf", b"\xef\xbb\xbf\n"])
+def test_whitespace_or_a_bom_before_the_xml_declaration_is_read(prefix):
+    """S05-1-3: a template's line break before `<?xml` must not make the source unreadable."""
+    assert [(e.title, e.link) for e in parse_feed(prefix + _ONE)] == [
+        ("Hello there world", "https://e.org/1")
+    ]
+
+
+def test_a_doctype_after_leading_whitespace_is_still_refused():
+    with pytest.raises(FeedError):
+        parse_feed(b'\n<!DOCTYPE rss [<!ENTITY x "y">]>' + _ONE)
+
+
+def _published(stamp: str):
+    body = (
+        "<rss version='2.0'><channel><item><title>Story here</title>"
+        f"<link>https://e.org/1</link><pubDate>{stamp}</pubDate></item></channel></rss>"
+    ).encode()
+    return parse_feed(body)[0].published
+
+
+@pytest.mark.parametrize(
+    ("stamp", "utc"),
+    [
+        # zone offsets by definition: CET +1, CEST +2, BST +1
+        ("Mon, 02 Nov 2026 10:00:00 CET", datetime(2026, 11, 2, 9, 0, tzinfo=UTC)),
+        ("Mon, 02 Nov 2026 10:00:00 CEST", datetime(2026, 11, 2, 8, 0, tzinfo=UTC)),
+        ("Mon, 02 Nov 2026 10:00:00 BST", datetime(2026, 11, 2, 9, 0, tzinfo=UTC)),
+        # S05-3-3: a 12-hour clock; EST is UTC-5
+        ("Tue, 24 Nov 2026 10:00 AM EST", datetime(2026, 11, 24, 15, 0, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 10:00 PM EST", datetime(2026, 11, 25, 3, 0, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 12:30 AM EST", datetime(2026, 11, 24, 5, 30, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 12:00 PM EST", datetime(2026, 11, 24, 17, 0, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 10:00:00 -0500", datetime(2026, 11, 24, 15, 0, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 10:00:00", datetime(2026, 11, 24, 10, 0, tzinfo=UTC)),
+        ("Tue, 24 Nov 2026 10:00:00 GMT", datetime(2026, 11, 24, 10, 0, tzinfo=UTC)),
+    ],
+)
+def test_a_named_zone_and_a_twelve_hour_clock_are_read_as_written(stamp, utc):
+    assert _published(stamp) == utc
+
+
+@pytest.mark.parametrize(
+    "stamp",
+    [
+        "Tue, 24 Nov 2026 10:00:00 QQQ",
+        "Tue, 24 Nov 2026 13:00 PM EST",
+        "Tue, 24 Nov 2026 10:00:00 IST",
+    ],
+)
+def test_an_unknown_or_ambiguous_zone_leaves_the_entry_undated(stamp):
+    assert _published(stamp) is None
