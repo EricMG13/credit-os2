@@ -190,7 +190,8 @@ METHODS: dict[str, tuple[str, ...]] = {
 # the deactivated short snapshot is sent. The five `*payload.schema.txt` files are not sent: they
 # are JSON Schema for the JSON payload the Markdown transport overrides, each refers to a base
 # schema that is not in this repository, and what they constrain is restated in the sent SKILL.md
-# and schema references. Every other (pathway, module) is sent `METHODS[module]`.
+# and schema references. Every other (pathway, module) is sent `METHODS[module]`. This block, like
+# every module's, is trimmed as it is sent (see `TRIMMED_METHODS`).
 _L10 = _SKILLS + "cp-l10-financial-change-screen/"
 SCREENING = ("credit_screening", "CP-L10")  # the one (pathway, module) with a method of its own
 PATHWAY_SELECTED: dict[tuple[str, str], tuple[str, ...]] = {

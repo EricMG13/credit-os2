@@ -284,3 +284,62 @@ def test_the_launcher_sends_back_a_missing_register_and_a_missing_column_in_cred
         assert [i for i in raised(PATHWAY, text) if words in i], words
         for other in ("credit_snapshot", "short_snapshot"):
             assert [i for i in raised(other, text) if words in i] == [], (other, words)
+
+
+# -- the trim: main's owner instruction (2026-11-25, every module) reaches CP-L10 here too -------
+# A pin for a record fix, not a code fix: the behaviour comes from `trim_method`, which this
+# pathway does not exempt. METHODOLOGY-REVIEW.md names what it cuts.
+
+SKILL_FILE = "cp-l10-financial-change-screen/SKILL.md"
+
+
+def _l10_untrimmed() -> str:
+    sections = cpos_launch.method_sections("CP-L10", PATHWAY)
+    return "\n\n".join(f"{cpos_launch.method_heading(n, t)}\n{t}" for n, t in sections)
+
+
+def test_cp_l10_in_credit_screening_is_sent_main_trim_of_its_seventeen_sections():
+    sections = cpos_launch.method_sections("CP-L10", PATHWAY)
+    assert len(sections) == 17
+    untrimmed = _l10_untrimmed()
+    assert cpos_launch.method_text("CP-L10", PATHWAY) == cpos_launch.trim_method(untrimmed)
+    assert "CP-L10" in cpos_launch.TRIMMED_METHODS
+
+
+def test_the_trim_cuts_the_eleven_pieces_and_nothing_else_by_size():
+    untrimmed = _l10_untrimmed()
+    sent = cpos_launch.method_text("CP-L10", PATHWAY)
+    assert (len(untrimmed), len(sent)) == (104_782, 101_334)
+    # Three paragraphs that cannot apply in this transport are cut whole.
+    for heading in ("## Invocation fields", "## Automated QA validation", "#### Worked example"):
+        assert untrimmed.count(heading) == 1
+        assert heading not in sent
+    # Eight exact repeats: the first copy stays, the later ones go.
+    for opening, cut in (("Shared presentation rules:", 4), ("Required common fields", 4)):
+        assert untrimmed.count(opening) - sent.count(opening) == cut
+        assert sent.count(opening) >= 1
+    # No heading of a method file is touched.
+    heading_lines = [ln for ln in untrimmed.split("\n") if ln.startswith("#")]
+    cut_headings = {
+        "## Invocation fields — binding before drafting",
+        "## Automated QA validation",
+        "#### Worked example",
+    }
+    for line in heading_lines:
+        assert (line in sent.split("\n")) or any(line.startswith(c) for c in cut_headings)
+
+
+def test_the_trim_loses_no_register_and_no_screen_topic_list():
+    sent = cpos_launch.method_text("CP-L10", PATHWAY)
+    ids = [f"TL{screen}.{n}" for screen in (10, 20, 23, 30, 40) for n in (1, 2, 3, 4)]
+    assert len(ids) == 20
+    for register in ids:
+        assert register in sent, register
+    skill = next(
+        t for n, t in cpos_launch.method_sections("CP-L10", PATHWAY) if n.endswith(SKILL_FILE)
+    )
+    topic_lines = [ln.strip() for ln in skill.split("\n") if "**topic_ids**:" in ln]
+    assert len(topic_lines) == 5  # one per screen
+    for line in set(topic_lines):
+        assert sent.count(line) == topic_lines.count(line)
+    assert len(cpos_launch.required_registers("CP-L10", PATHWAY)) == 20

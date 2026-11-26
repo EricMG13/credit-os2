@@ -827,8 +827,8 @@ note. Detail: `docs/rulings/2026-11-11-module-presets-and-changes.md`, amendment
 **CP-L10 in the Credit screening pathway, 2026-11-25 (owner, ruling R12).** A new pathway `credit_screening`,
 "Credit screening", has the preset CP-0, CP-1, CP-DR, CP-L10 and a cap of USD 10 per run. In this pathway only,
 CP-OS sends CP-L10 the archived combined five-screen method, the "Actual Lite-loop amendment" selection
-(financial change, credit, liquidity and forward risk, security opportunity, creditor documents), sent whole and
-not rewritten or summarised. `short_snapshot` is unchanged: it stays deactivated and keeps `cpl10.md`, which
+(financial change, credit, liquidity and forward risk, security opportunity, creditor documents), not rewritten or
+summarised. Like every module's method, the block is sent trimmed (see "Trimmed as sent" below). `short_snapshot` is unchanged: it stays deactivated and keeps `cpl10.md`, which
 remains the CP-L10 method for the short snapshot and for past runs, so no other pathway's request, check or
 "Earlier methods" marker changes. See the CP-L10 rows above for the Python screen owner, which CP-OS still does
 not run.
@@ -849,13 +849,23 @@ not run.
   optional input of CP-L10. In this pathway CP-L10 reads "Credit screening" to the reader.
 - Source revision: cp-os `b57a344` (HEAD; the twelve files last changed in `a31f3f5`). Each archived file's sha256 equals
   the cp-os file, checked read-only on 2026-11-25.
-- Measured offline (built requests, no provider call, 2026-11-25): CP-L10's method text is 17 sections, 104,782
-  characters (`SKILL.md` 66,108 bytes). Built instructions: CP-0 75,257; CP-1 59,045; CP-DR 72,504; CP-L10 120,540;
-  total 327,346 characters.
+- Trimmed as sent (owner, 2026-11-25: "apply recommendations", then "add now apply to all modules"; the instruction-length
+  sweep). CP-L10's block here is trimmed by `trim_method` as every module's is; the pathway is not exempt. The 17
+  sections total 104,782 characters untrimmed and 101,334 are sent (3,448 cut). Eleven pieces are cut and nothing is
+  reworded. Three paragraphs cannot apply in this transport: `SKILL.md` "## Invocation fields" and "## Automated QA
+  validation", and "#### Worked example" in the Confidence Score section of `CANON_SHARED.md`. Eight are exact repeats of
+  a paragraph already sent: "Shared presentation rules:" four times in `SKILL.md`, and "Required common fields" in
+  four of the five schema references. The archived files are unchanged, and no register or table id is lost: all
+  20 registers TL10.1 to TL40.4 are still required and each screen's `topic_ids` line is still sent.
+  `tests/test_credit_screening_method.py` pins this.
+- Measured offline (built requests, no provider call, 2026-11-26, after main's trim was merged): CP-L10's method text is
+  17 sections, 104,782 characters untrimmed and 101,334 sent (`SKILL.md` 66,108 bytes). Built instructions: CP-0 73,546;
+  CP-1 58,663; CP-DR 71,386; CP-L10 117,092; total 320,687 characters (before the merge: CP-0 75,257; CP-1 59,045;
+  CP-DR 72,504; CP-L10 120,540; total 327,346).
 - Cost holds at the USD 10 cap, from the price table: `copilot-sol-*` USD 7.17, so a new call can start only while
   spend is at most USD 2.83; `copilot-luna-xhigh` USD 0.3585; `copilot-opus-*` (request bytes + 4,096) x USD 8 per million
   + 2.56, which reaches USD 10 at 925,904 request bytes; `sol-*` (offline configurations only) USD 5.73. Every
-  configuration admits the preset, since one call fits. The method is not trimmed to fit.
+  configuration admits the preset, since one call fits. Nothing is cut to fit the cap; the only cut is the trim above.
 - Not established: no paid run was made. A real model's five-screen handoff is not shown (the proof is a synthetic
   fixture). Whether a four-module run completes within USD 10 is not known. The payload schemas' constraints
   beyond what `SKILL.md` and the schema references restate are not checked.
@@ -1087,7 +1097,8 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
   § <module>` to the ten modules it names, and `§ CP-L10` to CP-L10 in `credit_screening`.
 - CP-L10 is sent the one page `cpl10.md` in `short_snapshot` (deactivated) and, in `credit_screening` only (owner, 2026-11-25, ruling R12), twelve archived
   files of the cp-os `cp-l10-financial-change-screen` skill: `SKILL.md`, the five adaptive methods,
-  the lite analysis policy and the five schema references, whole and unedited. The five `*payload.schema.txt`
+  the lite analysis policy and the five schema references; the files are unedited and the block is trimmed as
+  it is sent, like every module's (see "Trimmed as sent" in the CP-L10 entry). The five `*payload.schema.txt`
   files are not sent: they are JSON Schema for the JSON payload the Markdown transport overrides, each
   refers to a base schema that is not in this repository, and what they constrain is restated in the sent
   `SKILL.md` and schema references. Revision `b57a344` is cp-os HEAD; the files last changed in `a31f3f5`,
