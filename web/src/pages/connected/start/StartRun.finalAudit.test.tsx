@@ -39,7 +39,11 @@ const summary: Summary = {
   effort: "balanced",
 };
 
-function setup(overrides: Record<string, unknown> = {}, prior?: PriorInputs) {
+function setup(
+  overrides: Record<string, unknown> = {},
+  prior?: PriorInputs,
+  mode: "synthetic" | "live" = "synthetic",
+) {
   const replies: Record<string, unknown> = {
     "/connected/context": { ...context, submission_caps_usd: caps },
     "/api/submissions": { id: "draft" },
@@ -58,7 +62,7 @@ function setup(overrides: Record<string, unknown> = {}, prior?: PriorInputs) {
     return Promise.resolve(Response.json(replies[path]));
   });
   vi.stubGlobal("fetch", fetchMock);
-  render(<StartRun mode="synthetic" navigate={vi.fn()} from={prior ? "earlier" : undefined} />);
+  render(<StartRun mode={mode} navigate={vi.fn()} from={prior ? "earlier" : undefined} />);
   return fetchMock;
 }
 
@@ -466,16 +470,31 @@ describe("final audit: connected intake", () => {
     }
   });
 
-  it("J1-003 states the synthetic proof's pathway, prior and exact file limits before review", async () => {
+  it("J1-003 names the two supported synthetic walkthroughs and their file limits before review", async () => {
     setup();
     await filledDocuments();
     await purpose();
-    expect(
-      screen.getByText(/A no-cost test can complete only a first Full credit assessment/),
-    ).toBeVisible();
-    expect(screen.getByText(/northbridge-filing.txt/)).toHaveTextContent(
-      "northbridge-credit-agreement.txt",
+    const limits = screen.getByText(/^A no-cost test can complete/);
+    expect(limits).toBeVisible();
+    expect(limits).toHaveTextContent("a first Full credit assessment with northbridge-filing.txt");
+    expect(limits).toHaveTextContent(
+      "optionally with northbridge-portfolio.xlsx and northbridge-credit-agreement.txt",
     );
+    expect(limits).toHaveTextContent(
+      "only a first run of Structural priority within Legal & covenants for Northbridge Synthetic Group, 2025-03-31",
+    );
+    expect(limits).toHaveTextContent(
+      "Upload northbridge-filing.txt and northbridge-credit-agreement.txt for that custom run. Mark the agreement as executed.",
+    );
+    expect(limits).toHaveTextContent("Only the listed files are accepted for each walkthrough.");
+  });
+
+  it("J1-003 keeps synthetic walkthrough limits off the live Purpose step", async () => {
+    setup({}, undefined, "live");
+    await filledDocuments();
+    await purpose();
+    expect(screen.getByRole("radio", { name: "Full credit assessment" })).toBeVisible();
+    expect(screen.queryByText(/^A no-cost test can complete/)).not.toBeInTheDocument();
   });
 
   it("J2-012 reports the existing issuer runs automatically without carrying answers", async () => {

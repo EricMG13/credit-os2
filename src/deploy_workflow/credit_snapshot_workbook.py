@@ -1,8 +1,8 @@
 """The Credit Snapshot workbook writer: the repository's one `.xlsx` writer.
 
 `workbook_bytes(snapshot)` turns the `Snapshot` that `credit_snapshot.gather` builds into one file
-with four sheets, `Snapshot`, `Inputs`, `Matrix` and `Sources`. The values and layout are its own;
-the methodology's constants, the Excel formulas that derive each proposal from them and the
+with five sheets, `Snapshot`, `Model`, `Inputs`, `Matrix` and `Sources`. It provides the layout.
+The methodology's constants, the Excel formulas that derive each proposal from them and the
 dropdowns come from `credit_snapshot_formulas`, which names cells by (sheet, block, row, column)
 and leaves it to this module, which knows where each landed, to turn those names into addresses.
 
@@ -14,7 +14,7 @@ header, row name or rubric text, never a number), `formula` (its text is the for
 and `rule` (a methodology constant, a plain number or name). Module ids, source references
 (file names, page locators), hashes and run codes are drawn on `Sources` only: module text that
 holds them is drawn without them on the other sheets. A `Basis:` line is kept on `Sources` beside
-its paragraph and is never a cell of the other three sheets; a scorecard row's own Basis cell is
+its paragraph and is never a cell of the four reader sheets; a scorecard row's own Basis cell is
 the comment on its level cell.
 
 A figure is stored as a number only when `credit_snapshot.figure` says so (the plain-decimal rule),
@@ -100,6 +100,10 @@ INSTRUMENT_INPUTS = (
     *("Bid", "Ask", "1M move", "YTD move"),
 )
 NEW_ISSUE_INPUTS = ("Guidance", "OID", "Expected ratings", "Commit date", "Covenant score")
+EQUITY_CAPTIONS = {
+    "Equity value": "Equity value (selected net debt reporting unit)",
+    "EV multiple": "EV multiple (times)",
+}
 GLYPHS = (("Strength", "▲", "Strengths"), ("Weakness", "▼", "Weaknesses"))
 
 Band = tuple[tuple[str, int], ...]
@@ -347,7 +351,9 @@ class _Page:
             self.book.add_written(item)
         if item is not None and item.basis:
             self.book.add_basis(item)
-            if not _leaks(item.basis, self.book.snapshot.run_id):
+            if not (
+                _leaks(item.basis, self.book.snapshot.run_id) or snap.contains_reference(item.basis)
+            ):
                 self._comment(first, item.basis)
         self.book.add_source(self.layout.sheet, first.coordinate, spec)
         return str(first.coordinate)
@@ -506,8 +512,14 @@ def _names_itself(row: Aligned) -> bool:
     """The row's name is already its first cell (a table whose first column is the row name)."""
     label, cells = row
     first = cells[0] if cells else None
-    if first is not None and first.kind == FORMULA and first.column == "Instrument":
-        return True  # a relative-value row names itself by formula, and only when it applies
+    if (
+        first is not None
+        and first.block in (fx.RV_LOANS, fx.RV_BONDS)
+        and first.column == "Instrument"
+    ):
+        return (
+            True  # the Instrument cell supplies the visible caption for each reference or own row
+        )
     return (
         first is not None
         and label in (first.text, first.written)  # drawn text may differ from the raw label
@@ -569,14 +581,16 @@ def _part_weights(part: _Part) -> list[float]:
 
 
 def _part_header(page: _Page, frame: _Frame, part: _Part, spans: list[int]) -> None:
-    name = _header_name(page, _block_of(part))
+    block = _block_of(part)
+    name = _header_name(page, block)
     col, offset = frame.left, 0
     if part.labelled:
         page.blank(frame.top, col, spans[0], "blank")
         col, offset = col + spans[0], 1
     for i, span in zip(part.indexes, spans[offset:], strict=True):
         column = part.table.columns[i]
-        page.put(frame.top, col, span, _Put(_block_of(part), name, column, LABEL, column, "header"))
+        caption = "Liquidity (cash)" if (block, column) == (fx.KEY_FIGURES, "Liquidity") else column
+        page.put(frame.top, col, span, _Put(block, name, column, LABEL, caption, "header"))
         col += span
 
 
@@ -594,7 +608,13 @@ def _part(page: _Page, frame: _Frame, part: _Part, spans: list[int] | None = Non
     for label, cells in part.table.rows:
         col, offset = frame.left, 0
         if part.labelled:
-            spec = _Put(_block_of(part), label, "Row label", LABEL, label, LABEL)
+            block = _block_of(part)
+            caption = (
+                EQUITY_CAPTIONS.get(label, label)
+                if block == fx.EQUITY
+                else fx.RULE_CAPTIONS.get((block, label), label)
+            )
+            spec = _Put(block, label, "Row label", LABEL, caption, LABEL)
             page.put(row, col, spans[0], spec)
             col, offset = col + spans[0], 1
         for i, span in zip(part.indexes, spans[offset:], strict=True):
@@ -1640,9 +1660,9 @@ def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.Snapsh
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
         return []
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
-    if "periodid" not in indexes:
-        return _unperioded_debt_cells(table)
     name = next((field for field in ("facilityname", "instrument") if field in indexes), None)
+    if "periodid" not in indexes:
+        return _unperioded_debt_cells(table, indexes[name] if name is not None else 0)
     if name is None:
         return []
     return _dated_debt_cells(table, _period_register(doc), indexes, name)
@@ -1653,15 +1673,16 @@ def _debt_property(header: str) -> bool:
     return not any(word in _clean_label(header) for word in excluded)
 
 
-def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:
+def _unperioded_debt_cells(table: snap._Table, name_index: int) -> list[snap.SnapshotCell]:
     included = [
         (header, index)
-        for index, header in enumerate(table.headers[1:], start=1)
-        if _debt_property(header)
+        for index, header in enumerate(table.headers)
+        if index != name_index and _debt_property(header)
     ]
     cells = []
-    for source_row in table.rows:
-        instrument = source_row.cells[0].strip() if source_row.cells else ""
+    for source_row, instrument in zip(
+        table.rows, snap._instrument_labels(table, name_index), strict=True
+    ):
         if not instrument:
             continue
         for header, index in included:
@@ -1712,12 +1733,10 @@ def _dated_debt_cells(
             if _clean_label(header) not in identity and _debt_property(header)
         ),
     )
-    names = _dated_debt_names(table.rows, indexes, name_field)
+    names = _dated_debt_names(table, indexes, name_field)
     cells: list[snap.SnapshotCell] = []
     dates_seen: set[str] = set()
-    for row in table.rows:
-        facility_id = _period_field(row, indexes, "facilityid")
-        name = names.get(facility_id, _period_field(row, indexes, name_field))
+    for row, name in zip(table.rows, names, strict=True):
         if not name:
             continue
         period_id = _period_field(row, indexes, "periodid")
@@ -1745,20 +1764,34 @@ def _dated_debt_cells(
     return cells
 
 
-def _dated_debt_names(
-    rows: Sequence[snap._Row], indexes: dict[str, int], name_field: str
-) -> dict[str, str]:
+def _dated_debt_names(table: snap._Table, indexes: dict[str, int], name_field: str) -> list[str]:
+    labels = snap._instrument_labels(table, indexes[name_field])
+    ids = [_period_field(row, indexes, "facilityid") for row in table.rows]
     names: dict[str, str] = {}
-    for row in rows:
-        facility_id = _period_field(row, indexes, "facilityid")
-        name = _period_field(row, indexes, name_field)
-        if facility_id and name:
-            names.setdefault(facility_id, name)
+    for row, facility_id in zip(table.rows, ids, strict=True):
+        authored = row.cells[indexes[name_field]]
+        if facility_id and authored and not snap.ILLEGAL.search(authored):
+            names.setdefault(facility_id, authored)
+    for facility_id, label in zip(ids, labels, strict=True):
+        if facility_id and label:
+            names.setdefault(facility_id, label)
     counts = Counter(names.values())
-    return {
-        facility_id: f"{name} ({facility_id})" if counts[name] > 1 else name
-        for facility_id, name in names.items()
-    }
+    occupied = set(labels) | set(names.values())
+    resolved = {}
+    for facility_id, name in names.items():
+        if counts[name] > 1:
+            identity = facility_id if not snap.ILLEGAL.search(facility_id) else "facility"
+            candidate = f"{name} ({identity})"
+            suffix = 2
+            while candidate in occupied:
+                candidate = f"{name} ({identity}, {suffix})"
+                suffix += 1
+            name = candidate
+            occupied.add(name)
+        resolved[facility_id] = name
+    return [
+        resolved.get(facility_id, label) for facility_id, label in zip(ids, labels, strict=True)
+    ]
 
 
 def _dated_debt_terms(
@@ -2754,6 +2787,7 @@ class _Book:
             for sheet, address, spec in self.sources
         } | self.places
         for sheet, address, spec in self.sources:
+            self._market_formatting(sheet, address, spec)
             if spec.kind != FORMULA:
                 continue
             formula = self.plan.formulas[int(spec.text.removeprefix(fx.HANDLE))]
@@ -2773,6 +2807,29 @@ class _Book:
                 if (s, p.block, p.column, p.kind) == (sheet, block, column, FORMULA)
             ]
             self._chips(sheet, where_chips)
+
+    def _market_formatting(self, sheet: str, address: str, spec: _Put) -> None:
+        if spec.kind not in (FORMULA, snap.ANALYST):
+            return
+        formats = self.workbook[sheet].conditional_formatting
+        if spec.block == fx.CAPITAL and spec.column == fx.PERCENT_EV:
+            formats.add(
+                address,
+                _rules.DataBarRule(
+                    start_type="num",
+                    start_value=0,
+                    end_type="num",
+                    end_value=1,
+                    color=BLUE,
+                    showValue=True,
+                    minLength=0,
+                    maxLength=100,
+                ),
+            )
+        elif spec.column in ("1M move", "YTD move"):
+            for sign, colour in ((">", "DCFCE7"), ("<", "FEE2E2")):
+                guard = f"AND(ISNUMBER({address}),{address}{sign}0)"
+                formats.add(address, _rules.FormulaRule(formula=[guard], fill=_fill(colour)))
 
     def _dropdown(self, dropdown: fx.Dropdown, where: dict[tuple[str, str, str, str], str]) -> None:
         cells = [
@@ -2859,7 +2916,9 @@ class _Book:
         if spec.kind == FORMULA:
             text = self.formula_text[sheet, address]
         return [
-            *(sheet, address, spec.kind, spec.block, spec.row, spec.column),
+            *(sheet, address, spec.kind, spec.block),
+            fx.RULE_CAPTIONS.get((spec.block, spec.row), spec.row),
+            spec.column,
             module,
             item.section if item is not None else None,
             item.line if item is not None else None,
@@ -2967,6 +3026,6 @@ def _clean(snapshot: snap.Snapshot) -> snap.Snapshot:
 
 
 def workbook_bytes(snapshot: snap.Snapshot) -> bytes:
-    """The Credit Snapshot workbook for `snapshot`, as the bytes of an `.xlsx` file: four sheets,
-    `Snapshot`, `Inputs`, `Matrix`, `Sources`."""
+    """The Credit Snapshot workbook for `snapshot`, as the bytes of an `.xlsx` file: five sheets,
+    `Snapshot`, `Model`, `Inputs`, `Matrix`, `Sources`."""
     return _Book(_clean(snapshot)).build()

@@ -781,6 +781,87 @@ def test_a_stored_file_that_cannot_be_read_is_reported_for_its_key_only(tmp_path
     assert (listed[1].positions, listed[1].error) == (5, None)
 
 
+@pytest.mark.parametrize("target_exists", [True, False], ids=["linked", "dangling"])
+def test_a_symlinked_portfolio_is_reported_as_unreadable(tmp_path, target_exists):
+    # Aster Fictional Co, 2026-10-31, synthetic CLO pack.
+    target = tmp_path / "outside" / "clo.json"
+    if target_exists:
+        rp.Store(target.parent).save(pack())
+    root = tmp_path / "standing"
+    root.mkdir()
+    (root / "clo.json").symlink_to(target)
+    store = rp.Store(root)
+
+    with pytest.raises(rp.StoreError, match="stored portfolio 'clo' cannot be read") as refused:
+        store.load("clo")
+    assert not isinstance(refused.value, rp.NotStored)
+    assert store.keys() == ("clo",)
+    assert rp.list_portfolios(store)[0].positions is None
+
+
+@pytest.mark.parametrize("target_exists", [True, False], ids=["linked", "dangling"])
+def test_a_symlinked_failure_is_reported_beside_the_good_portfolio(tmp_path, target_exists):
+    # Aster Fictional Co, 2026-10-31, synthetic CLO pack.
+    target = tmp_path / "outside" / "clo.failure.json"
+    if target_exists:
+        rp.Store(target.parent).record_failure("clo", "Outside failure record.", LATER)
+    store = rp.Store(tmp_path / "standing")
+    store.save(pack())
+    (store.root / "clo.failure.json").symlink_to(target)
+
+    with pytest.raises(rp.StoreError, match="last failed refresh of 'clo' cannot be read"):
+        store.failure("clo")
+    listed = rp.list_portfolios(store)[0]
+    assert (listed.as_of, listed.positions, listed.failure, listed.error) == (
+        date(2026, 10, 31),
+        7,
+        None,
+        "The record of the last failed refresh of 'clo' cannot be read.",
+    )
+
+
+@pytest.mark.parametrize("target_exists", [True, False], ids=["linked", "dangling"])
+def test_a_symlinked_final_store_root_is_unavailable(tmp_path, target_exists):
+    # Aster Fictional Co, 2026-10-31, synthetic CLO pack.
+    target = tmp_path / "outside"
+    outside = rp.Store(target)
+    if target_exists:
+        outside.save(pack())
+        outside.record_failure("clo", "Outside failure record.", LATER)
+    root = tmp_path / "standing"
+    root.symlink_to(target, target_is_directory=True)
+    store = rp.Store(root)
+
+    assert store.keys() == ()
+    with pytest.raises(rp.StoreError, match="stored portfolio 'clo' cannot be read") as refused:
+        store.load("clo")
+    assert not isinstance(refused.value, rp.NotStored)
+    with pytest.raises(rp.StoreError, match="last failed refresh of 'clo' cannot be read"):
+        store.failure("clo")
+    with pytest.raises(OSError):
+        store.save(replace(pack(), stored_at=LATER))
+    with pytest.raises(OSError):
+        store.record_failure("clo", "Changed failure record.", LATER)
+    if target_exists:
+        assert outside.load("clo").stored_at == AT
+        assert outside.failure("clo") == rp.Failure("Outside failure record.", LATER)
+    else:
+        assert not target.exists()
+
+
+@pytest.mark.parametrize("file_is_root", [True, False], ids=["file-root", "file-ancestor"])
+def test_a_store_whose_root_path_contains_a_file_has_no_records(tmp_path, file_is_root):
+    # Synthetic CLO key, Aster Fictional Co, 2026-10-31. No holdings were stored.
+    file = tmp_path / "not-a-directory"
+    file.touch()
+    store = rp.Store(file if file_is_root else file / "standing")
+
+    assert store.keys() == ()
+    with pytest.raises(rp.NotStored, match="No portfolio is stored as 'clo'"):
+        store.load("clo")
+    assert store.failure("clo") is None
+
+
 def test_a_stored_file_written_by_a_newer_version_says_so(tmp_path):
     store = rp.Store(tmp_path)
     (tmp_path / "clo.json").write_text('{"schema": 99, "portfolio": {}}', encoding="utf-8")

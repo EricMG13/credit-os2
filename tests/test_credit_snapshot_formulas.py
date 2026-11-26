@@ -5,7 +5,8 @@ the writer ships in one named cell for a known row, so a reviewer can evaluate t
 the rest are structural facts (every function is one Excel knows, every name is a cell the file
 holds, no cached value, the lists the dropdowns offer).
 
-SYNTHETIC: the runs are the key's invented "Northbridge" cases (`tests/credit_snapshot_case.py`).
+The Northbridge Holdings plc cases are synthetic (2026-03-31). The TransDigm scope uses retained
+2024-09-30 CP-1 only.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from deploy_workflow import credit_snapshot_workbook as writer
 from deploy_workflow import recommendation as rec
 from deploy_workflow import reference_portfolios as rp
 
-THREE = ("Snapshot", "Model", "Inputs", "Matrix")
+READER_SHEETS = ("Snapshot", "Model", "Inputs", "Matrix")
 CLO, LVLN = "CLO portfolio", "Loan index fund (LVLN)"
 
 
@@ -60,7 +61,7 @@ def bare(request, tmp_path_factory):
 def formulas(book) -> list[tuple[str, str, str]]:
     return [
         (name, cell.coordinate, cell.value)
-        for name in THREE
+        for name in READER_SHEETS
         for row in book[name].iter_rows()
         for cell in row
         if cell.data_type == "f"
@@ -117,7 +118,7 @@ def test_every_name_in_a_formula_is_a_cell_the_file_holds(book, bare):
         for sheet, address, text in formulas(opened):
             for found in REFERENCE.finditer(re.sub(r'"[^"]*"', "", text)):
                 named, first, last = found.groups()
-                assert named in THREE, (sheet, address, text)
+                assert named in READER_SHEETS, (sheet, address, text)
                 for end in (first, last):
                     if end is None:
                         continue
@@ -194,7 +195,7 @@ def test_the_formulas_read_the_constants_from_those_cells(book):
     assert "Matrix!$B$55:$F$59" in result
     assert f"Matrix!${cell('Credit Score rules', 'Cap level', 'Value')[0]}$" in result
     edges = text_of(book, "Matrix", "Valuation", "Term Loan B", LVLN)
-    for name, _ in fx.BAND_EDGES:
+    for name in ("Score 1 edge", "Score 2 edge", "Score 4 edge", "Score 5 edge"):
         address = cell("Valuation bands", name, "Difference (bp)")
         assert f"Matrix!${address[0]}${address[1:]}" in edges
     score = text_of(book, "Inputs", "Credit Score from factors", "Credit Score", "Value")
@@ -319,19 +320,18 @@ PINNED = [
         ("Snapshot", "Equity value", "Enterprise value", "Value"),
         joined(
             '=IF(Snapshot!$P$8="","",IF(ISNUMBER(Snapshot!$P$5),IF(Snapshot!$P$8="FY2025",',
-            'IF(ISNUMBER(Snapshot!$D$66),Snapshot!$P$5+Snapshot!$D$66,""),',
-            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$G$66),Snapshot!$P$5+Snapshot!$G$66,""),"")),',
+            'IF(AND(ISNUMBER(Snapshot!$D$66),Snapshot!$P$9="GBP"),Snapshot!$P$5+Snapshot!$D$66,""),',
+            'IF(Snapshot!$P$8="FY2024",',
+            'IF(AND(ISNUMBER(Snapshot!$G$66),Snapshot!$P$9="GBP"),Snapshot!$P$5+Snapshot!$G$66,""),"")),',
             'IF(ISNUMBER(Snapshot!$P$6),IF(Snapshot!$P$8="FY2025",',
-            'IF(ISNUMBER(Snapshot!$M$105),Snapshot!$P$6*Snapshot!$M$105,""),',
-            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$105),Snapshot!$P$6*Snapshot!$O$105,""),"")),"")))',
+            'IF(AND(ISNUMBER(Snapshot!$M$105),Snapshot!$P$9="GBP"),Snapshot!$P$6*Snapshot!$M$105,""),',
+            'IF(Snapshot!$P$8="FY2024",',
+            'IF(AND(ISNUMBER(Snapshot!$O$105),Snapshot!$P$9="GBP"),Snapshot!$P$6*Snapshot!$O$105,""),"")),"")))',
         ),
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "% EV"),
-        joined(
-            "=IF(AND(ISNUMBER(Snapshot!$I$50),ISNUMBER(Snapshot!$P$7),",
-            'Snapshot!$E$50=Snapshot!$P$9),IF(Snapshot!$P$7>0,Snapshot!$I$50/Snapshot!$P$7,""),"")',
-        ),
+        '=""',  # T4.18 states own currency but does not state the principal's scale
     ),
     (
         ("Snapshot", "Key figures", "Value", "Net leverage"),
@@ -411,7 +411,7 @@ PINNED = [
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "Status"),
-        '=IF(Snapshot!$M$50="","",IF(Snapshot!$P$50<>"","confirmed","proposed"))',
+        '=IF(Snapshot!$L$50="","",IF(Snapshot!$N$50<>"","confirmed","proposed"))',
     ),
 ]
 
@@ -509,7 +509,7 @@ def test_the_recommendation_dropdowns_offer_the_five_names_from_the_matrix_cells
 
 def test_every_dropdown_cell_is_an_analyst_cell_or_a_proposal_the_analyst_may_overwrite(book):
     kinds = {(r["Sheet"], r["Cell"]): r["Kind"] for r in sources(book)}
-    for sheet in THREE:
+    for sheet in READER_SHEETS:
         for validation in book[sheet].data_validations.dataValidation:
             for cell in str(validation.sqref).split():
                 assert kinds[sheet, cell] in ("analyst", "formula"), (sheet, cell)
@@ -682,10 +682,9 @@ def test_the_enterprise_value_reads_the_period_the_analyst_picks(book):
     assert not hasattr(fx._Builder, "_first") and not hasattr(fx._Builder, "_column")
 
 
-def test_a_period_with_no_period_picked_or_an_input_blank_gives_a_blank_percent_of_ev(book):
+def test_unscaled_t418_principal_yields_blank_percent_of_ev(book):
     text = text_of(book, "Snapshot", "Capital structure", "Term Loan B", "% EV")
-    assert text.startswith("=IF(AND(ISNUMBER(") and text.count("ISNUMBER(") == 2
-    assert "IF(Snapshot!$P$7>0," in text and text.endswith(',"")')
+    assert text == '=""'
 
 
 def test_a_unit_that_differs_by_period_is_a_gap_not_the_first_periods_unit(tmp_path):
@@ -1061,3 +1060,343 @@ def test_a_period_list_over_255_characters_gets_no_dropdown(full):
 
 def test_ordinary_period_labels_keep_their_dropdown(book):
     assert ev_list(book) == '"FY2025,FY2024"'
+
+
+def absolute(cell):
+    return f"{cell.parent.title}!${cell.column_letter}${cell.row}"
+
+
+def test_capital_identifiers_mirror_the_existing_inputs_including_joined_blank(book):
+    sheet = book["Inputs"]
+    bid = cell_of(
+        book, sheet="Inputs", block="Instruments", row="Term Loan B", column="Bloomberg ID"
+    )
+    figi = sheet.cell(bid.row, bid.column - 1)
+    assert figi.value is None and bid.value
+    for column, cell in (("FIGI", figi), ("Bloomberg ID", bid)):
+        ref = absolute(cell)
+        assert text_of(book, "Snapshot", "Capital structure", "Term Loan B", column) == (
+            f'=IF({ref}="","",{ref})'
+        )
+
+
+def test_equity_and_cash_captions_identify_their_basis(book):
+    sheet = book["Snapshot"]
+    captions = {c.value for row in sheet.iter_rows() for c in row if c.data_type == "s"}
+    assert "EV multiple (times)" in captions
+    assert "Liquidity (cash)" in captions
+    assert "Equity value (selected net debt reporting unit)" in captions
+    unit = cell_of(book, block="Capital structure totals", row="Net debt", column="Unit")
+    assert unit.value == "GBP millions"
+    basis = text_of(book, "Snapshot", "Equity value", "Equity input unit", "Value")
+    period = absolute(cell_of(book, block="Equity value", row="EV period", column="Value"))
+    assert all(f'{period}="{p}"' in basis for p in ("FY2025", "FY2024"))
+    assert absolute(unit) in basis and "Select a net debt period" in basis
+
+
+def test_ev_bars_and_signed_moves_cover_only_the_intended_values(book):
+    all_rows = sources(book)
+    for sheet in ("Snapshot", "Inputs"):
+        formatting = book[sheet].conditional_formatting
+        for row in all_rows:
+            if row["Sheet"] != sheet or row["Kind"] not in ("formula", "analyst"):
+                continue
+            cell = row["Cell"]
+            rules = [rule for entry in formatting if cell in entry.sqref for rule in entry.rules]
+            if row["Column"] == "% EV":
+                (bar,) = [rule.dataBar for rule in rules if rule.type == "dataBar"]
+                assert [(v.type, v.val) for v in bar.cfvo] == [("num", 0), ("num", 1)]
+                assert bar.showValue is True and book[sheet][cell].number_format == "0.0%"
+            elif row["Column"] in ("1M move", "YTD move"):
+                assert [(r.formula, r.dxf.fill.fgColor.rgb[-6:]) for r in rules] == [
+                    ([f"AND(ISNUMBER({cell}),{cell}>0)"], "DCFCE7"),
+                    ([f"AND(ISNUMBER({cell}),{cell}<0)"], "FEE2E2"),
+                ]
+
+
+def test_reference_role_rows_survive_own_instruments_named_index_and_peer(tmp_path):
+    files = dict(cs.CASES["full"].handoffs)
+    text = files["CP-1"].read_text()
+    files["CP-1"] = tmp_path / "source.md"
+    files["CP-1"].write_text(
+        text.replace("Term Loan B", "Index").replace("Revolving Credit Facility", "Peer 1")
+    )
+    built = cs.build_case(tmp_path / "case", replace(cs.CASES["full"], handoffs=files))
+    opened = opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+    rows = sources(opened)
+    for block in CARDS:
+        names = [r for r in rows if r["Block"] == block and r["Column"] == "Instrument"]
+        for own in ("Index", "Peer 1"):
+            source = cell_of(
+                opened, sheet="Inputs", block="Instruments", row=own, column="Instrument"
+            )
+            assert source.value == own
+            (copied,) = [r for r in names if absolute(source) in (r["Handoff text"] or "")]
+            peer = cell_of(opened, block="Peers", row="Peer 1", column="Peer issuer")
+            ref_text = "Index" if own == "Index" else f"={absolute(peer)}"
+            (reference,) = [r for r in names if r["Handoff text"] == ref_text]
+            assert copied["Row"] != reference["Row"]
+            assert (
+                opened["Snapshot"][copied["Cell"]].row != opened["Snapshot"][reference["Cell"]].row
+            )
+            assert cell_of(opened, block=block, row=copied["Row"], column="Price").data_type == "f"
+            assert cell_of(opened, block=block, row=reference["Row"], column="Price").value is None
+
+
+def test_market_value_weight_keeps_all_28_digits_and_its_percentage_units(tmp_path):
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    holdings = (
+        rp.Position(1, borrower=cs.ISSUER_NAME, market_value=D(1), market_value_currency="GBP"),
+        rp.Position(2, borrower="Another plc", market_value=D(2), market_value_currency="GBP"),
+    )
+    built.stores.standing.save(replace(cs.clo_portfolio(), positions=holdings))
+    book = opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+    # GBP 1 of GBP 3 = 33 and one third percent, to the mandated 28 significant digits.
+    expected = "33.33333333333333333333333333"
+    matrix = cell_of(book, sheet="Matrix", block="Issuer weight", row=CLO, column="Weight (%)")
+    assert (matrix.data_type, matrix.value) == ("s", expected)
+    assert text_of(book, "Snapshot", "Recommendation", CLO, "Weight (%)") == f"={absolute(matrix)}"
+
+
+def test_held_to_mw_unions_two_binding_rules_and_a_natural_mw_suppresses_them(tmp_path):
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    portfolio = replace(
+        cs.clo_portfolio(),
+        limits=(
+            cs._limit(2, "Rating", "B and below max", "≤ 40% NAV", "42%", "-2%", "Breach"),
+            cs._limit(3, "Price", "Minimum price", "≥ 90"),
+        ),
+    )
+    built.stores.standing.save(portfolio)
+    snapshot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    book = opened_from(snapshot)
+    score = replace(snapshot.credit_score, score=1)
+    # B median 450bp and BB median 300bp. Both +100bp give 1 before caps.
+    rating = rec.Instrument("Term Loan B", "loan", "B", D(550), D(95))
+    floor = rec.Instrument("Revolving Credit Facility", "loan", "BB", D(400), D(85))
+    # BB at -50bp gives valuation 4 and a natural MW at credit score 1.
+    natural = replace(floor, name="Natural MW", level_bp=D(250), price=D(95))
+    for instrument, before, expected in (
+        (rating, 1, ["B and below max"]),
+        (floor, 1, ["Minimum price"]),
+        (natural, 3, []),
+    ):
+        read = rec.portfolio_reading(score, [instrument], portfolio)
+        assert (read.uncapped, read.recommendation) == (before, 3)
+        assert [v.limit.parameter for v in read.capped_by] == expected
+    capped = rec.portfolio_reading(score, [rating, floor], portfolio)
+    assert capped.recommendation == 3 and len(capped.capped_by) == 1
+    clean = rec.portfolio_reading(score, [floor, natural, rating], portfolio)
+    assert clean.instrument == natural and clean.capped_by == ()
+
+    # Inspect the workbook's union and natural-MW guard against the actual Matrix operands.
+    def matrix(block, row, column):
+        return absolute(cell_of(book, sheet="Matrix", block=block, row=row, column=column))
+
+    def span(block, column):
+        start = matrix(block, rating.name, column)
+        last = matrix(block, "Receivables facility", column)
+        return start + ":" + last.split("!")[1]
+
+    cap = matrix("Credit Score rules", "Cap level", "Value")
+    results = span("Result", CLO)
+    terms = []
+    for k, label in enumerate(("B and below max", "Minimum price"), 1):
+        limit = f"Limit {k}"
+        hits = span("Limit hits", f"{CLO} / {limit}")
+        flags = text_of(book, "Matrix", "Limits holding at 3", CLO, limit)
+        assert flags == f"=IF(SUMPRODUCT(({results}={cap})*({hits}=1))>0,1,0)"
+        hold, name = matrix("Limits holding at 3", CLO, limit), matrix("Limit names", CLO, limit)
+        terms.append(f'IF({hold}=1,"; "&{name},"")')
+        named = text_of(book, "Matrix", "Limit names", CLO, limit)
+        source = matrix(
+            "Rating limits" if k == 1 else "Price floors", f"{CLO} / {label}", "Row label"
+        )
+        assert source in named
+    result, held = matrix("Portfolio result", CLO, "Result"), span("Held by", CLO)
+    assert text_of(book, "Snapshot", "Recommendation", CLO, "Held to MW") == (
+        f'=IF({result}={cap},IF(SUMPRODUCT(({results}={cap})*({held}=""))=0,'
+        f'REPLACE({"&".join(terms)},1,2,""),""),"")'
+    )
+
+
+def test_selected_period_equity_units_use_the_pinned_net_debt_rows(tmp_path):
+    files = dict(cs.CASES["full"].handoffs)
+    text = files["CP-1"].read_text()
+    row = "| FY2024 / 2024-12-31 | 1,380.0 | 150.0 | 1,230.0 | GBP millions |"
+    assert row in text
+    files["CP-1"] = tmp_path / "units.md"
+    files["CP-1"].write_text(text.replace(row, row.replace("GBP millions", "EUR thousands")))
+    built = cs.build_case(tmp_path / "case", replace(cs.CASES["full"], handoffs=files))
+    shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    book = opened_from(shot)
+    basis = text_of(book, "Snapshot", "Equity value", "Equity input unit", "Value")
+    period = absolute(cell_of(book, block="Equity value", row="EV period", column="Value"))
+    for label, written in (("FY2025", "GBP millions"), ("FY2024", "EUR thousands")):
+        (entry,) = listed(
+            book,
+            "Equity value",
+            row=f"{label} / {label[2:]}-12-31 net debt reporting unit",
+            column="Value",
+        )
+        amount = listed(book, "Capital structure totals", row="Net debt", kind="copied")
+        (source,) = [r for r in amount if r["Column"].startswith(label)]
+        assert (entry["Module"], entry["Section"], entry["Line"], entry["Handoff sha256"]) == (
+            "CP-1",
+            "Net debt data",
+            source["Line"],
+            shot.handoff_sha256["CP-1"],
+        )
+        target = book["Snapshot"][entry["Cell"]]
+        assert target.value == written
+        assert f'{period}="{label}",{absolute(target)}' in basis
+    ev = ev_text(book)
+    currency = absolute(cell_of(book, block="Equity value", row="EV currency", column="Value"))
+    assert f'{currency}="EUR"' in ev and f'{currency}="GBP"' in ev
+    # FY2024 debt is EUR thousands and reported EBITDA is GBP millions. Only the equity route fits.
+    ebitda = cell_of(book, block="EBITDA measures", row="EBITDA (Reported)", column="FY2024")
+    assert absolute(ebitda) not in ev
+    other = opened_from(replace(shot, model_handoffs={"CP-1": cs.ALL_MODULES["CP-1"].read_bytes()}))
+    assert not listed(other, "Equity value", kind="copied")
+    assert "unit differs by period" == text_of(
+        other, "Snapshot", "Capital structure totals", "Net debt", "Unit"
+    )
+
+
+@pytest.mark.parametrize("debt_unit", ["GBP thousands", "unit not in handoff"])
+def test_ebitda_multiple_requires_compatible_scale_and_known_reporting_unit(full, debt_unit):
+    def edit(cell):
+        if (cell.block, cell.row, cell.column) == ("Capital structure totals", "Net debt", "Unit"):
+            return [replace(cell, text=debt_unit)]
+        return [cell]
+
+    book = opened_from(snapshot_edited(full, edit))
+    formula = ev_text(book)
+    ebitda = cell_of(book, block="EBITDA measures", row="EBITDA (Reported)", column="FY2025")
+    amount = cell_of(
+        book, block="Capital structure totals", row="Net debt", column="FY2025 / 2025-12-31"
+    )
+    assert absolute(ebitda) not in formula
+    assert (absolute(amount) in formula) == (debt_unit == "GBP thousands")
+
+
+def cp1_book(text, tmp_path):
+    files = dict(cs.CASES["full"].handoffs)
+    files["CP-1"] = tmp_path / "source.md"
+    files["CP-1"].write_text(text)
+    built = cs.build_case(tmp_path / "case", replace(cs.CASES["full"], handoffs=files))
+    return opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+
+
+def test_percent_ev_requires_documented_comparable_principal_units(tmp_path, book):
+    name = "4.50% Senior Notes 2030"
+    assert text_of(book, "Snapshot", "Capital structure", name, "% EV") == '=""'
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    text = text.replace(
+        "in the instrument's own currency unless the Reporting Currency Amount column "
+        "says otherwise",
+        "GBP millions at the annual end",
+    )
+    text = text.replace("1,230.0 | GBP millions", "1,230.0 | GBP thousands")
+    opened = cp1_book(text, tmp_path)
+    ratio = text_of(opened, "Snapshot", "Capital structure", name, "% EV")
+    assert '="FY2025"' in ratio and '="FY2024"' not in ratio
+    principal = absolute(cell_of(opened, block="Capital structure", row=name, column="Principal"))
+    ev = absolute(cell_of(opened, block="Equity value", row="Enterprise value", column="Value"))
+    assert f"{principal}/{ev}" in ratio
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_ev_same_short_period_preserves_distinct_dated_amounts_and_units(tmp_path, reverse):
+    lines = cs.ALL_MODULES["CP-1"].read_text().splitlines()
+    start = next(
+        i for i, line in enumerate(lines) if line.startswith("| FY2025 / 2025-12-31 | 1,450")
+    )
+    debt = [
+        lines[start].replace("FY2025", "LTM"),
+        lines[start + 1].replace("FY2024", "LTM").replace("GBP millions", "GBP thousands"),
+    ]
+    lines[start : start + 2] = reversed(debt) if reverse else debt
+    opened = cp1_book("\n".join(lines), tmp_path)
+    labels = ev_list(opened).strip('"').split(",")
+    assert {"LTM / 2025-12-31", "LTM / 2024-12-31"} <= set(labels) and "LTM" not in labels
+    for dated, unit in (
+        ("LTM / 2025-12-31", "GBP millions"),
+        ("LTM / 2024-12-31", "GBP thousands"),
+    ):
+        amount = absolute(
+            cell_of(opened, block="Capital structure totals", row="Net debt", column=dated)
+        )
+        assert f'="{dated}",IF(AND(ISNUMBER({amount})' in ev_text(opened)
+        (source,) = listed(
+            opened, "Equity value", row=f"{dated} net debt reporting unit", column="Value"
+        )
+        assert opened["Snapshot"][source["Cell"]].value == unit
+
+
+def test_distinct_explicit_dates_on_debt_and_ebitda_keep_separate_ev_choices(full):
+    def edit(c):
+        return (
+            [replace(c, column="FY2025 / 2025-09-30")]
+            if c.block == "EBITDA measures" and c.column == "FY2025"
+            else [c]
+        )
+
+    book = opened_from(snapshot_edited(full, edit))
+    ev = ev_text(book)
+    for label in ("FY2025 / 2025-12-31", "FY2025 / 2025-09-30"):
+        assert ev.count(f'="{label}"') == 1
+    assert '="FY2025"' not in ev
+
+
+def test_retained_tdg_t418_usd_millions_can_be_compared_to_the_usd_millions_ev(tmp_path):
+    built = cs.build_case(tmp_path, cs.CASES["tdg_cp1"])
+    book = opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+    ratio = text_of(book, "Snapshot", "Capital structure", "Tranche I", "% EV")
+    principal = absolute(
+        cell_of(book, block="Capital structure", row="Tranche I", column="Principal")
+    )
+    ev = absolute(cell_of(book, block="Equity value", row="Enterprise value", column="Value"))
+    assert f"{principal}/{ev}" in ratio
+    assert '="FY2023"' in ratio and '="FY2024"' in ratio
+
+
+@pytest.mark.parametrize(
+    "qualification",
+    [
+        " Principal is an exception and uses thousands.",
+        " Face amounts are shown in GBP 000s.",
+        " Bond amounts are in £000s.",
+        "\nBasis: Bond amounts are in £000s.",
+    ],
+)
+def test_qualified_principal_unit_declaration_is_withheld(tmp_path, qualification):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting source scales."""
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    original = next(
+        line for line in text.splitlines() if line.startswith("All money columns below")
+    )
+    declaration = "All money columns below are GBP millions at the annual end."
+    book = cp1_book(text.replace(original, declaration + qualification), tmp_path)
+    assert (
+        text_of(book, "Snapshot", "Capital structure", "4.50% Senior Notes 2030", "% EV") == '=""'
+    )
+
+
+@pytest.mark.parametrize("undated_first", [True, False])
+def test_single_dated_operand_precedes_bare_alias_in_same_table(tmp_path, undated_first):
+    lines = cs.ALL_MODULES["CP-1"].read_text().splitlines()
+    start = next(
+        i for i, line in enumerate(lines) if line.startswith("| FY2025 / 2025-12-31 | 1,450")
+    )
+    dated = lines[start]
+    bare = dated.replace("FY2025 / 2025-12-31", "FY2025").replace("1,275.7", "999.0")
+    lines[start : start + 1] = [bare, dated] if undated_first else [dated, bare]
+    book = cp1_book("\n".join(lines), tmp_path)
+    cells = {
+        name: cell_of(book, block="Capital structure totals", row="Net debt", column=name)
+        for name in ("FY2025", "FY2025 / 2025-12-31")
+    }
+    ev = ev_text(book)
+    assert absolute(cells["FY2025 / 2025-12-31"]) in ev
+    assert absolute(cells["FY2025"]) not in ev
