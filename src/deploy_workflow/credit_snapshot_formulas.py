@@ -61,6 +61,7 @@ VALUATION, BREACH, RESULT, PORTFOLIO = (
 )
 PROPOSED_COLUMN, PERCENT_EV = "Proposed recommendation", "% EV"
 HELD, HELD_TO = "Held by", "Held to MW"
+LIMIT_NAMES, LIMIT_HITS, LIMITS_HOLD = "Limit names", "Limit hits", "Limits holding at 3"
 NO_ORDER = "period order not stated"
 TAIL_COLUMNS = ("Unit", "Currency")
 EMPTY = '""'
@@ -247,6 +248,38 @@ class _Reference:
     breached: tuple[At, ...]
     rating: Mapping[str, tuple[At, ...]]  # bucket -> one cell per rating-limit row
     floors: tuple[At, ...]
+
+
+@dataclass(frozen=True)
+class _Limit:
+    """One limit of a reference, as the breach formula tests it: a breached sector cell (`cell`), a
+    rating-limit row (`by_bucket`, its outcome cell for each bucket, named by `label`) or a price
+    floor (`cell`, its price, named by `label`)."""
+
+    kind: str
+    cell: At | None = None
+    by_bucket: Mapping[str, At] | None = None
+    label: At | None = None
+
+
+def _limits(ref: _Reference) -> list[_Limit]:
+    """Each limit of the reference once, in the Matrix's own order: the breached sector cells, the
+    rating-limit rows, then the price floors."""
+    out = [_Limit("sector", cell) for cell in ref.breached]
+    rows = len(next(iter(ref.rating.values()), ()))
+    for i in range(rows):
+        by_bucket = {word: cells[i] for word, cells in ref.rating.items()}
+        label = At(MATRIX, "Rating limits", next(iter(by_bucket.values())).row, "Row label")
+        out.append(_Limit("rating", None, by_bucket, label))
+    out += [
+        _Limit("floor", cell, None, At(MATRIX, "Price floors", cell.row, "Row label"))
+        for cell in ref.floors
+    ]
+    return out
+
+
+def _hit_column(ref: _Reference, k: int) -> str:
+    return f"{ref.view.name} / Limit {k}"
 
 
 def _at(cell: snap.SnapshotCell) -> At:
@@ -493,6 +526,8 @@ class _Builder:
                 self._breach(name, ref)
                 self._result(name, ref)
                 self._held(name, ref)
+        for ref in (r for r in self.references if r.pairs):
+            self._limit_cells(ref)
 
     def _eligible_types(self) -> None:
         cells = [
@@ -595,43 +630,89 @@ class _Builder:
 
     def _held(self, name: str, ref: _Reference) -> None:
         """Held by: the breached limits' names when this row's result was held to 3."""
-        d = _Draft()
-        price = d(self._inputs(name, "Price"))
-        bucket = d(self._inputs(name, "Rating bucket"))
-        names = self._limit_names(d, ref, bucket, price)
-        if not names:
+        limits = _limits(ref)
+        if not limits:
             return
+        d = _Draft()
         score, value = d(self.score), d(At(MATRIX, VALUATION, name, ref.view.name))
         breach = d(At(MATRIX, BREACH, name, ref.view.name))
         table, cap = d(self.table()), d(At(MATRIX, CS_RULES, "Cap level", "Value"))
         cell = f"INDEX({table},{score},{value})"
+        terms = "&".join(
+            f'IF({d(At(MATRIX, LIMIT_HITS, name, _hit_column(ref, k)))}=1,"; "&'
+            f'{d(At(MATRIX, LIMIT_NAMES, ref.view.name, f"Limit {k}"))},"")'
+            for k in range(1, len(limits) + 1)
+        )
         template = (
             f'=IF(OR({score}="",{value}=""),"",IF(AND({cell}<{cap},{breach}=1),'
-            f'MID({"&".join(names)},3,500),""))'
+            f'REPLACE({terms},1,2,""),""))'
         )
         at = At(MATRIX, HELD, name, ref.view.name)
         self.add(MATRIX, HELD, [self.formula(at, d, template)])
 
-    def _limit_names(self, d: _Draft, ref: _Reference, bucket: str, price: str) -> list[str]:
-        """One term per limit the breach formula tests: `; ` and its name when it is breached for
-        this row, else nothing. A rating or floor row is named by the part of its Matrix label after
-        the reference's name."""
-        start = len(ref.view.name) + 4
-        terms = [f'IF({d(cell)}<>"","; "&{d(cell)},"")' for cell in ref.breached]
-        rows = len(next(iter(ref.rating.values()), ()))
-        for i in range(rows):
+    def _limit_cells(self, ref: _Reference) -> None:
+        """The cells that give each limit of the reference a name, a hit per instrument and a
+        'holds some row at 3' flag, so Held by and Held to MW join short terms."""
+        limits = _limits(ref)
+        if not limits or not self.instruments:
+            return
+        name = ref.view.name
+        names, hits, holds = [], [], []
+        for k, limit in enumerate(limits, 1):
+            names.append(self._limit_name(name, k, limit, len(name) + 3))
+            hits += [self._limit_hit(n, ref, k, limit) for n in self.instruments]
+            holds.append(self._limit_holds(ref, k))
+        self.add(MATRIX, LIMIT_NAMES, names)
+        self.add(MATRIX, LIMIT_HITS, hits)
+        self.add(MATRIX, LIMITS_HOLD, holds)
+
+    def _limit_name(self, name: str, k: int, limit: _Limit, cut: int) -> snap.SnapshotCell:
+        """A sector's name is its own cell; a rating or floor row's is its Matrix label without the
+        reference's name in front."""
+        d = _Draft()
+        if limit.label is not None:
+            template = f'=REPLACE({d(limit.label)},1,{cut},"")'
+        elif limit.cell is not None:
+            cell = d(limit.cell)
+            template = f'=IF({cell}="","",{cell})'
+        else:
+            raise ValueError(f"a limit with nothing to name: {limit}")
+        return self.formula(At(MATRIX, LIMIT_NAMES, name, f"Limit {k}"), d, template)
+
+    def _limit_hit(self, name: str, ref: _Reference, k: int, limit: _Limit) -> snap.SnapshotCell:
+        """1 when this instrument row breaches this limit, else 0."""
+        d = _Draft()
+        if limit.kind == "sector" and limit.cell:
+            template = f'=IF({d(limit.cell)}<>"",1,0)'
+        elif limit.kind == "rating" and limit.by_bucket:
+            bucket = d(self._inputs(name, "Rating bucket"))
             outcome = '""'
-            for word in reversed(list(ref.rating)):
-                outcome = f'IF({bucket}="{word}",{d(ref.rating[word][i])},{outcome})'
-            label = d(
-                At(MATRIX, "Rating limits", ref.rating[next(iter(ref.rating))][i].row, "Row label")
+            for word in reversed(list(limit.by_bucket)):
+                outcome = f'IF({bucket}="{word}",{d(limit.by_bucket[word])},{outcome})'
+            template = f'=IF({outcome}="{BREACHED_WORD}",1,0)'
+        elif limit.cell:
+            price = d(self._inputs(name, "Price"))
+            template = f"=IF(AND(ISNUMBER({price}),{price}<{d(limit.cell)}),1,0)"
+        else:
+            raise ValueError(f"a limit with nothing to test: {limit}")
+        return self.formula(At(MATRIX, LIMIT_HITS, name, _hit_column(ref, k)), d, template)
+
+    def _limit_holds(self, ref: _Reference, k: int) -> snap.SnapshotCell:
+        """1 when some instrument row of the reference at the cap breaches limit k."""
+        d = _Draft()
+        shape = (len(self.instruments), 1)
+        results = d(
+            Span(tuple(At(MATRIX, RESULT, n, ref.view.name) for n in self.instruments), shape)
+        )
+        hits = d(
+            Span(
+                tuple(At(MATRIX, LIMIT_HITS, n, _hit_column(ref, k)) for n in self.instruments),
+                shape,
             )
-            terms.append(f'IF({outcome}="{BREACHED_WORD}","; "&MID({label},{start},200),"")')
-        for cell in ref.floors:
-            label = d(At(MATRIX, "Price floors", cell.row, "Row label"))
-            test = f"AND(ISNUMBER({price}),{price}<{d(cell)})"
-            terms.append(f'IF({test},"; "&MID({label},{start},200),"")')
-        return terms
+        )
+        cap = d(At(MATRIX, CS_RULES, "Cap level", "Value"))
+        template = f"=IF(SUMPRODUCT(({results}={cap})*({hits}=1))>0,1,0)"
+        return self.formula(At(MATRIX, LIMITS_HOLD, ref.view.name, f"Limit {k}"), d, template)
 
     # -- per portfolio
 
@@ -710,40 +791,14 @@ class _Builder:
         )
         results = d(Span(tuple(At(MATRIX, RESULT, n, name) for n in self.instruments)))
         held_by = d(Span(held))
-        at_cap = f"({results}={cap})"
-        names = "&".join(self._held_terms(d, ref, at_cap))
-        none_open = f'SUMPRODUCT({at_cap}*({held_by}=""))=0'
-        template = f'=IF({result}={cap},IF({none_open},MID({names},3,500),""),"")'
+        terms = "&".join(
+            f'IF({d(At(MATRIX, LIMITS_HOLD, name, f"Limit {k}"))}=1,"; "&'
+            f'{d(At(MATRIX, LIMIT_NAMES, name, f"Limit {k}"))},"")'
+            for k in range(1, len(_limits(ref)) + 1)
+        )
+        none_open = f'SUMPRODUCT(({results}={cap})*({held_by}=""))=0'
+        template = f'=IF({result}={cap},IF({none_open},REPLACE({terms},1,2,""),""),"")'
         return [self.formula(At(SNAPSHOT, RECOMMENDATION, name, HELD_TO), d, template)]
-
-    def _held_terms(self, d: _Draft, ref: _Reference, at_cap: str) -> list[str]:
-        """One term per limit, in the Matrix's order: `; ` and its name when some row at the cap
-        is breached for it, else nothing. Rows at the cap are all held when this is read."""
-        labels = self._limit_labels(d, ref)
-        terms = [f'IF({d(cell)}<>"","; "&{d(cell)},"")' for cell in ref.breached]
-        rows = len(next(iter(ref.rating.values()), ()))
-        buckets = d(Span(tuple(self._inputs(n, "Rating bucket") for n in self.instruments)))
-        for i in range(rows):
-            hits = "+".join(
-                f'SUMPRODUCT({at_cap}*({buckets}="{word}"))*({d(cells[i])}="{BREACHED_WORD}")'
-                for word, cells in ref.rating.items()
-            )
-            terms.append(f'IF(({hits})>0,"; "&{labels[len(terms)]},"")')
-        prices = d(Span(tuple(self._inputs(n, "Price") for n in self.instruments)))
-        for cell in ref.floors:
-            below = f"SUMPRODUCT({at_cap}*({prices}<{d(cell)}))>0"
-            terms.append(f'IF({below},"; "&{labels[len(terms)]},"")')
-        return terms
-
-    def _limit_labels(self, d: _Draft, ref: _Reference) -> list[str]:
-        """Each limit's name, in the order the breach formula tests them: a sector's name is its own
-        cell; a rating or floor row's is the part of its Matrix label after the reference's name."""
-        start = len(ref.view.name) + 4
-        first = next(iter(ref.rating.values()), ())
-        rows = [("Rating limits", cell.row) for cell in first]
-        rows += [("Price floors", cell.row) for cell in ref.floors]
-        names = [d(cell) for cell in ref.breached]
-        return names + [f"MID({d(At(MATRIX, b, r, 'Row label'))},{start},200)" for b, r in rows]
 
     # -- capital structure
 

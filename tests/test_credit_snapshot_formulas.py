@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import io
 import re
+from datetime import date
+from decimal import Decimal as D
 
 import credit_snapshot_case as cs
 import pytest
@@ -20,6 +22,7 @@ from openpyxl.utils import FORMULAE, column_index_from_string
 from test_credit_snapshot_fidelity import RULES
 from test_credit_snapshot_workbook import cell_of, listed, sources
 
+from deploy_vii.context import load_context
 from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import credit_snapshot_formulas as fx
 from deploy_workflow import credit_snapshot_workbook as writer
@@ -328,43 +331,53 @@ PINNED = [
         joined(
             '=IF(OR(Inputs!$F$5="",Matrix!$I$94=""),"",IF(AND(INDEX(Matrix!$B$55:$F$59,',
             "Inputs!$F$5,Matrix!$I$94)<Matrix!$G$76,Matrix!$C$102=1),",
-            'MID(IF(Matrix!$G$21<>"","; "&Matrix!$G$21,"")&IF(IF(Inputs!$D$11="IG",Matrix!$C$26,',
-            'IF(Inputs!$D$11="BB",Matrix!$E$26,IF(Inputs!$D$11="B",Matrix!$G$26,',
-            'IF(Inputs!$D$11="CCC",Matrix!$I$26,IF(Inputs!$D$11="Unrated",Matrix!$K$26,"")))))',
-            '="breached","; "&MID(Matrix!$A$26,17,200),"")&IF(IF(Inputs!$D$11="IG",Matrix!$C$27,',
-            'IF(Inputs!$D$11="BB",Matrix!$E$27,IF(Inputs!$D$11="B",Matrix!$G$27,',
-            'IF(Inputs!$D$11="CCC",Matrix!$I$27,IF(Inputs!$D$11="Unrated",Matrix!$K$27,"")))))',
-            '="breached","; "&MID(Matrix!$A$27,17,200),"")&IF(AND(ISNUMBER(Inputs!$F$11),',
-            'Inputs!$F$11<Matrix!$I$31),"; "&MID(Matrix!$A$31,17,200),""),3,500),""))',
+            'REPLACE(IF(Matrix!$C$122=1,"; "&Matrix!$E$118,"")',
+            '&IF(Matrix!$F$122=1,"; "&Matrix!$G$118,"")',
+            '&IF(Matrix!$I$122=1,"; "&Matrix!$I$118,"")',
+            '&IF(Matrix!$K$122=1,"; "&Matrix!$K$118,""),1,2,""),""))',
         ),
     ),
     (
         ("Snapshot", "Recommendation", CLO, "Held to MW"),
         joined(
             "=IF(Matrix!$I$80=Matrix!$G$76,IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
-            '*(Matrix!$G$110:$G$114=""))=0,MID(IF(Matrix!$G$21<>"","; "&Matrix!$G$21,"")',
-            '&IF((SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="IG"))',
-            '*(Matrix!$C$26="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
-            '*(Inputs!$D$11:$D$15="BB"))*(Matrix!$E$26="breached")',
-            '+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="B"))',
-            '*(Matrix!$G$26="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
-            '*(Inputs!$D$11:$D$15="CCC"))*(Matrix!$I$26="breached")',
-            "+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
-            '*(Inputs!$D$11:$D$15="Unrated"))*(Matrix!$K$26="breached"))>0',
-            ',"; "&MID(Matrix!$A$26,17,200),"")',
-            '&IF((SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="IG"))',
-            '*(Matrix!$C$27="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
-            '*(Inputs!$D$11:$D$15="BB"))*(Matrix!$E$27="breached")',
-            '+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="B"))',
-            '*(Matrix!$G$27="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
-            '*(Inputs!$D$11:$D$15="CCC"))*(Matrix!$I$27="breached")',
-            "+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
-            '*(Inputs!$D$11:$D$15="Unrated"))*(Matrix!$K$27="breached"))>0',
-            ',"; "&MID(Matrix!$A$27,17,200),"")',
-            "&IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
-            "*(Inputs!$F$11:$F$15<Matrix!$I$31))>0",
-            ',"; "&MID(Matrix!$A$31,17,200),""),3,500),""),"")',
+            '*(Matrix!$G$110:$G$114=""))=0,REPLACE(IF(Matrix!$E$130=1,"; "&Matrix!$E$118,"")',
+            '&IF(Matrix!$G$130=1,"; "&Matrix!$G$118,"")',
+            '&IF(Matrix!$I$130=1,"; "&Matrix!$I$118,"")',
+            '&IF(Matrix!$K$130=1,"; "&Matrix!$K$118,""),1,2,""),""),"")',
         ),
+    ),
+    (
+        ("Matrix", "Limit names", CLO, "Limit 1"),
+        '=IF(Matrix!$G$21="","",Matrix!$G$21)',
+    ),
+    (
+        ("Matrix", "Limit names", CLO, "Limit 2"),
+        '=REPLACE(Matrix!$A$26,1,16,"")',
+    ),
+    (
+        ("Matrix", "Limit names", CLO, "Limit 4"),
+        '=REPLACE(Matrix!$A$31,1,16,"")',
+    ),
+    (
+        ("Matrix", "Limit hits", "Term Loan B", f"{CLO} / Limit 1"),
+        '=IF(Matrix!$G$21<>"",1,0)',
+    ),
+    (
+        ("Matrix", "Limit hits", "Term Loan B", f"{CLO} / Limit 2"),
+        joined(
+            '=IF(IF(Inputs!$D$11="IG",Matrix!$C$26,IF(Inputs!$D$11="BB",Matrix!$E$26,',
+            'IF(Inputs!$D$11="B",Matrix!$G$26,IF(Inputs!$D$11="CCC",Matrix!$I$26,',
+            'IF(Inputs!$D$11="Unrated",Matrix!$K$26,"")))))="breached",1,0)',
+        ),
+    ),
+    (
+        ("Matrix", "Limit hits", "Term Loan B", f"{CLO} / Limit 4"),
+        "=IF(AND(ISNUMBER(Inputs!$F$11),Inputs!$F$11<Matrix!$I$31),1,0)",
+    ),
+    (
+        ("Matrix", "Limits holding at 3", CLO, "Limit 2"),
+        "=IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Matrix!$F$122:$F$126=1))>0,1,0)",
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "Status"),
@@ -738,4 +751,131 @@ def test_held_to_mw_names_every_limit_in_matrix_order_not_the_first_held_row(boo
     text = text_of(book, "Snapshot", "Recommendation", CLO, "Held to MW")
     assert "MATCH" not in text and "INDEX" not in text
     assert text.count('"; "&') >= 2
-    assert text.startswith("=IF(") and "MID(" in text
+    assert text.startswith("=IF(") and "REPLACE(" in text
+
+
+# --- A realistic constraints file ---------------------------------------------------------------
+
+EXCEL_FORMULA_CHARACTERS, EXCEL_NESTING = 8192, 64
+RATING_ROWS = (
+    *("CCC max", "Caa max", "B and below max", "B3 and below max", "Unrated max", "NR max"),
+    *("CCC and below max", "BB and below max", "Caa1 and below max", "Caa2 and below max"),
+    *("Caa3 and below max", "B2 and below max", "B1 and below max", "Ba3 and below max"),
+    *("Ba2 and below max", "Ba1 and below max", "Caa1 max", "Caa2 max", "Caa3 max", "B3 max"),
+)
+SECTOR_ROWS = ("Industrials", "Utilities", "Healthcare", "Software", "Retail", "Media")
+
+
+def sixty_limits():
+    """Sixty constraints rows: 20 rating (breached), 30 sector (Industrials at 0.0% headroom),
+    two price floors and eight others that pass."""
+    limit, rows = cs._limit, []
+
+    def add(*row):
+        rows.append(limit(len(rows) + 1, *row))
+
+    for i in range(20):
+        add("Rating", RATING_ROWS[i], "≤ 7.5% NAV", "8.0%", "-0.5%", "Breach")
+    for i in range(30):
+        name = "Industrials max" if i == 0 else f"{SECTOR_ROWS[i % 6]} sector {i} max"
+        hit = i == 0
+        add(
+            "Sector",
+            name,
+            "≤ 15% NAV",
+            "15.0%" if hit else "8.0%",
+            "0.0%" if hit else "7.0%",
+            "Breach" if hit else "Pass",
+        )
+    add("Price", "Minimum price", "≥ 90")
+    add("Price", "Minimum purchase price", "≥ 80")
+    for i in range(8):
+        add("Concentration", f"Top {i + 1} obligors", "≤ 10% NAV", "4.0%", "6.0%", "Pass")
+    return tuple(rows)
+
+
+@pytest.fixture(scope="module")
+def sixty():
+    positions = tuple(
+        rp.Position(
+            n,
+            borrower=f"Holder {n}",
+            asset_type="loan",
+            rating_bucket=bucket,
+            discount_margin=D(level),
+            margin=None,
+        )
+        for n, (bucket, level) in enumerate((b, v) for b, vs in SIXTY_BUCKETS.items() for v in vs)
+    )
+    port = rp.Portfolio(
+        rp.CLO.key,
+        rp.CLO.name,
+        rp.CLO.kind,
+        date(2026, 3, 20),
+        cs.STORED_AT,
+        (),
+        positions,
+        sixty_limits(),
+        columns_found=(("borrower", "Borrower Name"), ("discount_margin", "Mid 3Y DM")),
+    )
+    handoffs = {m: p.read_bytes() for m, p in cs.ALL_MODULES.items()}
+    run = snap.SnapshotRun(
+        cs.ISSUER_NAME,
+        cs.AS_OF,
+        "credit_snapshot",
+        cs.CASES["full"].run_id,
+        handoffs,
+        load_context(cs.context_bytes()),
+        [(rp.CLO, port), (rp.LVLN, None), (rp.JNK, None)],
+    )
+    snapshot = snap.gather(run)
+    view = snapshot.references[0]
+    assert len(view.rating_limits) == 20 and len(view.breached) == 1 and len(view.price_floors) == 2
+    return load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+
+
+SIXTY_BUCKETS = {
+    "BB": ["250", "275", "300", "325", "350"],
+    "B": ["400", "425", "450", "475", "500"],
+    "CCC": ["800", "850", "900", "950", "1000"],
+    "Unrated": ["500", "550", "600", "650", "700"],
+}
+
+
+def depth_of(text):
+    depth = deepest = 0
+    for char in re.sub(r'"[^"]*"', "", text):
+        depth += (char == "(") - (char == ")")
+        deepest = max(deepest, depth)
+    return deepest
+
+
+def test_no_formula_exceeds_excel_limits_on_a_sixty_row_constraints_file(sixty):
+    found = formulas(sixty)
+    assert len(found) > 100
+    long = [(s, c, len(t)) for s, c, t in found if len(t) > EXCEL_FORMULA_CHARACTERS]
+    deep = [(s, c) for s, c, t in found if depth_of(t) > EXCEL_NESTING]
+    assert not long and not deep
+
+
+def test_held_names_are_never_cut(sixty):
+    clo = [
+        r for r in listed(sixty, "Limit names", sheet="Matrix", kind="formula") if r["Row"] == CLO
+    ]
+    assert len(clo) == 23
+    for block, row, column in (("Held by", "Term Loan B", CLO), ("Limit names", CLO, "Limit 2")):
+        assert "MID(" not in text_of(sixty, "Matrix", block, row, column)
+    mw = text_of(sixty, "Snapshot", "Recommendation", CLO, "Held to MW")
+    assert "MID(" not in mw and "REPLACE(" in mw
+    expected = [
+        row["Cell"]
+        for block in ("Rating limits", "Price floors")
+        for row in listed(sixty, block, sheet="Matrix", column="Row label")
+        if row["Row"].startswith(f"{CLO} ")
+    ]
+    assert len(expected) == 22
+    names = [text_of(sixty, "Matrix", "Limit names", CLO, f"Limit {k}") for k in range(1, 24)]
+    assert names[0].startswith("=IF(Matrix!$") and '="",""' in names[0]
+    named = [re.fullmatch(r'=REPLACE\(Matrix!\$([A-Z]+)\$([0-9]+),1,16,""\)', n) for n in names[1:]]
+    assert all(named)
+    assert ["".join(m.group(1, 2)) for m in named] == expected
