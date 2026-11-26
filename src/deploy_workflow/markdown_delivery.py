@@ -59,11 +59,13 @@ from deploy_workflow.handoff_delivery import (
     MarkdownRoute,
     heading_of,
     hide_comments,
+    hide_fenced,
     is_gap,
     names_issuer,
     physical_lines,
     plain,
     section,
+    table_row,
 )
 
 CHART_UNITS: dict[str, UnitClass] = {"x": "multiple", "US$m": "amount", "%": "percent"}
@@ -88,6 +90,13 @@ STRIP_FIGURES = {
 
 
 LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]")
+# A complete `<!-- ... -->` span on one line; inline code spans are matched first and kept.
+COMMENT_SPAN = re.compile(r"(`+).+?\1|<!--.*?-->")
+
+
+def visible(line: str) -> str:
+    """The line without its complete HTML comment spans (inline code is left as written)."""
+    return COMMENT_SPAN.sub(lambda m: m[0] if m[0][0] == "`" else "", line)
 
 
 @dataclass(frozen=True)
@@ -168,13 +177,14 @@ def _prose_groups(lines: list[str], in_table: set[int]) -> list[_ProseGroup]:
             parents.append((level, text))
             key = number
             titles[key] = (text, " > ".join(t for lv, t in parents if lv > 1) or text)
-        elif not line.strip() or line.startswith("<!--") or number in in_table:
+        elif not visible(line).strip() or number in in_table:
             close()
         elif line.startswith("|"):
             close()
             pending = [(number, line)]
             close()
         else:
+            line = visible(line)
             if LIST_ITEM.match(line):
                 close()
             pending.append((number, line))
@@ -241,6 +251,9 @@ def gap_limitations(raw: str) -> tuple[str, ...]:
         if not stripped or heading_of(stripped) is not None:
             close()
         else:
+            if LIST_ITEM.match(text):
+                close()  # Each list item is its own limitation, without its marker.
+                stripped = LIST_ITEM.sub("", text, count=1).strip()
             paragraph.append(stripped)
     close()
     return tuple(found)
@@ -262,16 +275,18 @@ def _literal_view(
     digest = hashlib.sha256(raw).hexdigest()
     source, facts, tables, _ = _literal_tables(module_id, raw, digest)
     lines = hide_comments(physical_lines(raw.decode("utf-8")), module_id)
-    headings = [(n, found[1]) for n, line in enumerate(lines, 1) if (found := heading_of(line))]
+    shown = hide_fenced(lines)  # A `#` line inside a fence is code, not a heading.
+    headings = [(n, found[1]) for n, line in enumerate(shown, 1) if (found := heading_of(line))]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
     section_of: dict[str, int] = {}
     for i, table in enumerate(tables):
         first = fact_map[table.rows[0].fact_ids[0]].citations[0]
         number = int(first.locator.split()[-1])
-        section_of[table.table_id], heading = next(
-            (n, title) for n, title in reversed(headings) if n < number
-        )
+        owner = next(((n, title) for n, title in reversed(headings) if n < number), None)
+        if owner is None:
+            raise ValueError(f"{module_id}: the table at line {number} is before the first heading")
+        section_of[table.table_id], heading = owner
         tables[i] = table.model_copy(
             update={"title": heading + " — " + (table.row_header or "Table")}
         )
@@ -333,7 +348,9 @@ def _literal_view(
         )
         metadata[table_id] = (heading, "prose")
         owner_line[table_id] = group.line
-    descriptor = next(m for m in modules() if m.module_id == module_id)
+    descriptor = next((m for m in modules() if m.module_id == module_id), None)
+    if descriptor is None:
+        raise ValueError(f"{module_id}: not a module in the registry")
     return (
         ModuleView(
             module_id=module_id,
@@ -918,10 +935,14 @@ def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bo
     run: list[str] = []
     from deploy_workflow.model_handoff_delivery import TABLE_SEPARATOR
 
+    def separator(text: str) -> bool:
+        row = table_row(text)
+        return row is not None and TABLE_SEPARATOR.fullmatch(row) is not None
+
     def flush() -> None:
         nonlocal run
         if current is not None and run:
-            is_table = any(TABLE_SEPARATOR.fullmatch(nxt) for nxt in run[1:])
+            is_table = any(separator(nxt) for nxt in run[1:])
             text, prose, tabular = found.get(current[0], (current[1], False, False))
             found[current[0]] = (text, prose or not is_table, tabular or is_table)
         run = []
@@ -930,7 +951,7 @@ def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bo
         head = heading_of(line)
         if fenced and head and head[0] == 2:
             fenced = False
-        if not fenced and line.startswith("|"):
+        if not fenced and table_row(line) is not None:
             run.append(line)
             continue
         flush()
@@ -939,7 +960,7 @@ def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bo
         elif not fenced and head:
             current = (number, head[1]) if head[0] >= 2 else None
             continue
-        elif not line.strip() or (not fenced and line.startswith("<!--")):
+        elif not (line if fenced else visible(line)).strip():
             continue
         if current is not None:
             text, _, tabular = found.get(current[0], (current[1], False, False))

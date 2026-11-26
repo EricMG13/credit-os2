@@ -840,7 +840,7 @@ def _quarter_cells(
     return result
 
 
-# The line under a table header, exactly as the reader applies it (unstripped).
+# The row under a table header, as `table_row` returns it (indent and trailing space removed).
 TABLE_SEPARATOR = re.compile(r"\|[ :|\-]+\|")
 
 
@@ -877,11 +877,8 @@ def _literal_tables(
             heading = plain(found[1]) or DEFAULT_TABLE_TITLE
         elif BOLD_LABEL.fullmatch(lines[i].strip()):
             heading = plain(lines[i].strip())
-        if not (
-            lines[i].startswith("|")
-            and i + 1 < len(lines)
-            and TABLE_SEPARATOR.fullmatch(lines[i + 1])
-        ):
+        under = table_row(lines[i + 1]) if i + 1 < len(lines) else None
+        if table_row(lines[i]) is None or under is None or not TABLE_SEPARATOR.fullmatch(under):
             i += 1
             continue
         headers, rows = table([(j + 1, lines[j]) for j in range(i, len(lines))])
