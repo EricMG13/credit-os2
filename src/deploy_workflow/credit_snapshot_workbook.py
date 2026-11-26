@@ -335,8 +335,8 @@ class _Page:
         first = self.ws.cell(row=row, column=col)
         self._paint(row, col, span, spec, isinstance(value, int | float))
         first.value = value
-        if isinstance(value, str) and value.startswith("="):
-            first.data_type = "s"  # copied text is never a formula
+        if isinstance(value, str):
+            first.data_type = "s"  # copied text is never a formula or an error value
         if figure is not None:
             fmt = figure.number_format
             first.number_format = _bracketed(fmt) if spec.block == FINANCIALS else fmt
@@ -616,9 +616,7 @@ def _tables(page: _Page, frame: _Frame, cells: Sequence[snap.SnapshotCell]) -> i
     if axis is not None:
         columns = _aligned_model_columns(cells, axis)
         if columns is not None:
-            model = _Table(
-                columns, [(name, _align_model_row(columns, items, axis)) for name, items in rows]
-            )
+            model = _Table(columns, _align_model_rows(columns, rows, axis))
             indexes = range(len(columns))
             spans = [MODEL_ROW_LABEL_WIDTH] + [1] * len(columns)
             return _part(page, frame, _Part(model, indexes, True, True), spans)
@@ -674,6 +672,8 @@ def _sides(rows: list[Row]) -> tuple[list[Row], list[Row]] | None:
     weaknesses = [r for r in rows if r[0].startswith(GLYPHS[1][0])]
     if not rows or len(strengths) + len(weaknesses) != len(rows):
         return None
+    if any(len(cells) != 2 for _, cells in rows):
+        return None  # a merged or partial row is not the two-cell shape `_side` draws
     return strengths, weaknesses
 
 
@@ -912,13 +912,29 @@ def _dated_model_aliases(
     return aliases
 
 
-def _align_model_row(
-    columns: list[str], cells: list[snap.SnapshotCell], axis: _ModelAxis
-) -> list[snap.SnapshotCell | None]:
-    held: dict[str, snap.SnapshotCell] = {}
-    for cell in cells:
-        held.setdefault(axis.label(cell.column), cell)
-    return [held.get(column) for column in columns]
+def _align_model_rows(
+    columns: list[str], rows: list[Row], axis: _ModelAxis
+) -> list[tuple[str, list[snap.SnapshotCell | None]]]:
+    """Each row on the common axis. A second cell for the same row and column is never dropped:
+    it is logged and shown on its own row, `<row> (second <column> value)`."""
+    aligned: list[tuple[str, list[snap.SnapshotCell | None]]] = []
+    for name, cells in rows:
+        held: dict[str, snap.SnapshotCell] = {}
+        extra: dict[str, snap.SnapshotCell] = {}
+        for cell in cells:
+            label = axis.label(cell.column)
+            if label in held:
+                _LOG.warning(
+                    "Model row %r has two values for column %r; second kept apart", name, label
+                )
+                extra.setdefault(label, cell)
+            else:
+                held[label] = cell
+        aligned.append((name, [held.get(column) for column in columns]))
+        for label, cell in extra.items():
+            second = [cell if column == label else None for column in columns]
+            aligned.append((f"{name} (second {label} value)", second))
+    return aligned
 
 
 def _aligned_model_columns(
@@ -1097,13 +1113,26 @@ def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     period_index = indexes.get("period")
     if period_index is None:
         return _wide_segment_schedule_cells(table)
-    name_index = indexes.get("business unit", 0)
-    excluded = ("period", "business unit", "unit", "currency", "basis", "source", "note")
+    name_index = indexes.get("businessunit")
+    if name_index is None:
+        return [
+            _model_table_gap(SEGMENTS, "the segment schedule has no Business Unit column").cells[0]
+        ]
+    excluded = {
+        "period",
+        "businessunit",
+        "unit",
+        "currency",
+        "basis",
+        "source",
+        "sources",
+        "note",
+        "notes",
+    }
     values = [
         (header, index)
         for index, header in enumerate(table.headers)
-        if index not in {period_index, name_index}
-        and not any(word in _clean_label(header) for word in excluded)
+        if index not in {period_index, name_index} and _clean_label(header) not in excluded
     ]
     cells = []
     for row in table.rows:
@@ -1252,13 +1281,6 @@ def _period_table_cells(table: Any, name: str) -> list[snap.SnapshotCell]:
         )
         if not label:
             continue
-        if name == OPERATING_KPIS and not any(
-            re.fullmatch(r"[+-]?(?:\d[\d,]*(?:\.\d*)?|\.\d+)(?:%|x)?", value.strip())
-            for _, index in period_columns
-            if index < len(source_row.cells)
-            for value in (source_row.cells[index],)
-        ):
-            continue
         for column, index in period_columns:
             if index < len(source_row.cells) and source_row.cells[index].strip():
                 cells.append(
@@ -1281,7 +1303,7 @@ def _period_table_cells(table: Any, name: str) -> list[snap.SnapshotCell]:
                         MODEL,
                         name,
                         label,
-                        "Unit",
+                        "Currency" if _clean_label(column) == "currency" else "Unit",
                         snap.COPIED,
                         source_row.cells[index],
                         table.module,
@@ -1649,8 +1671,8 @@ def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.Snapsh
 
 
 def _debt_property(header: str) -> bool:
-    excluded = ("source", "basis", "locator", "evidence", "note")
-    return not any(word in _clean_label(header) for word in excluded)
+    excluded = {"source", "sources", "basis", "locator", "evidence", "note", "notes"}
+    return _clean_label(header) not in excluded
 
 
 def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:
@@ -2847,8 +2869,8 @@ class _Book:
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.font = _font()
-                if isinstance(cell.value, str) and cell.value.startswith("="):
-                    cell.data_type = "s"
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"  # exact text: never a formula or an error value
         ws.freeze_panes = "A2"
         ws.auto_filter.ref = ws.dimensions
 
