@@ -1516,3 +1516,35 @@ describe("EarningsDeltaLead gaps", () => {
     expect(screen.getAllByText(new RegExp(TWICE_EARNINGS.slice(0, 40)))).toHaveLength(2);
   });
 });
+
+describe("a stated change written in basis points", () => {
+  // Synthetic handoff (the S9a probe's shape): the module states +50 bps and 100 basis points.
+  const bps = earningsTable(
+    ["Line Item", "FY2023", "FY2024", "YoY Change (Abs)"],
+    [
+      ["Gross margin", "58.3%", "58.8%", "+50 bps"],
+      ["EBITDA margin", "51.6%", "52.6%", "100 basis points"],
+      ["Net margin", "19.7%", "20.2%", "+0.5 percentage points"],
+    ],
+  );
+  it("draws the change as the module wrote it, without the row's percentage-point unit", () => {
+    const { kpis: figure } = earningsDelta(delta(bps));
+    expect(figure.kind).toBe("ready");
+    if (figure.kind !== "ready") throw new Error("expected kpis");
+    const pairs = figure.groups.flatMap((one) => one.drawn);
+    expect(pairs.map((pair) => [pair.label, pair.change?.text, pair.change?.basis])).toEqual([
+      ["Gross margin", "+50 bps", "stated"],
+      ["EBITDA margin", "+100 basis points", "stated"],
+      ["Net margin", "+0.5 percentage points", "stated"],
+    ]);
+  });
+  it("renders each stated change as the handoff cell reads (fidelity check)", () => {
+    const { container } = lead(delta(bps));
+    const drawn = (label: string) =>
+      textOf(rowMark(container, label), "change").join(" ").replace(/\s+/g, " ").trim();
+    expect(drawn("Gross margin")).toContain("+50 bps");
+    expect(drawn("EBITDA margin")).toContain("+100 basis points");
+    expect(drawn("Net margin")).toContain("+0.5 percentage points");
+    expect(container.textContent).not.toMatch(/percentage points\s+(?:bps|basis points)/);
+  });
+});
