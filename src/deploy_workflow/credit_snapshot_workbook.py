@@ -1158,98 +1158,119 @@ def _calculation_register_cells(table: Any) -> list[snap.SnapshotCell]:
     return cells
 
 
-_SEGMENT_NAME_HEADERS = ("segmentname", "segment", "businessunit", "division")
-_CITATION_LEAD = {"source", "sources", "evidence", "basis", "locator"}
-_CITATION_TAIL = {"basis", "locator"}
-_CITATION_WHOLE = {"note", "notes"}
+# Name columns: T4.16 `segment_name` (src/deploy_vii/model_interface.py:53-61), CP-1 step 5
+# "business unit".
+_SEGMENT_NAME_HEADERS = {"segmentname", "segment", "businessunit", "division", "lineofbusiness"}
+# Citation columns: source identities live on the Sources sheet, never drawn as data.
+_CITATION_HEADERS = {
+    "source",
+    "sources",
+    "sourceid",
+    "sourcelocator",
+    "sourcepage",
+    "sourcefile",
+    "sourcerefs",
+    "evidence",
+    "evidencepage",
+    "locator",
+    "note",
+    "notes",
+}
+# Basis qualifiers: kept beside each segment figure as context, as the wide path keeps them.
+_SEGMENT_CONTEXT_HEADERS = {"basis", "reportedbasis", "basisofpreparation"}
 
 
-def _citation_header(header: str) -> bool:
-    """A header that carries a citation or note, not a value: the whole name is a note, it starts
-    with source/evidence/basis/locator, or ends with basis/locator. `Notes receivable` and
-    `Resource cost` are values and stay."""
-    words = re.findall(r"[a-z]+", header.casefold())
-    return bool(words) and (
-        words[0] in _CITATION_LEAD
-        or words[-1] in _CITATION_TAIL
-        or "".join(words) in _CITATION_WHOLE
+@dataclass(frozen=True)
+class _SegmentColumns:
+    period: int
+    names: tuple[int, ...]
+    values: tuple[tuple[str, int], ...]
+    context: tuple[tuple[str, int], ...]
+
+
+def _segment_columns(table: snap._Table) -> _SegmentColumns | None:
+    """Period, name, value and context columns of a long segment table; None without a name."""
+    labels = [_clean_label(header) for header in table.headers]
+    names = tuple(i for i, label in enumerate(labels) if label in _SEGMENT_NAME_HEADERS)
+    if not names:
+        return None
+    period = labels.index("period")
+    not_value = {"period", "unit", "currency"} | _SEGMENT_NAME_HEADERS
+    not_value |= _SEGMENT_CONTEXT_HEADERS | _CITATION_HEADERS
+    return _SegmentColumns(
+        period,
+        names,
+        tuple((header, i) for i, header in enumerate(table.headers) if labels[i] not in not_value),
+        tuple(
+            (header.strip(), i)
+            for i, header in enumerate(table.headers)
+            if labels[i] in _SEGMENT_CONTEXT_HEADERS
+        ),
     )
 
 
-def _segment_name_index(table: Any, indexes: dict[str, int], period_index: int) -> int | None:
-    """The T4.16 name column (`segment_name`), else the one text column no other rule claims."""
-    for field in _SEGMENT_NAME_HEADERS:
-        if field in indexes:
-            return int(indexes[field])
-    claimed = {"period", "unit", "currency"}
-    text_columns = [
-        index
-        for index, header in enumerate(table.headers)
-        if index != period_index
-        and _clean_label(header) not in claimed
-        and not _citation_header(header)
-        and all(
-            snap.figure(row.cells[index].strip()) is None
-            for row in table.rows
-            if index < len(row.cells) and row.cells[index].strip()
+def _segment_caption(row: snap._Row, indexes: dict[str, int]) -> str:
+    """Unit, with the currency in front unless the unit already names it."""
+    parts = []
+    for field in ("currency", "unit"):
+        index = indexes.get(field)
+        parts.append(
+            row.cells[index].strip() if index is not None and index < len(row.cells) else ""
         )
-    ]
-    return text_columns[0] if len(text_columns) == 1 else None
+    currency, unit = parts
+    if currency and re.search(rf"\b{re.escape(currency)}\b", unit):
+        return unit
+    return " ".join(filter(None, (currency, unit)))
 
 
-def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
+def _segment_schedule_cells(table: snap._Table) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
         return [_register_gap(SEGMENTS, "the table exceeds its safe row or column limit")]
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
-    period_index = indexes.get("period")
-    if period_index is None:
+    if "period" not in indexes:
         return _wide_segment_schedule_cells(table)
-    name_index = _segment_name_index(table, indexes, period_index)
-    if name_index is None:
+    columns = _segment_columns(table)
+    if columns is None:
         return [
             _model_table_gap(
                 SEGMENTS, "the segment schedule has no segment name (Business Unit) column"
             ).cells[0]
         ]
-    excluded = {"period", "businessunit", "unit", "currency"}
-    values = [
-        (header, index)
-        for index, header in enumerate(table.headers)
-        if index not in {period_index, name_index}
-        and _clean_label(header) not in excluded
-        and not _citation_header(header)
-    ]
+    used = [columns.period, *columns.names, *(i for _, i in columns.values + columns.context)]
     cells = []
     for row in table.rows:
-        if max(period_index, name_index, *(index for _, index in values), 0) >= len(row.cells):
+        if max(used) >= len(row.cells):
             continue
-        period, name = row.cells[period_index].strip(), row.cells[name_index].strip()
+        period = row.cells[columns.period].strip()
+        name = " · ".join(c for c in (row.cells[i].strip() for i in columns.names) if c)
         if not period or not name:
             continue
-        unit_index = indexes.get("unit")
-        unit = (
-            row.cells[unit_index].strip()
-            if unit_index is not None and unit_index < len(row.cells)
-            else ""
-        )
-        for header, index in values:
+        caption = _segment_caption(row, indexes)
+        for header, index in columns.values:
             value = row.cells[index].strip()
             if value:
-                metric = f"{header} ({unit})" if unit else header
-                cells.append(
-                    snap.SnapshotCell(
-                        MODEL,
-                        SEGMENTS,
-                        f"{name} · {metric}",
-                        period,
-                        snap.COPIED,
-                        value,
-                        table.module,
-                        table.section,
-                        row.line,
-                    )
-                )
+                metric = f"{header} ({caption})" if caption else header
+                cells.append(_segment_cell(table, row, f"{name} · {metric}", period, value))
+                for context, at in columns.context:
+                    if row.cells[at].strip():
+                        cells.append(
+                            _segment_cell(
+                                table,
+                                row,
+                                f"{name} · {metric}",
+                                f"{period} {context}",
+                                row.cells[at].strip(),
+                            )
+                        )
     return cells
+
+
+def _segment_cell(
+    table: snap._Table, row: snap._Row, label: str, column: str, text: str
+) -> snap.SnapshotCell:
+    return snap.SnapshotCell(
+        MODEL, SEGMENTS, label, column, snap.COPIED, text, table.module, table.section, row.line
+    )
 
 
 def _wide_segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
@@ -1785,7 +1806,7 @@ def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.Snapsh
 
 
 def _debt_property(header: str) -> bool:
-    return not _citation_header(header)
+    return _clean_label(header) not in _CITATION_HEADERS
 
 
 def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:

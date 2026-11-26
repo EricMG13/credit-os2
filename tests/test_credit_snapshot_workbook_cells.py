@@ -140,7 +140,7 @@ def test_debt_property_keeps_headers_that_only_contain_an_excluded_word(header):
     assert writer._debt_property(header)
 
 
-@pytest.mark.parametrize("header", ["Source", "Basis", "Locator", "Evidence", "Note"])
+@pytest.mark.parametrize("header", ["Source", "Locator", "Evidence", "Note"])
 def test_debt_property_still_excludes_the_whole_header_names(header):
     assert not writer._debt_property(header)
 
@@ -209,8 +209,6 @@ def test_second_value_for_the_same_row_and_column_is_logged_and_kept(caplog):
         "Source ID",
         "Source Page",
         "Evidence Page",
-        "Reported Basis",
-        "Basis of preparation",
         "Source",
         "Notes",
     ],
@@ -235,13 +233,15 @@ def test_value_headers_that_merely_start_like_citations_stay_segment_data(header
 
 @pytest.mark.parametrize(
     "header",
-    ["source_id", "source_locator", "Source ID", "Source Page", "Evidence Page", "Reported Basis"],
+    ["source_id", "source_locator", "Source ID", "Source Page", "Evidence Page"],
 )
 def test_debt_property_excludes_citation_headers(header):
     assert not writer._debt_property(header)
 
 
-@pytest.mark.parametrize("header", ["Resource cost", "Noteholder consent", "Community Revenue"])
+@pytest.mark.parametrize(
+    "header", ["Resource cost", "Noteholder consent", "Community Revenue", "Reported Basis"]
+)
 def test_debt_property_keeps_value_headers(header):
     assert writer._debt_property(header)
 
@@ -256,7 +256,7 @@ def test_segment_schedule_named_by_a_segment_column_keeps_its_figures():
     assert triples(cells) == {("Airframe · Revenue (USD millions)", "FY2025", "100")}
 
 
-def test_segment_schedule_with_one_unambiguous_text_column_uses_it_as_the_name():
+def test_segment_schedule_named_by_a_line_of_business_column_keeps_its_figures():
     cells = writer._segment_schedule_cells(
         table(["Period", "Line of business", "Revenue"], ["FY2025", "Airframe", "100"])
     )
@@ -286,3 +286,95 @@ def test_every_extra_value_for_one_row_and_column_is_kept(caplog):
         ("Revenue (second Unit value)", ["USD"]),
         ("Revenue (third Unit value)", ["audited"]),
     ]
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [["Period", "Revenue", "Comment"], ["Period", "Margin", "Comment"]],
+    ids=["revenue", "margin"],
+)
+def test_segment_schedule_never_guesses_a_name_from_a_value_or_comment_column(headers):
+    value = "strong" if headers[1] == "Revenue" else "12%"
+    cells = writer._segment_schedule_cells(table(headers, ["FY2025", "100", value]))
+    assert [c.kind for c in cells] == [snap.GAP]
+    assert "Business Unit" in cells[0].written
+
+
+def test_line_of_business_table_keeps_a_not_supplied_cell_beside_a_figure():
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Line of business", "Period", "Net sales", "EBITDA"],
+            ["Unallocated corporate", "FY2024", "Not supplied: no separate revenue line", "-106"],
+        )
+    )
+    assert triples(cells) == {
+        ("Unallocated corporate · Net sales", "FY2024", "Not supplied: no separate revenue line"),
+        ("Unallocated corporate · EBITDA", "FY2024", "-106"),
+    }
+
+
+def test_business_unit_and_segment_columns_both_name_the_row():
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Business Unit", "Segment", "Period", "Revenue"],
+            ["Airframe", "Operating", "FY2025", "100"],
+        )
+    )
+    assert triples(cells) == {("Airframe · Operating · Revenue", "FY2025", "100")}
+
+
+@pytest.mark.parametrize(
+    ("unit", "currency", "caption"),
+    [("millions", "GBP", "GBP millions"), ("USD millions", "USD", "USD millions")],
+)
+def test_segment_caption_carries_the_currency_once(unit, currency, caption):
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Business Unit", "Period", "Revenue", "Unit", "Currency"],
+            ["Airframe", "FY2025", "100", unit, currency],
+        )
+    )
+    assert triples(cells) == {(f"Airframe · Revenue ({caption})", "FY2025", "100")}
+
+
+def test_segment_basis_is_kept_as_context_and_source_is_not_drawn():
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Business unit", "Period", "Net sales", "Unit", "Basis", "Source"],
+            ["Airframe", "FY2024", "3809", "USD millions", "Reported segment flow", "p.49"],
+        )
+    )
+    assert triples(cells) == {
+        ("Airframe · Net sales (USD millions)", "FY2024", "3809"),
+        ("Airframe · Net sales (USD millions)", "FY2024 Basis", "Reported segment flow"),
+    }
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "Interest basis",
+        "Day count basis",
+        "Basis points",
+        "Source currency",
+        "Source of repayment",
+        "Evidence tier",
+        "Basis",
+        "Reported Basis",
+    ],
+)
+def test_debt_property_keeps_basis_and_source_prefixed_value_headers(header):
+    assert writer._debt_property(header)
+
+
+def test_unperioded_debt_keeps_interest_basis_and_drops_source():
+    cells = writer._unperioded_debt_cells(
+        table(
+            ["Instrument", "Principal", "Interest basis", "Source"],
+            ["Term Loan B", "500", "SOFR + 3.75%", "p.9"],
+        )
+    )
+    assert triples(cells) == {
+        ("Term Loan B", "Principal", "500"),
+        ("Term Loan B", "Interest basis", "SOFR + 3.75%"),
+    }
