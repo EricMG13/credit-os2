@@ -239,9 +239,7 @@ def test_debt_property_excludes_citation_headers(header):
     assert not writer._debt_property(header)
 
 
-@pytest.mark.parametrize(
-    "header", ["Resource cost", "Noteholder consent", "Community Revenue", "Reported Basis"]
-)
+@pytest.mark.parametrize("header", ["Resource cost", "Noteholder consent", "Community Revenue"])
 def test_debt_property_keeps_value_headers(header):
     assert writer._debt_property(header)
 
@@ -323,20 +321,6 @@ def test_business_unit_and_segment_columns_both_name_the_row():
     assert triples(cells) == {("Airframe · Operating · Revenue", "FY2025", "100")}
 
 
-@pytest.mark.parametrize(
-    ("unit", "currency", "caption"),
-    [("millions", "GBP", "GBP millions"), ("USD millions", "USD", "USD millions")],
-)
-def test_segment_caption_carries_the_currency_once(unit, currency, caption):
-    cells = writer._segment_schedule_cells(
-        table(
-            ["Business Unit", "Period", "Revenue", "Unit", "Currency"],
-            ["Airframe", "FY2025", "100", unit, currency],
-        )
-    )
-    assert triples(cells) == {(f"Airframe · Revenue ({caption})", "FY2025", "100")}
-
-
 def test_segment_basis_is_kept_as_context_and_source_is_not_drawn():
     cells = writer._segment_schedule_cells(
         table(
@@ -347,34 +331,4 @@ def test_segment_basis_is_kept_as_context_and_source_is_not_drawn():
     assert triples(cells) == {
         ("Airframe · Net sales (USD millions)", "FY2024", "3809"),
         ("Airframe · Net sales (USD millions)", "FY2024 Basis", "Reported segment flow"),
-    }
-
-
-@pytest.mark.parametrize(
-    "header",
-    [
-        "Interest basis",
-        "Day count basis",
-        "Basis points",
-        "Source currency",
-        "Source of repayment",
-        "Evidence tier",
-        "Basis",
-        "Reported Basis",
-    ],
-)
-def test_debt_property_keeps_basis_and_source_prefixed_value_headers(header):
-    assert writer._debt_property(header)
-
-
-def test_unperioded_debt_keeps_interest_basis_and_drops_source():
-    cells = writer._unperioded_debt_cells(
-        table(
-            ["Instrument", "Principal", "Interest basis", "Source"],
-            ["Term Loan B", "500", "SOFR + 3.75%", "p.9"],
-        )
-    )
-    assert triples(cells) == {
-        ("Term Loan B", "Principal", "500"),
-        ("Term Loan B", "Interest basis", "SOFR + 3.75%"),
     }

@@ -1161,21 +1161,23 @@ def _calculation_register_cells(table: Any) -> list[snap.SnapshotCell]:
 # Name columns: T4.16 `segment_name` (src/deploy_vii/model_interface.py:53-61), CP-1 step 5
 # "business unit".
 _SEGMENT_NAME_HEADERS = {"segmentname", "segment", "businessunit", "division", "lineofbusiness"}
-# Citation columns: source identities live on the Sources sheet, never drawn as data.
-_CITATION_HEADERS = {
-    "source",
-    "sources",
-    "sourceid",
-    "sourcelocator",
-    "sourcepage",
-    "sourcefile",
-    "sourcerefs",
-    "evidence",
-    "evidencepage",
-    "locator",
-    "note",
-    "notes",
-}
+# Citation columns: the whole name is a note, it starts with source/evidence/basis/locator, or it
+# ends with basis/locator. `Notes receivable` and `Resource cost` are values and stay.
+_CITATION_LEAD = {"source", "sources", "evidence", "basis", "locator"}
+_CITATION_TAIL = {"basis", "locator"}
+_CITATION_WHOLE = {"note", "notes"}
+
+
+def _citation_header(header: str) -> bool:
+    """A header that carries a citation or note, not a value."""
+    words = re.findall(r"[a-z]+", header.casefold())
+    return bool(words) and (
+        words[0] in _CITATION_LEAD
+        or words[-1] in _CITATION_TAIL
+        or "".join(words) in _CITATION_WHOLE
+    )
+
+
 # Basis qualifiers: kept beside each segment figure as context, as the wide path keeps them.
 _SEGMENT_CONTEXT_HEADERS = {"basis", "reportedbasis", "basisofpreparation"}
 
@@ -1196,11 +1198,15 @@ def _segment_columns(table: snap._Table) -> _SegmentColumns | None:
         return None
     period = labels.index("period")
     not_value = {"period", "unit", "currency"} | _SEGMENT_NAME_HEADERS
-    not_value |= _SEGMENT_CONTEXT_HEADERS | _CITATION_HEADERS
+    not_value |= _SEGMENT_CONTEXT_HEADERS
     return _SegmentColumns(
         period,
         names,
-        tuple((header, i) for i, header in enumerate(table.headers) if labels[i] not in not_value),
+        tuple(
+            (header, i)
+            for i, header in enumerate(table.headers)
+            if labels[i] not in not_value and not _citation_header(header)
+        ),
         tuple(
             (header.strip(), i)
             for i, header in enumerate(table.headers)
@@ -1210,17 +1216,9 @@ def _segment_columns(table: snap._Table) -> _SegmentColumns | None:
 
 
 def _segment_caption(row: snap._Row, indexes: dict[str, int]) -> str:
-    """Unit, with the currency in front unless the unit already names it."""
-    parts = []
-    for field in ("currency", "unit"):
-        index = indexes.get(field)
-        parts.append(
-            row.cells[index].strip() if index is not None and index < len(row.cells) else ""
-        )
-    currency, unit = parts
-    if currency and re.search(rf"\b{re.escape(currency)}\b", unit):
-        return unit
-    return " ".join(filter(None, (currency, unit)))
+    """The Unit cell only; the Currency column is not part of the segment caption."""
+    index = indexes.get("unit")
+    return row.cells[index].strip() if index is not None and index < len(row.cells) else ""
 
 
 def _segment_schedule_cells(table: snap._Table) -> list[snap.SnapshotCell]:
@@ -1806,7 +1804,7 @@ def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.Snapsh
 
 
 def _debt_property(header: str) -> bool:
-    return _clean_label(header) not in _CITATION_HEADERS
+    return not _citation_header(header)
 
 
 def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:
