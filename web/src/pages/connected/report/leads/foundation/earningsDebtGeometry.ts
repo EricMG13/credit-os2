@@ -15,13 +15,13 @@ import {
   type NiceAxis,
 } from "../kit/marks";
 import { group, type Reading } from "../kit/numbers";
-import { safeText } from "../kit/reader";
-import type {
-  EarningsAgainstDebt,
-  EarningsMeasure,
-  LeverageSeries,
-  PeriodCell,
+import {
+  type EarningsAgainstDebt,
+  type EarningsMeasure,
+  type LeverageSeries,
+  type PeriodCell,
 } from "./foundationData";
+import { written } from "./periodsData";
 
 // The words and positions of the earnings-against-debt tile. Every figure is one the handoff states;
 // the one computed figure is a measure's exact change between the comparison periods (ruling i).
@@ -41,10 +41,13 @@ const TONE_KEY: Record<EarningsMeasure["key"], string> = {
 const seriesOf = (measure: EarningsMeasure) =>
   measure.key === "grossDebt" ? ("secondary" as const) : ("primary" as const);
 
-/** A cell as the page writes it: the figure grouped, a gap or words as written, or "not stated …". */
+/**
+ * A cell as the page writes it: the figure grouped, a gap or words as written (`written`: a source
+ * dash reads "—"), or "not stated …".
+ */
 function cellWords(cell: Reading | null) {
   if (cell === null) return NOT_IN_TABLE;
-  return cell.kind === "number" ? group(cell.text) : safeText(cell.text);
+  return cell.kind === "number" ? group(cell.text) : written(cell.text);
 }
 
 /** The cell of one period, or null. */

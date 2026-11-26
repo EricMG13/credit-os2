@@ -1721,7 +1721,7 @@ def business_context(
             text=f"{row.evidence} Risk mechanic: {row.risk_mechanic} "
             f"Credit implication: {row.credit_implication}",
             citations=out.binding.of(row),
-            limitation=row.limitation,
+            limitation=out.text(row.limitation) if row.limitation else None,
         )
         for index, row in enumerate(submission.credit_translations, 1)
     )

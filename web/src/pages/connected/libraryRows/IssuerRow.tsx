@@ -146,17 +146,18 @@ function moreStats(catalogue: CatalogueRun, trace: ReturnType<typeof useFigureTr
   return MORE.map(([key, name]) => {
     const figure = catalogue.metrics[key];
     if (!stated(figure)) return { label: name, value: null, gap: "Not shown here" };
+    const named = figureName(key, name, figure);
     const change = figure.prior && figure.change != null ? figure.change : undefined;
     const kind = change === undefined ? "none" : tone(key, change);
     return {
-      label: figure.period ? `${name}, ${figure.period}` : name,
+      label: figure.period ? `${named}, ${figure.period}` : named,
       value: withUnit(figure.value, figure.unit),
       prior: figure.prior
         ? `${withUnit(figure.prior.value, figure.unit)} in ${figure.prior.period}`
         : undefined,
       delta: change === undefined ? undefined : changeText(change, figure.unit),
       tone: kind === "better" || kind === "worse" ? kind : undefined,
-      trace: trace.button(key, name, catalogue.name),
+      trace: trace.button(key, named, catalogue.name),
     };
   });
 }

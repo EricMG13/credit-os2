@@ -78,7 +78,7 @@ it("draws a direction for a measure the owner's table gives none, without better
   );
   expect(screen.queryByText("better")).toBeNull();
   expect(screen.queryByText("worse")).toBeNull();
-  expect(screen.getByText(/\+US\$20m/)).toBeVisible();
+  expect(screen.getByText(/\+\$20m/)).toBeVisible();
 });
 
 it("says a figure the catalogue does not quote is not shown here, never zero or 'not supplied'", () => {
@@ -129,4 +129,17 @@ it("shows the qualified label in the cell on a wide screen when the header does 
   rerender(<FigureMark name="Interest cover" metricKey="coverage" figure={figure} showLabel />);
   expect(screen.getByText("Reported EBITDA / cash interest on debt")).not.toHaveClass("xl:sr-only");
   expect(container.textContent).toContain("4.19x");
+});
+
+it("names a figure on the heading the catalogue states it under when that is not the plain name", () => {
+  render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={{ ...lev, label: "Net debt / adjusted EBITDA" }}
+      showLabel
+    />,
+  );
+  expect(screen.getByText("Net debt / adjusted EBITDA")).toBeVisible();
+  expect(screen.queryByText("Net leverage")).toBeNull();
 });

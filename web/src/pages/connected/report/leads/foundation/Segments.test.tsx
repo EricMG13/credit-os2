@@ -32,7 +32,7 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
   it("is titled plainly, with the unit and the drawn period in the kicker", () => {
     const tile = draw(cp1Entry());
     expect(within(tile).getByRole("heading", { name: "Segments" })).toBeVisible();
-    expect(within(tile).getByText("Segments · US$m, FY2024")).toBeVisible();
+    expect(within(tile).getByText("Segments · $m, FY2024")).toBeVisible();
   });
   it("draws FY2024 bars on one scale from zero, each in proportion to its stated amount", () => {
     const tile = draw(cp1Entry());
@@ -79,7 +79,7 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
   it("says every drawn figure in the aria-label", () => {
     const tile = draw(cp1Entry());
     expect(within(tile).getByRole("img").getAttribute("aria-label")).toBe(
-      "Segments, US$m, FY2024 with FY2023 beneath. Power & Control: Net sales 3,941 (FY2023 3,316), EBITDA As Defined 2,236 (FY2023 1,866); Airframe: Net sales 3,809 (FY2023 3,094), EBITDA As Defined 1,962 (FY2023 1,547); Non-aviation: Net sales 190 (FY2023 175), EBITDA As Defined 81 (FY2023 71); Unallocated corporate, FY2024: Net sales Not supplied: no separate revenue line; EBITDA As Defined −106 (FY2023 −89).",
+      "Segments, $m, FY2024 with FY2023 beneath. Power & Control: Net sales 3,941 (FY2023 3,316), EBITDA As Defined 2,236 (FY2023 1,866); Airframe: Net sales 3,809 (FY2023 3,094), EBITDA As Defined 1,962 (FY2023 1,547); Non-aviation: Net sales 190 (FY2023 175), EBITDA As Defined 81 (FY2023 71); Unallocated corporate, FY2024: Net sales Not supplied: no separate revenue line; EBITDA As Defined −106 (FY2023 −89).",
     );
   });
   it("opens the table view from the button: every stated period, no source column", () => {
@@ -124,7 +124,7 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
 describe("SegmentsTile on the other retained handoffs", () => {
   it("draws the relative value draft's one period from its own segment rows: bars only", () => {
     const tile = draw(relativeValueCp1Entry());
-    expect(within(tile).getByText("Segments · US$m, FY2024")).toBeVisible();
+    expect(within(tile).getByText("Segments · $m, FY2024")).toBeVisible();
     const unit = num(bar(tile, "Power & Control sales"), "width") / 3941;
     expect(num(bar(tile, "Airframe sales"), "width") / unit).toBeCloseTo(3809, 6);
     expect(num(bar(tile, "Non-aviation ebitda"), "width") / unit).toBeCloseTo(81, 6);
@@ -167,7 +167,7 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
       "-",
     ]);
     const tile = draw(three);
-    expect(within(tile).getByText("Segments · US$m, FY2024")).toBeVisible();
+    expect(within(tile).getByText("Segments · $m, FY2024")).toBeVisible();
     expect(byData(tile, "prior", "Power & Control ebitda")?.textContent).toBe("FY2023 1,866");
     expect(
       within(tile).getByText(
@@ -203,7 +203,7 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
       "-",
     ]);
     const tile = draw(ltm);
-    expect(within(tile).getByText("Segments · US$m, FY2024")).toBeVisible();
+    expect(within(tile).getByText("Segments · $m, FY2024")).toBeVisible();
     expect(
       within(tile).getByText(
         "Bars show FY2024; ticks show FY2023. The schedule also states LTM Dec-2024; it is in the table view.",
@@ -267,7 +267,7 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
         data = setCell(data, SCHEDULE, row, column, "Not supplied: withheld");
     const tile = draw(data);
     expect(tile.textContent).toBe(
-      "Segments · US$m, FY2024This page could not read an amount for any business unit in FY2024.",
+      "Segments · $m, FY2024This page could not read an amount for any business unit in FY2024.",
     );
   });
 });
@@ -328,7 +328,7 @@ describe("SegmentsTile: which period the bars draw when no two years are compare
       notDrawn: ["FY2025E"],
     });
     const tile = draw(data);
-    expect(within(tile).getByText("Segments · US$m, LTM Jun-2025")).toBeVisible();
+    expect(within(tile).getByText("Segments · $m, LTM Jun-2025")).toBeVisible();
     expect(num(bar(tile, "Power & Control sales"), "data-value")).toBe(3316);
   });
   it("only a pro forma and a forecast period: the last in period order is drawn, nothing compared", () => {

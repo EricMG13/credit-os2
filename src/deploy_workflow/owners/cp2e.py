@@ -32,6 +32,7 @@ from deploy_vii.contracts import (
     TableColumn,
     TableRow,
 )
+from deploy_vii.display import written_places
 from deploy_vii.execution import (
     Attempt,
     Execution,
@@ -52,6 +53,7 @@ from deploy_vii.report_view import fact_spelling, figure_unit
 from deploy_workflow.context import ContextRefused, context_facts
 from deploy_workflow.owners.blank import is_blank
 from deploy_workflow.owners.cp1a import probe_one_step
+from deploy_workflow.owners.page_unit import page_unit_issue
 from deploy_workflow.owners.period_basis import DEFAULT_CURRENCY
 from deploy_workflow.owners.pins import pin_issues, pinned_line, pins_of
 from deploy_workflow.research.peer_basis import ISO_4217
@@ -623,97 +625,6 @@ _ROW_LABELS = {
 }
 _SENTENCE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,4})?")  # operand bound: at most 999.9999
 _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spaces
-# A page's unit statement: "amounts in millions", "in thousands", "USD millions", "$ millions",
-# "millions of dollars". A share-count clause ("shares in thousands") and a negated one ("not in
-# millions") state no monetary unit, and neither does prose such as "thousands of customers". Every
-# MILLIONS operand is stamped at scale 1e6 of the reporting currency, so its page must state
-# exactly that unit (as the CP-1 adapters refuse other scales). The symbol spellings "$m",
-# "US$m" and "USDm" (`m` lower case, whole token) state millions too (`_MILLIONS_SYMBOL`); any
-# other spelling ("$mm", "USDmn", "000s", "EURm") states none, and its rows are refused. This
-# check accepts no other code + "m" ("EURm" is not accepted on any book).
-# Ruling (units): a unit statement that names a currency other than the book's reporting currency
-# is refused (`_unit_currencies`), in word, code and symbol forms; one that names none keeps the
-# scale-only reading. "$" is the dollar family (a CAD or AUD book may print "$ millions"), "US$"
-# and "U.S. dollars" are USD, "¥" is JPY or CNY. Review: the currency is read in every shape the
-# scale is ("€ in millions", "EUR (in millions)", "millions of U.S. Dollars"), a prefixed dollar
-# ("C$", "A$", "HK$") names its own currency, and an unknown one ("J$") names none recognised, so
-# it is refused on every book (fail closed).
-_UNIT_WORDS = re.compile(
-    r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
-    r"|(?:(?-i:\b[A-Z]{3}\s+)|[$€£]\s*)(thousands|millions|billions)\b"
-    r"|\b(thousands|millions|billions)\s+of\s+"
-    r"(?:(?:U\.S\.|US)\s+)?(?:dollars|euros?|pounds|(?-i:[A-Z]{3}\b))",
-    re.IGNORECASE,
-)
-_MILLIONS_SYMBOL = re.compile(r"(?<![A-Za-z0-9$])(?:US\$|\$|USD)m(?![A-Za-z0-9])")
-_DOLLARS = ("USD", "CAD", "AUD", "NZD", "SGD", "HKD")
-# What a unit statement's currency names, by its spelling case-folded without dots or spaces
-# ("U.S. Dollars" -> "usdollars"); a three-capital-letter ISO 4217 code names itself.
-_NAMED_CURRENCY: dict[str, tuple[str, ...]] = {
-    "$": _DOLLARS,
-    "dollars": _DOLLARS,
-    "us$": ("USD",),
-    "usdollars": ("USD",),
-    "unitedstatesdollars": ("USD",),
-    "c$": ("CAD",),
-    "ca$": ("CAD",),
-    "canadiandollars": ("CAD",),
-    "a$": ("AUD",),
-    "au$": ("AUD",),
-    "aus$": ("AUD",),
-    "australiandollars": ("AUD",),
-    "nz$": ("NZD",),
-    "newzealanddollars": ("NZD",),
-    "s$": ("SGD",),
-    "singaporedollars": ("SGD",),
-    "hk$": ("HKD",),
-    "hongkongdollars": ("HKD",),
-    "r$": ("BRL",),
-    "mx$": ("MXN",),
-    "nt$": ("TWD",),
-    "€": ("EUR",),
-    "euro": ("EUR",),
-    "euros": ("EUR",),
-    "£": ("GBP",),
-    "pounds": ("GBP",),
-    "britishpounds": ("GBP",),
-    "sterling": ("GBP",),
-    "poundssterling": ("GBP",),
-    "¥": ("JPY", "CNY"),
-    "yen": ("JPY",),
-    "japaneseyen": ("JPY",),
-}
-_UNIT_SCALE = r"(?i:thousands|millions|billions)"
-_UNIT_CUR = (  # a currency word, a (prefixed) symbol or a three-capital-letter code
-    r"(?i:(?:(?:U\.?S\.?|United\s+States|Canadian|Australian|New\s+Zealand|Singapore|Hong\s+Kong"
-    r"|British|Japanese)\s+)?(?:dollars|euros?|(?:pounds\s+)?sterling|pounds|yen))"
-    r"|(?:U\.?S\.?\s?|[A-Z]{1,3})?\$|[€£¥]|[A-Z]{3}"
-)
-_UNIT_CURRENCY = re.compile(  # the currency before the scale (or "m"), or after "<scale> of"
-    rf"(?<![A-Za-z0-9$.])(?P<cur>{_UNIT_CUR})"
-    rf"(?:\s*[;,()]?\s*(?:(?i:(?:amounts\s+)?in)\s+)?{_UNIT_SCALE}\b|\s*m(?![A-Za-z0-9]))"
-    rf"|\b{_UNIT_SCALE}\s+of\s+(?P<of>{_UNIT_CUR})(?![A-Za-z])"
-)
-_AMBIGUOUS_CODES = frozenset({"ALL", "AMD", "TOP", "CUP", "BOB", "SOS", "BAM"})  # words and tickers
-
-
-def _unit_currencies(page: str) -> list[tuple[str, tuple[str, ...]]]:
-    """The currencies the page's unit statements name: (text, candidate ISO codes) each; an
-    unknown prefixed dollar ("J$") or currency phrase names none recognised: ()."""
-    found: list[tuple[str, tuple[str, ...]]] = []
-    for m in _UNIT_CURRENCY.finditer(page):
-        text = m["cur"] or m["of"]
-        named = _NAMED_CURRENCY.get(re.sub(r"[\s.]", "", text.casefold()))
-        if named is not None or not re.fullmatch(r"[A-Z]{3}", text):
-            found.append((text, named or ()))
-        elif text in ISO_4217 and not (
-            text in _AMBIGUOUS_CODES and re.search(r"\bin\b", m.group(), re.IGNORECASE)
-        ):
-            # a word that is also a code ("ALL amounts in millions") names one only before a scale
-            found.append((text, (text,)))
-    return found
-
-
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
 _HEDGE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,2})?")
 _RATE_PHRASE = re.compile(r"\b(floating|fixed)[\s-]+rate\b", re.IGNORECASE)
@@ -897,21 +808,7 @@ class _Check:
 
     def unit_issue(self, locator: str) -> str | None:
         """Why the page at ``locator`` (one of ``self.pages``) is not in millions, or None."""
-        page = self.pages[locator]
-        found = {w.lower() for groups in _UNIT_WORDS.findall(page) for w in groups if w}
-        found |= {"millions"} if _MILLIONS_SYMBOL.search(page) else set()
-        if found and found != {"millions"}:
-            return f"{locator} states amounts in {', '.join(sorted(found))}, not millions"
-        for text, codes in _unit_currencies(page):
-            if self.currency not in codes:
-                return (
-                    f"{locator} states its unit in {text} ({'/'.join(codes) or 'unrecognised'}), "
-                    f"but the reporting currency is {self.currency}: restate the unit in "
-                    f"{self.currency}"
-                )
-        if not found:
-            return f"{locator} does not state the unit of its amounts"
-        return None
+        return page_unit_issue(self.pages[locator], locator, self.currency)
 
     def millions(self, ref: Mapping[str, Any], path: str) -> None:
         """A MILLIONS operand quoted from a page the ``on_page`` check accepted."""
@@ -1406,7 +1303,12 @@ def _t2f1(i: MacroFxInputs, c: _Cites) -> list[tuple[str, str, Sequence[_Spec]]]
     )
     share = (
         [
-            _src(i.foreign_ebitda_share, "PERCENT", 1, c.per.flow),
+            _src(
+                i.foreign_ebitda_share,
+                "PERCENT",
+                max(1, written_places(i.foreign_ebitda_share.value, "percent")),
+                c.per.flow,
+            ),
             _txt("Source statement", c.share),
         ]
         if i.foreign_ebitda_share
@@ -1569,7 +1471,14 @@ def _t2f4(s: Sensitivity, c: _Cites) -> list[tuple[str, str, Sequence[_Spec]]]:
 
 def _t2f5(i: MacroFxInputs, s: Sensitivity, c: _Cites) -> list[tuple[str, str, Sequence[_Spec]]]:
     hedge = (
-        _num(i.hedge_ratio, "PERCENT", 0, (), "analyst_judgment", c.per.run)
+        _num(
+            i.hedge_ratio,
+            "PERCENT",
+            written_places(i.hedge_ratio, "percent"),
+            (),
+            "analyst_judgment",
+            c.per.run,
+        )
         if i.hedge_ratio is not None
         else _gap("Not stated: no hedge ratio is assumed or sourced", "PERCENT")
     )

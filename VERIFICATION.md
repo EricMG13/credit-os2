@@ -71,8 +71,47 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   did not echo (review probe). Reviews: per-task `mx-precise`, `mx-invariants` on the account race
   and the lockout, `mx-adversary` on the slice (two Mediums fixed, re-review passed), `mx-architect`
   pre-merge PASS, 6 Low and 5 Info (run on Opus 5.5 at xhigh: Fable usage was exhausted).
+- Merge with `main` `cebb1726`: accounts and repo-rules tests 113 passed on macOS, including the
+  passcode log check. The changed-code gate and all three import contracts passed.
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
+
+- Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
+- Built: `GET /connected/deliverables/<folder>/credit-snapshot.xlsx` writes one workbook (Snapshot, Inputs, Matrix, Sources) from a finished run's verified handoffs and pinned context; `credit_snapshot_workbook.py` is the one workbook writer (`tests/test_repo_rules.py`). Copied figures keep their digits; a missing value is a gap in words, never zero; every non-empty reader cell has one Sources row, and source references, file names, hashes and module ids appear on Sources only. The proposed recommendation is live Excel arithmetic over module-written scores and analyst cells, labelled proposed until confirmed. FIGI and Bloomberg ID are copied from a supplied RV worksheet on an exact maturity and asset-type join; no Bloomberg formula is written (`docs/TODO.md` item 14, work PC only).
+- Presentation change and its fidelity check: `tests/test_credit_snapshot_fidelity.py` re-reads the saved file against a frozen answer key written apart from the reader (`tests/fixtures/credit_snapshot/`, `tests/credit_snapshot_case.py`) on the three cases. Formulas checked by exact text and by hand evaluation against `recommendation.py`; mutation testing (mutmut 3.8.1) on the figure path, every survivor killed or justified as equivalent.
+- Coordinator's own check, PR head `02e05049` merged onto `main` `36c39519`: the fidelity, workbook, formulas, recommendation and repo-rules tests 602 passed; the every-module and TransDigm workbooks, built and reopened with openpyxl, hold exactly the four sheets, live formulas on the reader sheets and the formulas listed as text on Sources.
+- Reviews: task reviews with fix rounds (Task 3b's third through an `mx-autonomous` plan); confidence review 2 Medium fixed; rewrite tournament six simplifications, output identical over 61,755 cells; sweep one defect fixed, structural rows to the next phase sweep; pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"), 6 Medium, then 2, fixed, then pass. 18 Lows parked for the end batch.
+- Not verified: Excel's own evaluation and rendering on Windows and Mac (hand-check steps in the PR body); a real run with a scorecard; real handoffs other than CP-1; an RV worksheet with real Bloomberg cached values; reading CP-1's `Asset type` (follow-up); the realised and unrealised split until CP-1D carries the Add-Back IDs; the weekly full suite.
+
+## 2026-11-26 — Custom selection with whole modules: run type, handoff rules, estimate and cap, CP-8 base, run start picker (PR #121)
+
+- Scope: offline only. No provider call and no paid run; no real custom run exists. Rulings: `docs/rulings/2026-11-26-custom-routing.md` (owner: "Yes, whole modules first", "Approve the cap").
+- Built: pathway `custom` ("Custom selection") at the Advanced level, GPT only; the analyst's whole modules completed by the registry with a reason per added module; the Deep block list, a module with no block reading "No report section of its own"; cap = min(USD 50, ceiling(sum of per-module estimates + the USD 7.17 hold)); CP-8 compares only with an earlier custom run of the same issuer and completed modules; three Advanced presets as starting selections.
+- Presentation change and its fidelity check: the custom selection page's picker, presets, running sum, hold and cap equal the hand-worked `answer-key-caps.md` for three presets at three efforts (rows without CP-8); the summary's server estimate replaces the page's; the web copy is pinned by `tests/test_custom_selection_web.py`. Scope: jsdom only, no rendered browser page.
+- Other pathways: requests byte for byte against `main` `3cfcc52f` (170 prepare and 40 service cases); a custom run's instructions equal Deep's apart from pathway lines.
+- Coordinator's own check at `7647979c`: the estimate code and its answer key read as ruled (Governance and ESG at fast effort 1.92 + 7.17 → USD 10); the custom, pathway and repo-rules tests 328 passed. The label commit `0e8e4aaa` was read.
+- Reviews: plan critique and pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"); task reviews with fix rounds; confidence review and rewrite tournament found no confirmed defect; sweep 2 Low fixed, 9 structural rows to the next phase sweep; pre-merge pass with 3 Low and 3 Info.
+- Not verified: any real custom run; whether a run completes within its cap; the USD 50 ceiling binding on a real selection; a rendered page; Windows; parallel width above 1.
+
+## 2026-11-26 — CP-1 instructions: bridge Add-Back ID, T4.18 asset type, pro forma interest and cover (PR #120)
+
+- Scope: offline only. No provider call and no paid run; built by a cloud controller session. Evidence is synthetic tables, the retained Opus replay `tests/fixtures/live_2026_11_25/CP-1-replay-tdg.md` (TDG FY2024, outdated; a real model response replayed at USD 0) and the five retained CP-1 handoffs as a regression snapshot. No real CP-1 run on the new instructions exists.
+- Built: CP-1's EBITDA bridge is asked for `Step | Amount | Add-Back ID | Reporting unit | Basis and limitation` with ids `AB-1`, `AB-2`, ... checked by the launcher; T4.18 gains `Asset type` by governing document (owner: "By governing document"), a named method edit with the CP-1 method pin moved; a required `Pro forma interest and cover` table, outside the chart tables, whose cover and EBITDA the launcher ties to T4.9. The CP-2D liquidity bridge and CP-4C value allocation are asked for and checked as before (request bytes identical; 196 probed cases).
+- Presentation change and its fidelity check: the library and the React web read the bridge under the old and the new header to the same figures (chart columns, labels, amounts, unit); `Add-Back ID` is hidden in the chart Table view and on the Modules page and shown only on Evidence and in the trace drawer; the pro forma table is placed as a statement on the Modules page, not in a reader passage, Overview or chart, and CP-8's pack is unchanged with it. Store- and JS-level checks; no browser render.
+- Answer key written by hand before the code (`tests/fixtures/cp1-instruction-pr/answer-key.json`; 67 Python and 5 web tests). Coordinator's own check, PR head `04e4dc44` merged onto `main` `542c2276`: the answer-key, bridge-reader, CP-1 check, changes and repo-rules tests 1,000 passed; the launcher tests on bridge, pro forma, T4.18, method, budget, manifest and post-balance-sheet 110 passed.
+- Consequences: earlier runs show CP-1 as answered on an earlier method; a sentence added to the rule every module is sent changes every module's request bytes, so a run folder prepared before this is refused on re-prepare and resuming an in-flight run re-executes its modules; a retained pre-PR CP-1 response is refused on replay (the existing contract). `short_snapshot` (deactivated) has 775 characters of instruction headroom left.
+- Reviews: plan critique and pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"); task reviews, a figure-path adversarial review (no High; one Medium fixed) and the pre-merge review (two Medium fixed, then merge-ready with Low only). `confidence-review`, `rewrite-tournament`, the sweep and `adversarial-reviewer` were absent in the cloud and not run.
+- Not verified: what a real model writes for the ids, `Asset type` and the pro forma table; CP-1D's use of the id (next PR) and CP-1B's validation of it; a launcher check of `Asset type` values; `tests/test_financial_workflow.py` and `tests/test_reporting_currency_proof.py`; a browser render; the weekly full suite. Two Lows open (a repair message's wording; a Basis label prefix).
+
+## 2026-11-26 — Money units drawn as currency symbols ($m, £m, €m) (branch `claude/module-currency-labels-34fdbf`)
+
+- Scope: presentation only, web reader (`docs/rulings/2026-11-26-money-unit-symbols.md`). No handoff, prompt, method, check, stored value or Python output changed; no provider call. Owner: all reader pages and the printed purpose reports; the Model page keeps `US$m`.
+- Built: `moneyUnits.ts` draws a money unit as its en-US `Intl` symbol (`$m`, `£m`, `€m`, `CA$m`, `¥m`; `CHFm` where none) and figures as `$1,250m`, `−$25m`, `CHF 300m`; Unit columns, unit fields, basis lines, chart Table views, captions and Coverage labels convert where drawn. Stored and matching values, Evidence's Unit cells and source text, the trace drawer and module prose keep the written unit.
+- Fidelity check: answer keys `moneyUnits.cases.json` and `signal.cases.json` (coordinator-written); a Modules-page test on the retained CP-1 TransDigm fixture and a replay test over eight retained handoffs find no `USD millions` or `US$m` outside module prose; an Evidence test keeps the raw cells. Rendered check on the synthetic run (`check-render.cjs`, 1440/1280/1024, Overview, Modules, Forecast, Changes, Coverage): 15 of 15 pass; page text shows no raw unit except module-written Forecast wording ("Stressed FCF (USD millions)"). Chromium and Node give the same symbols for 18 currencies.
+- Reviews: advisor (Opus 5.5 xhigh, Fable exhausted) 2 High, 5 Medium ruled into the plan; task reviews pass (task B: 1 Medium fixed); confidence review and rewrite tournament (one shared helper adopted); sweep discover 4 Lows, fixed in one batch; pre-merge review (mx-architect on Opus 5.5 xhigh) 1 Medium (chart Table views) fixed and re-reviewed, Lows taken.
+- Gates: CI `checks` run 45760301029 on `0580f154` (web: lint, format, types, unused, duplication, tests with coverage, build, scripts; fast tests; changed code; gitleaks) pass on attempt 2; attempt 1 failed one test this branch does not touch (`runLayout.test.tsx` tab title, read before its effect runs; passes 3 of 3 locally). Locally: `npm audit --omit=dev` exit 0; the browser file check passed 2 of 3 runs (the first failed in `checkRoutes`).
+- Not verified: Safari and Firefox symbol output (their Playwright builds are not installed); printed purpose reports in a real print dialog; a real non-USD run; the merge with `main` at `932e252c` (only this file conflicted).
 
 ## 2026-11-26 — Copilot GPT Sol and GPT-6 Luna sessions at 1M context (branch `claude/copilot-1m-context-795226`)
 
@@ -921,77 +960,3 @@ then 5; the narrow layout and the controls listed below.
 - Not fixed: publication still grows with the number of runs (reads, hashes, 840 download
   files at 30 runs). Not verified: a live run, real PDFs, Windows. One server test failed once
   under load and passed in the next ten runs; it was not identified.
-
-## 2026-11-18 — Performance review: source pages, publication reads, library index, PR checks
-
-- Scope: synthetic runs with canned replies on one Linux container (4 cores, shared with other
-  jobs). No provider call, no real issuer file, no Windows, no browser proof. Medians of 7
-  loopback requests unless stated. The PDF is a Chromium-printed text file, not a filing.
-- Source pages: `model.handoff._pages` now keeps the pages of bytes it has read, by their sha256,
-  in memory (50 million characters, least recently read first out). The reader still reads and
-  hashes the original on every request. One 250-page PDF source: report open 9.5 s to 41 ms after
-  the first open in a process (9.1 s); one cited page 9.8 s to 3 ms. A synthetic run with one
-  10-page PDF read it 46 times: 46.2 s to 3.9 s.
-- Publication: `admission.published` keeps the parsed `data.js` until the file's identity changes
-  (inode, size, modified and changed times); a file changed less than 2 s ago is not kept. At 30
-  runs (16.1 MB): library 116 to 9.5 ms, reports list 124 to 6.4, report entry 145 to 6.2, report
-  snapshot 155 to 45, finished run page 146 to 30, source download 112 to 5.7, portfolio basis
-  120 to 5.7. The kept object takes about 48 MB at that size.
-- Library index: the reply leaves out each run's `files` list, which no page reads: 1,306,297 to
-  92,407 bytes decoded at 30 runs (102,754 to 6,619 gzip).
-- PR checks: `checks.yml` now runs `tests/test_react_*.py`, `proof/test_launcher.py` and a `web`
-  job (lint, format, types, unused, duplication, component tests, build, script tests). At
-  2e48875 57 of 254 server tests failed or errored (run identifiers and a launcher signature
-  from the Copilot cutover) and `npm run unused` failed on one export; the tests and the export
-  are corrected. One server defect found by them: an output without `module` made the report
-  list and the library index answer 500 (`library_cards._designated_output`).
-- Commands: `tools/quality_gate.py` 0 findings; pytest on `tests/test_react_*.py`,
-  `proof/test_launcher.py`, `tests/test_handoff_loop.py`, `tests/test_handoff_transport.py`,
-  `tests/model`, `tests/test_quality_gate.py`, `tests/test_library_index.py`,
-  `tests/test_update_library.py` 1,377 passed; `tests/test_cpos_launch.py`, the run start and
-  inbox scheduler, runs and activity files 1,523 passed; web `lint`, `format:check`, `typecheck`,
-  `unused`, `duplication`, `test:scripts` exit 0. `npm test` (5,285 tests) passed before the
-  one-word web edit; after it the start-page files (281 tests) passed.
-- Confidence review, ranked: (1) a kept publication could go stale or be changed by a reply:
-  tests cover a swapped folder, a same-size rewrite in place, a missing file and every read
-  route against the shared object; (2) kept pages could bypass the hash check: the hash is taken
-  on each request before the lookup, and changed bytes are refused (test); (3) a caller could
-  edit kept pages: each call gets its own list (test); (4) the run page's admission lookup lost
-  a guard: the link and 64 MB checks stay, and a pending run still reads nothing (tests).
-- Not fixed: the publisher still rebuilds the whole library for each run end and each service
-  start, under the scheduler lock (0.12 s a run: 3.5 s at 30 runs), and `data.js` grows by about
-  0.5 MB a synthetic run. The profile is flat, so this needs per-run publication, a design choice.
-- Not verified: a live run, real PDFs, Windows, the web gates in GitHub Actions before this PR.
-
-## 2026-11-18 — Copilot cutover, compact handoffs and connected publication
-
-- Astra's end-of-phase review and follow-up confirmed the pinned SDK disables background
-  compaction and autonomous continuations. The Opus hold prices one input token per serialized
-  byte plus runtime framing. Tests covered rejected direct HTTP routes, unavailable Luna effort
-  and disabled seat policy, first and later context checks, and the approved configuration and cap.
-- Confidence review exercised interrupted publication, stale uploads and on-disk edits to approved
-  inputs, including module list, model route and cap. A restart refused the changed queue entries
-  before dispatch. Failed capability checks opened the app offline with paid choices unavailable.
-- Read-only TDG inputs estimated CP-3 at 61,424, CP-5 at 48,098 and CP-6 at 50,061 initial tokens.
-  The prior full requests estimated 209,269, 252,017 and 223,679 respectively. These are serialized
-  request estimates. Offline tests passed an exact chunk through the continuation and validated
-  the resulting handoff. Unknown transport versions and source text with split credentials refused.
-- Clean extraction of ZIP SHA-256 `8b5c0a8f03f776a2fbc0a40b4882be419546d93e3daa04cecaaa60f6292ba1c7`
-  (local proof snapshot `08e281b9`) passed Chrome `20261118-020520-01` and Edge
-  `20261118-020552-01` on macOS. Both exercised intake, report pages and verified a downloaded
-  handoff against its published SHA-256. The old library URL redirected and its script returned
-  404. Zero non-loopback page requests. Static fixture checks passed.
-- The Python quality gate passed. Focused Python checks passed for launch, model, scheduler,
-  intake and publication. Embedded packaging verified that rebuilding removes retired files.
-- Follow-up confidence and Astra review checked the stored first-prompt estimate, the oversized
-  repair refusal before reservation, and the exact seat status in the review summary. A stale
-  picker cannot enable paid Submit. Passed 509 web and 402 targeted Python tests plus the repair check.
-- On macOS the pinned SDK 1.0.28 opened a local stdio connection to Copilot CLI 1.0.108 (protocol 3).
-  The isolated status check reported unauthenticated and created zero sessions.
-- Integrated with main `c1439225`. ZIP SHA-256 `593911cc8a84f6d2722daee9e7aa983564ef57b9ec0a735f50c79bfb8c2bf47d`
-  (proof snapshot `b7fcc73b`) passed clean-extraction Chrome `20261118-020828-01`
-  and Edge `20261118-020859-01` on macOS with zero non-loopback page requests.
-  Passed 232 targeted Python tests, 540 web tests, the quality gate, lint and typecheck.
-  Astra confirmed the merge retained the desktop styles and Copilot approval and cap checks.
-- Deployment-seat verification, the first authorized paid run and Windows work-PC acceptance
-  are pending. Native Copilot search stays unavailable pending evidence and cost verification.

@@ -91,6 +91,10 @@ def test_exact_value_in_exception_redacted() -> None:
         # a sentence's closing period is not part of the name; a dotted name is whole
         ("No such file: /home/jan.", "No such file: <home>."),
         ("/home/jan.doe/x and /Users/a.b.", "<home>/x and <home>."),
+        # S06-1-1: a home on the macOS data volume or another volume; a spaced name before a slash
+        ("/System/Volumes/Data/Users/jane/proj/a.py", "<home>/proj/a.py"),
+        ("/Volumes/Work/Users/jane/proj/a.py", "<home>/proj/a.py"),
+        ('File "/Users/Jane Doe/proj/a.py", line 3', 'File "<home>/proj/a.py", line 3'),
         # not a home directory: a relative path, a system or program path, a key's own text
         ("./home/x ../Users/y /usr/lib/x /tmp/home /opt/Users C:\\Program Files\\x", None),
         # not a home directory: a longer name, a URL host's path, a bare folder
@@ -99,6 +103,14 @@ def test_exact_value_in_exception_redacted() -> None:
 )
 def test_home_paths(text: str, expected: str | None) -> None:
     assert home_paths(text) == (text if expected is None else expected)
+
+
+def test_exception_scrubs_a_home_on_another_volume() -> None:
+    try:
+        raise RuntimeError("could not open /Volumes/Work/Users/jane/proj/data.json")
+    except RuntimeError as exc:
+        out = Redactor().exception(exc)
+    assert "jane" not in out and "could not open <home>/proj/data.json" in out
 
 
 def test_exception_keeps_type_message_and_frames_but_no_home_directory() -> None:

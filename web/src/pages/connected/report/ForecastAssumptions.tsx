@@ -1,5 +1,5 @@
 import { ChevronRight, Plus } from "@untitledui/icons";
-import { containsReference, readerText } from "../publishedReport";
+import { containsReference, readerText, unitLabel } from "../publishedReport";
 import { driverTable } from "./forecastDrivers";
 import { RecordedForecastAssumptions, type ForecastSource } from "./ForecastRecord";
 import { GapChip } from "./ForecastGaps";
@@ -177,7 +177,7 @@ export function AssumptionsByCase({
                     {row.name}
                     {row.unit && (
                       <span className="block text-caption font-normal text-text-tertiary">
-                        {row.unit}
+                        {unitLabel(row.unit)}
                       </span>
                     )}
                   </th>

@@ -8,7 +8,7 @@ import sqlite3
 import string
 import time
 import unicodedata
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -1099,11 +1099,21 @@ def _fold_or_insert(
 
 
 def add_story(
-    db: sqlite3.Connection, source_id: int, entry: Entry, fetched_at: datetime
+    db: sqlite3.Connection,
+    source_id: int,
+    entry: Entry,
+    fetched_at: datetime,
+    *,
+    on_new: Callable[[sqlite3.Connection], None] | None = None,
 ) -> Literal["new", "duplicate", "seen"]:
     """Store `entry` unless this source has it ("seen") or another story folds it ("duplicate").
 
     The check and the write share one write-locked transaction, so two writers cannot both
-    insert the same story."""
+    insert the same story. ``on_new`` runs in that same transaction for a new story (the ingest
+    matches it to topics there): if it raises, the story is not stored, so the next pass offers
+    it again instead of finding it "seen" and never matched."""
     with _write_transaction(db):
-        return _fold_or_insert(db, source_id, entry, fetched_at)
+        outcome = _fold_or_insert(db, source_id, entry, fetched_at)
+        if outcome == "new" and on_new is not None:
+            on_new(db)
+        return outcome

@@ -176,6 +176,97 @@ it("says why when the published model has no net leverage path", () => {
   ).toBeVisible();
 });
 
+it("states the model's reason, not a read failure, when every net leverage figure is a stated gap", () => {
+  const gap = { exact: null, display: "n.m.", reason: "EBITDA is not positive", status: "na" };
+  const column = (label: string) => ({
+    label,
+    group: "Base case",
+    start: "2025-04-01",
+    end: "2026-03-31",
+  });
+  const gaps = {
+    cashflow: {
+      columns: [column("FY2025E"), column("FY2026E")],
+      rows: [
+        {
+          band: "Credit metrics",
+          label: "Net leverage",
+          kind: "multiple",
+          total: false,
+          cells: [gap, gap],
+        },
+      ],
+      limits: [],
+    },
+  };
+  render(<ForwardLead {...leadProps(high(), [], [gaps])} />);
+  const tile = screen.getByRole("region", { name: "Net leverage path" });
+  expect(within(tile).getByText(/EBITDA is not positive/)).toBeVisible();
+  expect(tile.textContent).not.toMatch(/could not read a net leverage path/);
+});
+
+const gapGrid = (cashflow: Record<string, unknown>) => ({ cashflow });
+const netLeverage = (cells: unknown[]) => ({
+  band: "Credit metrics",
+  label: "Net leverage",
+  kind: "multiple",
+  total: false,
+  cells,
+});
+const colOf = (label: string, group: string, start: string | null = "2025-04-01") => ({
+  label,
+  group,
+  start,
+  end: start && "2026-03-31",
+});
+
+it("S16-3-1 names a forecast column's reason, not a history column's", () => {
+  const history = {
+    exact: null,
+    display: "n.a.",
+    reason: "the period history does not carry this line",
+    status: "na",
+  };
+  const forecast = {
+    exact: null,
+    display: "n.m.",
+    reason: "not modelled in the calculation record",
+    status: "nm",
+  };
+  const gaps = gapGrid({
+    columns: [colOf("FY2024", "Reported", null), colOf("FY2025E", "Base case")],
+    rows: [netLeverage([history, forecast])],
+    limits: [],
+  });
+  render(<ForwardLead {...leadProps(high(), [], [gaps])} />);
+  const tile = screen.getByRole("region", { name: "Net leverage path" });
+  expect(tile.textContent).toContain("not modelled in the calculation record");
+  expect(tile.textContent).not.toContain("period history does not carry");
+});
+
+it("S16-3-2 draws the upside case when the main grid states no net leverage", () => {
+  const nm = { exact: null, display: "n.m.", reason: null, status: "nm" };
+  const upside = (exact: string, display: string) => ({
+    exact,
+    display,
+    reason: null,
+    status: "value",
+  });
+  const withUpside = gapGrid({
+    columns: [colOf("FY2025E", "Base case"), colOf("FY2026E", "Base case")],
+    rows: [netLeverage([nm, nm])],
+    limits: [],
+    other: {
+      columns: [colOf("FY2025E", "Upside"), colOf("FY2026E", "Upside")],
+      rows: [netLeverage([upside("4.8", "4.80x"), upside("3.9", "3.90x")])],
+    },
+  });
+  render(<ForwardLead {...leadProps(high(), [], [withUpside])} />);
+  const tile = screen.getByRole("region", { name: "Net leverage path" });
+  expect(tile.textContent).toMatch(/4\.80x/);
+  expect(tile.textContent).not.toMatch(/states no net leverage by period/);
+});
+
 it("lists the retained drivers by case and year as stated, inheritance as words", () => {
   render(<ForwardLead {...leadProps(high(), [], [model])} />);
   const tile = screen.getByRole("region", { name: "Drivers by case" });
@@ -208,7 +299,7 @@ it("lists the retained drivers by case and year as stated, inheritance as words"
   expect(
     within(tile).getByText("Downside shock: EBITDA decline 20%, cash-interest increase 1.84%."),
   ).toBeVisible();
-  expect(within(tile).getByText(/USD millions/)).toBeVisible();
+  expect(within(tile).getByText(/Amounts: \$m, as recorded/)).toBeVisible();
 });
 
 // Review 4, Q6: below sm the drivers table becomes one card per driver, case × year as a list.

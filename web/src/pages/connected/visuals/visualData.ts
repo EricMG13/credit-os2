@@ -1,4 +1,5 @@
 import { containsReference, readerText } from "../publishedReport";
+import { unitCells } from "../report/moduleRecordsModel";
 
 export function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -157,12 +158,15 @@ export function bounds(values: (number | null)[], zero = false) {
   return { min: zero && min === 0 ? 0 : min - margin, max: max + margin };
 }
 
+// Six decimals drop the float noise of min + (max - min) / 2 and keep every figure a table states.
+const TICK_LABEL = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6, useGrouping: false });
+
 /** The spread of the data in three ticks. For axes that are not value axes (dates, scatter). */
 export function rangeTicks(values: (number | null)[], zero = false) {
   const { min, max } = bounds(values, zero);
   return [...new Set([min, min + (max - min) / 2, max])].map((value) => ({
     value,
-    label: String(value),
+    label: TICK_LABEL.format(value),
   }));
 }
 
@@ -221,7 +225,9 @@ export function ticks(
 }
 
 const BASIS_COLUMN = /^Basis and limitation$/i;
-const DRAWER_COLUMN = /^(?:Source|Evidence)$/i;
+// The columns the library keeps out of every page but Evidence and the trace drawer: source
+// references, and CP-1's EBITDA bridge Add-Back ID (an id column).
+const DRAWER_COLUMN = /^(?:Source|Evidence|Add-Back ID)$/i;
 
 /**
  * The Table form of a published chart table. The limitation text stays beside the figures, its module
@@ -234,8 +240,11 @@ export function chartTable(table: SourceTable, columns = table.headers.map((_, i
   const visible = inDrawer
     ? columns.filter((index) => !DRAWER_COLUMN.test(table.headers[index] ?? ""))
     : columns;
+  const drawUnit = unitCells(table);
   const cell = (row: string[], column: number) => {
     const text = row[column] ?? "";
+    const unit = drawUnit(column, text);
+    if (unit !== undefined) return unit;
     if (!inDrawer || !BASIS_COLUMN.test(table.headers[column] ?? "")) return text || null;
     return containsReference(text)
       ? "Qualification recorded in Evidence."

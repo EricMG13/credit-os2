@@ -1189,6 +1189,25 @@ test('Overview lead: CP-2 still leads over CP-L10 when both ran, and a blocked C
   assert.deepEqual(partIds(blockedHtml), ['overview-lead', 'overview-modules']);
 });
 
+test('Overview lead on a custom run (PR 7a, ruling C16): the last planned module with a usable Bottom line leads, CP-2 when it ran', () => {
+  const names = { ...FIXTURE_NAMES, 'CP-4': 'Legal & covenants', 'CP-1A': 'Business & governance', 'CP-2E': 'Rates, FX & hedging' };
+  const page = (parts, requested) => overviewPage(parts, { names, runFields: { asOf: '2025-03-31', pathway: 'custom', requested } }).runReport(RUN);
+  const lead = html => readText(part(html, 'overview-lead'));
+  // Covenant Capacity: Legal & covenants leads.
+  const covenant = page({ 'CP-0': FIXTURE['CP-0'], 'CP-1': FIXTURE['CP-1'], 'CP-4': passageSections({ bottom: 'Covenant headroom is thin.', key: ['- Test one.'] }) }, ['CP-0', 'CP-1', 'CP-4', 'CP-8']);
+  assert.ok(lead(covenant).includes('Covenant headroom is thin.'));
+  // Governance and ESG: Rates, FX & hedging is last in planned order; Business & governance leads when it has no usable entry.
+  const governance = { 'CP-1A': passageSections({ bottom: 'Governance is sound.', key: ['- One.'] }), 'CP-2E': passageSections({ bottom: 'Hedged to 80%.', key: ['- Two.'] }) };
+  assert.ok(lead(page({ 'CP-1': FIXTURE['CP-1'], ...governance }, ['CP-0', 'CP-1', 'CP-1A', 'CP-2E'])).includes('Hedged to 80%.'));
+  const blocked = page({ 'CP-1': FIXTURE['CP-1'], ...governance, 'CP-2E': passageSections({ bottom: 'Not assessable: no rates supplied.' }) }, ['CP-0', 'CP-1', 'CP-1A', 'CP-2E']);
+  assert.ok(lead(blocked).includes('Governance is sound.') && !lead(blocked).includes('no rates supplied'));
+  // No recorded request: the order the run ran its modules in.
+  assert.ok(lead(page({ 'CP-0': FIXTURE['CP-0'], 'CP-1': FIXTURE['CP-1'], 'CP-4': passageSections({ bottom: 'Covenant headroom is thin.', key: ['- Test one.'] }) }, undefined)).includes('Covenant headroom is thin.'));
+  // Portfolio Fit: CP-2 leads.
+  const fit = page({ 'CP-1': FIXTURE['CP-1'], 'CP-2': passageSections({ bottom: 'Credit view: refinancing risk.', key: ['- Leverage is moderate.'] }), 'CP-6': passageSections({ bottom: 'Committee view.', key: ['- Rank.'] }) }, ['CP-0', 'CP-1', 'CP-2', 'CP-6']);
+  assert.ok(lead(fit).includes('Credit view: refinancing risk.') && !lead(fit).includes('Committee view.'));
+});
+
 const EARNINGS = { 'CP-0': FIXTURE['CP-0'], 'CP-1': FIXTURE['CP-1'], 'CP-1B': passageSections({ bottom: 'Quarterly EBITDA rose 8% on volume.', key: ['- Margin held.'] }) };
 const earningsPage = (parts, pathway, more = {}) => overviewPage(parts, { names: { ...FIXTURE_NAMES, 'CP-1B': 'Earnings changes' }, runFields: { asOf: '2025-03-31', pathway }, ...more });
 

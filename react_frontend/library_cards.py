@@ -9,6 +9,8 @@ from typing import Any
 from credit_os.handoff_fields import reader_fields, report_fields
 from credit_os.source import structured
 
+from deploy_workflow.changes import custom_lead_order
+
 _METHOD_NOTE = re.compile(
     r"^(?:Module status|Two method texts)\b|^Confidence is \d|qa_status|committee_status"
     r"|\bbelongs in CP-[A-Z0-9]+\b",
@@ -193,6 +195,24 @@ def _candidate(
     }
 
 
+# The card's lead is never a decision module's passage (`issuerEntry.leadIdentity`), so a custom
+# run's lead order (ruling C16) loses these two; CP-6 still leads its Overview (`reportView.ts`).
+DECISION_MODULES = frozenset({"CP-3", "CP-6"})
+
+
+def _custom_candidates(record: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    """A custom run's lead candidates: CP-2 (either heading), else the planned modules in reverse
+    planned order (the run's recorded request; its module order when none is recorded)."""
+    asked = record.get("requested")
+    planned = asked if isinstance(asked, list) else list(record.get("modules", {}))
+    order = [code for code in custom_lead_order(planned) if code not in DECISION_MODULES]
+    return (
+        ("CP-2", "Bottom line"),
+        ("CP-2", "Credit view"),
+        *((c, "Bottom line") for c in order[1:]),
+    )
+
+
 def lead_summary(
     workspace: dict[str, Any], record: dict[str, Any], key: str
 ) -> dict[str, Any] | None:
@@ -218,6 +238,8 @@ def lead_summary(
         "short_snapshot": (("CP-L10", "Bottom line"),),
         "credit_screening": (("CP-L10", "Bottom line"),),
     }.get(record.get("pathway", ""), (("CP-2", "Bottom line"), ("CP-2", "Credit view")))
+    if record.get("pathway") == "custom":
+        candidates = _custom_candidates(record)
     return next(
         (
             summary

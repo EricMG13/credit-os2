@@ -91,17 +91,18 @@ function PeriodBars({ data, width }: { data: EarningsAgainstDebt; width: number 
                 data-bar={row.label}
                 data-value={row.value.value}
                 data-series={row.series}
-                x={layout.x(0)}
+                x={Math.min(layout.x(0), layout.x(row.value.value))}
                 y={row.barY}
-                width={Math.max(layout.x(row.value.value) - layout.x(0), 1)}
+                width={Math.max(Math.abs(layout.x(row.value.value) - layout.x(0)), 1)}
                 height="16"
                 rx="2"
                 className={FILL[row.series]}
               />
               <text
                 data-part="value"
-                x={layout.x(row.value.value) + 6}
+                x={row.value.value < 0 ? layout.x(0) + 6 : layout.x(row.value.value) + 6}
                 y={row.barY + 12}
+                textAnchor="start"
                 fontSize={SIZE.value}
                 className="fill-text-primary font-mono font-medium"
               >

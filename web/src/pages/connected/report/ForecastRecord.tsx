@@ -12,6 +12,7 @@ import {
 import type { buildReportView } from "../reportView";
 import { forecastCaseLabel, forecastCaseNames, gridOf, type Grid } from "../visuals/LegacyForecast";
 import { isForecastPeriod } from "../visuals/scenarioPeriods";
+import { unitLabel } from "../moneyUnits";
 import { items, record, stringsIn, word } from "../visuals/visualData";
 import type { PublishedTraceContext } from "./PublishedTrace";
 
@@ -357,7 +358,7 @@ function recordedAmountUnits(document: Record<string, unknown>) {
   const scale = document.scale;
   const magnitude = scale === 1000 ? "thousands" : scale === 1 ? "millions" : null;
   return magnitude
-    ? `Amounts: ${currency} ${magnitude} (recorded scale ${String(scale)}).`
+    ? `Amounts: ${unitLabel(`${currency} ${magnitude}`)} (recorded scale ${String(scale)}).`
     : `Amounts: ${currency}; scale ${scalar(scale) ?? "not recorded"}.`;
 }
 

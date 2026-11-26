@@ -210,7 +210,7 @@ it("heads every report page with the breadcrumb, the name, the sector line and q
     "Synthetic test",
     "Full credit assessment",
     expect.stringMatching(/^As of 31 Mar\w* 2026 · FY2025$/u),
-    "US$m",
+    "$m",
     "Moody's B1 · Negative",
     "Ratings entered at run start",
   ]);

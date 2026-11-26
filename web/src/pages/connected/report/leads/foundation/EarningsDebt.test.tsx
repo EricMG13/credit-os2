@@ -3,8 +3,8 @@
 // distressed-CP-1-draft1.md), not computed by the code under test. The handoffs are outdated
 // evidence (FY2024): shape and scope only. The three-period, LTM and edited entries
 // (fixtures/mutations.ts) are test inputs, not real handoffs.
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutputEntry } from "../../../publishedReport";
 import { containsReference } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
@@ -14,12 +14,16 @@ import {
   ltmCp1,
   mixedPeriodsCp1,
   setCell,
+  setLabelled,
   threePeriodCp1,
 } from "../fixtures/mutations";
 import { Dumbbell } from "../kit/marks";
 import { EarningsDebtTile } from "./EarningsDebt";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const LEVERAGE = "Chart data: leverage";
 
@@ -66,9 +70,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
   it("titles the tile plainly and names the unit and periods in the kicker", () => {
     const tile = draw();
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Earnings and debt");
-    expect(tile.textContent).toContain(
-      "Earnings against debt and leverage · US$m, FY2023 → FY2024",
-    );
+    expect(tile.textContent).toContain("Earnings against debt and leverage · $m, FY2023 → FY2024");
   });
 
   it("draws each measure as a ring and a dot on one scale from zero, positions proportional", () => {
@@ -162,7 +164,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
 describe("Earnings and debt: other real handoffs", () => {
   it("draws the relative value handoff's one period as one bar per measure, no comparison", () => {
     const tile = draw(relativeValueCp1Entry());
-    expect(tile.textContent).toContain("US$m, FY2024");
+    expect(tile.textContent).toContain("$m, FY2024");
     expect(tile.querySelectorAll("[data-prior], [data-current]")).toHaveLength(0);
     const bars = [...tile.querySelectorAll("rect[data-bar]")].map((bar) => ({
       label: bar.getAttribute("data-bar"),
@@ -206,7 +208,7 @@ describe("Earnings and debt: other real handoffs", () => {
 describe("Earnings and debt: three or more periods, gaps and absences", () => {
   it("draws a line per measure across all three periods, the FY2022 gap hatched in place with its reason", () => {
     const tile = draw(threePeriodCp1());
-    expect(tile.textContent).toContain("US$m, FY2022 → FY2024");
+    expect(tile.textContent).toContain("$m, FY2022 → FY2024");
     const panels = [...tile.querySelectorAll("[data-panel]")].map((p) =>
       p.getAttribute("data-panel"),
     );
@@ -533,7 +535,7 @@ describe("Earnings and debt: five scrambled periods on X in the one period order
 
   it("draws LTM and PF after the fiscal years and before the forecast year, each value its own", () => {
     const tile = draw(mixedPeriodsCp1());
-    expect(tile.textContent).toContain("US$m, FY2023 → FY2025E");
+    expect(tile.textContent).toContain("$m, FY2023 → FY2025E");
     const revenue = points(tile, "Revenue");
     expect(revenue.map((point) => point.at)).toEqual(ORDER.map((label) => `Revenue ${label}`));
     expect(revenue.map((point) => point.value)).toEqual([6585, 7940, 8500, 8100, 8800]);
@@ -567,5 +569,116 @@ describe("Earnings and debt: five scrambled periods on X in the one period order
     );
     // The basis words are the latest reported row's (LTM Jun-2025), never the forecast row's.
     expect(lev.querySelector("[data-basis]")?.textContent).toBe("Twelve-month row.");
+  });
+});
+
+describe("EarningsDebtTile: a stated negative measure", () => {
+  it("draws a negative EBITDA (Reported) as a bar from its value up to zero", () => {
+    // Retained relative value CP-1 draft 1 (one period, FY2024) with T4.4 EBITDA (Reported) edited to -9000
+    // (a mutation, not a real handoff).
+    const entry = setLabelled(
+      relativeValueCp1Entry(),
+      "T4.4 Income statement",
+      "EBITDA (Reported)",
+      "FY2024",
+      "-9000",
+    );
+    const tile = draw(entry);
+    const num = (node: Element, name: string) => Number(node.getAttribute(name));
+    const negative = tile.querySelector('[data-bar="EBITDA (Reported)"]');
+    const positive = tile.querySelector('[data-bar="Revenue"]');
+    expect(negative).not.toBeNull();
+    expect(positive).not.toBeNull();
+    if (!negative || !positive) return;
+    expect(num(negative, "width")).toBeGreaterThan(50);
+    expect(num(negative, "x") + num(negative, "width")).toBeCloseTo(num(positive, "x"), 5);
+    const figure = negative.parentElement?.querySelector('[data-part="value"]');
+    expect(figure?.getAttribute("text-anchor")).toBe("start");
+    expect(num(figure as Element, "x")).toBeCloseTo(num(positive, "x") + 6, 5);
+  });
+});
+
+describe("EarningsDebtTile: a figure never sits on its own bar (S15-3-1)", () => {
+  /** Draws the tile; with a width, a stubbed ResizeObserver reports it so the layout switches. */
+  function drawAt(entry: OutputEntry, width?: number) {
+    type Cb = (entries: { contentRect: { width: number } }[]) => void;
+    const callbacks: Cb[] = [];
+    class Stub {
+      constructor(cb: Cb) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", Stub);
+    const tile = draw(entry);
+    if (width !== undefined)
+      act(() => {
+        for (const cb of callbacks) cb([{ contentRect: { width } }]);
+      });
+    return tile;
+  }
+  const num = (node: Element, name: string) => Number(node.getAttribute(name));
+  function positivesBeyondBars(tile: HTMLElement) {
+    const rows = [...tile.querySelectorAll("[data-row]")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const bar = row.querySelector("[data-bar]");
+      const figure = row.querySelector('[data-part="value"]');
+      if (!bar || !figure || num(bar, "data-value") < 0) continue;
+      expect(figure.getAttribute("text-anchor")).toBe("start");
+      expect(num(figure, "x")).toBeGreaterThanOrEqual(num(bar, "x") + num(bar, "width"));
+    }
+  }
+  const negative = () =>
+    setLabelled(
+      relativeValueCp1Entry(),
+      "T4.4 Income statement",
+      "EBITDA (Reported)",
+      "FY2024",
+      "-9000",
+    );
+
+  it.each([
+    ["wide", undefined],
+    ["narrow", 400],
+  ])("%s: every positive figure starts at or beyond its bar's far end", (layout, width) => {
+    const tile = drawAt(relativeValueCp1Entry(), width);
+    expect(tile.querySelector("svg[data-layout]")?.getAttribute("data-layout")).toBe(layout);
+    positivesBeyondBars(tile);
+  });
+
+  it.each([
+    ["wide", undefined],
+    ["narrow", 400],
+  ])(
+    "%s: with a negative row, it sits at the zero line and the positives stay clear",
+    (_l, width) => {
+      const tile = drawAt(negative(), width);
+      positivesBeyondBars(tile);
+      const zero = tile.querySelector('[data-bar="Revenue"]');
+      const bar = tile.querySelector('[data-bar="EBITDA (Reported)"]');
+      const figure = bar?.parentElement?.querySelector('[data-part="value"]');
+      if (!zero || !figure) throw new Error("rows not drawn");
+      expect(num(figure, "x")).toBeCloseTo(num(zero, "x") + 6, 5);
+    },
+  );
+});
+
+describe("a stated source dash (S15-5-4)", () => {
+  // Answer key: the kit's rule for a cell the source left as a dash (periodsData `written`, marks
+  // `gapWords`): it reads "—", and the words "source dash" are shown nowhere.
+  const DASH = "Not supplied: source dash";
+  it("one period: the chip, table and reading draw the dash", () => {
+    // Mutation of the retained relative value CP-1 (one period; not a real handoff).
+    const tile = draw(setCell(relativeValueCp1Entry(), "Net debt data", 0, "Gross debt", DASH));
+    expect(everything(tile)).not.toMatch(/source dash/i);
+  });
+  it("two periods: the table and the reading say what the dumbbell says", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff).
+    const tile = draw(
+      setLabelled(cp1Entry(), "T4.4 Income statement", "EBITDA (Reported)", "FY2023", DASH),
+    );
+    expect(everything(tile)).not.toMatch(/source dash/i);
   });
 });

@@ -635,7 +635,7 @@ it("counts a passage drawn as a chart as present", () => {
 // docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is CP-1's money
 // unit, which the catalogue records with the run's cash figure.
 it.each([
-  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in GBPm."],
+  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in £m."],
   ["US$m", null],
 ])(
   "notes US market quotes on the security decisions of a %s run only when not USD",

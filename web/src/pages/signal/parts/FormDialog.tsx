@@ -15,11 +15,13 @@ import { Toggle } from "./Toggle";
 
 const TITLE_ID = "signal-form-title";
 
+/** A choice whose label may repeat: `id` is what the form holds and sends. */
+type ChoiceOption = { id: string; label: string };
 type Common = { key: string; label: string; hint?: string };
 export type FormField =
   /** `missing`: the sentence shown when the field is left empty; without it the field is optional. */
   | (Common & { kind: "text" | "area"; value?: string; missing?: string; maxLength?: number })
-  | (Common & { kind: "choice"; options: readonly string[]; value: string })
+  | (Common & { kind: "choice"; options: readonly (string | ChoiceOption)[]; value: string })
   | (Common & { kind: "switches"; options: readonly string[]; value: readonly string[] });
 
 /** What the form holds when sent: each text, area and choice by key, and each set of switches. */
@@ -73,7 +75,9 @@ function FieldInput({
       <Select
         label={field.label}
         hint={field.hint}
-        items={field.options.map((id) => ({ id, label: id }))}
+        items={field.options.map((one) =>
+          typeof one === "string" ? { id: one, label: one } : one,
+        )}
         value={text}
         onChange={(key) => {
           setText(String(key));

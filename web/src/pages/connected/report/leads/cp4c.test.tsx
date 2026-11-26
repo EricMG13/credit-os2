@@ -110,7 +110,7 @@ it("draws the value allocation of the first scenario as a waterfall, steps as wr
   const tile = screen.getByRole("region", { name: "Value allocation" });
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
-    "Value allocation — scenario 1 in US$m: Enterprise value 1,000, Administrative claims -50, First lien term loan -700, Senior unsecured notes -250, Value not distributed 0.",
+    "Value allocation — scenario 1 in $m: Enterprise value 1,000, Administrative claims -50, First lien term loan -700, Senior unsecured notes -250, Value not distributed 0.",
   );
   for (const text of ["1,000", "-50", "-700", "-250"])
     expect(within(figure).getAllByText(text).length).toBeGreaterThan(0);
@@ -145,7 +145,7 @@ it("switches scenarios with a pressed button group, the table following", () => 
   fireEvent.click(within(tile).getByRole("button", { name: "Table" }));
   expect(within(tile).getByRole("cell", { name: "800" })).toBeVisible();
   // F15: the per-row unit and basis stay with their rows.
-  expect(within(tile).getAllByRole("cell", { name: "US$m" })).toHaveLength(5);
+  expect(within(tile).getAllByRole("cell", { name: "$m" })).toHaveLength(5);
   expect(within(tile).getAllByRole("cell", { name: "Synthetic." })).toHaveLength(5);
   expect(
     within(tile)
@@ -191,7 +191,7 @@ it("draws claim against recovery per class and scenario, the stated recovery % a
   const tile = screen.getByRole("region", { name: "Recovery by class" });
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
-    "Recovery by class in US$m. First lien term loan, Scenario 1: claim 700, recovery 700, recovery 100%. First lien term loan, Scenario 2: claim 700, recovery 700, recovery 100%. Senior unsecured notes, Scenario 1: claim 600, recovery 250, recovery 41.7%. Senior unsecured notes, Scenario 2: claim 600, recovery not supplied (distribution not settled), recovery % not supplied (recovery not settled).",
+    "Recovery by class in $m. First lien term loan, Scenario 1: claim 700, recovery 700, recovery 100%. First lien term loan, Scenario 2: claim 700, recovery 700, recovery 100%. Senior unsecured notes, Scenario 1: claim 600, recovery 250, recovery 41.7%. Senior unsecured notes, Scenario 2: claim 600, recovery not supplied (distribution not settled), recovery % not supplied (recovery not settled).",
   );
   expect(within(figure).getByText("41.7%")).toBeInTheDocument();
   // G7: the shared gap cell, the word and the reason, never "Recovery: Not supplied: reason".
@@ -365,4 +365,86 @@ it("states the module's own gap for the fulcrum and draws one allocation when no
   // The handoff says scenarios 2 and 3 do not exist: no switch, no notice for them.
   expect(within(tile).queryByRole("group", { name: "Scenario" })).toBeNull();
   expect(screen.queryByText(/second scenario|third scenario/i)).toBeNull();
+});
+
+const FULCRUM_STEPS =
+  "| Step | Amount | Reporting unit | Basis and limitation |\n| --- | --- | --- | --- |";
+const fulcrumStep = (label: string, amount: string) =>
+  `| ${label} | ${amount} | US$m | Synthetic. |`;
+
+const FULCRUM_MARKDOWN = `## Findings
+
+### Bottom line
+
+Synthetic.
+
+### Chart data: value allocation — scenario 1
+
+${FULCRUM_STEPS}
+${fulcrumStep("Enterprise value", "1,000")}
+${fulcrumStep("First lien term loan", "-700")}
+${fulcrumStep("Senior unsecured notes", "-300")}
+${fulcrumStep("Value not distributed", "0")}
+
+### Chart data: value allocation — scenario 2
+
+${FULCRUM_STEPS}
+${fulcrumStep("Enterprise value", "500")}
+${fulcrumStep("First lien term loan", "-500")}
+${fulcrumStep("Senior unsecured notes", "0")}
+${fulcrumStep("Value not distributed", "0")}
+
+#### T4E.6 Fulcrum range
+
+| scenario/EV range | last covered class | first impaired class | fulcrum class/range | uncertainty | Source |
+| --- | --- | --- | --- | --- | --- |
+| Scenario 1, EV USD 1,000 million | First lien term loan | None | Equity holders | Wide | Synthetic |
+| Scenario 2, EV USD 500 million | First lien term loan | Senior unsecured notes | Junior secured class | Wide | Synthetic |
+`;
+
+function fulcrumLineOf(heading: string) {
+  const block = sectionsOf(FULCRUM_MARKDOWN)
+    .find((item) => item.heading === heading)
+    ?.blocks.find((item) => item.type === "table");
+  if (!block) throw new Error(`no table under ${heading}`);
+  return block.line;
+}
+
+const fulcrumAllocation = (n: number) => ({
+  title: `Value allocation — scenario ${String(n)}`,
+  table: fulcrumLineOf(`Chart data: value allocation — scenario ${String(n)}`),
+  unit: "US$m",
+  columns: [1],
+  kind: "waterfall",
+  amount: 1,
+});
+
+it("S16-1-2: labels each stated fulcrum with the scenario or value range its register row names", () => {
+  const entry: OutputEntry = {
+    output: {
+      module: "CP-4C",
+      id: "run/CP-4C",
+      label: "CP-4C",
+      sha256: "h",
+      href: "CP-4C.md",
+      charts: [fulcrumAllocation(1), fulcrumAllocation(2)],
+    },
+    sections: sectionsOf(FULCRUM_MARKDOWN),
+    selected: true,
+  };
+  render(<RestructuringLead {...leadProps(entry)} />);
+  const tile = screen.getByRole("region", { name: "Value allocation" });
+  // The chosen scenario is the first one (Scenario 1: EV 1,000; its register row states "Equity holders").
+  expect(within(tile).getByText(/Equity holders/)).toBeVisible();
+  // Answer key (worked from the register above): the register states two fulcrums, each for its own
+  // range ("Equity holders" for scenario 1, "Junior secured class" for scenario 2). Printing the second
+  // one under scenario 1's allocation is only true if it is named with its own range; the register's
+  // own first cell names that range.
+  const text = tile.textContent;
+  const otherShown = text.includes("Junior secured class");
+  const rangeNamed = text.includes("Scenario 2, EV USD 500 million");
+  expect(
+    otherShown && !rangeNamed,
+    "scenario 2's fulcrum is shown under scenario 1, unlabelled",
+  ).toBe(false);
 });

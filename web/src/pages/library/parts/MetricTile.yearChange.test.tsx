@@ -41,7 +41,7 @@ it("draws the year comparator, with the tone as a visible word and a shape on a 
   expect(change.querySelector(".sr-only")).toBeNull();
   expect(change.querySelector('[data-shape="diamond"]')).not.toBeNull();
   expect(change.className).toContain("text-error-text");
-  const plain = screen.getByText(/\+US\$5m vs FY2023/);
+  const plain = screen.getByText(/\+\$5m vs FY2023/);
   expect(plain.textContent).not.toMatch(/better|worse|unchanged/);
   expect(plain.querySelector("[data-shape]")).toBeNull();
   expect(screen.getAllByText(/ vs /)).toHaveLength(2);

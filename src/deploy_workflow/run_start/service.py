@@ -80,8 +80,14 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
 ``GET /api/issuers/<issuer id>`` (``[a-z0-9-]{1,40}``)
     200 ``prior.issuer``: ``{"runs", "latest_as_of", "latest_run", "issuer_name"}``.
 ``POST /api/submissions/<id>/carry``
-    Body ``{"run": "<run id>"}``. 200 ``{"carried": [...], "kept": [...]}``: the run's stored
-    files copied into the submission, a name already held kept. 404 for an unknown run or
+    Body ``{"run": "<run id>", "leave_out": ["<file name>", ...]}`` (``leave_out`` may be left
+    out: none). 200 ``{"carried": [...], "kept": [...]}``: the run's stored files copied into the
+    submission, a name already held kept. A ``leave_out`` name (compared as the disk compares
+    names) is not copied and does not count toward the file and size limits; a name that is not
+    one of the run's files is a 400. An earlier file with the same bytes as a file already in the
+    submission under another name is not copied and is reported as ``"same_content": {"<earlier
+    name>": "<stored name>"}`` (the key is present only then); an upload made after the carry is
+    not compared. 404 for an unknown run or
     submission; 400 for a bad body, a run with no stored documents or any other refusal.
 ``POST /api/submissions/<id>/reference-portfolio/files?name=<percent-encoded UTF-8 file name>``
     One file of the submission's comparison portfolio (``reference_portfolio``): a reference
@@ -169,6 +175,7 @@ import time
 import urllib.parse
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, BinaryIO, cast
@@ -178,6 +185,7 @@ from deploy_workflow import http_base
 from deploy_workflow.http_base import Body, Reply, refuse
 from deploy_workflow.inbox import activity, runs, teams
 from deploy_workflow.inbox.layout import Layout
+from deploy_workflow.inbox.plain_reason import served_reason
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import prior, reference_portfolio, standing_portfolios, submissions
 from deploy_workflow.run_start.submissions import Answers
@@ -269,19 +277,37 @@ class Handler(http_base.Handler):
             raise refuse(400, "the request needs exactly one name")
         return names[0]
 
-    def _require_shown_cap(self, answers: Any) -> None:
+    def _require_shown_cap(self, answers: Any, sid: str | None = None) -> None:
         """Refuse a summary or submit whose page did not show the pathway's cap.
 
         The page sends the cap it displays in the ``X-Shown-Cap`` header (ruling
         2026-11-15-pathway-tiers-and-caps): the approved summary is the paid action, so what the
         analyst saw must be what is enforced. A page loaded before a cap changed sends none or
         another figure. Answers with no known pathway, or a deactivated one, are left to the
-        summary's and Submit's own refusals."""
+        summary's and Submit's own refusals.
+
+        A custom run's cap is computed by the launcher, so a summary request shows the ceiling (the
+        page has no computed cap yet) and a submit (``sid`` given) shows the cap the latest summary
+        issued; a submit with no issued cap shows none and is refused."""
         try:
             pathway = answers["context"]["run"]["pathway"]
-            cap = None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            cap: Decimal | str | None = (
+                None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            )
         except (KeyError, TypeError):
             return
+        if pathway == submissions.CUSTOM and sid is not None:
+            # A repeated submit (a lost reply) finds its run already taken and the issued file
+            # released: it must show that run's cap, and `submit` then returns the record.
+            taken = self._service.scheduler.record_of_submission(sid)
+            cap_text = (
+                taken.cap
+                if taken is not None
+                else self._guarded(lambda: submissions.issued_cap(self._layout, sid))
+            )
+            if not cap_text:
+                raise refuse(400, "review the summary again; no summary was issued for this run")
+            cap = cap_text
         if cap is not None and self.headers.get_all(SHOWN_CAP_HEADER) != [str(cap)]:
             raise refuse(
                 400,
@@ -341,7 +367,7 @@ class Handler(http_base.Handler):
             raise Reply(200, self._guarded(lambda: self._summary(sid, answers)))
         if action == "submit":
             body = self._json_body()
-            self._require_shown_cap(body.get("answers") if isinstance(body, dict) else None)
+            self._require_shown_cap(body.get("answers") if isinstance(body, dict) else None, sid)
             self._submit(sid, body)
         if action == "carry":
             self._carry(sid, self._json_body())
@@ -434,12 +460,15 @@ class Handler(http_base.Handler):
         run = body.get("run") if isinstance(body, dict) else None
         if not isinstance(run, str) or not re.fullmatch(_RUN_ID, run):
             raise refuse(400, "the request needs the id of an earlier run")
+        leave_out = body.get("leave_out", [])
+        if not isinstance(leave_out, list) or not all(isinstance(n, str) for n in leave_out):
+            raise refuse(400, "leave_out must be a list of file names")
 
-        def copy() -> dict[str, list[str]]:
+        def copy() -> dict[str, Any]:
             _, folder = prior.source(self._layout, run)
             if folder is None:
                 raise submissions.Refused(_NO_FILES)
-            return submissions.carry(self._layout, sid, folder)
+            return submissions.carry(self._layout, sid, folder, leave_out)
 
         raise Reply(200, self._guarded(copy))
 
@@ -472,8 +501,10 @@ class Handler(http_base.Handler):
             raise refuse(404, "unknown run")
         shown = activity.snapshot(self._layout, [record], now=datetime.now(UTC))["runs"][0]
         # A run with no folder yet has no events: every module waits.
-        shown.setdefault("modules", activity.module_states(record.pathway, []))
+        shown.setdefault("modules", activity.module_states(record.pathway, [], record.modules))
         answer = {key: shown[key] for key in _RUN_FIELDS if key in shown}
+        if isinstance(answer.get("reason"), str):  # the stored text keeps the server's paths
+            answer["reason"] = served_reason(self._layout, answer["reason"])
         if record.status == "finished":
             answer["library_report"] = self._library_report(record.id)
         return answer

@@ -2042,3 +2042,100 @@ def test_a_full_active_ceiling_explains_how_to_recover(layout, monkeypatch):
         "draft has been idle for 2 hours (24 hours if it reached review)"
     )
     assert (layout.uploads / sid / "files").is_dir()
+
+
+def test_two_long_folder_names_with_one_beginning_stay_two_folders(layout):
+    """S08-1-2: folder parts are cut like the file name, with a hash of the original part."""
+    sid = new(layout)
+    stem = "Annual Report and Consolidated Financial Statements for the year ended 31 December "
+    first = put(layout, sid, f"{stem}2023 - Final/results.txt", b"FY2023")
+    second = put(layout, sid, f"{stem}2024 - Final/results.txt", b"FY2024")
+    assert first != second
+    assert all(len(part) <= 80 for part in first.split("/"))
+    assert len(submissions.listing(files_folder(layout, sid))) == 2
+
+
+def test_an_upload_that_folds_to_a_different_stored_name_is_refused(layout):
+    """S08-1-3: the disk may compare names without case; a different name never replaces."""
+    sid = new(layout)
+    put(layout, sid, "Report.pdf", b"first")
+    with pytest.raises(Refused) as refused:
+        put(layout, sid, "REPORT.pdf", b"second")
+    assert "Report.pdf" in str(refused.value) and "REPORT.pdf" in str(refused.value)
+    assert (files_folder(layout, sid) / "Report.pdf").read_bytes() == b"first"
+    assert put(layout, sid, "Report.pdf", b"third") == "Report.pdf"  # the same name replaces
+    assert (files_folder(layout, sid) / "Report.pdf").read_bytes() == b"third"
+
+
+def test_a_reupload_in_a_long_folder_replaces_the_copy_a_carry_brought_from_a_pre_fix_run(
+    layout, tmp_path
+):
+    """S08-2-2: a folder cut at 80 characters by an earlier run is the folder of the re-upload."""
+    stem = "Annual Report and Consolidated Financial Statements for the year ended 31 December "
+    raw_folder = f"{stem}2023 - Final"
+    legacy = raw_folder[:80].rstrip(". ")
+    earlier = tmp_path / "earlier-run"
+    (earlier / legacy).mkdir(parents=True)
+    (earlier / legacy / "results.txt").write_bytes(b"STALE")
+    sid = new(layout)
+    submissions.carry(layout, sid, earlier)
+    stored = put(layout, sid, f"{raw_folder}/results.txt", b"CORRECTED")
+    root = files_folder(layout, sid)
+    assert stored == f"{legacy}/results.txt"
+    assert list(submissions.listing(root)) == [stored]
+    assert (root / stored).read_bytes() == b"CORRECTED"
+
+
+def test_a_carry_leaves_out_the_named_files_and_does_not_count_them(layout, tmp_path, monkeypatch):
+    # S19-5-4: a left-out file is not copied and does not count toward the limits.
+    src = _source(tmp_path, **{"a.txt": b"old a", "b.txt": b"old b"})
+    sid = new(layout)
+    put(layout, sid, "c.txt", b"new c")
+    put(layout, sid, "d.txt", b"new d")
+    monkeypatch.setattr(submissions, "MAX_FILES", 3)
+    with pytest.raises(Refused, match="more than 3 files"):
+        submissions.carry(layout, sid, src)
+    assert submissions.carry(layout, sid, src, ["A.TXT"]) == {"carried": ["b.txt"], "kept": []}
+    assert sorted(_held(layout, sid)) == ["b.txt", "c.txt", "d.txt"]
+
+
+def test_a_carry_refuses_a_left_out_name_the_earlier_run_does_not_hold(layout, tmp_path):
+    src = _source(tmp_path, **{"a.txt": b"old a"})
+    sid = new(layout)
+    with pytest.raises(Refused, match="not a file of the earlier run"):
+        submissions.carry(layout, sid, src, ["nope.txt"])
+    assert _held(layout, sid) == {}
+
+
+def test_an_earlier_file_with_an_uploads_bytes_is_not_carried(layout, tmp_path):
+    src = _source(tmp_path, **{"a.txt": b"same bytes", "b.txt": b"other one!"})
+    sid = new(layout)
+    put(layout, sid, "new.txt", b"same bytes")
+    put(layout, sid, "c.txt", b"other 1234")  # equal size to b.txt, different bytes
+    got = submissions.carry(layout, sid, src)
+    assert got == {"carried": ["b.txt"], "kept": [], "same_content": {"a.txt": "new.txt"}}
+    assert sorted(_held(layout, sid)) == ["b.txt", "c.txt", "new.txt"]
+
+
+def test_a_carry_without_a_repeat_reports_no_same_content(layout, tmp_path):
+    src = _source(tmp_path, **{"a.txt": b"one"})
+    sid = new(layout)
+    put(layout, sid, "n.txt", b"two")
+    assert "same_content" not in submissions.carry(layout, sid, src)
+
+
+def test_same_content_hashes_outside_the_lock_and_only_equal_sizes(layout, tmp_path, monkeypatch):
+    src = _source(tmp_path, **{"a.txt": b"12345", "b.txt": b"1234567"})
+    sid = new(layout)
+    put(layout, sid, "u.txt", b"12345")
+    seen: list[tuple[str, bool]] = []
+    real = submissions._digest
+
+    def watched(path, size):
+        seen.append((path.name, submissions._LOCK.locked()))
+        return real(path, size)
+
+    monkeypatch.setattr(submissions, "_digest", watched)
+    submissions.carry(layout, sid, src)
+    # b.txt (7 bytes) has no equal-size upload, so it is never hashed.
+    assert seen == [("a.txt", False), ("u.txt", False)]

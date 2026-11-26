@@ -127,9 +127,7 @@ it("is a titled section, open by default, with one row per chart and gap under i
     "#modules/CP-1",
   );
   expect(section.getAllByRole("listitem")).toHaveLength(3);
-  expect(
-    rowOf("Debt maturities").getByText("US$m", { selector: "div > span" }),
-  ).toBeInTheDocument();
+  expect(rowOf("Debt maturities").getByText("$m", { selector: "div > span" })).toBeInTheDocument();
   expect(rowOf("Interest cover").getByText("x (times)")).toBeInTheDocument();
   // The disclosures start closed; no table is open until asked.
   for (const toggle of screen.getAllByRole("button", { name: /^Table for / }))
@@ -143,7 +141,7 @@ it("keeps the title, unit, source link and table toggle on one compact line, tab
   const toggle = row.getByRole("button", { name: "Table for Debt maturities" });
   const line = toggle.parentElement as HTMLElement;
   expect(line.contains(row.getByRole("link", { name: "Source table" }))).toBe(true);
-  expect(line.contains(row.getByText("US$m", { selector: "div > span" }))).toBe(true);
+  expect(line.contains(row.getByText("$m", { selector: "div > span" }))).toBe(true);
   expect(toggle.className).toContain("ml-auto");
   expect(toggle.className).toContain("min-h-8");
   expect(toggle.className).toContain("max-[480px]:min-h-11");

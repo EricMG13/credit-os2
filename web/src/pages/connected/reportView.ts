@@ -57,6 +57,25 @@ function isLead(entry: OutputEntry, module: string) {
   );
 }
 
+const NO_CUSTOM_LEAD = ["CP-0", "CP-DR", "CP-5", "CP-8", "CP-MODEL"];
+
+/**
+ * The modules that may lead the Overview, first choice first. A custom run (PR 7a, ruling C16)
+ * leads with CP-2, else the last module it planned that has a usable entry; the sources, the
+ * research questions, the evidence check, the comparison and the forecast lead nothing. Its plan is
+ * the manifest's request, or the order it ran when none is recorded.
+ */
+export function leadModules(run: PublishedRun, order: readonly string[]) {
+  if (run.pathway === "custom") {
+    const planned = Array.isArray(run.requested) ? run.requested : order;
+    return [
+      "CP-2",
+      ...[...planned].reverse().filter((id) => id !== "CP-2" && !NO_CUSTOM_LEAD.includes(id)),
+    ];
+  }
+  return ["CP-6", "CP-2", "CP-L10", ...(run.pathway === "earnings_update" ? ["CP-1B"] : [])];
+}
+
 function catalogueFor(snapshot: Snapshot, folder: string) {
   const matches = snapshot.catalogue.real.filter((entry) => entry.id === folder);
   return matches.length === 1 ? matches[0] : undefined;
@@ -83,7 +102,7 @@ export function buildReportView(snapshot: Snapshot, routeKey: string, run: Publi
     ...scope,
     entries,
     modules,
-    lead: ["CP-6", "CP-2", "CP-L10", ...(run.pathway === "earnings_update" ? ["CP-1B"] : [])]
+    lead: leadModules(run, order)
       .map((id) => entries.find((entry) => isLead(entry, id)))
       .find((entry) => entry !== undefined),
     models: runModels(snapshot, routeKey, run),
@@ -121,7 +140,7 @@ function passageTexts(entry: OutputEntry, heading: string) {
  * market-implied risk, evidence validation and the committee. No run records a clearance for that
  * decision, so a summary page shows none of their bottom lines; their own pages do.
  */
-const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
+export const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
 
 /**
  * One bottom line per module that ran, other than the lead; text is null where there is none to

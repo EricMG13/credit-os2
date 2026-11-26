@@ -105,7 +105,9 @@ and are re-mapped when the SKILL.md is pinned.
   at least, minimum), a minimum (`>=`, `>`) when it names only a cap (not exceed, not to exceed,
   not more than, maximum, shall not be greater). A quote naming neither (the common "shall not
   permit ... to exceed") or both is accepted: there the direction is the model's judgement, a
-  residual risk a wrong sign would carry into the headroom.
+  residual risk a wrong sign would carry into the headroom. The check refuses a direction only
+  when the quote's limit wording is all on one side and no other comparative or negating word is
+  left; otherwise the direction is the model's judgement.
 - Headroom: Python arithmetic over the parsed threshold and a CP-1 figure the model matched and
   judged the same definition; a definition the model judges different or not determinable is
   not compared. A strict test does not hold at the threshold. A percentage test's headroom is

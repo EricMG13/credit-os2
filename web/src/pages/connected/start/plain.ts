@@ -142,7 +142,20 @@ export function choiceLabel(choices: Readonly<Record<string, string>>, value: st
 
 /** The stored file name: the reader's own name for it, without the ingest suffix. */
 export function storedName({ source }: DocumentRecord) {
-  return source.replace(/(\.html?)\.jsonl$/i, "$1");
+  // Source of truth: `cpos_launch.CONVERTED_SUFFIXES`; change the two together.
+  return source.replace(/(\.(?:html?|docx))\.jsonl$/i, "$1");
+}
+
+/**
+ * One key for a file name, folding Unicode form and case as the service does.
+ * Source of truth: `submissions._folded` (NFC, then Python `str.casefold`); JS has no casefold, so
+ * upper then lower case gives its full folds for these names ("ß" and "ss" share a key).
+ */
+export function nameKey(name: string) {
+  // Lower first (capital "ẞ" folds to "ss" only through "ß"), and leave "ı" alone: upper case would merge it with "i".
+  return name
+    .normalize("NFC")
+    .replace(/[^ı]+/gu, (part) => part.toLowerCase().toUpperCase().toLowerCase());
 }
 
 export function documentDescription(doc: DocumentRecord) {

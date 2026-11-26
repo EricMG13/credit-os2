@@ -10,6 +10,7 @@ import { containsReference } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
 import {
   dropTable,
+  edited,
   mixedPeriodsCp1,
   setCell,
   threePeriodCp1,
@@ -86,7 +87,7 @@ describe("Net debt: the accepted handoff, FY2023 and FY2024", () => {
   it("titles the tile plainly, the unit and periods in the kicker", () => {
     const tile = draw();
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Net debt");
-    expect(tile.textContent).toContain("Net debt, US$m · FY2023 → FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2023 → FY2024");
   });
 
   it("draws each period's net debt and its cash to gross debt as stated, proportional from zero", () => {
@@ -340,7 +341,7 @@ describe("Net debt: one or two stated pro formas are drawn as bars", () => {
 describe("Net debt: other real handoffs and gap states", () => {
   it("draws the relative value handoff's one period, its two adjustments, no comparison", () => {
     const tile = draw(relativeValueCp1Entry());
-    expect(tile.textContent).toContain("Net debt, US$m · FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2024");
     expect(
       [...tile.querySelectorAll("rect[data-bar]")].map((b) => b.getAttribute("data-bar")),
     ).toEqual(["FY2024", "Pro forma", "Pro forma"]);
@@ -399,7 +400,7 @@ describe("Net debt: other real handoffs and gap states", () => {
 
   it("draws the three-period mutation's FY2022 as the hatched gap with its reason, in place", () => {
     const tile = draw(threePeriodCp1());
-    expect(tile.textContent).toContain("Net debt, US$m · FY2022 → FY2023 → FY2024");
+    expect(tile.textContent).toContain("Net debt, $m · FY2022 → FY2023 → FY2024");
     const row = tile.querySelector('[data-row="FY2022"]');
     expect(row?.querySelector("rect[data-bar]")).toBeNull();
     expect(row?.querySelector("[data-gap]")?.getAttribute("data-gap")).toBe(
@@ -476,7 +477,7 @@ describe("Net debt: other real handoffs and gap states", () => {
     expect(tile.querySelector("[data-adjustments]")).toBeNull();
     expect(tile.querySelector("[data-pro-forma]")).toBeNull();
     expect(tile.querySelector("[data-no-adjustments]")?.textContent).toBe(
-      "None found in the sources read. Synthetic; the annual report and its notes were read.",
+      "None found in the sources read. Synthetic.",
     );
   });
 
@@ -497,7 +498,7 @@ describe("Net debt: five scrambled periods in the one period order", () => {
   it("draws the bars and the leverage marks in rule order, each figure its own", () => {
     const tile = draw(mixedPeriodsCp1());
     expect(tile.textContent).toContain(
-      "Net debt, US$m · FY2023 → FY2024 → LTM Jun-2025 → PF FY2024 → FY2025E",
+      "Net debt, $m · FY2023 → FY2024 → LTM Jun-2025 → PF FY2024 → FY2025E",
     );
     const bars = [...tile.querySelectorAll("svg:not([data-strip]) rect[data-bar]")];
     expect(bars.map((node) => node.getAttribute("data-bar"))).toEqual(ORDER);
@@ -548,5 +549,48 @@ describe("Net debt: five scrambled periods in the one period order", () => {
       ["FY2025E", "prior"],
     ]);
     expect(view.comparison).toBeNull();
+  });
+});
+
+describe("NetDebtTile: units and sources of stated words", () => {
+  it("does not draw a liquidity total in another unit as a figure of the US$m tile", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff): the metrics row in USD thousands.
+    const entry = edited(cp1Entry(), (table, heading) =>
+      heading !== "Financials and credit metrics"
+        ? table
+        : {
+            ...table,
+            rows: table.rows.map((row) => {
+              if (row.cells[0] !== "Cash plus available revolver") return row;
+              const cells = [...row.cells];
+              cells[table.headers.indexOf("FY2024")] = "7104000";
+              cells[table.headers.indexOf("Unit")] = "USD thousands";
+              return { ...row, cells };
+            }),
+          },
+    );
+    render(<NetDebtTile lead={leadProps(entry)} />);
+    const tile = screen.getByRole("region", { name: "Net debt" });
+    const text = tile.querySelector('[data-liquidity="FY2024"]')?.textContent ?? "";
+    expect(text).toContain("6,261");
+    expect(text).not.toContain("7,104,000");
+    expect(tile.querySelector("[data-liquidity-unit]")?.textContent).toMatch(
+      /another unit \(.*thousand.*\) than the net debt data/i,
+    );
+  });
+
+  it("drops a no-adjustment clause that cites a filing, as the maturity tile does", () => {
+    const basis =
+      "Annual Form 10-K subsequent-events note; no later event that changes net debt is stated.";
+    const na = "Not applicable: no event";
+    const entry = withRows(cp1Entry(), ADJUSTMENTS, [
+      [NO_ADJUSTMENT, na, na, na, na, "US$m", basis],
+    ]);
+    render(<NetDebtTile lead={leadProps(entry)} />);
+    const words =
+      screen.getByRole("region", { name: "Net debt" }).querySelector("[data-no-adjustments]")
+        ?.textContent ?? "";
+    expect(words).toContain("no later event that changes net debt is stated.");
+    expect(words).not.toMatch(/10-K/);
   });
 });

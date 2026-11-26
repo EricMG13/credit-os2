@@ -588,13 +588,20 @@ def test_a_heading_the_page_takes_for_a_register_is_refused(heading, words):
     )
 
 
-def test_a_heading_and_a_tag_for_one_register_count_as_two():
-    """The tag is itself a register start (`method_scripts.register_table`), so the pair is the
-    existing two-registers fault; the repair's placement sentence says to drop the tag."""
-    fault = misplaced(placed([CANON, "", "<!-- table-id: T2.13 -->"]))
-    assert fault == "The handoff has 2 T2.13 registers."
-    (issue,) = cpos_launch.scorecard_issues("CP-2", placed([CANON, "", "<!-- table-id: T2.13 -->"]))
-    assert "headed by that heading alone (no `table-id` tag)" in issue
+def test_a_heading_and_a_tag_for_one_register_are_one_register():
+    """A register's heading and its table-id tag with nothing between them are one register
+    (`method_scripts._one_start_each`, f68456d6), so the pair is accepted."""
+    text = placed([CANON, "", "<!-- table-id: T2.13 -->"])
+    assert scorecard_faults(text) == ()
+    assert cpos_launch.scorecard_issues("CP-2", text) == ()
+    assert parse_scorecard(text) is not None
+
+
+def test_a_nested_heading_with_its_tag_is_still_refused_for_its_placement():
+    """The pair is one start, so its placement is checked as for the heading alone."""
+    text = placed([APPENDIX, "", "#### T2.13 - Credit scorecard", "", "<!-- table-id: T2.13 -->"])
+    fault = misplaced(text)
+    assert fault.startswith("T2.13 must start at a `###` heading")
 
 
 def test_a_misplaced_register_still_has_its_rows_checked_in_the_same_round():

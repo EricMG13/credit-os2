@@ -63,17 +63,25 @@ function figureless(chart: Chart) {
 function Fulcrum({ entry }: { entry: Entry }) {
   const table = registerTable(entry, "T4E.6", ["fulcrum class/range"]);
   const at = table ? columnOf(table, "fulcrum class/range") : -1;
+  const range = table ? columnOf(table, "scenario/EV range") : -1;
+  // Each fulcrum is stated for its own scenario or value range: print that range with it.
   const stated = (table?.rows ?? [])
-    .map(({ cells }) => readerCell(cells[at] ?? ""))
-    .filter((text) => text);
+    .map(({ cells }) => ({
+      text: readerCell(cells[at] ?? ""),
+      range: range >= 0 ? readerCell(cells[range] ?? "") : "",
+    }))
+    .filter(({ text }) => text);
   if (!stated.length) return <CompactGap>{FULCRUM}</CompactGap>;
   return (
     <div className="flex flex-col gap-1">
-      {stated.map((text) => {
+      {stated.map(({ text, range: named }, index) => {
         const gap = statedGap(text);
         return (
-          <span key={text} className="flex flex-wrap items-baseline gap-x-2 text-small">
-            <span className="text-text-secondary">Fulcrum</span>
+          <span
+            key={`${String(index)}:${text}`}
+            className="flex flex-wrap items-baseline gap-x-2 text-small"
+          >
+            <span className="text-text-secondary">{named ? `Fulcrum, ${named}` : "Fulcrum"}</span>
             {gap ? (
               <GapCell word={gap.word} reason={gap.reason} />
             ) : (

@@ -10,6 +10,7 @@ import {
   type Issuer,
 } from "../coverageData";
 import { card, heading } from "../layout";
+import { DECISION_MODULES } from "../reportView";
 import { HIT, IN_EVIDENCE, moduleTitle, prose, RunLine } from "./shared";
 
 /** Passages drawn per issuer before the rest fold under one disclosure. */
@@ -21,13 +22,33 @@ const FIRST = 5;
  */
 function Marked({ text, wanted }: { text: string; wanted: string }) {
   if (wanted === "") return text;
-  const lower = text.toLowerCase();
+  // Lower-casing can change a character's length ("İ" becomes two units), so each unit of the
+  // lower text remembers where its character starts and ends in the original.
+  let lower = "";
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let origin = 0;
+  for (const char of text) {
+    const folded = char.toLowerCase();
+    for (let unit = 0; unit < folded.length; unit += 1) {
+      starts.push(origin);
+      ends.push(origin + char.length);
+    }
+    lower += folded;
+    origin += char.length;
+  }
   const pieces: { text: string; hit: boolean }[] = [];
   let from = 0;
-  for (let at = lower.indexOf(wanted); at !== -1; at = lower.indexOf(wanted, from)) {
-    if (at > from) pieces.push({ text: text.slice(from, at), hit: false });
-    pieces.push({ text: text.slice(at, at + wanted.length), hit: true });
-    from = at + wanted.length;
+  let lowerFrom = 0;
+  for (let at = lower.indexOf(wanted); at !== -1; at = lower.indexOf(wanted, lowerFrom)) {
+    const first = starts[at] ?? 0;
+    const last = ends[at + wanted.length - 1] ?? text.length;
+    if (first > from) pieces.push({ text: text.slice(from, first), hit: false });
+    pieces.push({ text: text.slice(first, last), hit: true });
+    from = last;
+    lowerFrom = at + wanted.length;
+    // Resume at a character boundary, not inside the lower case of the character just marked.
+    while (lowerFrom < lower.length && (starts[lowerFrom] ?? from) < from) lowerFrom += 1;
   }
   if (from === 0) return text;
   if (from < text.length) pieces.push({ text: text.slice(from), hit: false });
@@ -68,7 +89,10 @@ export function FindView({
     const run = latestRun(issuer);
     if (!run) return [];
     const passages = factsOf(data, run.key).filter(
-      (fact) => fact.at === null && fields.get(fact.field)?.kind === "text",
+      (fact) =>
+        fact.at === null &&
+        fields.get(fact.field)?.kind === "text" &&
+        !DECISION_MODULES.includes(fields.get(fact.field)?.module ?? ""),
     );
     const matching = passages.filter((fact) =>
       `${fact.text} ${fact.impact ?? ""}`.toLowerCase().includes(wanted),

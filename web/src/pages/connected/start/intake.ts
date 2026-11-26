@@ -26,7 +26,21 @@ import {
   type ValuationForm,
 } from "./valuation";
 import { decided, groupLimits, needsCheck, type LimitGroup } from "./limits";
-import { ATTACHMENTS, documentDescription, LEGAL_CHOICES, PURPOSE_STEP, storedName } from "./plain";
+import {
+  ATTACHMENTS,
+  documentDescription,
+  LEGAL_CHOICES,
+  nameKey,
+  PURPOSE_STEP,
+  storedName,
+} from "./plain";
+import {
+  CUSTOM,
+  OFFERED,
+  complete,
+  customEffort,
+  estimate as customEstimate,
+} from "./customSelection";
 import { asSentence, errorText, isUnreachable } from "../useResource";
 import type { FieldKey, FieldProblem } from "./fields";
 
@@ -96,9 +110,66 @@ export function capForPathway(caps: Record<string, string>, pathway: string) {
   return cap;
 }
 
-export function requireSummaryCap(summary: Summary, shownCap: string) {
+/**
+ * The summary's cap must be the one shown. A custom run's cap is the launcher's own, computed for
+ * the chosen modules, so it is never the table's: it must be a whole number of USD within the
+ * table's ceiling (`shownCap`) and equal to the cap of the estimate the summary carries.
+ */
+export function requireSummaryCap(summary: Summary, shownCap: string, custom = false) {
+  if (custom) {
+    const issued = Number(summary.cap);
+    if (
+      !/^[1-9]\d{0,5}$/.test(summary.cap) ||
+      issued > Number(shownCap) ||
+      summary.estimate?.cap !== summary.cap
+    )
+      throw new Error(
+        "The summary's cap is not one this page can show. Review the run again before submitting.",
+      );
+    return;
+  }
   if (summary.cap !== shownCap)
     throw new Error("The pathway cap changed while preparing this summary. Review the run again.");
+}
+
+/** The cap a review is submitted with: a preset's table cap, a custom run's issued cap. */
+export const reviewedCap = (summary: Summary, shownCap: string, custom: boolean) =>
+  custom ? summary.cap : shownCap;
+
+/**
+ * Whether the reviewed cap still stands for the pathway now chosen: a preset's is the table's
+ * figure; a custom run's is the one its summary issued, which the table's ceiling bounds.
+ */
+export function reviewCapStands(
+  review: Pick<Review, "answers" | "cap" | "summary">,
+  caps: Record<string, string>,
+  pathway: string,
+) {
+  if (review.answers.context.run.pathway !== pathway || review.summary.cap !== review.cap)
+    return false;
+  if (pathway !== CUSTOM) return review.cap === caps[pathway];
+  try {
+    requireSummaryCap(review.summary, caps[pathway] ?? "0", true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The page's own estimate of a custom run from the chosen modules; null without the table's cap. */
+export function pageEstimate(
+  chosen: readonly string[],
+  effort: string,
+  caps: Record<string, string>,
+) {
+  const ceiling = Number(caps[CUSTOM]);
+  return Number.isFinite(ceiling) && ceiling > 0
+    ? customEstimate(complete(chosen), {
+        compared: false,
+        effort: customEffort(effort),
+        ceiling,
+      })
+    : null;
 }
 
 /** The row editors of the Context step: each carries a `data-field` a refusal can name. */
@@ -144,6 +215,8 @@ export type DocumentRow = {
   file?: File;
   pendingCopy?: boolean;
   copied?: boolean;
+  /** The upload with this earlier file's bytes: the carry did not copy the earlier file. */
+  sameAs?: string;
 };
 
 /**
@@ -256,6 +329,8 @@ export type IntakeView = {
   changeEffort: (value: string) => void;
   changeTurns: (value: string) => void;
   toggleModule: (code: string, checked: boolean) => void;
+  /** A custom selection's chosen modules, set whole (a preset); the rules complete them. */
+  chooseModules: (modules: string[]) => void;
 };
 
 export function intakeDocuments(
@@ -265,6 +340,7 @@ export function intakeDocuments(
   copy: { prior: PriorInputs } | undefined,
   ignoredCopies: string[],
   copied: boolean,
+  sameContent: Record<string, string> = {},
 ) {
   const shownDocs = reading?.documents ?? [];
   const inspected = new Map(shownDocs.map((doc) => [storedName(doc), documentDescription(doc)]));
@@ -281,15 +357,33 @@ export function intakeDocuments(
     ),
   );
   const localNames = new Set(uploaded.values());
+  // The carry keeps an upload whose folded name matches an earlier file, so that file is not the
+  // draft's. Before the carry a selected file counts too: it is uploaded before the carry runs.
+  const localKeys = new Set(
+    [...uploaded.values(), ...(copied ? [] : files.map(storedForm))].map(nameKey),
+  );
   const documentRows: DocumentRow[] = [
     ...files.map((file) => ({ name: fileName(file), stored: uploaded.get(file), file })),
     ...[...new Set([...inspected.keys(), ...ignored.keys()])]
       .filter((name) => !localNames.has(name))
       .map((name) => ({ name, stored: name, file: undefined })),
-    ...(reading === undefined && !copy?.prior.error
+    // A file the reading already names is drawn from the reading; every other earlier file is the
+    // draft's (or will be), whatever the reading or the copy state (a refused reading lists only
+    // the refused file; a carry that ran without being marked lists all).
+    ...(!copy?.prior.error
       ? (copy?.prior.files ?? [])
-          .filter(({ name }) => !ignoredCopies.includes(name) && !localNames.has(name))
-          .map(({ name }) => ({ name, pendingCopy: !copied, copied }))
+          .filter(
+            ({ name }) =>
+              !ignoredCopies.includes(name) &&
+              !localKeys.has(nameKey(name)) &&
+              !inspected.has(name) &&
+              !ignored.has(name),
+          )
+          .map(({ name }) =>
+            name in sameContent
+              ? { name, copied, sameAs: sameContent[name] }
+              : { name, pendingCopy: !copied, copied },
+          )
       : []),
   ];
   const fileChoices: Record<string, string> = Object.fromEntries([
@@ -349,6 +443,8 @@ export function intakeRunDetails({
   newestOverride,
   reading,
   ignoredCopies,
+  chosen,
+  effort,
 }: {
   context: Context;
   customSlug?: string;
@@ -361,9 +457,13 @@ export function intakeRunDetails({
   newestOverride?: string;
   reading?: Reading;
   ignoredCopies: readonly string[];
+  /** The modules the analyst chose and the effort: what a custom run is estimated from. */
+  chosen: readonly string[];
+  effort: string;
 }) {
   const { run, identity } = context;
   const selectedCap = caps[run.pathway];
+  const custom = run.pathway === CUSTOM;
   return {
     run,
     identity,
@@ -371,8 +471,16 @@ export function intakeRunDetails({
       customSlug ??
       (settledSlug?.name === identity.issuer_name.trim() ? settledSlug.id : undefined) ??
       issuerSlug(identity.issuer_name),
-    requested: pathwayModules(run.pathway),
-    cap: selectedCap ? Number(selectedCap) : null,
+    // A custom run runs the chosen modules and what the rules add, never the preset's two.
+    requested: custom ? [...complete(chosen).modules] : pathwayModules(run.pathway),
+    // A custom run's cap is the summary's once there is one, else the page's estimate.
+    cap: custom
+      ? review
+        ? Number(review.summary.cap)
+        : (pageEstimate(chosen, effort, caps)?.cap ?? null)
+      : selectedCap
+        ? Number(selectedCap)
+        : null,
     earnings: run.pathway === "earnings_update",
     canRead:
       files.length > 0 ||
@@ -396,8 +504,8 @@ export function documentsRead(inspected: number, ignored: number) {
   return `${String(inspected)} ${noun} inspected, ${String(ignored)} ignored.`;
 }
 
-/** One file's bytes are released after hashing; the comparison map retains only compact digests. */
-async function documentDigest(file: File) {
+/** One file's bytes, read on their own so no two reads overlap. */
+async function documentBytes(file: File) {
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -409,26 +517,60 @@ async function documentDigest(file: File) {
     };
     reader.readAsArrayBuffer(file);
   });
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return new Uint8Array(bytes);
 }
 
-/** Hash equal-size candidates sequentially, stopping when a newer selection replaces them. */
+function sameBytes(left: Uint8Array, right: Uint8Array) {
+  return left.length === right.length && left.every((byte, index) => byte === right[index]);
+}
+
+/**
+ * Compare equal-size candidates one pair at a time (two files in memory at once, no Web Crypto,
+ * which a page served over plain http does not have), stopping when a newer selection replaces them.
+ */
 export async function repeatedDocuments(files: readonly File[], current: () => boolean) {
   const counts = new Map<number, number>();
   for (const file of files) counts.set(file.size, (counts.get(file.size) ?? 0) + 1);
-  const firstName = new Map<string, string>();
   const repeated = new Map<File, string>();
+  const kept: File[] = [];
   for (const file of files) {
     if (!current()) return repeated;
     if ((counts.get(file.size) ?? 0) < 2) continue;
-    const content = await documentDigest(file);
-    const first = firstName.get(content);
-    if (first !== undefined)
-      repeated.set(file, `Same content as ${first}. Remove one copy before inspection.`);
-    else firstName.set(content, fileName(file));
+    let content: Uint8Array | undefined;
+    for (const earlier of kept) {
+      if (earlier.size !== file.size) continue;
+      content ??= await documentBytes(file);
+      if (!current()) return repeated;
+      if (sameBytes(content, await documentBytes(earlier))) {
+        repeated.set(
+          file,
+          `Same content as ${fileName(earlier)}. Remove one copy before inspection.`,
+        );
+        break;
+      }
+    }
+    if (!repeated.has(file)) kept.push(file);
   }
   return repeated;
+}
+
+/**
+ * The name the service stores an upload under, per path part: a mirror of `filing.safe_name`
+ * (the source of truth: control characters and `\ / : * ? " < > |` become a space, runs of white
+ * space collapse, trailing dots and spaces go). The 80-character limit is not mirrored.
+ */
+export function storedForm(file: File) {
+  return fileName(file)
+    .split(/[/\\]/u)
+    .map((part) =>
+      part
+        .replace(/[\p{Cc}:*?"<>|]/gu, " ")
+        .split(/\s+/u)
+        .filter(Boolean)
+        .join(" ")
+        .replace(/[. ]+$/u, ""),
+    )
+    .join("/");
 }
 
 export function fileName(file: File) {
@@ -557,7 +699,10 @@ export function carriedIntro(prior: PriorInputs) {
   return `${intro} The earlier run didn’t record the files chosen for ${list}. Choose them again in More context.`;
 }
 
-export function carriedModules(prior?: PriorInputs) {
+export function carriedModules(prior?: PriorInputs): string[] {
+  // A custom run's modules are its own choice: the ones the page offers, in the page's order.
+  if (prior?.context?.run.pathway === CUSTOM)
+    return OFFERED.map(({ id }) => id).filter((id) => prior.modules.includes(id));
   const available = pathwayModules(prior?.context?.run.pathway ?? "");
   const chosen = prior?.modules ?? [];
   if (!drawnModules(chosen).length || !chosen.every((code) => available.includes(code))) return [];

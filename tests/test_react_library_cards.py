@@ -12,7 +12,10 @@ from react_frontend import _library_index
 
 
 def publication(
-    tmp_path: Any, candidates: list[tuple[str, str]], pathway: str = "credit_snapshot"
+    tmp_path: Any,
+    candidates: list[tuple[str, str]],
+    pathway: str = "credit_snapshot",
+    requested: list[str] | None = None,
 ) -> Layout:
     layout = Layout(tmp_path)
     workspace: dict[str, Any] = {"runs": {}, "outputs": {}, "handoffs": {}}
@@ -52,6 +55,7 @@ def publication(
         "pathway": pathway,
         "publicationVerified": True,
         "modules": modules,
+        **({} if requested is None else {"requested": requested}),
     }
     snapshot = {"catalogue": {"real": []}, "workspace": workspace, "chips": {}, "activity": {}}
     library = layout.engine / "library"
@@ -102,6 +106,57 @@ def test_card_lead_uses_the_pathways_verified_analytical_owner(
 ) -> None:
     reply = _library_index(publication(tmp_path, candidates, pathway))
     assert reply.body["workspace"]["runs"]["case-key"]["lead"]["module"] == expected
+
+
+@pytest.mark.parametrize(
+    ("requested", "candidates", "expected"),
+    [
+        # Covenant Capacity: the last planned module with a usable Bottom line.
+        (["CP-0", "CP-1", "CP-4", "CP-8"], [("CP-1", "Base."), ("CP-4", "Covenant view.")], "CP-4"),
+        # Governance and ESG: CP-2E is last in planned order; CP-1A leads when CP-2E has none.
+        (
+            ["CP-0", "CP-1", "CP-1A", "CP-2E"],
+            [("CP-1A", "Business view."), ("CP-2E", "Rates view.")],
+            "CP-2E",
+        ),
+        (["CP-0", "CP-1", "CP-1A", "CP-2E"], [("CP-1A", "Business view.")], "CP-1A"),
+        (
+            ["CP-0", "CP-1", "CP-1A", "CP-2E"],
+            [("CP-2E", "Not assessable: no inputs."), ("CP-1A", "Business view.")],
+            "CP-1A",
+        ),
+        # CP-2 leads whenever it delivered a usable entry.
+        (
+            ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-3", "CP-5", "CP-6"],
+            [("CP-6", "Committee view."), ("CP-2", "Credit view.")],
+            "CP-2",
+        ),
+        # CP-0 and CP-5 never lead; a decision module's passage is never a card's lead.
+        (
+            ["CP-0", "CP-1", "CP-5", "CP-6"],
+            [
+                ("CP-0", "Sources."),
+                ("CP-1", "Base."),
+                ("CP-5", "Evidence."),
+                ("CP-6", "Committee."),
+            ],
+            "CP-1",
+        ),
+    ],
+)
+def test_card_lead_of_a_custom_run_is_cp2_else_the_last_planned_module_with_a_usable_view(
+    tmp_path: Any, requested: list[str], candidates: list[tuple[str, str]], expected: str
+) -> None:
+    layout = publication(tmp_path, candidates, "custom", requested)
+    assert (
+        _library_index(layout).body["workspace"]["runs"]["case-key"]["lead"]["module"] == expected
+    )
+
+
+def test_card_lead_of_a_custom_run_with_only_excluded_modules_is_none(tmp_path: Any) -> None:
+    held = [("CP-0", "Sources."), ("CP-5", "Evidence."), ("CP-6", "Committee view.")]
+    layout = publication(tmp_path, held, "custom", ["CP-0", "CP-5", "CP-6"])
+    assert _library_index(layout).body["workspace"]["runs"]["case-key"]["lead"] is None
 
 
 def test_earnings_output_does_not_lead_another_pathway(tmp_path: Any) -> None:

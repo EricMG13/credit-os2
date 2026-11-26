@@ -72,9 +72,31 @@ export type ReadinessItem = {
   counted?: boolean;
   inherited_from?: string[];
 };
+/**
+ * A custom run's estimate as the service computes it (`run_start.submissions._custom_estimate`):
+ * each module's figure to the cent, the sum, the hold and the cap the run launches at.
+ */
+export type CustomEstimate = {
+  rows: {
+    module: string;
+    name: string;
+    usd: string;
+    measured: boolean;
+    /** Why the launcher added the module; null for one the analyst chose. */
+    added: string | null;
+    modules_page_only: boolean;
+  }[];
+  sum: string;
+  hold: string;
+  cap: string;
+  label: string;
+};
 export type Summary = Reading & {
   digest: string;
+  /** A preset's table cap; a custom run's is the launcher's own, equal to `estimate.cap`. */
   cap: string;
+  /** Present for a custom run only. */
+  estimate?: CustomEstimate;
   modules: string[];
   items: ReadinessItem[];
   omitted: string[];
@@ -334,8 +356,13 @@ export const getLatestIssuerRun = (issuer: string) =>
   request<{ latest_run: string; runs: number; latest_as_of: string; issuer_name?: string }>(
     `/api/issuers/${encodeURIComponent(issuer)}`,
   );
-export const carryDocuments = (id: string, run: string) =>
-  request<{ carried: string[]; kept: string[] }>(`${submission(id)}/carry`, postJson({ run }));
+/** Copies the earlier run's files; `leaveOut` names files not to copy (sent only when not empty).
+ * `same_content` maps an earlier file the service did not copy to the upload with its bytes. */
+export const carryDocuments = (id: string, run: string, leaveOut: string[] = []) =>
+  request<{ carried: string[]; kept: string[]; same_content?: Record<string, string> }>(
+    `${submission(id)}/carry`,
+    postJson(leaveOut.length > 0 ? { run, leave_out: leaveOut } : { run }),
+  );
 export const getReading = (id: string) => request<Reading>(`${submission(id)}/reading`);
 const referencePortfolio = (id: string) => `${submission(id)}/reference-portfolio`;
 export const uploadReferenceFile = (id: string, file: File) =>
@@ -519,6 +546,12 @@ export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[
   portfolio_decision: {
     label: "Portfolio Decision",
     modules: ["CP-0", "CP-1", "CP-MODEL", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"],
+  },
+  custom: {
+    label: "Custom selection",
+    // Owner, 2026-11-26: the modules a run names are the analyst's list; the preset is the least
+    // the contract holds (CP-0 and CP-1). The launcher completes the list.
+    modules: ["CP-0", "CP-1"],
   },
   credit_screening: {
     label: "Credit screening",

@@ -438,7 +438,8 @@ function Parts({ line }: { line: LiquidityLine }) {
 /** The stated liquidity per period: the handoff's own total where it writes one, and its parts. */
 function Liquidity({ view }: { view: NetDebtView }) {
   const lines = liquidityLines(view);
-  if (!lines.length) return null;
+  const reason = view.liquidityTotal?.reason ?? null;
+  if (!lines.length && !reason) return null;
   const total = view.liquidityTotal?.label;
   return (
     <Well>
@@ -447,6 +448,11 @@ function Liquidity({ view }: { view: NetDebtView }) {
           Liquidity
           {total && <span className="font-normal text-text-tertiary">{` · ${total}`}</span>}
         </p>
+        {reason && (
+          <p data-liquidity-unit className="text-gap-text">
+            {reason}
+          </p>
+        )}
         <ul className="flex flex-col gap-1">
           {lines.map((line) => (
             <li

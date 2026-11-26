@@ -38,6 +38,7 @@ from deploy_vii.contracts import (
     TableRow,
 )
 from deploy_vii.cp3_relative_value import TALK_MARKERS
+from deploy_vii.display import written_places
 from deploy_vii.execution import (
     Attempt,
     Execution,
@@ -1428,6 +1429,11 @@ def _trace(refs: Iterable[_Located]) -> Cites:
     return Cites(refs)
 
 
+def _shown_places(fraction: Decimal, floor: int) -> int:
+    """Places for a submitted percent level: the figure as written, never fewer than ``floor``."""
+    return max(floor, written_places(fraction, "percent"))
+
+
 @dataclass(frozen=True)
 class _Num:
     amount: Decimal
@@ -1687,7 +1693,7 @@ class _Composer:
         level = _Num(
             value,
             "decimal_fraction",
-            2,
+            2,  # quoted in CP-3D-LVL-01's sentence: prose check 8 allows two decimals there
             cites,
             value_class="source",
             period=self.talk_period() if talk else None,
@@ -1738,7 +1744,7 @@ class _Composer:
                     self.calc(
                         frac("mid"),
                         "decimal_fraction",
-                        3,
+                        2,
                         bo,
                         "cp3d.mid",
                         "(bid + offer) / 2",
@@ -1891,10 +1897,11 @@ class _Composer:
         level_refs: tuple[QuoteRef, ...] = ()
         if rr.level is not None:
             level_refs = (rr.level.quote,)
+            rate = Decimal(rr.level.percent_text) / PAR
             level = _Num(
-                Decimal(rr.level.percent_text) / PAR,
+                rate,
                 "decimal_fraction",
-                2,
+                _shown_places(rate, 2),
                 _trace(level_refs),
                 value_class="source",
                 period=self.terms_period(rr.level.quote),
@@ -1954,10 +1961,11 @@ class _Composer:
             "Not calculable: recovery assumption not assessed", "decimal_fraction"
         )
         if rec is not None:
+            held = Decimal(rec.percent_text) / PAR
             recovery = _Num(
-                Decimal(rec.percent_text) / PAR,
+                held,
                 "decimal_fraction",
-                0,
+                _shown_places(held, 0),
                 value_class="analyst_judgment",
                 period=self.run_period,
             )

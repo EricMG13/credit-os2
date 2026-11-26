@@ -1,5 +1,5 @@
-import { forwardPath, pathGeometry, PATH } from "../overview/stressData";
-import { withOtherCases } from "./cp2g";
+import { forwardStatement, pathGeometry, PATH, type forwardPath } from "../overview/stressData";
+import { leadPath } from "./cp2g";
 import { FigureTile, GapTile, LeadFrame, Link } from "./kit/LeadFrame";
 import { BAR, GapSlot, Legend, LINE, Measured, NARROW, SIZE, textWidth, wrap } from "./kit/marks";
 import { safeText } from "./kit/reader";
@@ -73,8 +73,19 @@ function spread<T extends { y: number; lines: string[] }>(ends: T[]) {
     const floor = above ? above.top + above.lines.length * LINE + 6 : -Infinity;
     placed.push({ ...end, top: Math.max(end.y - 6, floor) });
   }
+  // Nothing below the period labels: the last line of a label ends above them, and the labels
+  // above a pushed-up one give way in turn.
+  let limit = Infinity;
+  for (const item of [...placed].reverse()) {
+    item.top = Math.min(item.top, limit, BASE + 1 - (item.lines.length - 1) * LINE);
+    limit = item.top - item.lines.length * LINE - 6;
+  }
   return placed;
 }
+
+/** ", from zero" only while the axis starts at zero: a net-cash path pulls it below. */
+const axisNote = (path: Path) =>
+  pathGeometry(path.cases).ticks[0]?.label.startsWith("-") ? "" : ", from zero";
 
 function PathFigure({ path, width }: { path: Path; width: number }) {
   const narrow = width < NARROW;
@@ -83,7 +94,13 @@ function PathFigure({ path, width }: { path: Path; width: number }) {
   const margin = narrow
     ? 84
     : Math.min(170, Math.max(96, ...path.cases.map(({ group }) => textWidth(group) + 22)));
-  const left = 46;
+  // The room left of the plot is the widest tick label, minus sign included, and its gap.
+  const left = Math.max(
+    46,
+    Math.ceil(
+      Math.max(0, ...geometry.ticks.map((tick) => textWidth(`${tick.label}x`, SIZE.tick))),
+    ) + 12,
+  );
   const right = Math.max(left + 60, width - margin);
   const xs = geometry.periods.map(({ x }) => x);
   const [from = 0] = xs;
@@ -138,9 +155,9 @@ function PathFigure({ path, width }: { path: Path; width: number }) {
       viewBox={`0 0 ${String(width)} ${String(height)}`}
       width="100%"
       role="img"
-      aria-label={`${path.measure}, from zero. ${reading}.`}
+      aria-label={`${path.measure}${axisNote(path)}. ${reading}.`}
       data-layout={narrow ? "narrow" : "wide"}
-      data-zero={BASE}
+      data-zero={y(geometry.zero)}
       className="block"
     >
       {geometry.ticks.map((tick) => (
@@ -302,11 +319,11 @@ function ForwardTile({ props, path }: { props: LeadProps; path: Path }) {
       props={props}
       span={12}
       label="Forward net leverage"
-      kicker={`${path.measure}, from zero`}
+      kicker={`${path.measure}${axisNote(path)}`}
       caption={<Link href="#forecast">Open the forecast</Link>}
       title="Net leverage by case"
       source="the forward path"
-      notes={[...gaps, ...path.limits]}
+      notes={[...(path.unbased ? [end(path.unbased)] : []), ...gaps, ...path.limits]}
       table={{
         caption: path.measure,
         headers: ["Case", "Period", "As the model states it"],
@@ -327,8 +344,7 @@ function ForwardTile({ props, path }: { props: LeadProps; path: Path }) {
 
 function Content(props: LeadProps) {
   const [model] = props.view.models;
-  const base = model ? forwardPath(model) : null;
-  const path = base && model ? withOtherCases(base, model) : null;
+  const path = model ? leadPath(model) : null;
   return (
     <>
       {path ? (
@@ -336,7 +352,8 @@ function Content(props: LeadProps) {
       ) : (
         <GapTile span={12} label="Forward net leverage" kicker="Net leverage by case">
           {model
-            ? "This page could not read a net leverage path from the published model."
+            ? (forwardStatement(model) ??
+              "This page could not read a net leverage path from the published model.")
             : "This page could not read a published model for this run."}{" "}
           <Link href="#forecast">Open the forecast</Link>
         </GapTile>

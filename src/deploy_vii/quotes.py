@@ -118,6 +118,16 @@ def _text_readings(text: str) -> Iterator[str]:
         yield _joined(text)
 
 
+def readings(text: str) -> tuple[str, ...]:
+    """The normalised span, then its hyphen-wrap-joined reading when the span holds a wrap."""
+    return tuple(_text_readings(text))
+
+
+def needles(quote: str) -> tuple[str, ...]:
+    """The normalised quote, then the same with its own hyphen wraps joined, if it differs."""
+    return _needles(quote)
+
+
 def quoted(quote: str, text: str) -> bool:
     """Whether `quote` is a contiguous substring of `text`, both normalised, or of `text` with
     its hyphenated line wraps joined; the quote is tried as written and with its own wraps

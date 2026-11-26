@@ -102,7 +102,7 @@ it("draws three or more steps as the ladder, a stated zero after hedges marked",
   );
   // The table states the currency and no magnitude: the unit is printed as stated.
   expect(within(tile).getByText("USD")).toBeVisible();
-  expect(tile.textContent).not.toMatch(/US\$m|million/);
+  expect(tile.textContent).not.toMatch(/US\$m|\$m|million/);
 });
 
 it.each([
@@ -181,7 +181,7 @@ it("draws every stated move in one compact table, each measure's cells as writte
   expect(within(figure).getByText("Total leverage after the move (x)")).toBeInTheDocument();
   // The cells state no magnitude: the currency alone, as the handoff states it.
   expect(within(figure).getByText("Total debt after the move (USD)")).toBeInTheDocument();
-  expect(tile.textContent).not.toMatch(/US\$m|million/);
+  expect(tile.textContent).not.toMatch(/US\$m|\$m|million/);
   expect(within(figure).getAllByText("0.00")).toHaveLength(2);
   fireEvent.click(within(tile).getByRole("button", { name: "Table" }));
   expect(within(tile).getByRole("cell", { name: "3.01x" })).toBeVisible();

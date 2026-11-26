@@ -11,7 +11,10 @@ as-of date on or before this run's, excluding this run's own folder. A run is a 
 when its manifest records `selection: "preset"` (the pathway's own modules) and is not when it
 records `"explicit"` (a `--modules` subset); an older run that records neither is a base only if
 it delivered the pathway's lead module (`LEAD_MODULE`: CP-2, CP-1B for an earnings update, CP-L10
-for a short snapshot or a credit screening). A candidate that fails a test is never used and the
+for a short snapshot or a credit screening). A custom run (PR 7a) is the exception: its modules are
+the analyst's choice, so an earlier custom run is its base only when it completed the same modules
+less CP-8 and CP-MODEL, and no preset run is ever a custom run's base or the reverse (the pathway
+must be the same). A candidate that fails a test is never used and the
 reason is returned in `skipped`. The latest is chosen by (as-of date, first model-call start,
 folder name). None means no CP-8: the run records "first run of this pathway". The prior run's
 folder is read, never written. `prepare` copies its delivered handoffs into the run folder as
@@ -79,7 +82,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -97,6 +100,7 @@ from deploy_workflow.credit_os_catalogue import (
     mixes_dated_and_fiscal,
     period_order,
 )
+from deploy_workflow.credit_os_chips import MODULE_NAMES
 from deploy_workflow.library_index import (
     MethodHeadings,
     MethodText,
@@ -158,6 +162,26 @@ LEAD_MODULE = {
     "credit_screening": "CP-L10",
 }
 DEFAULT_LEAD = "CP-2"
+# A custom run's lead (PR 7a, ruling C16): CP-2 if it delivered, else the planned modules in reverse
+# order, except these (the sources, the research questions, the evidence check, the comparison and
+# the forecast owner lead nothing). The same rule is in reader.js and reportView.ts.
+NOT_A_CUSTOM_LEAD = frozenset({"CP-0", "CP-DR", "CP-5", "CP-8", "CP-MODEL"})
+# What a custom run's CP-8 compares: the completed modules, less the comparison and the forecast.
+COMPARED_AWAY = frozenset({"CP-8", "CP-MODEL"})
+
+
+def custom_lead_order(planned: Sequence[str]) -> tuple[str, ...]:
+    """The modules that may lead a custom run, first choice first."""
+    rest = (m for m in reversed(planned) if m != "CP-2" and m not in NOT_A_CUSTOM_LEAD)
+    return ("CP-2", *rest)
+
+
+def lead_module(pathway: str, planned: Sequence[str], delivered: Collection[str]) -> str | None:
+    """The module the Changes page leads with for a run: the pathway's fixed lead, or for a custom
+    run the first of `custom_lead_order` it delivered (None when it delivered none of them)."""
+    if pathway != "custom":
+        return LEAD_MODULE.get(pathway, DEFAULT_LEAD)
+    return next((m for m in custom_lead_order(planned) if m in delivered), None)
 
 
 class PriorRun(Contract):
@@ -198,27 +222,65 @@ def _launched_narrowed(workflow: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _names(modules: Collection[str]) -> str:
+    return ", ".join(MODULE_NAMES.get(m, m) for m in sorted(modules))
+
+
+def _custom_not_a_base(
+    workflow: Mapping[str, Any], delivered: Sequence[str], planned: Sequence[str] | None
+) -> str | None:
+    """Why an earlier custom run is not the base of this custom run: a test adaptation, a module
+    selection the launcher does not write, or completed modules that are not the planned ones.
+    An explicit module subset is what a custom run is, so it does not disqualify."""
+    if planned is None:
+        raise ValueError("a custom run is compared by its planned modules; none were given")
+    selection = workflow.get("selection")
+    ran, plans = set(delivered) - COMPARED_AWAY, set(planned) - COMPARED_AWAY
+    if adaptations := workflow.get("test_adaptations"):
+        return f"it was launched with a test adaptation ({', '.join(map(str, adaptations))})"
+    if selection not in ("preset", "explicit"):
+        return (
+            "it records no module selection"
+            if selection is None
+            else f"its module selection {selection!r} is not understood"
+        )
+    if missed := plans - ran:
+        return f"it did not complete {_names(missed)}, which this run plans"
+    if extra := ran - plans:
+        return f"it also completed {_names(extra)}, which this run does not plan"
+    return None
+
+
+def _unrecorded_selection(selection: object, delivered: Sequence[str], pathway: str) -> str | None:
+    """Why a run whose manifest records no module selection, or one this code does not know, is
+    not a base (the `preset` selection is one: it needs nothing more)."""
+    if selection == "preset":
+        return None
+    if selection is not None:
+        return f"its module selection {selection!r} is not understood"
+    lead = LEAD_MODULE.get(pathway, DEFAULT_LEAD)
+    return None if lead in delivered else f"it records no module selection and did not run {lead}"
+
+
 def _not_a_base(
     workflow: Mapping[str, Any],
     run: Mapping[str, Any],
     delivered: Sequence[str],
     me: Mapping[str, str],
+    *,
+    planned: Sequence[str] | None = None,
 ) -> str | None:
-    """Why a run of the same issuer and pathway is not a comparison base, or None when it is."""
+    """Why a run of the same issuer and pathway is not a comparison base, or None when it is.
+    ``planned`` is this run's planned modules, which a custom run's comparison needs."""
     if _fold(str(run.get("issuer_name", ""))) != _fold(me["issuer_name"]):
         return f"its issuer name is {run.get('issuer_name')!r}, not {me['issuer_name']!r}"
     if run.get("case_kind") != me["case_kind"]:
         return f"its case kind is {run.get('case_kind')!r}, not {me['case_kind']!r}"
-    selection = workflow.get("selection")
+    if me["pathway"] == "custom":
+        return _custom_not_a_base(workflow, delivered, planned)
     if (narrowed := _launched_narrowed(workflow)) is not None:
         return narrowed
-    if selection is None:
-        lead = LEAD_MODULE.get(me["pathway"], DEFAULT_LEAD)
-        if lead not in delivered:
-            return f"it records no module selection and did not run {lead}"
-    elif selection != "preset":
-        return f"its module selection {selection!r} is not understood"
-    return None
+    return _unrecorded_selection(workflow.get("selection"), delivered, me["pathway"])
 
 
 def find_prior(  # noqa: PLR0913 - the identity of the run and the library's method record
@@ -233,6 +295,7 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
     method: tuple[MethodText, MethodHeadings] | None = None,
     only: str | None = None,
     skipped: list[str] | None = None,
+    planned: Sequence[str] | None = None,
 ) -> tuple[PriorRun, dict[str, bytes]] | None:
     """The prior run (the rule in this module's docstring) and its delivered handoffs, or None.
 
@@ -241,7 +304,11 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
     listed, so it is logged at debug level only. A run of the same issuer and pathway that is not
     a comparison base, or whose delivered handoff cannot be read, is never used, and the reason is
     appended to ``skipped`` (one line per run) and logged once. ``only`` limits the candidates to
-    the run folder of that name."""
+    the run folder of that name. A custom run is compared only with an earlier custom run whose
+    completed modules are its ``planned`` ones (required for ``custom``; CP-8 and CP-MODEL in the
+    list are ignored, ruling C19)."""
+    if pathway == "custom" and planned is None:
+        raise ValueError("a custom run is compared by its planned modules; none were given")
     method = method or current_method()
     runs = workspace / "runs"
     reasons = skipped if skipped is not None else []
@@ -267,7 +334,9 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
                 continue
             deliveries: dict[str, dict[str, Any]] = {}
             record = admit_run(path, workspace / "library", method, deliveries)
-            why = _not_a_base(workflow, run, tuple(deliveries[name]["handoffs"]), me)
+            why = _not_a_base(
+                workflow, run, tuple(deliveries[name]["handoffs"]), me, planned=planned
+            )
         except Refused as refusal:
             log.debug("earlier run %s is not listed: %s", name, refusal)
             continue

@@ -88,3 +88,28 @@ it("still leaves the Source and Evidence columns to the drawer", () => {
 it("shows every column when the sources are not in the drawer", () => {
   expect(chartTable({ ...table, evidenceInDrawer: false }).head).toEqual(headers);
 });
+
+const bridge: SourceTable = {
+  line: 30,
+  headers: ["Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation"],
+  rows: [
+    ["Opening EBITDA", "100", "Not applicable", "US$m", ""],
+    ["Add-back", "5", "AB-1", "US$m", "Run-rate."],
+    ["Closing EBITDA", "105", "Not applicable", "US$m", ""],
+  ],
+  evidenceInDrawer: true,
+};
+
+it("leaves the EBITDA bridge's Add-Back ID column to the drawer, as the library hides an id column", () => {
+  const { head, rows: shown } = chartTable(bridge);
+  expect(head).toEqual(["Step", "Amount", "Reporting unit", "Basis and limitation"]);
+  expect(shown.map((row) => [row.label, ...row.cells])).toEqual([
+    ["Opening EBITDA", "100", "$m", null],
+    ["Add-back", "5", "$m", "Run-rate."],
+    ["Closing EBITDA", "105", "$m", null],
+  ]);
+});
+
+it("shows the Add-Back ID column where the sources are not in the drawer", () => {
+  expect(chartTable({ ...bridge, evidenceInDrawer: false }).head).toEqual(bridge.headers);
+});

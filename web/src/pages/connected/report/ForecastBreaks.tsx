@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { BarCell } from "@/components/kit/BarCell";
 import { cx } from "@/utils/cx";
 import { moduleName } from "../api";
-import { evidencePath, type OutputEntry } from "../publishedReport";
+import { evidencePath, unitLabel, type OutputEntry } from "../publishedReport";
 import type { ReportView } from "../reportView";
 import {
   cellsOf,
@@ -209,7 +209,7 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
   return (
     <Part
       title="Debt maturing"
-      detail={`${moduleName("CP-1")}'s schedule, as written${schedule.unit ? ` · ${schedule.unit}` : ""}`}
+      detail={`${moduleName("CP-1")}'s schedule, as written${schedule.unit ? ` · ${unitLabel(schedule.unit)}` : ""}`}
       trace={schedule.trace}
     >
       <FigureList
@@ -310,7 +310,7 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
                   Headroom <Figure className="text-mono">{test.headroom}</Figure>
                 </span>
               )}
-              {test.unit && <span>{`Unit ${test.unit}`}</span>}
+              {test.unit && <span>{`Unit ${unitLabel(test.unit)}`}</span>}
               {test.direction && <span>{test.direction}</span>}
             </span>
           </li>

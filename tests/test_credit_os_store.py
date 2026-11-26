@@ -2733,3 +2733,119 @@ def test_a_comparison_visual_whose_rows_are_periods_is_given_them_in_rule_order(
 )
 def test_a_visual_that_is_not_over_periods_is_left_as_configured(visual, headers, rows):
     assert "periods" not in pinned_visual(visual, headers, rows)
+
+
+def loss_making_files():
+    def column(ident, prior, ebitda):
+        return {
+            "id": ident,
+            "kind": "FY",
+            "label": ident,
+            "prior": prior,
+            "reason": None,
+            "start": None,
+            "end": None,
+            "values": {"revenue": held("1000"), "ebitda": held(ebitda)},
+        }
+
+    history = {
+        "schema_version": "cpos-history/1",
+        "columns": [column("FY2023", None, "-100"), column("FY2024", "FY2023", "-50")],
+        "limits": [],
+    }
+    exact = {
+        "outputs": {
+            "REFERENCE": {"years": [{"year": 2025, "revenue": held("1000"), "ebitda": held("-25")}]}
+        },
+        "scope_limits": [],
+    }
+    calculation = {"annual_periods": [], "values": {}, "history": history}
+    return {
+        "forecast_exact.json": json.dumps(exact).encode(),
+        "calculation.json": json.dumps(calculation).encode(),
+        "annual.md": b"No tables here.",
+        "quarter.md": b"No tables here.",
+    }
+
+
+def test_growth_over_a_non_positive_prior_has_no_figure():
+    grid, problem = store.read_cashflow(loss_making_files(), None)
+    assert problem is None
+    labels = [c["label"] for c in grid["columns"]]
+    row = next(r for r in grid["rows"] if r["label"] == "EBITDA YoY growth")
+    for label in ("FY2024", "FY2025E"):
+        cell = row["cells"][labels.index(label)]
+        assert (cell["status"], cell["exact"]) == ("na", None)
+        assert cell["reason"] == "a divisor is zero or negative"
+
+
+def library_tables(text):
+    sections, problem = store.structured(text.encode(), False)
+    return problem, [b for s in sections for b in s["blocks"] if b["type"] == "table"]
+
+
+TABLE_HEAD = "# Findings\n\n## Findings\n\n### Register\n\n"
+
+
+def test_an_empty_last_cell_written_without_a_space_is_one_empty_cell():
+    text = (
+        TABLE_HEAD
+        + "| Item | Amount | Note |\n| --- | --- | --- |\n"
+        + "| Revenue | 100 | stated |\n| Cash | 40 ||\n"
+    )
+    problem, tables = library_tables(text)
+    assert problem is None
+    assert [len(t["rows"]) for t in tables] == [2]
+    assert tables[0]["rows"][1]["cells"] == ["Cash", "40", ""]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        TABLE_HEAD + "| Item | Amount |\n| --- | --- | \n| Revenue | 100 |\n",
+        TABLE_HEAD + "  | Item | Amount |\n  | --- | --- |\n  | Revenue | 100 |\n",
+    ],
+)
+def test_the_library_reads_the_table_shapes_the_delivery_check_accepts(text):
+    problem, tables = library_tables(text)
+    assert problem is None
+    assert [len(t["rows"]) for t in tables] == [1]
+
+
+def test_an_indented_table_directly_after_a_paragraph_line_is_a_table():
+    """S14-2-1: the paragraph ends where the delivery check's table row begins."""
+    text = (
+        TABLE_HEAD
+        + "Amounts are in US$m.\n  | Item | Amount |\n  | --- | --- |\n  | Revenue | 100 |\n"
+    )
+    problem, tables = library_tables(text)
+    assert problem is None
+    assert [len(t["rows"]) for t in tables] == [1]
+
+
+# --- CP-1's `Pro forma interest and cover` section (CP-1 instruction PR, synthetic handoff) ------
+_PRO_FORMA_HEAD = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n"
+)
+_PRO_FORMA_HANDOFF = (
+    "## Findings\n\n### Net debt data\n\n"
+    "| Period | Gross debt | Cash | Net debt | Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- | --- |\n"
+    "| FY2024 | 1400 | 275 | 1125 | US$m | Gross debt: loans. |\n\n"
+    "### Pro forma interest and cover\n\n"
+    + _PRO_FORMA_HEAD
+    + "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| 2024-11-05 | 110 | cash interest | 500 | 4.55 | US$m "
+    "| Reported EBITDA; synthetic pro forma cash interest after the notes issue. |\n\n"
+    "## Calculations\n\nNone.\n"
+)
+
+
+def test_the_pro_forma_section_is_placed_as_a_reference_table():
+    sections = store.sections_of(_PRO_FORMA_HANDOFF)
+    placed = dict(zip([s["heading"] for s in sections], store.placements(sections), strict=True))
+    assert placed["Pro forma interest and cover"] == "reference"
+    (section,) = [s for s in sections if s["heading"] == "Pro forma interest and cover"]
+    assert [b["type"] for b in section["blocks"]].count("table") == 1
+    assert store.report_fields(sections, None)["words"]["reference"] > 0
