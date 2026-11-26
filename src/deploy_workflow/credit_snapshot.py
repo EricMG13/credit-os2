@@ -199,8 +199,9 @@ class SnapshotCell:
     `line` of its handoff. `basis` is the same row's Basis cell, exactly, for a scorecard or
     assessment cell: the writer's cell comment, never a cell. `written` is the handoff's exact text
     of a scorecard level or assessment view that is not the plain value `cp2_scorecard` read
-    (`**5**`): the cell then holds the parsed value, as computed, and `written` is kept on
-    Sources."""
+    (`**5**`) or of module text that named a module by its code: the cell then holds the parsed or
+    reader value, as computed, and `written` is kept on Sources. On a gap, `written` is the
+    technical reason the table could not be read (Sources only)."""
 
     sheet: str
     block: str
@@ -370,11 +371,22 @@ class _Absent(Exception):
 
 
 class _Unreadable(ValueError):
-    """Handoff content that is missing or malformed; becomes the block's gap, with this reason."""
+    """Handoff content that is missing or malformed; becomes the block's gap. The message is the
+    technical reason (logged, and kept on Sources); `module` is the handoff it was read from, so
+    the gap can name that module in reader words."""
+
+    def __init__(self, message: str, module: str | None = None) -> None:
+        super().__init__(message)
+        self.module = module
 
 
 class _Said(ValueError):
-    """As `_Unreadable`, but the message is already the whole gap sentence."""
+    """As `_Unreadable`, but the message is already the whole gap sentence; `reason` is the
+    technical reason, kept on Sources."""
+
+    def __init__(self, message: str, reason: str | None = None) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def _fold(text: str) -> str:
@@ -417,7 +429,7 @@ class _Table:
             return self.headers.index(name)
         folded = [_fold(header) for header in self.headers]
         if _fold(name) not in folded:
-            raise _Unreadable(f"{self.section} has no `{name}` column")
+            raise _Unreadable(f"{self.section} has no `{name}` column", self.module)
         return folded.index(_fold(name))
 
 
@@ -436,7 +448,9 @@ class _Doc:
         found = [i for i, line in enumerate(self.lines) if pattern.match(line)]
         if len(found) != 1:
             count = "no" if not found else str(len(found))
-            raise _Unreadable(f"the handoff has {count} {ident} register{'s' if found else ''}")
+            raise _Unreadable(
+                f"the handoff has {count} {ident} register{'s' if found else ''}", self.module
+            )
         start = found[0]
         end = next(
             (i for i in range(start + 1, len(self.lines)) if hd.heading_of(self.lines[i])),
@@ -456,17 +470,17 @@ class _Doc:
         try:
             return hd.section(list(self.lines), title)
         except ValueError as error:
-            raise _Unreadable(str(error)) from error
+            raise _Unreadable(str(error), self.module) from error
 
     def check(self) -> None:
         if self.error:
-            raise _Unreadable(self.error)
+            raise _Unreadable(self.error, self.module)
 
     def _table(self, label: str, rows: list[tuple[int, str]]) -> _Table:
         try:
             headers, body = hd.table(rows)
         except ValueError as error:
-            raise _Unreadable(f"{label}: {error}") from error
+            raise _Unreadable(f"{label}: {error}", self.module) from error
         found = tuple(_Row(line, tuple(cells)) for line, _, cells in body)
         return _Table(self.module, label, tuple(headers), found)
 
@@ -536,8 +550,21 @@ class _Maker:
             return replace(cell, basis=basis, written=text if cell.kind == COMPUTED else None)
         return replace(self._cell(row, column, COPIED, text, at), basis=basis)
 
-    def gap(self, row: str, column: str, text: str) -> SnapshotCell:
-        return self._cell(row, column, GAP, text)
+    def gap(self, row: str, column: str, text: str, reason: str | None = None) -> SnapshotCell:
+        """A gap. `reason`, when there is one, is the technical cause: it goes to Sources, never
+        into the sentence the reader sees."""
+        return replace(self._cell(row, column, GAP, text), written=reason)
+
+    def unreadable(
+        self, row: str, column: str, what: str, error: ValueError, module: str | None = None
+    ) -> SnapshotCell:
+        """The gap for something that could not be read: "The <what> of <module's name> could not
+        be read." in reader words (the module is the error's, or `module`); the error's own text is
+        the reason on Sources."""
+        found = module or (error.module if isinstance(error, _Unreadable) else None)
+        name = self.names.get(found or "")
+        of = f" of {name}" if name else ""
+        return self.gap(row, column, f"The {what}{of} could not be read.", str(error))
 
     def computed(self, row: str, column: str, text: str) -> SnapshotCell:
         return self._cell(row, column, COMPUTED, text)
@@ -645,7 +672,9 @@ class _Run:
     def company(self) -> tuple[_Table, _Row]:
         table = self.register("CP-1A", "company_description")
         if len(table.rows) != 1:
-            raise _Unreadable(f"{table.section} has {len(table.rows)} rows and should have one")
+            raise _Unreadable(
+                f"{table.section} has {len(table.rows)} rows and should have one", table.module
+            )
         return table, table.rows[0]
 
     def sector(self) -> str | None:
@@ -730,8 +759,10 @@ def _block(run: _Run, sheet: str, name: str, build: Builder) -> Block:
         cells = [maker.gap(row, column, text)] if text else []
     except ValueError as error:  # malformed handoff content: the block's gap (documented fail-open)
         _LOG.warning("credit snapshot: %s could not be read: %s", name, error)
-        text = str(error) if isinstance(error, _Said) else f"{name} could not be read: {error}."
-        cells = [maker.gap(row, column, text)]
+        if isinstance(error, _Said):
+            cells = [maker.gap(row, column, str(error), error.reason)]
+        else:
+            cells = [maker.unreadable(row, column, f"{name} table", error)]
     return Block(sheet, name, tuple(_numbered(cells)))
 
 
@@ -993,7 +1024,7 @@ def _historical(run: _Run, mk: _Maker) -> list[SnapshotCell]:
             cells += _paragraphs(run, mk, doc, title, doc.prose(title))
         except ValueError as error:  # a missing section is that section's gap
             _LOG.warning("credit snapshot: %s: %s could not be read: %s", mk.block, title, error)
-            cells.append(mk.gap(title, "Text", f"{title} could not be read: {error}."))
+            cells.append(mk.unreadable(title, "Text", f"{title} section", error, doc.module))
     return cells
 
 
@@ -1012,7 +1043,7 @@ def _peers(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """Peer issuer names, CP-1C's T4.1 first and then CP-DR's TDR.4, names not merged. CP-DR's
     single `none` row (no CP-1C question in the brief) names no peer."""
     found: list[tuple[_Table, _Row, str]] = []
-    problems: list[str] = []
+    problems: list[SnapshotCell] = []
     ran = False
     for module, ident, column in (("CP-1C", "T4.1", "Entity Name"), ("CP-DR", "TDR.4", "name")):
         if module not in run.docs:
@@ -1024,14 +1055,21 @@ def _peers(run: _Run, mk: _Maker) -> list[SnapshotCell]:
             _LOG.warning(
                 "credit snapshot: Peers: %s %s could not be read: %s", module, ident, error
             )
-            problems.append(f"The {module} peer table could not be read: {error}.")
+            problems.append(
+                mk.gap(
+                    "Gap",
+                    "Text",
+                    f"The {mk.names.get(module, module)} peer table could not be read.",
+                    str(error),
+                )
+            )
     if not ran:
         raise _Absent
     cells = [
         mk.copied(table.at(row.line), f"Peer {number}", "Peer issuer", text)
         for number, (table, row, text) in enumerate(found, 1)
     ]
-    cells += [mk.gap("Gap", "Text", text) for text in problems]
+    cells += problems
     return cells or [mk.gap("Gap", "Text", NO_PEERS)]
 
 
@@ -1044,7 +1082,8 @@ def _strengths(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         if direction not in ("strength", "weakness"):
             raise _Unreadable(
                 f"{table.section} has the direction `{row.cells[at['direction']]}`, "
-                "which is neither STRENGTH nor WEAKNESS"
+                "which is neither STRENGTH nor WEAKNESS",
+                table.module,
             )
         label = f"{direction.capitalize()} {row.cells[at['rank']]}"
         for column, key in (("Label", "label"), ("Mechanism", "mechanism")):
@@ -1062,7 +1101,7 @@ def _need_scorecard(run: _Run) -> Scorecard:
     if score.state == "refused" or score.scorecard is None:
         count = score.faults
         said = f"{count} fault{'s' if count != 1 else ''} in its tables" if count else score.reason
-        raise _Said(f"The credit scorecard could not be read: {said}.")
+        raise _Said("The credit scorecard could not be read.", said)
     return score.scorecard
 
 
@@ -1084,7 +1123,7 @@ def _scored(
     for name, wanted in parsed.items():
         row = by_name.get(_name(name))
         if row is None:
-            raise _Unreadable(f"{table.section} has no row for {name}")
+            raise _Unreadable(f"{table.section} has no row for {name}", table.module)
         text = row.cells[value]
         if text.strip() and text != wanted:
             cell = mk._cell(name, value_column, COMPUTED, wanted, table.at(row.line))
@@ -1195,7 +1234,7 @@ def _statement(run: _Run, spec: StatementSpec) -> list[_Pick]:
     unit = table.index("Unit")
     periods = [(i, table.headers[i]) for i in range(1, unit)]
     if not periods:
-        raise _Unreadable(f"{table.section} has no period column before `Unit`")
+        raise _Unreadable(f"{table.section} has no period column before `Unit`", table.module)
     named = {_fold(label): label for label in (*spec.fixed, *spec.optional)}
     free = {_fold(label) for label in _FREE[ident]}
     picks: list[_Pick] = []
@@ -1267,12 +1306,18 @@ def _net_debt(run: _Run) -> list[_Pick]:
     ]
 
 
+def _reader_table(label: str) -> str:
+    """A CP-1 table's name without its register code: `T4.4 Income statement` is `Income
+    statement`."""
+    return re.sub(r"^T[0-9]+\.[0-9]+ ", "", label)
+
+
 def _financials(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     run.doc("CP-1")
     cells: list[SnapshotCell] = []
     sources: list[tuple[str, Callable[[], list[_Pick]]]] = [
         *((spec.heading, lambda s=spec: _statement(run, s)) for spec in STATEMENTS),
-        ("T4.9", lambda: _register_rows(run)),
+        ("T4.9 Calculation register", lambda: _register_rows(run)),
         ("Net debt data", lambda: _net_debt(run)),
     ]
     for label, read in sources:
@@ -1280,7 +1325,7 @@ def _financials(run: _Run, mk: _Maker) -> list[SnapshotCell]:
             cells += [pick.cell(mk) for pick in read()]
         except ValueError as error:  # one table unreadable: its gap, the others still read
             _LOG.warning("credit snapshot: Financials: %s could not be read: %s", label, error)
-            cells.append(mk.gap("Gap", "Text", f"{label} could not be read: {error}."))
+            cells.append(mk.unreadable("Gap", "Text", f"{_reader_table(label)} table", error))
     return cells
 
 

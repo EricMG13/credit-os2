@@ -876,7 +876,8 @@ class _Book:
         for item in self.bases:
             ws.append(self._row_basis(ws.max_row + 1, item, "Row basis", item.basis))
         for item in self.writtens:
-            ws.append(self._row_basis(ws.max_row + 1, item, "As written", item.written))
+            column = "Reason" if item.kind == snap.GAP else "As written"
+            ws.append(self._row_basis(ws.max_row + 1, item, column, item.written))
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.font = _font()
@@ -913,8 +914,8 @@ class _Book:
     def _row_basis(
         self, number: int, item: snap.SnapshotCell, column: str, text: str | None
     ) -> list[Any]:
-        """A scorecard or assessment row's own Basis cell, or its value as the handoff wrote it
-        (`**5**`), exactly (the comment, when it is clean, repeats the Basis): on Sources only,
+        """A scorecard or assessment row's own Basis cell, its value as the handoff wrote it
+        (`**5**`), or the reason a gap could not be read, exactly (the comment, when it is clean, repeats the Basis): on Sources only,
         traced to its row's handoff line."""
         module = item.module
         return [

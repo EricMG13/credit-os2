@@ -670,3 +670,28 @@ def test_a_module_code_in_copied_text_reads_as_the_modules_name_and_sources_keep
     assert not [v for v in values if "CP-" in v]
     written = {r["Handoff text"] for r in sources(shown) if r["Column"] == "As written"}
     assert {event, driver} <= written
+
+
+def test_an_unreadable_table_is_a_reader_sentence_on_the_sheet_and_its_reason_is_on_sources(
+    tmp_path,
+):
+    handoffs = dict(cs.CASES["full"].handoffs)
+    text = handoffs["CP-1C"].read_text(encoding="utf-8")
+    assert "| Entity Name |" in text
+    handoffs["CP-1C"] = tmp_path / "CP-1C.md"
+    handoffs["CP-1C"].write_text(text.replace("| Entity Name |", "| Entity |", 1), "utf-8")
+    built = cs.build_case(tmp_path / "ws", replace(cs.CASES["full"], handoffs=handoffs))
+    shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    opened = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
+    (gap,) = [r for r in sources(opened) if r["Block"] == "Peers" and r["Kind"] == "gap"]
+    assert gap["Handoff text"] == "The Peer benchmark peer table could not be read."
+    (reason,) = [r for r in sources(opened) if r["Block"] == "Peers" and r["Column"] == "Reason"]
+    assert reason["Sheet"] == "Sources" and "`Entity Name` column" in reason["Handoff text"]
+    shown = [
+        c.value
+        for name in THREE
+        for row in opened[name].iter_rows()
+        for c in row
+        if isinstance(c.value, str)
+    ]
+    assert not [v for v in shown if "CP-" in v or "`" in v]

@@ -216,13 +216,28 @@ def test_a_register_is_found_by_the_launchers_heading_and_tag_forms(heading):
     assert (cell.kind, cell.text, cell.module, cell.line) == ("copied", "Majority", "CP-1A", first)
 
 
+MACHINERY = re.compile(r"CP-|`|register|Expected one|T[0-9]\.[0-9]|UTF-8|fault|_")
+
+
+def reader_gap(cell, sentence, reason):
+    """A gap that says only what the reader needs (`sentence`, no machinery); the technical
+    reason is on the cell for Sources, not in its text (ruling PM-f)."""
+    assert (cell.kind, cell.text) == ("gap", sentence)
+    assert not MACHINERY.search(cell.text)
+    assert reason in (cell.written or "")
+
+
 def test_a_heading_inside_a_code_fence_is_not_a_register(caplog):
     text = f"## Findings\n\n```\n### ownership_register\n\n{OWNERSHIP_TABLE}\n```\n"
     with caplog.at_level(logging.WARNING, logger=LOGGER):
         snapshot = snap.gather(run_of({"CP-1A": text}))
     (gap,) = where(snapshot, "Shareholders")
     assert (gap.kind, gap.row, gap.column) == ("gap", "Gap", "Text")
-    assert "no ownership_register register" in gap.text
+    reader_gap(
+        gap,
+        "The Shareholders table of Business & governance could not be read.",
+        "no ownership_register register",
+    )
     assert any("ownership_register" in record.getMessage() for record in caplog.records)
 
 
@@ -230,7 +245,11 @@ def test_a_register_written_twice_is_a_gap_not_a_guess():
     once = f"### ownership_register\n\n{OWNERSHIP_TABLE}\n"
     text = f"{once}\n{once}"
     (gap,) = where(snap.gather(run_of({"CP-1A": text})), "Shareholders")
-    assert gap.kind == "gap" and "2 ownership_register registers" in gap.text
+    reader_gap(
+        gap,
+        "The Shareholders table of Business & governance could not be read.",
+        "2 ownership_register registers",
+    )
 
 
 def test_a_table_without_its_header_is_that_blocks_gap_and_the_others_still_read(caplog):
@@ -249,7 +268,11 @@ def test_a_missing_column_is_the_blocks_gap_naming_the_column():
         "Why | Source |\n|---|---|---|---|---|\n| North",
     )
     (gap,) = where(snap.gather(run_of({"CP-1A": broken})), "Shareholders")
-    assert gap.kind == "gap" and "Credit relevance" in gap.text
+    reader_gap(
+        gap,
+        "The Shareholders table of Business & governance could not be read.",
+        "has no `Credit relevance` column",
+    )
 
 
 def test_a_cell_the_table_leaves_blank_is_a_gap_never_a_blank_cell():
@@ -271,7 +294,11 @@ def test_a_handoff_that_is_not_utf8_gaps_its_blocks_and_reads_the_rest(caplog):
     with caplog.at_level(logging.WARNING, logger=LOGGER):
         snapshot = snap.gather(run)
     (gap,) = where(snapshot, "Historical performance")
-    assert gap.kind == "gap" and "UTF-8" in gap.text
+    reader_gap(
+        gap,
+        "The Historical performance table of Earnings changes could not be read.",
+        "UTF-8",
+    )
     assert where(snapshot, "Header", "Issuer")[0].kind == "copied"
 
 
@@ -490,7 +517,12 @@ def test_a_statement_table_without_its_unit_column_is_a_gap_for_that_table_only(
     with caplog.at_level(logging.WARNING, logger=LOGGER):
         snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
     gaps = where(snapshot, "Financials", column="Text")
-    assert len(gaps) == 1 and "T4.6" in gaps[0].text and "`Unit` column" in gaps[0].text
+    assert len(gaps) == 1
+    reader_gap(
+        gaps[0],
+        "The Balance sheet table of Financial foundation could not be read.",
+        "T4.6 Balance sheet has no `Unit` column",
+    )
     assert one(snapshot, "Financials", "FFO", "FY2025").text == "280.0"
     assert not where(snapshot, "Financials", "Total Debt")
     assert [r for r in caplog.records if "T4.6" in r.getMessage()]
@@ -519,7 +551,9 @@ def test_a_missing_prose_section_is_its_own_gap_row():
     cut = FIXTURE["CP-1B"].replace("### Key findings", "### Other")
     snapshot = snap.gather(run_of(full(**{"CP-1B": cut})))
     gap = one(snapshot, "Historical performance", "Key findings", "Text")
-    assert gap.kind == "gap" and "Key findings" in gap.text
+    reader_gap(
+        gap, "The Key findings section of Earnings changes could not be read.", "Key findings"
+    )
     assert one(snapshot, "Historical performance", "Bottom line 1", "Text").kind == "copied"
 
 
@@ -545,7 +579,7 @@ def test_a_scorecard_parse_scorecard_refuses_is_one_gap_with_the_fault_count_and
     cp2 = FIXTURE["CP-2"].replace("| Liquidity | 2 |", "| Liquidity | 9 |")
     snapshot = snap.gather(run_of(full(**{"CP-2": cp2})))
     gap = one(snapshot, "Scorecard", "Gap", "Text")
-    assert gap.kind == "gap" and "1 fault" in gap.text
+    reader_gap(gap, "The credit scorecard could not be read.", "1 fault")
     assert not where(snapshot, "Assessments")
     assert snapshot.credit_score is None
     score = one(snapshot, "Credit Score", "Credit Score", "Value", sheet="Inputs")
@@ -602,7 +636,11 @@ def test_a_missing_cp2_gives_the_scorecard_gap_and_hides_assessments_and_trigger
 def test_a_strengths_row_with_an_unknown_direction_makes_the_block_a_gap():
     cp2 = FIXTURE["CP-2"].replace("| STRENGTH | 2 |", "| NEUTRAL | 2 |")
     (gap,) = where(snap.gather(run_of(full(**{"CP-2": cp2}))), "Strengths and weaknesses")
-    assert gap.kind == "gap" and "NEUTRAL" in gap.text
+    reader_gap(
+        gap,
+        "The Strengths and weaknesses table of Fundamental credit could not be read.",
+        "NEUTRAL",
+    )
 
 
 # --- The three context states ---------------------------------------------------------------------
@@ -1908,3 +1946,20 @@ def test_without_the_table_the_pro_forma_rows_stay_not_in_handoff():
     for label in ("Pro forma interest", "Pro forma interest cover"):
         cells = where(snapshot, "Capital structure totals", label)
         assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]
+
+
+def test_an_unreadable_peer_table_names_its_module_by_name_and_keeps_the_reason_on_the_gap():
+    broken = FIXTURE["CP-1C"].replace("| Entity Name |", "| Entity |", 1)
+    snapshot = snap.gather(run_of(full(**{"CP-1C": broken})))
+    gaps = [c for c in where(snapshot, "Peers") if c.kind == "gap"]
+    assert len(gaps) == 1
+    reader_gap(gaps[0], "The Peer benchmark peer table could not be read.", "`Entity Name` column")
+    assert [c.text for c in where(snapshot, "Peers") if c.kind == "copied"]  # CP-DR's still read
+
+
+def test_an_unreadable_dr_peer_table_names_research_questions():
+    broken = FIXTURE["CP-DR"].replace("| name |", "| entity |", 1)
+    assert broken != FIXTURE["CP-DR"]
+    snapshot = snap.gather(run_of(full(**{"CP-DR": broken})))
+    (gap,) = [c for c in where(snapshot, "Peers") if c.kind == "gap"]
+    reader_gap(gap, "The Research questions peer table could not be read.", "`name` column")
