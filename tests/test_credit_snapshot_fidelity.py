@@ -682,7 +682,7 @@ def test_every_methodology_constant_is_one_rule_row_on_matrix(built, tmp_path):
     rows = [r for r in opened.on_sheets() if r["Kind"] == "rule"]
     assert {r["Sheet"] for r in rows} == {"Matrix"}
     keys = Counter((r["Block"], r["Row"], r["Column"]) for r in rows)
-    assert keys == Counter(RULES), "each constant exactly once, and nothing else"
+    assert keys == Counter(RULES.keys()), "each constant exactly once, and nothing else"
     for row in rows:
         want = RULES[row["Block"], row["Row"], row["Column"]]
         got = opened.cell(row["Sheet"], row["Cell"]).value
