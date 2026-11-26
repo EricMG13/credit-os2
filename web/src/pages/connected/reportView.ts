@@ -121,7 +121,7 @@ function passageTexts(entry: OutputEntry, heading: string) {
  * market-implied risk, evidence validation and the committee. No run records a clearance for that
  * decision, so a summary page shows none of their bottom lines; their own pages do.
  */
-export const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
+const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
 
 /**
  * One bottom line per module that ran, other than the lead; text is null where there is none to
@@ -206,7 +206,7 @@ export function runLimitations(view: ReportView, run: PublishedRun, omit: readon
   });
 }
 
-export type MetricKey =
+type MetricKey =
   | "liquidity"
   | "freeCashFlow"
   | "leverage"

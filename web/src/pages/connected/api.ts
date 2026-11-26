@@ -113,7 +113,7 @@ export type ReferencePortfolio = {
   not_found: string[];
   findings: string[];
 };
-export type ReferenceReading = {
+type ReferenceReading = {
   name: string;
   holds: string;
   files: string[];

@@ -20,7 +20,7 @@ import { Tile } from "./overview/Tile";
 import { STACK } from "./evidenceKit";
 import { handoffName } from "./evidenceLabels";
 
-export type GapRecord = { line: number; title: string; severity: string | null; details: string };
+type GapRecord = { line: number; title: string; severity: string | null; details: string };
 type GapItem = { entry: OutputEntry; section: Section; gap: GapRecord };
 
 function noGap(value: string | undefined) {

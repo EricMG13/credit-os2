@@ -420,7 +420,7 @@ export function netDebtTable(view: NetDebtView) {
 }
 
 /** One cell of the Adjustments table: its text as written, and whether it is a stated gap or words. */
-export type AdjustmentCell = { text: string; gap: boolean };
+type AdjustmentCell = { text: string; gap: boolean };
 
 const cellOf = (cell: Reading): AdjustmentCell => ({
   text: words(cell),

@@ -182,7 +182,7 @@ export function periodSpan(labels: readonly string[], ordered = true) {
 const BAR = 16;
 const ROW_GAP = 14;
 
-export type BarRow = {
+type BarRow = {
   label: string;
   labelLines: string[];
   series: "primary" | "secondary";
@@ -253,7 +253,7 @@ const MARGIN = 50;
 export const PERIOD_BASE = 24;
 const PAD = 32;
 
-export type LinePoint = {
+type LinePoint = {
   label: string;
   x: number;
   /** The stated figure's position and text; null for a period the module did not state. */
@@ -504,7 +504,7 @@ const SLOPE_HEIGHT = 190;
 const SLOPE_TOP = 26;
 const SLOPE_BOTTOM = 128;
 
-export type SlopeDot = {
+type SlopeDot = {
   label: string;
   x: number;
   /** The mark's y, null where the ratio is not a number. */
@@ -516,7 +516,7 @@ export type SlopeDot = {
   compared: boolean;
 };
 
-export type SlopeSegment = {
+type SlopeSegment = {
   label: string;
   x1: number;
   y1: number;
