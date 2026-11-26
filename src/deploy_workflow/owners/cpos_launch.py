@@ -367,7 +367,7 @@ NOT_GPT = "A custom selection is estimated from GPT runs only; choose GPT."
 
 def custom_owned_modules() -> frozenset[str]:
     """The modules that own a block of the custom composition, as `_layout` reads a block's owners.
-    A module outside it writes no report section and shows on the Modules page only."""
+    A module outside it owns no report section of its own."""
     preset = next(p for p in pathways() if p.id == "custom")
     return frozenset(
         module
@@ -2036,7 +2036,7 @@ def _lookup_lines(
 
 def _estimate_lines(estimate: cpos_custom.Estimate | None) -> tuple[str, ...]:
     """A custom run's estimate: its sum, hold and cap, then a line per module with its figure, the
-    reason the launcher added it, and whether it shows on the Modules page only."""
+    reason the launcher added it, and whether it owns no report section of its own."""
     if estimate is None:
         return ()
     margin = " " * 10
@@ -2049,7 +2049,7 @@ def _estimate_lines(estimate: cpos_custom.Estimate | None) -> tuple[str, ...]:
             f"{margin}{row.module:<6} {row.name:<24} {row.figure:>5}"
             f"{' high' if row.high else ''}"
             f"{' (not measured)' if not row.measured else ''}"
-            f"{' (Modules page only)' if row.modules_page_only else ''}"
+            f"{' (No report section of its own)' if row.modules_page_only else ''}"
             f"{f' - {row.added}' if row.added else ''}"
             for row in estimate.rows
         ),

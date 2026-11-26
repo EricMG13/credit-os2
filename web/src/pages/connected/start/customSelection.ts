@@ -23,7 +23,7 @@ export type OfferedModule = {
   required: readonly string[];
   /** The first sentence of the module's purpose, verbatim. */
   answers: string;
-  /** The module owns no report block of a custom run: it shows on the Modules page only. */
+  /** The module owns no report block of a custom run: it has no report section of its own (it can still lead the run). */
   modulesPageOnly: boolean;
 };
 

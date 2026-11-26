@@ -727,6 +727,8 @@ def test_the_readiness_print_has_a_line_per_module_and_the_sum_hold_and_cap(tmp_
         r"^Estimate:\s+USD 1\.92 for \d+ modules, hold USD 7\.17, cap USD 10$", out, re.MULTILINE
     )
     assert "Cap:      USD 10 " in out
+    assert "page only" not in out
+    assert "(No report section of its own)" in out
 
 
 def test_a_custom_cap_above_the_ceiling_is_not_told_to_ask_lower():

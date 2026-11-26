@@ -108,7 +108,7 @@ export function CustomPicker({ view }: { view: IntakeView }) {
               </p>
               <p id={ids[1]} className="text-caption text-text-tertiary">
                 {needs.length ? `Needs first: ${nameSentence(needs)}` : "Needs nothing first"}
-                {module.modulesPageOnly && " · Modules page only"}
+                {module.modulesPageOnly && " · No report section of its own"}
                 {row && !row.measured && " · Not measured: the mean of the measured modules"}
               </p>
               {reason !== undefined && (

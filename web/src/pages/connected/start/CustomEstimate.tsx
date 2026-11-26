@@ -95,7 +95,7 @@ export function ReviewedEstimate({ estimate }: { estimate: CustomEstimate }) {
               <span className="col-span-2 text-caption text-text-secondary">
                 {[
                   row.added ? serviceText(row.added, "custom") : "",
-                  row.modules_page_only ? "Modules page only" : "",
+                  row.modules_page_only ? "No report section of its own" : "",
                   row.measured ? "" : "Not measured: the mean of the measured modules",
                 ]
                   .filter(Boolean)

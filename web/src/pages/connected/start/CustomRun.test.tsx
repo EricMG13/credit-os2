@@ -226,6 +226,7 @@ describe("the picker", () => {
     expect(within(picker()).getAllByRole("checkbox")).toHaveLength(20);
     const text = picker().textContent;
     expect(text).not.toMatch(/CP-/);
+    expect(text).not.toMatch(/page only/i);
     const row = box("Committee decision").closest("li");
     expect(row).toHaveTextContent("Runs the investment-committee debate and challenge");
     expect(row).toHaveTextContent(
@@ -233,8 +234,10 @@ describe("the picker", () => {
     );
     expect(row).toHaveTextContent("USD 0.99");
     expect(box("Source readiness").closest("li")).toHaveTextContent("Needs nothing first");
-    expect(box("Source readiness").closest("li")).toHaveTextContent("Modules page only");
-    expect(box("Committee decision").closest("li")).not.toHaveTextContent("Modules page only");
+    expect(box("Source readiness").closest("li")).toHaveTextContent("No report section of its own");
+    expect(box("Committee decision").closest("li")).not.toHaveTextContent(
+      "No report section of its own",
+    );
     expect(within(picker()).queryByText("Cash flow model")).not.toBeInTheDocument();
     expect(within(picker()).queryByText("Changes since the last run")).not.toBeInTheDocument();
   });
@@ -287,7 +290,9 @@ describe("the picker", () => {
     expect(box("Rates, FX & hedging")).not.toBeChecked();
     for (const name of ["Committee decision", "Security selection", "Evidence validation"])
       expect(box(name)).toBeChecked();
-    expect(box("Evidence validation").closest("li")).toHaveTextContent("Modules page only");
+    expect(box("Evidence validation").closest("li")).toHaveTextContent(
+      "No report section of its own",
+    );
   });
 
   it.each(PRESET_KEY)(
@@ -414,7 +419,8 @@ describe("the summary and the submit", () => {
     expect(estimateBox()).toHaveTextContent(
       "Compares this run with the earlier run named in this summary.",
     );
-    expect(estimateBox()).toHaveTextContent("Modules page only");
+    expect(estimateBox()).toHaveTextContent("No report section of its own");
+    expect(estimateBox().textContent).not.toMatch(/page only/i);
     expect(screen.getByLabelText("What it will cost")).toHaveTextContent("USD 14.00");
     expect(document.body.textContent).not.toMatch(/CP-[0-9A-Z]/);
     // The picker is where a custom run's modules change: no limit offers to leave one out.

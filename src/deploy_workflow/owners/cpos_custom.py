@@ -50,7 +50,7 @@ class CustomRefused(ValueError):
 class Completion:
     """A custom selection completed: its modules in planned order (CP-8 and CP-MODEL are not in
     it), the reason for each module the rules added, and the modules that own no block of the
-    custom composition (they appear on the Modules page only)."""
+    custom composition (they have no report section of their own)."""
 
     modules: tuple[str, ...]
     reasons: dict[str, str]
