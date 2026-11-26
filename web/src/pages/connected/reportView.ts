@@ -190,10 +190,14 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
   });
 }
 
+// Punctuation and case do not tell two limitations apart; a figure's decimal point, sign and
+// percent do ("3.5x" and "35x", "-5" and "5", "10.5%" and "105%" are different figures).
+const FIGURE_MARK =
+  /(?<keep>(?<=\d)\.(?=\d)|(?<=\d)%|(?<![\p{L}\p{N}])[+-](?=\d))|[^\p{L}\p{N}\s]/gu;
 const sameLimitation = (text: string) =>
   text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(FIGURE_MARK, (mark, keep: string | undefined) => (keep ? mark : ""))
     .replace(/\s+/g, " ")
     .trim();
 
@@ -361,16 +365,10 @@ function maturityTotal(entry: OutputEntry, date: string, run?: string): MetricBi
     "Result",
     "Source",
   ]);
-  const dateYear = Number(date.slice(0, 4));
-  const through = dateYear + 1;
+  const through = Number(date.slice(0, 4)) + 1;
   const row = namedRow(table, ({ cells }) => {
     const match = /^Maturities from (\d{4}-\d{2}-\d{2}) to end-(\d{4})$/.exec(cells[1] ?? "");
-    return (
-      !!match &&
-      Number(match[2]) === through &&
-      match[1]?.slice(0, 4) === date.slice(0, 4) &&
-      match[1] > date
-    );
+    return !!match && Number(match[2]) === through && (match[1] ?? "") > date;
   });
   const value = row?.cells[3];
   return value && numeric.test(value)

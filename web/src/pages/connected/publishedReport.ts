@@ -629,6 +629,15 @@ export function methodNote(text: string) {
   );
 }
 
+// A bracket that is only evidence markers or register ids. The markers the handoffs write are
+// E (evidence), S (source), G (gap) and C (calculation) with 1-3 digits ([E3], [S12], [G4], [C07]),
+// and dotted register ids ([T4.18], [T2E.3.r03]). A bare Q3, H1, T4 or FY24 is a period or
+// scenario the reader needs, so it is not a marker.
+const MARKER_ITEM = String.raw`(?:[ESGC]\d{1,3}|[TP][A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*)`;
+const MARKER_BRACKET = new RegExp(
+  String.raw`^\[\s*${MARKER_ITEM}(?:\s*(?:[,;]|[–-])\s*${MARKER_ITEM})*\s*\]$`,
+);
+
 export function readParagraph(text: string) {
   const lines = text.split("\n");
   const last = lines.at(-1) ?? "";
@@ -651,7 +660,8 @@ export function readParagraph(text: string) {
       if (!endsSentence) return cluster;
       return cluster.replace(/ ?(\[[^\]]*\]|【[^】]*】)/g, (item: string, citation: string) => {
         if (
-          !/CP-[A-Z0-9]+|\bpp?\.|\bpages?\b|\b[A-Z]\d{1,3}\b|†|^【/.test(citation) &&
+          !/CP-[A-Z0-9]+|\bpp?\.|\bpages?\b|†|^【/.test(citation) &&
+          !MARKER_BRACKET.test(citation) &&
           !containsReference(citation)
         )
           return item;
@@ -716,13 +726,15 @@ function parenthesizedGap(text: string) {
 // count/duration phrase after it can continue a percentage-point quantity. Duration modifiers
 // have no word-count limit, but punctuation ends that phrase; bare/parenthesized locators
 // have no preceding quantity. Explicit locator cues take precedence. Word fragments, S&P and
-// p.p. are excluded at the token boundary; "front page 2025" is a headline, not a locator.
+// p.p. are excluded at the token boundary; a capital letter run straight into digits (P50, P90) is a
+// percentile or a label, not a locator (a lowercase "p12" still is one); "front page 2025" is a headline, not a locator.
 function pageCitation(text: string) {
   return contextualMatch(
     text,
     /(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b/gi,
     (match, before, after) => {
       const marker = match[1]?.toLowerCase();
+      if (/^[a-z]+\d/i.test(match[0]) && match[1] !== marker) return false;
       if (match[2] || /\b(?:see|at|on|as)\s*$/i.test(before)) return true;
       if (marker === "pp") {
         if (/\d\s*$/.test(before)) return false;
