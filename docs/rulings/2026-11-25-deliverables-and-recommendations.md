@@ -198,6 +198,42 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
   where T4.9 states no adjusted row is not refused; CP-1B, whose method validates CP-1's add-back
   ids, may change its output with no edit of its own.
 
+## Credit Snapshot workbook (PR 4, PR 124, 2026-11-26)
+
+Owner's words are quoted; the rest is the coordinating session's or the PR's controller's.
+
+- Nothing may require LibreOffice (owner: "no libra office should be required"). Formulas are
+  pinned by exact-text tests and checked by hand evaluation against `recommendation.py`; Excel's
+  own evaluation is a manual check for the owner, its steps in the PR body.
+- FIGI and Bloomberg ID are copied from the run's RV worksheet (owner: "you can extract FIGI and
+  BBGID from RV worksheet and add providing BBG formulas on todo list"). Either identifies an
+  instrument (owner: "bloomberg id or figi will work with the same formula, so either is fine").
+  The Bloomberg formulas are `docs/TODO.md` item 14, work PC only (owner: "adding the formulas can
+  only be done on the work PC").
+- The join to T4.18 is exact: a maturity date unique on both sides with agreeing asset type; one
+  unreadable loan maturity on either side refuses every join (controller; fail-safe).
+- Pre-merge review on Opus while Fable is rate-limited until 2026-12-02 07:00 Europe/London
+  (owner: "Use Opus meanwhile").
+- Market fields (facility ratings, bid, ask, 1M and YTD moves, index and peer rows) are analyst
+  cells; the reference portfolios feed the Matrix's valuation bands (controller).
+- Copying (controller): Principal and Drawn are both copied; free-label rows match ignoring case
+  and spacing; senior and unsecured debt and leverage only from a row of that name, else a gap;
+  each figure keeps its table's unit, and a table with no unit, or a unit that differs by period,
+  shows that as a gap.
+- Pro forma interest and cover come only from the `Reported EBITDA` row of CP-1's PR 120 table,
+  else `not in handoff`; an adjusted cover is not shown under that label (controller).
+- Reader rule (controller): a Basis goes into a cell comment only when it holds no module id, file
+  name, hash or run id; every Basis is on Sources. Copied text is drawn by the findings-page rule
+  of `2026-11-11-reader-and-issuer-report.md`, a reference-bearing cell showing its own words
+  without the reference.
+- Formulas (controller): EV is equity value plus net debt, else EV multiple × reported EBITDA, for
+  the period the analyst picks; % EV is principal over EV. KPI tiles use the latest period by its
+  stated end date, else the gap `period order not stated`. Levels are rounded to six decimals
+  before banding. A result held to 3 names the limits that hold it.
+- The Snapshot is one landscape page wide; its height follows the content (controller).
+- openpyxl is loaded untyped through `importlib`; no stub package was added (controller; adding
+  one needs a decision record).
+
 ## Amends
 
 - `AGENTS.md`, the Excel bullet: Excel stays an input format for analysis; exactly one generated

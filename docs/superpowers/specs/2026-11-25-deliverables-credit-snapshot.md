@@ -51,12 +51,12 @@ by ruled arithmetic, **R** reference portfolio file.
 | Transaction | New issue table: borrower, instrument, type, use of proceeds, size, maturity | M | CP-1A `transaction_summary`; the run context's `deal_terms` (CP-1 writes no new-issue rows: owner, 2026-11-26, "Leave it out") | Yes when a transaction exists; block hidden otherwise |
 | Transaction | Guidance, OID, expected ratings, commit date, covenant score | A | none (third-party or deal terms) | n/a |
 | Capital structure | Facility, coupon or spread, currency, maturity, outstanding, ranking | M | CP-1 T4.18 debt instruments | Yes |
-| Capital structure | FIGI / Bloomberg ID | R then A | the RV book (Sector RV workbook) supplied to the run, matched on borrower and facility terms; analyst cell when no match | Only with an RV book |
-| Capital structure | Facility ratings, bid, ask | B or R | Bloomberg; supplied pricing file | Only with a pricing file |
-| Capital structure | Senior, unsecured, total debt, cash, multiples | M | CP-1 T4.9 calculation register, net debt data | Yes |
+| Capital structure | FIGI / Bloomberg ID | R then A | the RV book (Sector RV workbook) supplied to the run, joined to a T4.18 instrument only on a maturity date unique on both sides with agreeing asset type, no fuzzy match (PR 4); either identifier is enough; analyst cell when no join | Only with an RV book |
+| Capital structure | Facility ratings, bid, ask | A (B later) | analyst cells until the Bloomberg formulas are added (`docs/TODO.md` item 14) | n/a |
+| Capital structure | Senior, unsecured, total debt, cash, multiples | M | CP-1 T4.6 and T4.9, net debt data; senior and unsecured debt and leverage only from a row of that name, with its unit, else the gap `not in handoff` (PR 4) | Partly |
 | Capital structure | Equity value or EV multiple, % EV | B or A, then C | Bloomberg equity value if listed; analyst multiple if not | n/a |
-| Capital structure | Pro forma interest and cover | M | CP-1 `Pro forma interest and cover` table (PR 120); cash flow model output where the pathway holds it | Partly |
-| EBITDA bridge | Reported EBITDA, each add-back, Structuring EBITDA (reported plus all add-backs), less unrealised add-backs, House EBITDA (structuring less unrealised add-backs) | M | Amounts: CP-1 T4.17 EBITDA bridge. Realised or unrealised: CP-1D T1D.1 add-back register and T1D.2 achievability ("Run-Rate Claimed" against "Realized To Date"), joined on Add-Back ID (owner, 2026-11-25: "add back are covered in cp-1d") | Yes once CP-1D is in every pathway (in flight); an add-back CP-1D marks Insufficient Information is shown unclassified, not assumed realised |
+| Capital structure | Pro forma interest and cover | M | CP-1 `Pro forma interest and cover` table (PR 120), its `Reported EBITDA` row only, else `not in handoff` (PR 4); cash flow model output where the pathway holds it | Partly |
+| EBITDA bridge | Reported EBITDA, each add-back, Structuring EBITDA (reported plus all add-backs), less unrealised add-backs, House EBITDA (structuring less unrealised add-backs) | M | Amounts: CP-1 T4.17 EBITDA bridge. Realised or unrealised: CP-1D T1D.1 add-back register and T1D.2 achievability ("Run-Rate Claimed" against "Realized To Date"), joined on Add-Back ID (owner, 2026-11-25: "add back are covered in cp-1d"); until CP-1D carries the ids, the split is the gap `needs add-back ids in the bridge` (PR 4) | Amounts yes; the split once CP-1D carries the ids; an add-back CP-1D marks Insufficient Information is shown unclassified, not assumed realised |
 | Business | Description | M | CP-1A company and operating model | Yes |
 | Thesis | Investment thesis | A | blank by ruling R2 | n/a |
 | Thesis | Catalysts and near-term events | M | CP-1A `events_timeline`; CP-2 T2.12 monitoring triggers | Yes |
@@ -67,11 +67,11 @@ by ruled arithmetic, **R** reference portfolio file.
 | Financials | Cash, senior debt, total debt, net debt | M | CP-1 T4.6, net debt data | Yes |
 | Financials | Senior, total and net leverage, interest cover | M | CP-1 leverage and interest cover data, T4.9 | Yes |
 | Financials | Leverage and cover chart | C (chart of M cells) | cells above; periods on the X axis, oldest → LTM → PF | In flight (chart-periods PR) |
-| Relative value | Loan table only if the issuer has loans; bond table only if it has bonds; both if both | – | CP-1 T4.18 `Asset type` (PR 120) | Yes |
+| Relative value | Loan table only if the issuer has loans; bond table only if it has bonds; both if both | – | the Inputs sheet's Type cell, with CP-1 T4.18 Type read fail-safe (an unknown type joins nothing); reading T4.18 `Asset type` (PR 120) is a follow-up | Yes |
 | Relative value | FIGI / Bloomberg ID of the issuer's instruments and peers (required to populate every other field) | R | the RV book | Only with an RV book |
-| Relative value | Index rows by rating bucket | B or R | Bloomberg; reference portfolio aggregates | R only after PR 3 |
+| Relative value | Index rows by rating bucket | A (B later) | analyst cells in each card's Index row; the reference portfolios feed the Matrix's valuation bands | n/a |
 | Relative value | Peer loans and bonds: names | M | CP-1C peers, CP-DR peer pack, CP-3 relative value | Yes once CP-1C is in every pathway |
-| Relative value | Peer pricing | B or R | Bloomberg; reference portfolio rows | R only after PR 3 |
+| Relative value | Peer pricing | A (B later) | analyst cells, one row per named peer | n/a |
 
 Kept from the original: every block above. Dropped: the logo, "State Street" labels, the
 guidance notes column. Added: the 17-factor scorecard strip, proposed-versus-confirmed state on
@@ -79,6 +79,12 @@ each recommendation, an as-of date for every reference portfolio, and a Sources 
 trace for each M cell (source references stay off the Snapshot sheet, per the reader ruling).
 
 A missing M value is written as an explicit gap ("not in handoff"), never as zero.
+
+Amended at PR 4's merge (2026-11-26, coordinator, from the PR's rulings): the rows marked PR 4 above
+and the three `A (B later)` kinds. No Bloomberg is installed here, so PR 4 writes no Bloomberg
+formula: a B cell is an analyst cell until the formulas are added on the work PC (`docs/TODO.md`
+item 14). The owner's words: "bloomberg id or figi will work with the same formula, so either is
+fine. adding the formulas can only be done on the work PC."
 
 ## 3. Workbook design
 
