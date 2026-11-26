@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import re
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal as D
 
@@ -980,3 +981,24 @@ def test_a_run_with_no_peers_has_the_index_row_and_the_own_rows_only(bare):
         rows = card_rows(bare, card)
         assert rows[0] == "Index"
         assert not [name for name in rows if name.startswith("Peer ")]
+
+
+def test_with_no_readable_instrument_every_portfolio_result_is_blank_never_n_a(tmp_path):
+    """Ruling PM-e: n/a needs every instrument's type known (T3-i); with no instrument read, none
+    is. The result is `=""`, so the gap on Inputs stays the visible fact."""
+    handoffs = dict(cs.CASES["full"].handoffs)
+    text = handoffs["CP-1"].read_text(encoding="utf-8")
+    old = "| Instrument | Type | Carrying Value |"
+    assert old in text
+    handoffs["CP-1"] = tmp_path / "CP-1.md"
+    handoffs["CP-1"].write_text(
+        text.replace(old, "| Facility | Type | Carrying Value |", 1), "utf-8"
+    )
+    built = cs.build_case(tmp_path / "ws", replace(cs.CASES["full"], handoffs=handoffs))
+    shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    assert [c.kind for c in shot.cells() if c.block == "Instruments"] == ["gap"]
+    opened = opened_from(shot)
+    results = [r for r in sources(opened) if r["Block"] == "Portfolio result"]
+    assert [r["Handoff text"] for r in results if r["Kind"] == "formula"] == ['=""'] * len(
+        shot.references
+    )

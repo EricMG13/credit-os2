@@ -725,7 +725,7 @@ class _Builder:
             at = At(MATRIX, PORTFOLIO, ref.view.name, "Result")
             d = _Draft()
             if not self.instruments:
-                cells.append(self.formula(at, d, '="n/a"'))
+                cells.append(self.formula(at, d, f"={EMPTY}"))  # no instrument read: not n/a (PM-e)
                 continue
             eligible = d(
                 Span(tuple(At(MATRIX, ELIGIBLE, n, ref.view.name) for n in self.instruments))
