@@ -4,6 +4,30 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 3 preparation, HTTP logs and offline MSAL proof
+
+- Scope: TODO item 22 and Task 0 on `codex/sign-in-slice-3`, based on #119 at `de2a5543`.
+  The owner authorized starting slice 3 while #108 and #119 remain drafts. The identity proof uses
+  a loopback stand-in only. The build and tests made no Microsoft request, model call or live fetch.
+- The shared HTTP handler logs safe method, path, status and error categories. Test-first regressions
+  caught query disclosure in access, parser, unexpected failure and interrupted I/O paths, including
+  parser escaping before parsed fields are available. The scoped review passed. The rewrite
+  tournament kept the structured logger and bounded the parser fallback's token split.
+- MSAL 1.39.0 completed the public-client PKCE flow with no secret. The injected client mapped the
+  HTTPS authority to the declared loopback stand-in. An independently verified signed control and
+  the altered-signature fixture had identical headers and claims. MSAL accepted both. The proof
+  used one-use codes and refused unconfigured redirect, state and scope values before creating
+  provider state. No credential-bearing cache event or token was retained by the application
+  factory, and DEBUG capture found no credential text. [Dependency record](docs/rulings/2026-11-26-sign-in-msal-pin.md)
+- Checked on macOS: 528 targeted tests passed, including 18 Task 0 tests. MSAL emitted its query-mode
+  warning. The changed-code gate and three import contracts passed. Confidence review and the
+  changed-update sweep checked the provider declaration, clock-boundary and credential-log regressions.
+  GPT handled the advisor review with owner approval after the Opus 5.5 xhigh attempt returned an
+  expired Claude login. Task review passed after fixing two provider-fixture findings.
+- Not verified: native Windows (TODO item 15), a real Entra tenant and TLS deployment, browser sessions
+  and the rest of slice 3. TODO item 25 needs an owner decision before the browser flow is enabled.
+  HTTP cookie scope is shared across ports of one host. [RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265.html#section-8.5)
+
 ## 2026-11-26 — Sign-in slice 2: sessions, the one check, the switch and `/auth/me` (PR #119)
 
 - Scope: `deploy_workflow.accounts` (sessions; folder rules and display names moved or fixed) and
