@@ -50,6 +50,7 @@ from typing import Literal
 
 from deploy_vii.context import ContextRefused, RunContext, load_context
 from deploy_vii.inputs import portfolio_export as pe
+from deploy_vii.inputs.csv_text import decode_csv_text
 from deploy_workflow import credit_os_chips as chips
 from deploy_workflow import handoff_delivery as hd
 from deploy_workflow import library_index as li
@@ -65,6 +66,7 @@ from deploy_workflow.cp2_scorecard import (
     parse_scorecard,
 )
 from deploy_workflow.credit_os_catalogue import pathway_title, period_order
+from deploy_workflow.markdown_delivery import visible
 from deploy_workflow.method_scripts import _register_start, currency_of, scale_of
 from deploy_workflow.owners.cpos_cp1_check import (
     METRICS,
@@ -727,23 +729,31 @@ class _Maker:
 
 def _numbered(cells: list[SnapshotCell]) -> list[SnapshotCell]:
     """A row label that repeats within a block (two events on one date) gets ` (2)`, ` (3)`...,
-    so no two cells share a row and column. The number is the first that makes a label no cell
-    of the block holds or has been given (a literal `Term Loan B (2)` is never taken over)."""
+    so no two cells share a row and column. One occurrence of a repeated label takes one number
+    in every column it uses: the first that makes a label no cell of the block holds or has been
+    given in any of those columns (a literal `Term Loan B (2)` is never taken over)."""
     taken = {(cell.row, cell.column) for cell in cells}
-    seen: set[tuple[str, str]] = set()
-    numbered = []
+    seen: Counter[tuple[str, str]] = Counter()
+    columns: dict[tuple[str, int], set[str]] = {}  # (label, occurrence) -> columns it uses
+    which: list[int] = []
     for cell in cells:
-        key = (cell.row, cell.column)
-        if key not in seen:
-            seen.add(key)
-            numbered.append(cell)
+        index = seen[(cell.row, cell.column)]  # the cell's occurrence: how many came before
+        seen[(cell.row, cell.column)] += 1
+        columns.setdefault((cell.row, index), set()).add(cell.column)
+        which.append(index)
+    numbers: dict[tuple[str, int], int] = {}
+    for (label, index), used in columns.items():
+        if index == 0:
             continue
         count = 2
-        while (f"{cell.row} ({count})", cell.column) in taken:
+        while any((f"{label} ({count})", column) in taken for column in used):
             count += 1
-        taken.add((f"{cell.row} ({count})", cell.column))
-        numbered.append(replace(cell, row=f"{cell.row} ({count})"))
-    return numbered
+        taken.update((f"{label} ({count})", column) for column in used)
+        numbers[(label, index)] = count
+    return [
+        cell if index == 0 else replace(cell, row=f"{cell.row} ({numbers[(cell.row, index)]})")
+        for cell, index in zip(cells, which, strict=True)
+    ]
 
 
 # --- The run being gathered -----------------------------------------------------------------------
@@ -1150,6 +1160,21 @@ def _market(run: _Run, mk: _Maker) -> list[SnapshotCell]:
 # --- Prose, peers, strengths ----------------------------------------------------------------------
 
 
+_THEMATIC_BREAK = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})")
+
+
+def _not_prose(stripped: str) -> bool:
+    """A line that is no paragraph: blank, an ATX heading (`#1 risk` is prose), a table row, a
+    thematic break, or nothing but complete HTML comments."""
+    return (
+        not stripped
+        or stripped.startswith("|")
+        or hd.heading_of(stripped) is not None
+        or _THEMATIC_BREAK.fullmatch(stripped) is not None
+        or not visible(stripped).strip()
+    )
+
+
 def _paragraphs(
     run: _Run, mk: _Maker, doc: _Doc, title: str, rows: list[tuple[int, str]]
 ) -> list[SnapshotCell]:
@@ -1158,7 +1183,7 @@ def _paragraphs(
     last = title
     for line, text in rows:
         stripped = text.strip()
-        if not stripped or stripped.startswith(("#", "|")):
+        if _not_prose(stripped):
             continue
         if stripped.startswith("Basis:"):
             run.basis.append(BasisLine(doc.module, title, line, text, last, mk.block))
@@ -1858,7 +1883,14 @@ def _bridge_totals(
             structuring = None
     elif structuring is not None:
         structuring = None
-    if structuring is None and boundaries and len(values) >= 2 and values[-1] is None:
+    closing_unstated = not amounts[-1].strip() or _stated_gap(amounts[-1]) if amounts else False
+    if (
+        structuring is None
+        and boundaries
+        and len(values) >= 2
+        and values[-1] is None
+        and closing_unstated
+    ):
         structuring = _sum_bridge(values[:-1] + [Decimal(0)], units)
     opening = table.rows[0] if table.rows else None
     cells: list[SnapshotCell] = []
@@ -2593,16 +2625,14 @@ def _source_rows(raw: bytes) -> list[Cells]:
     """The sheets of a source: each sheet of a workbook, or the CSV's rows (the record number is
     the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them). A
     CSV whose first non-empty row lacks the RV headers gives no sheet, read no further; a sheet of
-    more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
+    more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`, as is a CSV that is
+    neither UTF-8 nor Windows-1252 (`CsvDecodeError`)."""
     if raw.startswith(b"PK\x03\x04"):
         with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
             sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
         # The cap applies to a sheet with the RV headers only: another tab never hides one.
         return [_capped(rows) for rows in sheets if rows is not None and _has_rv_head(rows)]
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
+    text = decode_csv_text(raw).removeprefix("\ufeff")  # UTF-8 else Windows-1252, as pe.csv_rows
     rows: list[tuple[int, list[pe.Cell]]] = []
     filled = 0
     for number, row in enumerate(csv.reader(io.StringIO(text)), 1):
