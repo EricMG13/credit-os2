@@ -203,7 +203,7 @@ type ActionTreatment = {
 };
 
 /** A deterministic calculation of retained inputs in a read-only test preview. */
-export type ForecastReplay = {
+type ForecastReplay = {
   foundationDigest: string;
   forecastDigest: string;
   cashflow: unknown;
