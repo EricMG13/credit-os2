@@ -3532,12 +3532,14 @@ def all_instructions(tmp_path, pathway="distressed_restructuring", modules=None,
         data = json.loads(context.read_text())
         data["valuation"].update(peer_source=peer_source, peers=[])
         context.write_text(json.dumps(data))
+    # A custom run is priced from GPT runs on Copilot and launches at its computed cap (PR 7a T2).
+    custom = pathway == "custom"
     prepared = prepare(
         context,
         issuer_folder(tmp_path),
         tmp_path / "out",
-        config="sol-medium",
-        cap="15",
+        config="copilot-sol-medium" if custom else "sol-medium",
+        cap=None if custom else "15",
         modules=modules,
     )
     return prepared, {

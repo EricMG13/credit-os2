@@ -38,13 +38,15 @@ NAMED_DIFFERENCES = {
 
 
 def _prepared(tmp_path: Path, pathway: str, modules: list[str], cap: str = "50") -> Prepared:
+    # A custom run launches at its computed cap (PR 7a task 2): none is asked for it.
+    asked = None if pathway == "custom" else cap
     tmp_path.mkdir(parents=True, exist_ok=True)
     return prepare(
         context_file(tmp_path, pathway),
         issuer_folder(tmp_path),
         tmp_path / "run",
         config=CONFIG,
-        cap=cap,
+        cap=asked,
         modules=modules,
     )
 
@@ -66,7 +68,8 @@ def test_custom_is_a_run_type_with_a_ruled_cap() -> None:
     with pytest.raises(Exception, match="custom-routing") as raised:
         run_cap("custom", Decimal(51))
     assert "above the custom cap of USD 50" in str(raised.value)
-    assert run_cap("custom", None) == Decimal(50)
+    # A custom run launches at its computed cap, never the table's USD 50 (PR 7a task 2).
+    assert run_cap("custom", None) is None
 
 
 def test_custom_report_composition_is_decks_own_tuple() -> None:

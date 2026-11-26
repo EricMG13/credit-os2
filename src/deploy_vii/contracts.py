@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal
 from types import MappingProxyType
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, NamedTuple, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
@@ -136,6 +136,52 @@ _CAPS_USD: dict[PathwayId, Decimal] = {
     "custom": Decimal(50),
 }
 PATHWAY_CAP_USD: Mapping[PathwayId, Decimal] = MappingProxyType(_CAPS_USD)
+
+
+class ModuleEstimate(NamedTuple):
+    """What one module costs on GPT Sol, USD, at medium and at high effort, and whether the figure
+    was measured on a run (else it stands in for a module no run has measured)."""
+
+    medium: Decimal
+    high: Decimal
+    measured: bool
+
+
+# The per-module estimate of a custom run's spend (owner, 2026-11-26: "measured spend plus one
+# hold, at most USD 50"), the figures of "Estimated spend against the caps" in
+# docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md. Data only: if the owner supplies
+# other figures this table changes and nothing else. CP-5 is scaled by the handoffs it reads (ten in
+# the measured runs) and CP-8 likewise (twelve); that arithmetic is in `owners.cpos_custom`.
+# CP-MODEL makes no model call, and CP-L10, CP-MEMO and CP-OS are not offered, so none is listed.
+_MODULE_ESTIMATE_USD: dict[str, ModuleEstimate] = {
+    # Ruling :147-151: measured, two 13 November Full runs on gpt-6.1-sol, medium / high.
+    "CP-0": ModuleEstimate(Decimal("0.29"), Decimal("0.43"), measured=True),
+    "CP-1": ModuleEstimate(Decimal("0.42"), Decimal("0.63"), measured=True),
+    "CP-1A": ModuleEstimate(Decimal("0.55"), Decimal("0.66"), measured=True),
+    "CP-DR": ModuleEstimate(Decimal("0.28"), Decimal("0.44"), measured=True),
+    "CP-4": ModuleEstimate(Decimal("0.37"), Decimal("0.37"), measured=True),
+    "CP-2": ModuleEstimate(Decimal("0.44"), Decimal("0.61"), measured=True),
+    "CP-2A": ModuleEstimate(Decimal("0.62"), Decimal("0.80"), measured=True),
+    "CP-2E": ModuleEstimate(Decimal("0.66"), Decimal("0.80"), measured=True),
+    "CP-2G": ModuleEstimate(Decimal("0.41"), Decimal("0.77"), measured=True),
+    "CP-3": ModuleEstimate(Decimal("0.80"), Decimal("0.97"), measured=True),
+    "CP-5": ModuleEstimate(Decimal("2.26"), Decimal("2.80"), measured=True),
+    "CP-6": ModuleEstimate(Decimal("0.73"), Decimal("0.99"), measured=True),
+    "CP-8": ModuleEstimate(Decimal("0.79"), Decimal("1.08"), measured=True),
+    # Ruling :152-155: CP-1B, CP-1C, CP-1D, the 10 November all-module run at medium; at high CP-1B
+    # and CP-1C are 1.32 times, CP-1D the one high draft measured.
+    "CP-1B": ModuleEstimate(Decimal("0.52"), Decimal("0.69"), measured=True),
+    "CP-1C": ModuleEstimate(Decimal("0.35"), Decimal("0.46"), measured=True),
+    "CP-1D": ModuleEstimate(Decimal("0.53"), Decimal("0.94"), measured=True),
+    # Ruling :156-157: CP-2D and CP-3C, not yet run on current texts: "the mean measured analyst
+    # module". Marked not measured, with every other offered module below (no figure exists).
+    "CP-2D": ModuleEstimate(Decimal("0.51"), Decimal("0.67"), measured=False),
+    "CP-3C": ModuleEstimate(Decimal("0.51"), Decimal("0.67"), measured=False),
+    "CP-2H": ModuleEstimate(Decimal("0.51"), Decimal("0.67"), measured=False),
+    "CP-3D": ModuleEstimate(Decimal("0.51"), Decimal("0.67"), measured=False),
+    "CP-4C": ModuleEstimate(Decimal("0.51"), Decimal("0.67"), measured=False),
+}
+MODULE_ESTIMATE_USD: Mapping[str, ModuleEstimate] = MappingProxyType(_MODULE_ESTIMATE_USD)
 # Pathways that no longer take a new run. Their presets stay wired so retained runs still read and
 # their instructions still build; only the launch entry points refuse
 # (``cpos_launch.refuse_deactivated``).
