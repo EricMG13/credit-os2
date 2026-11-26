@@ -1466,6 +1466,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         *(
             (told, text, bool(text))
             for told in ("CP-0", "CP-3", "CP-6")
+            if told != "CP-3" or cpos_launch_methods.phase_active("CP-3B", phase_selection)
             for text in (portfolio_instructions(portfolio, told, run.as_of),)
         ),
         (

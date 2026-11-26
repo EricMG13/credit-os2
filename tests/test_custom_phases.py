@@ -12,6 +12,7 @@ from test_cpos_launch import context_file, issuer_folder
 
 from deploy_workflow.owners import cpos_custom, cpos_launch
 from deploy_workflow.owners.cpos import HandoffTask, _retain_method_checks
+from tools import synthetic_portfolio_workbooks
 
 
 def _prepare(tmp_path: Path, *modules: str) -> cpos_launch.Prepared:
@@ -112,6 +113,36 @@ def test_portfolio_fit_adds_the_same_run_instrument_preference(tmp_path: Path) -
         ("Instrument priority and recovery", "Needed by Portfolio fit."),
         ("Portfolio fit", None),
     )
+
+
+@pytest.mark.parametrize(
+    ("phases", "reads_portfolio"), [(("CP-3A",), False), (("CP-3B",), True), ((), True)]
+)
+def test_portfolio_workbook_instructions_follow_the_selected_phase(
+    tmp_path: Path, phases: tuple[str, ...], reads_portfolio: bool
+) -> None:
+    """Synthetic Northbridge Synthetic Group, 2025-03-31."""
+    context = context_file(tmp_path, "custom")
+    data = json.loads(context.read_text())
+    data["attachments"]["portfolio_workbook"] = True
+    context.write_text(json.dumps(data))
+    sources = issuer_folder(tmp_path)
+    book = synthetic_portfolio_workbooks.broken("rating-sum-short")
+    (sources / "SYNTHETIC-portfolio.xlsx").write_bytes(
+        synthetic_portfolio_workbooks.workbook_bytes(book)
+    )
+    prepared = cpos_launch.prepare(
+        context,
+        sources,
+        tmp_path / "run",
+        config="copilot-sol-medium",
+        cap=None,
+        modules=("CP-3", *phases),
+    )
+    text = _instructions(prepared, "CP-3")
+    assert ("Portfolio workbook:" in text) is reads_portfolio
+    assert ("Your portfolio-fit phase reads it" in text) is reads_portfolio
+    assert "Record the workbook and its check result" in _instructions(prepared, "CP-0")
 
 
 def test_portfolio_debate_adds_portfolio_fit_for_scoped_security_selection() -> None:
