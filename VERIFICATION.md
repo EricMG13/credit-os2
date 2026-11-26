@@ -4,6 +4,12 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sectioned code review of the app (branch `claude/compassionate-cori-rjp34q`), in progress
+
+- Scope: offline only; no provider call, no paid run. Eleven path-disjoint sections of non-test app code, each in its own cloud sub-session; reviewers Sonnet (medium effort) running the `code-review` skill at xhigh on standing code with per-file coverage; fixes by `mx-feature` with a failing test first, `mx-adversary` on money, ordering and security fixes, two counted rounds, then `mx-autonomous` and a fresh `mx-feature`. A branch may not carry a regression against base `030805f` introduced by its own fixes. Plan critique by `mx-advisor`; findings needing a ruling are held for the owner.
+- S05 (owners cp3-cpos, `030805f..0a08c46`, merged `c2b4a03`): fixed attemptless late-compaction double disclosure, reader parse before paid calls, empty period chart tables, comma grouping (`1,5` read as 15), gapped optional rows read as zero in statement identities (High), T4.18 faults, the forecast row reader and dated part-year flow bases. Retired-route findings (page_unit, cpdr, cpl10, cp3c, cp3d, cp4c native owner checks; `OwnerWorkflow(` built nowhere in `src/`) recorded, not fixed. Scope: deterministic unit tests on synthetic handoffs; coordinator re-ran the 714 targeted tests and the gate on the merged tree; no presentation change.
+- Not verified (so far): the weekly full suite; live and browser tests; Node 24 (sessions ran Node 22); real retained handoffs against the stricter number and header rules.
+
 ## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
 
 - Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
@@ -978,13 +984,3 @@ then 5; the narrow layout and the controls listed below.
 
 - Verified all 18 original warnings with per-file Fallow inspection before refactoring. Fallow 3.8.1 audit against `origin/main` passed with zero new complexity, dead-code, or duplication findings. Seven styling advisories point to arbitrary utility literals already present on main. No suppressions or threshold changes.
 - All 570 focused tests passed. Build, changed-file lint and formatting, and Python quality gate passed. Desktop synthetic proof passed in Chrome and Edge (`run-LeBkY9`). Retained Caesars matched all 680 display cells and confidence scores of 33, 0, and 54 with their trace controls. Post-edit review retained the separate intake session, validation, and report trace responsibilities.
-
-## 2026-11-18 — Module Bottom line confidence
-
-- Retained Caesars desktop preview. Verified 33/100 and 0/100 as Insufficient Information and 54/100 as Low, with distinct fills and the original confidence and prose traces. The tile remains available when the score has no rendered Bottom line. All 97 focused tests, build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded.
-
-## 2026-11-18 — Forecast redesign
-
-- Desktop preview verified at 1440 × 900 and 1280 × 900. Cash flow and scenario comparison open together. Compared all 680 historical and forecast display cells with the retained Caesars calculation record, including periods, missing values and zeros.
-- In-app preview verified FY2029E scenario comparison, Growth rates, Chart or Table and the downside source drawer. Design review confirmed the stronger selected-control state after recapture. Claude Model handoff and RBOT-HTML `fc010a7` informed the layout.
-- 174 focused tests passed. Chrome and Edge completed the synthetic desktop proof in `run-ikJ2Lt`. Build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded. Post-edit review retained exact row matching and the separate-grid fallback.
