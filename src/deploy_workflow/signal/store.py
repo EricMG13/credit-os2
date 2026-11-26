@@ -470,6 +470,17 @@ CREATE TABLE source_logos(
 ALTER TABLE stories ADD COLUMN category TEXT;
 """
 
+# Version 8. `digests.story_mark`: the highest story id the digest's last run considered; a run
+# covers the stories above it (see ``digests``), so a story stored after a run that was stamped
+# before it is still found. A digest that already exists starts at the highest story id fetched
+# by its period's start (both are ISO text, compared as text).
+_MIGRATION_8 = """
+ALTER TABLE digests ADD COLUMN story_mark INTEGER NOT NULL DEFAULT 0;
+UPDATE digests SET story_mark = (
+    SELECT COALESCE(MAX(id), 0) FROM stories WHERE fetched_at <= digests.period_from
+);
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
 MIGRATIONS = [
     _MIGRATION_1,
@@ -479,6 +490,7 @@ MIGRATIONS = [
     _MIGRATION_5,
     _MIGRATION_6,
     _MIGRATION_7,
+    _MIGRATION_8,
 ]
 _BUSY_SECONDS = 30
 RELEASED = 2  # versions a released build made, before stores recorded their scripts' hash

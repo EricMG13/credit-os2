@@ -11,8 +11,14 @@ cap is what bounds the digests, their runs and the due pass whatever names are t
 
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
-of the covered topics and issuers published in the period, and the stories shared in the covered
-groups (a thread started from a story) in the period. Only stories of the four feed kinds are in
+of the covered topics and issuers, and the stories shared in the covered groups (a thread started
+from a story) in the period, by share time. A digest keeps a mark, the highest story id its last
+run considered (``story_mark``). A run reads the highest story id then stored, and takes the
+stories above the mark up to it that were published after the period's start less one look-back,
+the longer of the period and the schedule's own period; there is no upper bound on the published
+time. So a story the feed stamped before a run but ingest stored after it is in the next run, once,
+and a new source's old archive is not. A run that ends the period moves the mark to that id and
+never lowers it; a failed write leaves both. Only stories of the four feed kinds are in
 scope, whatever the digest covers: no filing and no market post (``SCOPE_CONDITION``).
 With none in scope it stores an issue saying nothing material happened and makes no model call.
 With some in scope it needs a ``Writer`` (the AI pass's, ``ai_digest``, given only while the pass
@@ -148,6 +154,7 @@ class Digest:
     period_from: datetime
     next_run_at: datetime
     requested_at: datetime | None = None  # when "Run once now" was asked, while it waits
+    story_mark: int = 0  # the highest story id its last run considered
 
 
 @dataclass(frozen=True)
@@ -175,13 +182,15 @@ class ScopedStory:
 
 @dataclass(frozen=True)
 class Scope:
-    """What a run found: the digest, its period, the stories in scope (newest first) and the ids
-    of the covered groups its owner could see when the scope was read."""
+    """What a run found: the digest, its period, the stories in scope (newest first), the highest
+    story id stored when they were read (the digest's next mark) and the ids of the covered groups
+    its owner could see then."""
 
     digest: Digest
     start: datetime
     end: datetime
     stories: tuple[ScopedStory, ...]
+    upto: int
     groups: tuple[int, ...] = ()
 
 
@@ -392,6 +401,7 @@ def _digest(db: sqlite3.Connection, row: sqlite3.Row) -> Digest:
         datetime.fromisoformat(row["period_from"]),
         datetime.fromisoformat(row["next_run_at"]),
         None if asked is None else datetime.fromisoformat(asked),
+        row["story_mark"],
     )
 
 
@@ -453,6 +463,7 @@ def _fields(spec: Spec) -> tuple[Any, ...]:
 def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int:
     """Store a new digest; Conflict at `MAX_DIGESTS` or when the owner already has that name."""
     first = schedule.next_run(spec.schedule, now)
+    begins = _utc_text(schedule.previous_run(spec.schedule, first))
     with _write_transaction(db):
         count = db.execute("SELECT COUNT(*) FROM digests WHERE owner=?", (owner,)).fetchone()[0]
         if count >= MAX_DIGESTS:
@@ -463,13 +474,15 @@ def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int
             cur = db.execute(
                 "INSERT INTO digests(owner, name, cadence, minute, weekday, month_day, covers_all,"
                 " subject, length, points, upcoming, look_ahead_days, period_from, next_run_at,"
-                " created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " created_at, story_mark) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
+                " (SELECT COALESCE(MAX(id), 0) FROM stories WHERE fetched_at <= ?))",
                 (
                     owner,
                     *_fields(spec),
-                    _utc_text(schedule.previous_run(spec.schedule, first)),
+                    begins,
                     _utc_text(first),
                     _utc_text(now),
+                    begins,
                 ),
             )
         except sqlite3.IntegrityError as exc:
@@ -633,32 +646,43 @@ def _seen_groups(db: sqlite3.Connection, digest: Digest) -> tuple[int, ...]:
     return tuple(sorted(set(digest.spec.group_ids) & visible))
 
 
+def _look_back(digest: Digest, start: datetime, end: datetime) -> datetime:
+    """The earliest published time a story may have to be in scope: the period's start less the
+    longer of the period and the schedule's own period (a day, a week, the month's length)."""
+    due = schedule.next_run(digest.spec.schedule, start)
+    own = due - schedule.previous_run(digest.spec.schedule, due)
+    return start - max(end - start, own)
+
+
 def _scope_stories(
-    db: sqlite3.Connection, digest: Digest, start: datetime, end: datetime
+    db: sqlite3.Connection, digest: Digest, start: datetime, end: datetime, upto: int
 ) -> tuple[ScopedStory, ...]:
-    """The stories in scope for (start, end], highest signal then newest first, at most
-    `SCOPE_CAP`; stories of the four feed kinds only (``SCOPE_CONDITION``)."""
+    """The stories in scope for the period (start, end]: ids above the digest's mark up to `upto`,
+    published after the look-back (``_look_back``), and the stories shared in a covered group in
+    the period; highest signal then newest first, at most `SCOPE_CAP`; stories of the four feed
+    kinds only (``SCOPE_CONDITION``)."""
     span = [_utc_text(start), _utc_text(end)]
+    fresh = [digest.story_mark, upto, _utc_text(_look_back(digest, start, end))]
     spec = digest.spec
     parts: list[str] = []
     params: list[Any] = []
     if spec.covers_all:
-        parts.append("SELECT id FROM stories WHERE published_at > ? AND published_at <= ?")
-        params += span
+        parts.append("SELECT id FROM stories WHERE id > ? AND id <= ? AND published_at > ?")
+        params += fresh
     if spec.topic_ids:
         parts.append(
             "SELECT s.id FROM stories s JOIN topic_stories ts ON ts.story_id = s.id"
             f" WHERE ts.topic_id IN ({_marks(len(spec.topic_ids))})"
-            " AND s.published_at > ? AND s.published_at <= ?"
+            " AND s.id > ? AND s.id <= ? AND s.published_at > ?"
         )
-        params += [*spec.topic_ids, *span]
+        params += [*spec.topic_ids, *fresh]
     if spec.issuer_ids:
         parts.append(
             "SELECT s.id FROM stories s JOIN issuer_stories l ON l.story_id = s.id"
             f" WHERE l.issuer_id IN ({_marks(len(spec.issuer_ids))})"
-            " AND s.published_at > ? AND s.published_at <= ?"
+            " AND s.id > ? AND s.id <= ? AND s.published_at > ?"
         )
-        params += [*spec.issuer_ids, *span]
+        params += [*spec.issuer_ids, *fresh]
     seen = _seen_groups(db, digest)
     if seen:
         parts.append(
@@ -751,11 +775,12 @@ def _plan(
     one that does returns its scope, with a scheduled run's slot claimed."""
     start = min(digest.period_from, now)
     bare = covers_nothing(db, digest)
-    stories = () if bare else _scope_stories(db, digest, start, now)
+    upto = _highest_story(db)
+    stories = () if bare else _scope_stories(db, digest, start, now, upto)
     wait = None if writer is None or not stories else writer.blocked(digest.owner)
     if wait is not None:  # raised inside the caller's transaction: nothing is changed
         raise _RetryLater(str(wait), fault=wait.fault, stories=len(stories))
-    scope = Scope(digest, start, now, stories, _seen_groups(db, digest))
+    scope = Scope(digest, start, now, stories, upto, _seen_groups(db, digest))
     db.execute("UPDATE digests SET run_requested_at=NULL WHERE id=?", (digest.id,))
     if trigger == "schedule":
         due = schedule.next_run(digest.spec.schedule, now)
@@ -776,13 +801,21 @@ def _plan(
     return run
 
 
+def _highest_story(db: sqlite3.Connection) -> int:
+    return int(db.execute("SELECT COALESCE(MAX(id), 0) FROM stories").fetchone()[0])
+
+
 def _close(db: sqlite3.Connection, scope: Scope, run: Run, trigger: Trigger, now: datetime) -> None:
     """Record the run and end its period (every run but a failed write does, so a period is never
-    longer than the time since the last run; the stories of a skipped run are not carried on)."""
+    longer than the time since the last run; the stories of a skipped run are not carried on). The
+    mark moves with the period, to the id the scope was read up to, and never down."""
     _record(db, scope, run, trigger, now)
     _unclaim(db, scope.digest.id)
     if not run.reason.startswith(NOT_WRITTEN):
-        db.execute("UPDATE digests SET period_from=? WHERE id=?", (_utc_text(now), scope.digest.id))
+        db.execute(
+            "UPDATE digests SET period_from=?, story_mark=MAX(story_mark, ?) WHERE id=?",
+            (_utc_text(now), scope.upto, scope.digest.id),
+        )
     _prune(db, scope.digest.id)
 
 
@@ -797,10 +830,11 @@ def _unchanged(db: sqlite3.Connection, scope: Scope) -> bool:
     if row is None:
         return False
     now = _digest(db, row)
-    return (now.owner, now.spec, now.period_from, _seen_groups(db, now)) == (
+    return (now.owner, now.spec, now.period_from, now.story_mark, _seen_groups(db, now)) == (
         scope.digest.owner,
         scope.digest.spec,
         scope.digest.period_from,
+        scope.digest.story_mark,
         scope.groups,
     )
 
@@ -961,7 +995,7 @@ def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> i
         for row in rows:
             digest = _digest(db, row)
             claimed = datetime.fromisoformat(row["claimed_at"])
-            scope = Scope(digest, min(digest.period_from, claimed), claimed, ())
+            scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
             _close(db, scope, Run("skipped", None, 0, INTERRUPTED), row["claimed_by"], now)
     return len(rows)
 
@@ -974,14 +1008,14 @@ def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name:
         if row is None:
             return
         digest = _digest(db, row)
-        scope = Scope(digest, min(digest.period_from, now), now, ())
+        scope = Scope(digest, min(digest.period_from, now), now, (), digest.story_mark)
         reason = f"the run failed ({name}); see the log"
         _record(db, scope, Run("skipped", None, 0, reason), "schedule", now)
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute(
-            "UPDATE digests SET next_run_at=?, period_from=?, run_requested_at=NULL,"
-            " claimed_by=NULL, claimed_at=NULL WHERE id=?",
-            (_utc_text(due), _utc_text(now), digest_id),
+            "UPDATE digests SET next_run_at=?, period_from=?, story_mark=MAX(story_mark, ?),"
+            " run_requested_at=NULL, claimed_by=NULL, claimed_at=NULL WHERE id=?",
+            (_utc_text(due), _utc_text(now), _highest_story(db), digest_id),
         )
 
 
