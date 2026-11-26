@@ -1133,6 +1133,7 @@ from deploy_workflow import (  # noqa: F401
     method_scripts_cp1,
     method_scripts_cp1b,
     method_scripts_cp1c,
+    method_scripts_cp1d,
     method_scripts_cp2e,
     method_scripts_cp2g,
     method_scripts_cp2h,
