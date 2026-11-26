@@ -219,6 +219,11 @@ on the well surface. Tooltip supporting text is `#D4D4D8`.
 - **Figures:** every figure head reads title, Figure | Table switch, trace control last; a tile's
   caption sits under its title, never above it. A page longer than three screens names its parts
   once under its title (owner, 2026-11-25).
+- **Money units** (owner, 2026-11-26; `docs/rulings/2026-11-26-money-unit-symbols.md`): a money
+  unit is drawn as the currency's en-US symbol, `$m`, `£m`, `€m`, `CA$m`, `¥m`, or its code where
+  it has none (`CHFm`); a figure reads `$1,250m`, `CHF 300m`, digits as written. Only where text is
+  drawn (`moneyUnits.ts`): stored units stay `USD millions` / `US$m`. Module prose and row labels,
+  Evidence and the trace drawer keep the written unit; the Model page keeps `US$m`.
 - **Shape:** 12-column grid, 16 px gap. Radius: tile 20 (`radius-lg`), 12 (`radius-md`), wells and
   controls 8 (`radius-sm`), chips 6 (`radius-xs`). One-pixel hairlines. Cards carry no shadow
   (`shadow-1` is empty); floating menus and tooltips use `shadow-2`.
