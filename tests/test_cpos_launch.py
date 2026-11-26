@@ -10647,3 +10647,209 @@ def test_a_blocked_cp2_and_other_modules_owe_no_scorecard():
     for module in METHODS:
         if module != "CP-2":
             assert cpos_launch.scorecard_issues(module, "## Findings\n") == (), module
+
+
+# --- the downside figures a module writes are the ones Python computes from its block ------------
+# Real model answer of the offline TDG replay (run 20261125-162721-01): its tables hold cash
+# interest flat while its block gives only `downside_shock`, so Python's downside differs.
+REPLAY = Path(__file__).parent / "fixtures" / "live_2026_11_25"
+PROOF_HANDOFFS = Path(__file__).parent.parent / "proof" / "handoffs"
+
+
+def _replay_task(cp1: Path, cp2g: Path):
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.read_bytes()})
+    return task, cp2g.read_text(encoding="utf-8")
+
+
+def _replay():
+    return _replay_task(REPLAY / "CP-1-replay-tdg.md", REPLAY / "CP-2G-replay-tdg.md")
+
+
+def test_the_forecast_instruction_says_the_reader_is_shown_pythons_downside():
+    block = cpos_launch.FORECAST_BLOCK
+    wanted = [
+        "The reader is shown Python's computation from this block, not your tables",
+        "every downside figure you write in a table or in prose must be the one Python computes",
+        "you state in `downside_drivers`",
+        (
+            "`revenue_growth`, `ebitda_margin`, `capex_pct_revenue`, `tax_wc_pct_revenue`, "
+            "`interest_rate`, `dividends` or `debt_repayment`"
+        ),
+    ]
+    for words in wanted:
+        assert words in block, words
+
+
+_DOWNSIDE_NAMES = ("T2H.4", "T2H.5", "T2H.6")
+
+
+def _downside_issue_text():
+    task, text = _replay()
+    (issue,) = cpos_launch._forecast_issues(task, text)
+    return issue
+
+
+def test_a_downside_table_that_differs_from_pythons_is_sent_back_once_quoting_both():
+    issue = _downside_issue_text()
+    assert issue.startswith(
+        "Forecast inputs: the downside net leverage in the credit metrics table (T2H.6) differs "
+        "from the one Python computes from your block: FY2025 6.66x against 6.8089x, FY2026 "
+        "6.01x against 6.2851x, FY2027 5.43x against 5.8170x. "
+    )
+
+
+def test_the_downside_issue_names_the_remedy_that_converges():
+    issue = _downside_issue_text()
+    for words in (
+        "the downside rows of T2H.4, T2H.5 and T2H.6 must all follow the path Python computes",
+        "restating T2H.6 alone is sent back again",
+        "`downside_shock` is applied on top of `downside_drivers`",
+        "state `downside_drivers.interest_rate` before the shock",
+        "or set `downside_shock` to null and state the whole downside case in `downside_drivers`",
+        "If you cannot, set `downside_shock` and `downside_drivers` to null",
+    ):
+        assert words in issue, words
+
+
+# Downside rows of T2H.4, T2H.5 and T2H.6 for two repairs of the real answer. The figures are
+# typed by hand from the engine's own computation (cpos_forecast.model_files, run once in a
+# scratch script) for the edited block, rounded to the displayed places; they are not derived
+# here. (c): `downside_drivers.interest_rate` at 1158 / opening debt, shock kept.
+# (d): shock null; `downside_drivers` ebitda_margin 0.3842, interest_rate 1554.036 / opening debt.
+_ROWS_SHOCK_KEPT = {
+    "FY2025": (
+        "| FY2025 | Downside | 8,734.0 | 3,355.3 | 38.42% | 877.7 | 262.0 | 615.7 |",
+        "| FY2025 | Downside | 24,880 / 6,261 | 0 | 93 | 1,552.6 | 24,787 / 2,435.7 | 3,441.7 |",
+        "| FY2025 | Downside | 7.39x / 6.66x | 2.16x | 2.48% |",
+    ),
+    "FY2026": (
+        "| FY2026 | Downside | 9,345.4 | 3,590.1 | 38.42% | 1,047.0 | 280.4 | 766.6 |",
+        "| FY2026 | Downside | 24,787 / 2,435.7 | 0 | 92 | 1,553.4 | 24,695 / 3,110.4 | 4,116.4 |",
+        "| FY2026 | Downside | 6.88x / 6.01x | 2.31x | 3.10% |",
+    ),
+    "FY2027": (
+        "| FY2027 | Downside | 9,906.1 | 3,805.5 | 38.42% | 1,202.2 | 297.2 | 905.0 |",
+        "| FY2027 | Downside | 24,695 / 3,110.4 | 0 | 92 | 1,554.3 | 24,603 / 3,923.4 | 4,929.4 |",
+        "| FY2027 | Downside | 6.47x / 5.43x | 2.45x | 3.68% |",
+    ),
+}
+_ROWS_SHOCK_NULL = {
+    "FY2025": (
+        "| FY2025 | Downside | 8,734.0 | 3,355.6 | 38.42% | 875.7 | 262.0 | 613.7 |",
+        "| FY2025 | Downside | 24,880 / 6,261 | 0 | 93 | 1,555.0 | 24,787 / 2,433.7 | 3,439.7 |",
+        "| FY2025 | Downside | 7.39x / 6.66x | 2.16x | 2.48% |",
+    ),
+    "FY2026": (
+        "| FY2026 | Downside | 9,345.4 | 3,590.5 | 38.42% | 1,046.7 | 280.4 | 766.3 |",
+        "| FY2026 | Downside | 24,787 / 2,433.7 | 0 | 92 | 1,554.1 | 24,695 / 3,108.0 | 4,114.0 |",
+        "| FY2026 | Downside | 6.88x / 6.01x | 2.31x | 3.10% |",
+    ),
+    "FY2027": (
+        "| FY2027 | Downside | 9,906.1 | 3,805.9 | 38.42% | 1,203.6 | 297.2 | 906.4 |",
+        "| FY2027 | Downside | 24,695 / 3,108.0 | 0 | 92 | 1,553.3 | 24,603 / 3,922.3 | 4,928.3 |",
+        "| FY2027 | Downside | 6.46x / 5.43x | 2.45x | 3.68% |",
+    ),
+}
+
+
+def _downside_rows_replaced(text: str, rows: dict) -> str:
+    """Each year's three rows replace the Downside row of T2H.4, T2H.5 and T2H.6 in turn; cells
+    after the ones given (the evidence and definition ids) stay as the module wrote them."""
+    sections = re.split(r"(?=<!-- table-id: )", text)
+    for year, new_rows in rows.items():
+        for name, new in zip(_DOWNSIDE_NAMES, new_rows, strict=True):
+            (at,) = [
+                i for i, sec in enumerate(sections) if sec.startswith(f"<!-- table-id: {name} -->")
+            ]
+            lines = sections[at].split("\n")
+            (row,) = [
+                i for i, line in enumerate(lines) if line.startswith(f"| {year} | Downside |")
+            ]
+            kept = lines[row].split("|")[len(new.split("|")) - 1 :]
+            assert new != lines[row]
+            lines[row] = new[:-1] + "|".join(["", *kept]) if kept[:-1] else new
+            sections[at] = "\n".join(lines)
+    return "".join(sections)
+
+
+def _flat_interest_block(text: str, rates: list[str], *, shock: bool, margin: bool = False):
+    margin_driver = (
+        '"ebitda_margin": {"values": ["0.3842", "0.3842", "0.3842"], "category": "Analyst '
+        'Interpretation", "rationale": "20% below base", "limitation": "None"}, '
+    )
+    driver = (
+        f'"downside_drivers": {{{margin_driver if margin else ""}"interest_rate": '
+        f'{{"values": {json.dumps(rates)}, "category": "Analyst Interpretation", '
+        '"rationale": "Cash interest held flat in the downside", "limitation": "None"}}'
+    )
+    edited = text.replace('"downside_drivers": null', driver)
+    if not shock:
+        edited = edited.replace(
+            '"downside_shock": {"ebitda_decline": "0.2000", "rate_increase": "0.3420"}',
+            '"downside_shock": null',
+        )
+    assert edited != text
+    return edited
+
+
+def _both_checks(task, text):
+    scripts = method_scripts.issues("CP-2G", text, {"CP-1": task.handoffs["CP-1"].decode("utf-8")})
+    return cpos_launch._forecast_issues(task, text), tuple(scripts)
+
+
+def test_a_downside_at_pre_shock_flat_interest_passes_both_checks():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0465", "0.0467", "0.0469"], shock=True)
+    repaired = _downside_rows_replaced(block, _ROWS_SHOCK_KEPT)
+    assert _both_checks(task, repaired) == ((), ())
+
+
+def test_a_downside_stated_in_full_with_the_shock_null_passes_both_checks():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0625", "0.0627", "0.0629"], shock=False, margin=True)
+    repaired = _downside_rows_replaced(block, _ROWS_SHOCK_NULL)
+    assert _both_checks(task, repaired) == ((), ())
+
+
+def test_restating_only_the_credit_metrics_table_is_refused_by_the_full_check():
+    task, text = _replay()
+    for stated, fixed in (("6.66x", "6.81x"), ("6.01x", "6.29x"), ("5.43x", "5.82x")):
+        text = text.replace(f"/ {stated} |", f"/ {fixed} |")
+    forecast, scripts = _both_checks(task, text)
+    assert forecast == () and len(scripts) == 3
+    assert all("recomputes" in issue for issue in scripts)
+
+
+def test_the_flat_interest_rate_with_the_shock_kept_is_refused_with_the_remedy_named():
+    task, text = _replay()
+    block = _flat_interest_block(text, ["0.0625", "0.0627", "0.0629"], shock=True)
+    (issue,) = cpos_launch._forecast_issues(task, block)
+    assert "FY2025 6.66x against 6.8208x" in issue
+    assert "state `downside_drivers.interest_rate` before the shock" in issue
+
+
+def test_a_downside_within_one_unit_of_the_last_stated_place_is_accepted():
+    task, text = _replay()
+    for stated, fixed in (("6.66x", "6.80x"), ("6.01x", "6.29x"), ("5.43x", "5.8x")):
+        text = text.replace(f"/ {stated} |", f"/ {fixed} |")
+    assert cpos_launch._forecast_issues(task, text) == ()
+    assert cpos_launch._forecast_issues(task, text.replace("/ 6.80x |", "/ 6.79x |")) != ()
+
+
+def test_an_unreadable_downside_table_raises_nothing():
+    task, text = _replay()
+    unread = text.replace("Gross / net leverage (x)", "Leverage (x)")
+    assert unread != text and cpos_launch._forecast_issues(task, unread) == ()
+
+
+def test_a_blocked_module_owes_no_downside_figures():
+    task, text = _replay()
+    assert cpos_launch._forecast_issues(task, "---\nmodule_status: Blocked\n---\n" + text) == ()
+
+
+def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothing():
+    task = types.SimpleNamespace(
+        module_id="CP-2G", handoffs={"CP-1": (PROOF_HANDOFFS / "CP-1.md").read_bytes()}
+    )
+    handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
+    assert cpos_launch._forecast_issues(task, handoff) == ()

@@ -216,6 +216,64 @@ describe("published handoff boundaries", () => {
     expect(displayColumns(["a", "consumer_module_id"], true)).toEqual([0]);
   });
 
+  // E1: a column the module wrote about its own analysis is drawn; only a hand-over to another
+  // module stays hidden. Cells are verbatim from the TDG replay handoffs CP-2A (T2B.7) and CP-2D (T2E.9).
+  it("draws the module's own Escalation Consequence column (CP-2A T2B.7)", () => {
+    const headers = ["Trigger ID", "Linked Pathway Row", "Escalation Consequence", "Source Trace"];
+    const rows = [
+      {
+        line: 1,
+        cells: [
+          "MON-01",
+          "Operating first break: shipments \u2192 margins \u2192 FCF",
+          "Challenge the assumed earnings cases before headline cash erosion",
+          "Fundamental credit",
+        ],
+      },
+      {
+        line: 2,
+        cells: [
+          "MON-05",
+          "Funding pinch",
+          "Nonrenewal makes cash repayment necessary even if EBITDA covers interest",
+          "E03",
+        ],
+      },
+    ];
+    expect(displayColumns(headers, false, rows)).toContain(2);
+    expect(displayColumns(headers, true, rows)).toContain(2);
+  });
+
+  it("draws Downstream Module Affected when it states an effect within the module (CP-2D T2E.9)", () => {
+    const headers = ["Gap", "Missing Data", "Downstream Module Affected"];
+    const within = [
+      {
+        line: 1,
+        cells: [
+          "G1",
+          "Credit agreement definitions",
+          "Within this analysis: revolver access and the risk level",
+        ],
+      },
+      {
+        line: 2,
+        cells: ["G2", "Securitization agreement", "Within this analysis: debt maturities row"],
+      },
+    ];
+    expect(displayColumns(headers, false, within)).toEqual([0, 1, 2]);
+    expect(displayColumns(headers, true, within)).toEqual([0, 1, 2]);
+    // Cells that name another module are written for that module: hidden everywhere.
+    const handed = [
+      {
+        line: 1,
+        cells: ["G1", "Credit agreement definitions", "Refinancing & LME; Ratings & triggers"],
+      },
+    ];
+    expect(displayColumns(headers, false, handed)).toEqual([0, 1]);
+    expect(displayColumns(headers, true, handed)).toEqual([0, 1]);
+    expect(displayColumns(headers, false)).toEqual([0, 1]);
+  });
+
   it("keeps real Evidence and Source / Limitation columns that carry qualifications (CP-2)", () => {
     const headers = ["Trigger", "Evidence", "Source / Limitation", "Source"];
     const rows = [

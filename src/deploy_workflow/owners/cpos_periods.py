@@ -443,7 +443,7 @@ NO_PF = (
 )
 NOT_EXACT = "the figures cannot be added exactly"
 PART_YEAR = "a ratio to part-year earnings is not shown"
-NO_COLUMN = "the tables holding the named rows print no {group} column Python can read"
+NO_COLUMN = "the tables holding the named rows print no {group} column that can be read"
 NO_ANCHOR = "no base line was found under a period header of CP-1"
 DATED = "The last twelve months were checked against CP-1's period dates ({days} days)."
 NOT_CONTINUOUS = (

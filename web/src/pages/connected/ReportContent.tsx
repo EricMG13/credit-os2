@@ -18,6 +18,7 @@ import { calculationNodes } from "./report/calculations";
 import {
   classifySections,
   containsReference,
+  withoutReferences,
   displayColumns,
   evidencePath,
   evidenceHref,
@@ -78,6 +79,25 @@ function tableStatement(table: Table, row: Table["rows"][number]) {
     .join("\n");
 }
 
+const isListItem = (block: Block): block is Extract<Block, { type: "text" }> =>
+  block.type === "text" && /^[-*] /.test(block.text);
+
+/**
+ * The Basis line written once at the end of a list belongs to the list: an item with no Basis of
+ * its own takes the first one written by the items that follow it with no blank line between.
+ */
+function listBasis(section: Section, block: Block) {
+  if (!isListItem(block)) return null;
+  let previous = block;
+  for (const next of section.blocks.slice(section.blocks.indexOf(block) + 1)) {
+    if (!isListItem(next) || next.line !== previous.end + 1) return null;
+    const basis = readParagraph(next.text).basis;
+    if (basis) return basis;
+    previous = next;
+  }
+  return null;
+}
+
 export function traceDetails(
   snapshot: Snapshot,
   entry: OutputEntry,
@@ -132,7 +152,7 @@ export function traceDetails(
       : [];
   const basis =
     block.type === "text"
-      ? readParagraph(block.text).basis
+      ? (readParagraph(block.text).basis ?? listBasis(section, block))
       : [
           ...new Set(
             (row ? [row] : tableRows).flatMap((item) =>
@@ -438,14 +458,24 @@ function cellContent({
   shown: (text: string) => string;
   emptyLabel: string;
 }) {
-  if (!evidence && containsReference(cell))
-    return sourceHref ? (
+  if (!evidence && containsReference(cell)) {
+    // The cell's own words stay (a limitation before its file reference); the reference is the link.
+    const words = withoutReferences(cell);
+    const link = sourceHref ? (
       <Button href={sourceHref} color="link-gray" size="sm">
         In Evidence
       </Button>
     ) : (
       "Source reference unavailable"
     );
+    return words ? (
+      <>
+        {richParts(words, shown)} {link}
+      </>
+    ) : (
+      link
+    );
+  }
   if (!cell.trim()) return <span aria-label={emptyLabel}>—</span>;
   const drawn = amountCell(amounts, column, cell, line) ?? form.drawCell?.(column, cell);
   if (drawn !== undefined && drawn !== null) return drawn;

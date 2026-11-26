@@ -178,7 +178,7 @@ export type MeasureRead = {
   rows: string[];
   /** The measure in reader words: "net leverage". */
   what: string;
-  /** The basis the page names when several rows match: "net debt over Adj EBITDA". */
+  /** The basis the page names when several rows match: "net debt over EBITDA". */
   basis?: string;
 };
 
@@ -279,9 +279,16 @@ export function extremeOf(cells: MeasureCell[], kind: "highest" | "lowest") {
 /** The last period's cell, whatever its state. */
 export const endOf = (cells: MeasureCell[]) => byPeriod(cells).at(-1) ?? null;
 
-/** The model's earnings basis as its grid names it: the Adj EBITDA row label. */
+/** Net leverage on net debt over EBITDA, as published models name it ("Adj EBITDA" or "EBITDA"). */
+export const ON_EBITDA = /net debt \/ (?:Adj )?EBITDA/u;
+/** Interest cover on EBITDA, under either label. */
+export const COVER_ON_EBITDA = /(?:Adj )?EBITDA \/ (?:cash )?interest/u;
+/** The earnings row: "Adj EBITDA ..." or "EBITDA ...", not the "EBITDA (EBIT + D&A)" build-up row. */
+const EARNINGS_ROW = /^(?:Adj )?EBITDA\b(?! \(EBIT )/u;
+
+/** The model's earnings basis as its grid names it: the earnings row label, as published. */
 export function earningsBasis(model: unknown) {
-  return grids(model)[0]?.rows.find((row) => /^Adj EBITDA\b/u.test(row.label))?.label ?? null;
+  return grids(model)[0]?.rows.find((row) => EARNINGS_ROW.test(row.label))?.label ?? null;
 }
 
 export type Limitation = { line: number; text: string | null };
@@ -418,6 +425,10 @@ export type FundingGap = {
 
 const FUNDING_GAP = /^(?:CP-2D\s+)?funding gap\b/iu;
 const HORIZON = /^(?:CP-2D\s+)?horizon\b/iu;
+/** A cell that is only a dash: the module wrote no value in it. */
+const BARE_DASH = /^[—–-]$/u;
+/** A column header that names a span of time. */
+const SPAN_COLUMN = /^(?:years?|months?|quarters?|periods?)$/iu;
 const UNIT_COLUMN = /^(?:Reporting unit|Units?)$/iu;
 const CURRENCY_COLUMN = /^Currency$/iu;
 const SCALE_COLUMN = /^Scale$/iu;
@@ -480,8 +491,11 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
     const row = table.rows.find(({ cells }) => FUNDING_GAP.test(cells[0] ?? ""));
     if (!row) continue;
     const values = valueColumns(table.headers);
-    // A written dash is a figure as written; only an empty cell states nothing.
-    const stated = values.filter((at) => (row.cells[at] ?? "").trim() !== "");
+    // Beside a stated value a bare dash is a column the row does not use, not a figure; a row
+    // that writes only dashes is drawn as written. An empty cell states nothing.
+    const written = values.filter((at) => (row.cells[at] ?? "").trim() !== "");
+    const valued = written.filter((at) => !BARE_DASH.test((row.cells[at] ?? "").trim()));
+    const stated = valued.length ? valued : written;
     const figures = stated.map((at) => {
       const text = (row.cells[at] ?? "").trim();
       return {
@@ -497,11 +511,18 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
       const words = readerReason(row.cells[at] ?? "");
       return words ? [words] : [];
     });
-    // The horizon is read from the value columns only; an empty value cell states none.
+    // The horizon is the Horizon row's first value that is not empty or a bare dash, with its
+    // column's header when that names a span ("Years: 1").
     const horizon = table.rows.find(({ cells }) => HORIZON.test(cells[0] ?? ""));
-    const horizonText = values
-      .map((at) => (horizon?.cells[at] ?? "").trim())
-      .find((cell) => cell !== "");
+    const horizonAt = values.find((at) => {
+      const cell = (horizon?.cells[at] ?? "").trim();
+      return cell !== "" && !BARE_DASH.test(cell);
+    });
+    const horizonCell = horizonAt === undefined ? "" : (horizon?.cells[horizonAt] ?? "").trim();
+    const horizonText =
+      horizonAt !== undefined && SPAN_COLUMN.test((table.headers[horizonAt] ?? "").trim())
+        ? `${(table.headers[horizonAt] ?? "").trim()}: ${horizonCell}`
+        : horizonCell;
     return {
       module,
       name: moduleName(module),

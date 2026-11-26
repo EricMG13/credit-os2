@@ -1534,7 +1534,7 @@ def test_values_growth_and_margin_read_across_the_new_columns():
     assert abs(Fraction(growth[5]["exact"]) - Fraction(3, 47)) < Fraction(1, 10**20)  # FY2024
     assert Fraction(growth[9]["exact"]) == Fraction(5, 100)  # FY2025E on FY2024
     assert growth[6]["status"] == "na"  # LTM: prior LTM missing
-    margin = Fraction(row["Adj EBITDA margin"][6]["exact"])
+    margin = Fraction(row["EBITDA margin"][6]["exact"])
     assert abs(margin - Fraction(324, 1060)) < Fraction(1, 10**20)
 
 
@@ -1617,14 +1617,18 @@ def test_the_history_page_labels_and_notes_carry_no_other_issuers_wording():
     grid = store.read_cashflow(FILES, None)[0]
     assert [row["label"] for row in grid["rows"]] == [
         *COMMON_LABELS,
-        "Adj EBITDA (as named in Financial foundation)",
-        *MIDDLE_LABELS,
-        "LTM Adj EBITDA",
+        "EBITDA (as named in Financial foundation)",
+        "EBITDA margin",
+        "EBITDA YoY growth",
+        "LTM EBITDA",
         "Interest",
         *AFTER_INTEREST,
         "Closing debt",
-        *CREDIT_LABELS,
-        "Interest coverage (Adj EBITDA / interest)",
+        "Net debt (all modelled cash deducted)",
+        "Senior secured leverage (secured debt / EBITDA)",
+        "Total leverage (debt / EBITDA)",
+        "Net leverage (net debt / EBITDA)",
+        "Interest coverage (EBITDA / interest)",
         "Cash proxy / closing debt",
     ]
     assert grid["notes"] == [
@@ -1635,12 +1639,12 @@ def test_the_history_page_labels_and_notes_carry_no_other_issuers_wording():
         ),
         BASE_NOTE,
         (
-            "Adj EBITDA is the earnings line the forecast inputs name in Financial foundation; "
+            "EBITDA is the earnings line the forecast inputs name in Financial foundation; "
             "in the forecast it is the model's earnings on that basis, not issuer guidance."
         ),
         (
             "Leverage is closing debt, as the forecast inputs name it in Financial foundation, "
-            "over Adj EBITDA. Leverage is shown for twelve-month periods only."
+            "over EBITDA. Leverage is shown for twelve-month periods only."
         ),
         (
             "Historical interest is the Financial foundation line the forecast inputs name, "
@@ -1651,6 +1655,8 @@ def test_the_history_page_labels_and_notes_carry_no_other_issuers_wording():
     ]
     assert not any("interest-rate driver" in note for note in grid["notes"])
     text = " ".join(grid["notes"])
+    assert "Adj" not in text
+    assert not any("Adj" in row["label"] for row in grid["rows"])
     assert not any(word in text for word in ("As Defined", "securitization", "refinancing"))
 
 
@@ -1695,9 +1701,9 @@ def test_a_model_without_a_history_record_keeps_its_labels_and_notes_exactly():
 LINES_WITH_A_FIGURE = [
     "Revenue",
     "Revenue YoY growth",
-    "Adj EBITDA (as named in Financial foundation)",
-    "Adj EBITDA margin",
-    "Adj EBITDA YoY growth",
+    "EBITDA (as named in Financial foundation)",
+    "EBITDA margin",
+    "EBITDA YoY growth",
 ]
 FOLDED_LINES = [
     "COGS (cost of sales)",
@@ -1708,12 +1714,15 @@ FOLDED_LINES = [
     "D&A (depreciation and amortization)",
     "EBITDA (EBIT + D&A)",
     "Issuer EBITDA (reported)",
-    "LTM Adj EBITDA",
+    "LTM EBITDA",
     "Interest",
     *AFTER_INTEREST,
     "Closing debt",
-    *CREDIT_LABELS,
-    "Interest coverage (Adj EBITDA / interest)",
+    "Net debt (all modelled cash deducted)",
+    "Senior secured leverage (secured debt / EBITDA)",
+    "Total leverage (debt / EBITDA)",
+    "Net leverage (net debt / EBITDA)",
+    "Interest coverage (EBITDA / interest)",
     "Cash proxy / closing debt",
 ]
 

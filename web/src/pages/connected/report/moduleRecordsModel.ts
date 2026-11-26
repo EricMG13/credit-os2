@@ -1,3 +1,4 @@
+import { moduleCodeName } from "../api";
 import { plainText } from "../richText";
 import {
   classifySections,
@@ -251,7 +252,15 @@ export function readableTitle(heading: string, untitled = "Untitled table") {
   const bare = MACHINE_KEY.test(heading.trim())
     ? heading.trim().replace(MACHINE_PREFIX, "").replace(/[_.]+/g, " ")
     : null;
-  const key = bare === null ? null : bare.charAt(0).toUpperCase() + bare.slice(1);
+  // The key's module prefix names where the table came from: "cp1_references" is that module's references.
+  const from = /^cp(\d[a-z0-9]*|dr)?(?=[._])/.exec(heading.trim().toLowerCase());
+  const owner = from ? moduleCodeName(`CP-${(from[1] ?? "").toUpperCase()}`) : null;
+  const key =
+    bare === null
+      ? null
+      : owner
+        ? `${owner} ${bare}`
+        : bare.charAt(0).toUpperCase() + bare.slice(1);
   const stripped = key ?? plainText(drawingTitle(heading)).replace(REGISTER_CODE, "");
   // A title left after its code begins with a capital ("TDR.3 limitations" → "Limitations") where
   // its first word is all lower-case ("iPhone revenue" stays);

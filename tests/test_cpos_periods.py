@@ -433,7 +433,7 @@ def test_a_fiscal_year_anchor_has_no_year_to_date():  # Review Focus 4
     assert labels[:1] == ["Quarter"] and "LTM FY2024" in labels
     placeholder = record["columns"][0]
     assert placeholder["reason"] == (
-        "the tables holding the named rows print no quarter column Python can read"
+        "the tables holding the named rows print no quarter column that can be read"
     )
 
 

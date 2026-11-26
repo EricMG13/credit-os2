@@ -334,3 +334,88 @@ it("keeps the case switch on one row where the names fit", () => {
   natural.mockRestore();
   width.mockRestore();
 });
+
+// Verbatim from the replayed TDG handoff (CP-2G assumption register, row A02).
+const REGISTER_HEADERS = [
+  "assumption_id",
+  "driver",
+  "case",
+  "period",
+  "value/range",
+  "unit",
+  "class",
+  "Source",
+  "rationale",
+];
+const UPSIDE_ROW = [
+  "A02",
+  "Revenue growth",
+  "Upside",
+  "FY2025; FY2026; FY2027",
+  "0.14; 0.10; 0.08",
+  "ratio",
+  "analyst_judgment",
+  "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 45",
+  "Organic momentum closer to FY2024's 16.2% persists longer",
+];
+
+it("draws the module's own words for a case whose published model records no description", () => {
+  const handoff: OutputEntry = {
+    ...forward("x"),
+    sections: [
+      {
+        heading: "T2H.3 Assumption register",
+        level: 4,
+        line: 90,
+        blocks: [
+          {
+            type: "table",
+            line: 92,
+            headers: REGISTER_HEADERS,
+            rows: [{ line: 94, cells: UPSIDE_ROW }],
+          },
+        ],
+      },
+    ],
+  };
+  render(
+    <CaseFigure
+      option={{
+        name: "Upside",
+        rawGroup: "Upside",
+        period: "FY2027E",
+        value: 1,
+        units: "USD millions",
+        description: undefined,
+      }}
+      display="8,630.8"
+      notice={undefined}
+      shownQualifications={[]}
+      handoff={handoff}
+    />,
+  );
+  expect(
+    screen.getByText("Revenue growth: Organic momentum closer to FY2024's 16.2% persists longer"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Case description not recorded.")).toBeNull();
+});
+
+it("still says no description is recorded when neither the model nor the handoff gives one", () => {
+  render(
+    <CaseFigure
+      option={{
+        name: "Upside",
+        rawGroup: "Upside",
+        period: "FY2027E",
+        value: 1,
+        units: "USD millions",
+        description: undefined,
+      }}
+      display="8,630.8"
+      notice={undefined}
+      shownQualifications={[]}
+      handoff={forward("x")}
+    />,
+  );
+  expect(screen.getByText("Case description not recorded.")).toBeInTheDocument();
+});

@@ -135,6 +135,27 @@ export const gapReading = (text: string) => {
   return GAP_WORD.test(word) || word === "No figure" ? word.toLowerCase() : word;
 };
 
+/** A cell that is one bare number, signed or not ("0.0755…", "-0.0035…"): a stated value. */
+const BARE_NUMBER = /^[-\u2212]?\d[\d,]*(?:\.\d+)?$/u;
+const STATED_NOT_DRAWN = "Stated, not drawn";
+
+/**
+ * The word a stress cell with no bar is drawn with: `gapWord`'s, except for a value the module
+ * states as one bare number in a measure with no unit to place it on a scale, which is stated and
+ * not drawn (its full value is in the note beneath), never "No figure".
+ */
+export function cellWord(cell: Cell) {
+  return cell.reason === null && BARE_NUMBER.test(cell.text.trim())
+    ? STATED_NOT_DRAWN
+    : gapWord(cell.text);
+}
+
+/** `cellWord` as a reading says it mid-sentence. */
+export function cellReading(cell: Cell) {
+  const word = cellWord(cell);
+  return word === STATED_NOT_DRAWN ? word.toLowerCase() : gapReading(cell.text);
+}
+
 /** The words a cell with no figure stands for, beyond its gap word; null when the word is all. */
 export function gapText(cell: Cell) {
   if (cell.reason) return cell.reason;

@@ -35,6 +35,11 @@ ITEM = re.compile(r"(\d+)(?:\s*[-–]\s*(\d+))?")
 MAX_PAGE_DIGITS = 9  # a longer number is no page (and int() refuses thousands of digits)
 # A capitalised word and a comma right before a bare page: a source key the inventory does not hold.
 UNKNOWN_KEY = re.compile(r"\b[A-Z]\w*\s*,\s*$")
+# A web source of the research module is keyed ``web-`` and hex digits; no inventory lists it.
+WEB_KEY = r"web-[0-9a-f]{6,}"
+SOURCE_ID_HEADERS = ("source_id", "source id", "source key")
+# "Financial foundation (CP-1)": an upstream module named in a Source cell, by name and code.
+UPSTREAM_ITEM = re.compile(r"(?P<name>[A-Za-z][A-Za-z &,'/-]*?)\s*\((?P<code>CP-[0-9A-Z]+)\)")
 ALTERNATE = re.compile(r"\balternate\b", re.IGNORECASE)
 # Register letters exclude A, B, H and Q, which also open rating grades ("B2"), halves and quarters.
 CODE = r"[CD-GI-PR-Z]\d{1,2}"
@@ -139,6 +144,7 @@ class Resolved(NamedTuple):
     source: str | None
     note: str | None
     word: str
+    outside: bool = False  # a web source: written with its key, but no inventory lists it
 
 
 class KeyIndex(NamedTuple):
@@ -154,6 +160,8 @@ class KeyIndex(NamedTuple):
             return Resolved(self.exact[word], None, word)
         candidates = self.prefixes.get(word, ())
         if not candidates:
+            if re.fullmatch(WEB_KEY, word):
+                return Resolved(None, f"the web source {word} is not in the inventory", word, True)
             return None
         chosen = [c for c in candidates if c not in self.alternates]
         if len(chosen) != 1:
@@ -199,7 +207,8 @@ def key_index(keys: tuple[str, ...], alternates: frozenset[str] = frozenset()) -
         (FILE_START if p in strict else "") + r"\s+".join(re.escape(w) for w in p.split())
         for p in phrases
     ]
-    keyed = rf"(?:(?<!\w)(?P<key>{'|'.join(spaced)})(?:\s*,\s*|\s+))?" if spaced else ""
+    spaced.append(WEB_KEY)
+    keyed = rf"(?:(?<!\w)(?P<key>{'|'.join(spaced)})(?:\s*,\s*|\s+))?"
     pattern = re.compile(keyed + MARKER + NUMBERS)
     return KeyIndex(pattern, exact, {k: tuple(v) for k, v in prefixes.items()}, alternates)
 
@@ -216,13 +225,19 @@ def page_locators(match: re.Match[str], key: Resolved | None) -> list[Locator]:
             result.append(locator("gap", label=label, note="the cited number is not a page"))
             continue
         first, last = int(first_text), int(last_text) if last_text else None
+        if last == first:
+            last = None  # "3–3" is page 3
         if key is None:
             loc = locator(
                 "gap", page=first, page_end=last, label=f"p.{span_text(first, last)} · no key"
             )
         elif key.source is None:
-            label = f"{key.word} p.{span_text(first, last)} · ambiguous"
-            loc = locator("gap", page=first, page_end=last, label=label, note=key.note)
+            state = "not in inventory" if key.outside else "ambiguous"
+            label = f"{key.word} p.{span_text(first, last)} · {state}"
+            source = key.word if key.outside else None
+            loc = locator(
+                "gap", source=source, page=first, page_end=last, label=label, note=key.note
+            )
         else:
             loc = locator(
                 "issuer_page", source=key.source, page=first, page_end=last, note=key.note
@@ -371,13 +386,21 @@ class Inventory(dict[str, tuple[str, str]]):
     alternates: frozenset[str] = frozenset()
 
 
+LISTED_SOURCE = re.compile(r"^[-*] (?P<file>\S.*?) (?P<sha>[0-9a-fA-F]{64})\s*$")
+
+
 def sources_rows(cp0_sections: list[dict[str, Any]]) -> Iterator[tuple[str, str]]:
-    """(file, sha256 or "") of every row of a ``## Sources`` table: the file is the first cell and
-    the hash the column headed sha256, when the table has one."""
+    """(file, sha256 or "") of every entry of a ``## Sources`` section: a table row (the file is
+    the first cell, the hash the column headed sha256 when the table has one) or a list item
+    written "- file sha256", the file being what precedes the final 64-hex hash."""
     for section in cp0_sections:
         if section["heading"].strip().lower() != "sources":
             continue
         for block in section["blocks"]:
+            if block["type"] == "text":
+                if listed := LISTED_SOURCE.match(block["text"].strip()):
+                    yield listed["file"], listed["sha"]
+                continue
             if block["type"] != "table":
                 continue
             hashes = [i for i, h in enumerate(block["headers"]) if h.strip().lower() == "sha256"]
@@ -634,13 +657,48 @@ class Row(NamedTuple):
     claim: bool
 
 
+def row_source(row: Row, pages: Pages) -> Resolved | None:
+    """The source key a table row names: its source-id column when it has one that names a source
+    of the run, else its first cell. A paragraph names none."""
+    if not row.headers:
+        return None
+    for index, header in enumerate(row.headers):
+        named = header.strip().lower() in SOURCE_ID_HEADERS and index < len(row.cells)
+        if named and (found := pages.index.lookup(row.cells[index].strip())):
+            return found
+    return pages.index.lookup(row.cells[0].strip())
+
+
+def upstream_chips(row: Row, module: str) -> list[dict[str, Any]]:
+    """What a claim row cites when it names only upstream modules ("Financial foundation (CP-1)"):
+    one chip per module, labelled by the module's name as the row writes it."""
+    result = []
+    for cell in row.cells:
+        for item in UPSTREAM_ITEM.finditer(cell):
+            name = MODULE_NAMES.get(item["code"], item["name"].strip())
+            loc = locator("upstream", module=item["code"], label=f"{name} output")
+            reason = f"the row cites the output of {name}, not a page"
+            result.append(chip(loc, row.line, module=item["code"], reason=reason))
+    return result
+
+
+def drop_not_supplied(chips_: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A “Not supplied” chip is no source beside a real citation and goes; a row citing only
+    “Not supplied” keeps one of them, because that is what the row says."""
+    if all(c["label"] != NOT_SUPPLIED for c in chips_):
+        return chips_
+    real = [c for c in chips_ if c["label"] != NOT_SUPPLIED]
+    return real or chips_[:1]
+
+
 def chips_for_cells(row: Row, module: str, pages: Pages) -> list[dict[str, Any]]:
     """Chips of one row or paragraph. A “…” quote is tested only against the page it follows;
     a numeric cell is tested against every page of the row. A bare page takes the source key the
-    row's first cell names. A claim row that cites nothing gets one ``no page`` gap."""
+    row's source-id column (else its first cell) names. A “Not supplied” cell is no source when
+    the row cites something else. A claim row that cites nothing gets the upstream modules it
+    names, else one ``no page`` gap."""
     number = numeric_cell(row.cells, row.headers)
-    first = row.cells[0].strip()
-    named = pages.index.lookup(first) if row.headers else None
+    named = row_source(row, pages)
     result = []
     for index, cell in enumerate(row.cells):
         found = scan(cell, pages.index, named if index else None, pages.files, module)
@@ -650,6 +708,9 @@ def chips_for_cells(row: Row, module: str, pages: Pages) -> list[dict[str, Any]]
                 result.append(issuer_chip(loc, row.line, quotes.get(pos) or number, pages))
             else:
                 result.append(other_chip(loc, row.line, module, bool(pages.inv)))
+    result = drop_not_supplied(result)
+    if row.claim and not result:
+        result = upstream_chips(row, module)
     if row.claim and not result:
         result.append(
             chip(

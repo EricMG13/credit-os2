@@ -152,7 +152,13 @@ function SelectedForecastTable({
   );
 }
 
-const FORECAST_LINES = ["Revenue", "Adj EBITDA", "Closing cash", "Closing debt"];
+/** The lines charted; a line is read under any of its labels (published models name EBITDA "Adj EBITDA" or "EBITDA"). */
+const FORECAST_LINES: string[][] = [
+  ["Revenue"],
+  ["Adj EBITDA", "EBITDA"],
+  ["Closing cash"],
+  ["Closing debt"],
+];
 
 const axisNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
 const smallAxisNumber = new Intl.NumberFormat("en-US", {
@@ -223,8 +229,8 @@ function displayForecastCell(cell: Record<string, unknown>) {
   return reason ? `${display} ${reason}` : display || null;
 }
 
-function singleForecastRow(grid: Grid, label: string) {
-  const matches = grid.rows.filter((entry) => entry.label === label);
+function singleForecastRow(grid: Grid, labels: string[]) {
+  const matches = grid.rows.filter((entry) => labels.includes(entry.label));
   return matches.length === 1 ? matches[0] : undefined;
 }
 
@@ -288,9 +294,10 @@ function ForecastTrends({
   return (
     <div className="grid gap-8">
       {status}
-      {FORECAST_LINES.map((label) => {
-        const row = singleForecastRow(grid, label);
+      {FORECAST_LINES.map((labels) => {
+        const row = singleForecastRow(grid, labels);
         if (!row) return null;
+        const label = row.label;
         const perCase = groups.map((group) => {
           const cells = periods.map((period) => {
             const matches = analysis.uniqueObservations.filter(

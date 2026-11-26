@@ -1490,7 +1490,11 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             fix = "Correct the block; if you cannot, set every driver's values to "
             advice = f"{fix}[null, null, null] and say why in scope_limits."
         return (f"Forecast inputs: {stem}. {advice}",)
-    return (*_unstated_currency(inputs), *_shock_issues(task, inputs))
+    return (
+        *_unstated_currency(inputs),
+        *_shock_issues(task, inputs),
+        *_downside_issues(task, text, inputs),
+    )
 
 
 # A Share as cp2g writes one: 0, 1, 0.d to 0.dddd or 1.0 to 1.0000, and nothing numeric after it
@@ -1601,6 +1605,99 @@ def _shock_issues(task: HandoffTask, inputs: cpos_forecast.ForecastInputs) -> tu
         "that scenario's proportional increase in cash interest (0 to 1), never a yield change. "
         f"CP-2A's table T2DS.1 states (EBITDA decline / cash-interest increase): {listed}. "
         "If you cannot copy one of them, set `downside_shock` to null."
+    )
+    return (issue,)
+
+
+_STATED_MULTIPLE = re.compile(r"(\d+(?:\.(\d+))?)\s*x?")
+_ANNUAL_PERIOD = re.compile(r"(?i)(?:fy\s*)?(\d{4})e?")
+
+
+def _computed_downside(task: HandoffTask, text: str) -> dict[int, Decimal]:
+    """Python's downside net leverage by fiscal year, from the block it computes the forecast
+    from (`cpos_forecast.model_files`), as delivery will publish it. The shock case when the
+    block states a shock, else the downside-drivers case; empty when it states neither."""
+    files = cpos_forecast.model_files(task.handoffs["CP-1"], text.encode("utf-8"))
+    outputs = json.loads(files["forecast_exact.json"])["outputs"]
+    case = next((name for name in ("DOWNSIDE", "DOWNSIDE_DRIVERS") if name in outputs), None)
+    if case is None:
+        return {}
+    years = outputs[case]["years"]
+    return {
+        year["year"]: Decimal(year["net_leverage"]["amount"])
+        for year in years
+        if year["net_leverage"]["amount"] is not None
+    }
+
+
+def _stated_downside(text: str) -> dict[int, str]:
+    """The net-leverage figure of each annual Downside row of table T2H.6 as printed (`6.66x`),
+    read as the method-script check reads that register (`method_scripts.register_table`,
+    `column`). Empty, so nothing is checked, when the table, a column or a cell is not read."""
+    table = method_scripts.register_table(text, "T2H.6")
+    if isinstance(table, str):
+        return {}
+    try:
+        period = method_scripts.column(table, "period", "T2H.6")[0]
+        case = method_scripts.column(table, "case", "T2H.6")[0]
+        leverage = method_scripts.column(table, "gross/net leverage", "T2H.6")[0]
+    except method_scripts._NotChecked:
+        return {}
+    stated: dict[int, str] = {}
+    for row in table[1]:
+        parts = row[leverage].split("/")
+        label = _ANNUAL_PERIOD.fullmatch(row[period].strip())
+        if row[case].strip().casefold() == "downside" and label and len(parts) == 2:
+            net = _STATED_MULTIPLE.fullmatch(parts[1].strip())
+            if net:
+                stated[int(label[1])] = net[0].strip()
+    return stated
+
+
+def _downside_issues(
+    task: HandoffTask, text: str, inputs: cpos_forecast.ForecastInputs
+) -> tuple[str, ...]:
+    """The reader is shown Python's downside, so the module's downside net leverage in T2H.6 must
+    be Python's, to one unit in the last place stated. Live replay
+    of TDG (2026-11-25): the module held cash interest flat in its tables but stated only
+    `downside_shock`, and its 6.66x stood beside Python's 6.8089x. Documented fail-open, logged at
+    WARNING: nothing is raised for a blocked module, for a block without a downside case, or when
+    Python cannot read table T2H.6's period, case and net-leverage cells (no guess)."""
+    if inputs.downside_shock is None and inputs.downside_drivers is None:
+        return ()
+    if method_scripts.blocked(text):
+        return ()
+    stated = _stated_downside(text)
+    if not stated:
+        log.warning("downside net leverage not checked against Python's: T2H.6 is not read")
+        return ()
+    computed = _computed_downside(task, text)
+    differing = []
+    for year, printed in stated.items():
+        python = computed.get(year)
+        if python is None:
+            continue
+        figure = printed.rstrip("x ")
+        places = len(figure.split(".")[1]) if "." in figure else 0
+        # One unit in the last stated place, as the method-script checks allow (`compare`).
+        if not method_scripts.compare((float(figure), places), float(python), 0.0)[0]:
+            exact = python.quantize(Decimal("0.0001"))
+            differing.append(f"FY{year} {figure}x against {exact}x")
+    if not differing:
+        return ()
+    issue = (
+        "Forecast inputs: the downside net leverage in the credit metrics table (T2H.6) differs "
+        f"from the one Python computes from your block: {', '.join(differing)}. The reader is "
+        "shown Python's figures, so the downside rows of T2H.4, T2H.5 and T2H.6 must all follow "
+        "the path Python computes; restating T2H.6 alone is sent back again. `downside_shock` is "
+        "applied on top of `downside_drivers`: it lowers EBITDA by `ebitda_decline` and raises "
+        "cash interest by `rate_increase`. To hold cash interest flat, state "
+        "`downside_drivers.interest_rate` before the shock (each year's flat interest divided by "
+        "that year's opening debt and by 1 + `rate_increase`), or set `downside_shock` to null "
+        "and state the whole downside case in `downside_drivers` (its `ebitda_margin` and "
+        "`interest_rate`); then restate the downside rows of T2H.4, T2H.5 and T2H.6 from "
+        "Python's computation. If you cannot, set `downside_shock` and `downside_drivers` to "
+        "null and remove the downside rows."
     )
     return (issue,)
 
