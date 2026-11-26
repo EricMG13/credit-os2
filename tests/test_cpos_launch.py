@@ -3698,6 +3698,8 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # (`loan`, `bond`, `other`, `Not supplied`) under the owner ruling "By governing document"; CP-1D
 # now copies CP-1's Add-Back IDs into T1D.1 and T1D.2 and explains the legacy no-ID case. Runs made
 # before those instructions are listed as answered under earlier methods for the affected module.
+# The CP-1D rule now also specifies the exact legacy missing-key marker and preserves literal
+# embedded Markdown characters in IDs; blocked outputs stop before the analytical registers.
 # CP-1's prior hash was 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
@@ -3705,7 +3707,7 @@ METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
     "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
     "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
-    "CP-1D": "c50ca34df2ca30408ef4b1e80749f2c93b59252c4495c8d419ef503470cdb96d",
+    "CP-1D": "fe5f11521963030f4b380fe3cb1e8b6ea7807571f08fb36a74cd37623b11530b",
     "CP-2": "a48a963cb84e36d4e245960913fff8ff6ca773ca982a359cd37c032158447021",
     "CP-2A": "fbaa659fd131de59ac253eae4a8f01d6a86128fae3c578f5fb1a4bf96455824b",
     "CP-2D": "5e7749c6121a1e420aeaae7f726c15d982564e4a63c911e597de32e568785f40",

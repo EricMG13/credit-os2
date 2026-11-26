@@ -6,7 +6,7 @@
       "consumed_path": "skills/cp-1d-earnings-quality/scripts/add_back_ids.py",
       "archive_path": "docs/reuse/selected-methods/skills/cp-1d-earnings-quality/scripts/add_back_ids.py",
       "exact_copy_found_at": null,
-      "sha256": "7d372ebe8db0ffe19d52bc53aa454537446536f73fa1f6258de536510b69ef64",
+      "sha256": "ae056d2329994c07341b48534b3d16c7710398e394ea477da2c74a697cb1e8eb",
       "source_revision": "project-written 2026-11-26 for the CP-1D Add-Back ID preservation check",
       "use": "run by Python at acceptance (deploy_workflow.method_scripts) on CP-1D T1D.1 and T1D.2 against the CP-1 T4.17 bridge IDs"
     },
@@ -571,13 +571,13 @@
     {
       "consumed_path": "skills/cp-1d-earnings-quality/SKILL.md",
       "archive_path": "docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md",
-      "sha256": "8da20d323c164389e0af4e09ee5ba3e4c0170b312ee3d22fe0c0462a25b90852",
+      "sha256": "ea91ac34e18089e149233d17b05f41ffcb621b22392e9ad5dc06e5868967e872",
       "exact_copy_found_at": null,
       "edited_copy_of": "/Users/USER/Documents/cp-os/skills/cp-1d-earnings-quality/SKILL.md",
       "source_revision": "cp-os e67bf0cda2dc80d7a744bee371c4fb3c7b8b8df7 (selected files clean)",
       "use": "Selected CP-1D/absorbed CP-1E analytical duties; current project transport, orchestration, delivery and Excel-input-only rules govern.",
       "source_sha256": "9682b2da83fe7fd3288cae31fc5d1cf7f6d2daa3de2fac297637fe13d5e8e2ae",
-      "edit": "named edit: hard rule 7 added: an empty CP-1 bridge gives T1D.1-T1D.4 one `NONE` row each and Steps 5-7 still run (caos line 165), and the completion check `(one `NONE` row when the bridge is empty)` (caos line 183); no other caos hunk ported; wording from caos-databricks vendor/deploy-v (last changed 99069f83, repo HEAD dfff264); sha256 is this edited file, source_sha256 the previously archived file"
+      "edit": "named edits: project rule 7 specifies copying each CP-1 Add-Back ID unchanged into T1D.1 and T1D.2, and requires `Not supplied: CP-1 bridge has no Add-Back ID` for each adjustment when an older bridge lacks the column; rule 8 retains the empty-bridge NONE rows from caos-databricks vendor/deploy-v revision 99069f83 (repo HEAD dfff264). No other caos hunk ported; sha256 is this edited file, source_sha256 the previously archived file"
     },
     {
       "consumed_path": "skills/cp-1d-earnings-quality/references/CP-1D_SCHEMA_REFERENCE.md",

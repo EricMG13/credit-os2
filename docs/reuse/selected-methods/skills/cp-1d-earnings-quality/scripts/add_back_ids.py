@@ -2,11 +2,17 @@
 
 from collections import Counter
 
+LEGACY_KEY = "Not supplied: CP-1 bridge has no Add-Back ID"
+
 
 def compare(expected, actual):
     """Describe differences between the bridge IDs and a CP-1D register."""
-    expected_counts = Counter(expected)
-    actual_counts = Counter(actual)
+    expected_gaps = expected.count(LEGACY_KEY)
+    actual_gaps = actual.count(LEGACY_KEY)
+    expected_ids = [ident for ident in expected if ident != LEGACY_KEY]
+    actual_ids = [ident for ident in actual if ident != LEGACY_KEY]
+    expected_counts = Counter(expected_ids)
+    actual_counts = Counter(actual_ids)
     missing = [
         ident
         for ident, count in expected_counts.items()
@@ -19,6 +25,10 @@ def compare(expected, actual):
     ]
     repeated = sorted(ident for ident, count in actual_counts.items() if count > 1)
     details = []
+    if actual_gaps < expected_gaps:
+        details.append(f"missing {expected_gaps - actual_gaps} legacy missing-key marker(s)")
+    elif actual_gaps > expected_gaps:
+        details.append(f"unexpected {actual_gaps - expected_gaps} legacy missing-key marker(s)")
     if missing:
         details.append("missing " + ", ".join(missing))
     if unexpected:
