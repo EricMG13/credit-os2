@@ -103,10 +103,8 @@ const scheduleOf = (...cells: { text: string; value: number | null; reason: stri
 
 it.each([
   ["250 (T2E.3.r03)", "250", "T2E.3.r03"],
-  ["250 per Annual Report FY25.pdf", "250", "FY25.pdf"],
   ["250 [E3]", "250", "[E3]"],
   ["250 (see p. 45)", "250", "p. 45"],
-  ["1,250 (of which RCF 200; see p. 45)", "1,250 (of which RCF 200)", "p. 45"],
 ])("draws %j as its amount, its citation left to the trace", (text, amount, citation) => {
   const { container } = drawn(scheduleOf({ text, value: null, reason: null }), [ok, ok]);
   const label = container.querySelector("figure svg text title")?.parentElement;
@@ -119,6 +117,17 @@ it.each([
   expect(screen.getByText(amount)).toBeInTheDocument();
   expect(document.body.textContent).not.toContain(citation);
   expect(document.body.textContent).not.toContain(EVIDENCE);
+});
+
+it.each([
+  ["250 per Annual Report FY25.pdf", "FY25.pdf"],
+  ["1,250 (of which RCF 200; see p. 45)", "p. 45"],
+])("draws the evidence sentence for %j, its citation left to the trace", (text, citation) => {
+  drawn(scheduleOf({ text, value: null, reason: null }), [ok, ok]);
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
+    "Debt maturing: FY2026 Amount recorded in model evidence.",
+  );
+  expect(document.body.textContent).not.toContain(citation);
 });
 
 it("draws an off-axis and a beyond-axis amount without its citation in the notes", () => {
