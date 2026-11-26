@@ -57,19 +57,38 @@ def test_execution_logs_why_it_is_unknown(tmp_path: Path, caplog: pytest.LogCapt
     assert "run-x" in message and "execution unknown" in message
 
 
+def test_module_outputs_of_a_run_with_no_folder_yet_is_quietly_none(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert run_metadata.module_outputs(tmp_path, _record()) is None
+    assert _messages(caplog, "react_frontend.run_metadata") == []
+
+
 def test_module_outputs_logs_why_it_is_unavailable(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    (tmp_path / "workflow.json").write_text("not json", encoding="utf-8")
     with caplog.at_level(logging.WARNING):
         assert run_metadata.module_outputs(tmp_path, _record()) is None
     [message] = _messages(caplog, "react_frontend.run_metadata")
     assert "run-x" in message and "module outputs unavailable" in message
 
 
+def test_library_admission_with_no_publication_is_quietly_unknown(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    layout = ensure_layout(tmp_path)
+    with caplog.at_level(logging.WARNING):
+        assert run_metadata.library_admission(layout, _record()) is None
+    assert _messages(caplog, "react_frontend.run_metadata") == []
+
+
 def test_library_admission_logs_why_it_is_unknown(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     layout = ensure_layout(tmp_path)
+    (layout.engine / "library" / "data.js").mkdir(parents=True)
     with caplog.at_level(logging.WARNING):
         assert run_metadata.library_admission(layout, _record()) is None
     [message] = _messages(caplog, "react_frontend.run_metadata")

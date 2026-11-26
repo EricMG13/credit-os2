@@ -345,6 +345,8 @@ def _one_output(
 
 def module_outputs(directory: Path, record: runs.Record) -> list[dict[str, str | None]] | None:
     """Only accepted event states or a pinned final selection can identify a response."""
+    if not os.path.lexists(directory / "workflow.json"):
+        return None  # A queued run has no folder yet: expected, not a failure to log.
     reader = _Reads(directory)
     try:
         workflow = _workflow(reader, record)
@@ -385,6 +387,8 @@ def library_admission(layout: Layout, record: runs.Record) -> str | None:
     """Current scoped publication membership; no claim about an admission timestamp."""
     if record.status in ("queued", "running"):
         return "not-listed"
+    if not os.path.lexists(layout.engine / "library" / "data.js"):
+        return None  # No publication yet: an explicit unknown, expected and not logged.
     try:
         # A linked path or a publication over the size limit is unknown. The parse is the one
         # the service keeps between requests.

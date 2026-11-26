@@ -12,8 +12,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from xml.etree.ElementTree import ParseError
 from urllib.parse import SplitResult, parse_qs, quote, unquote
+from xml.etree.ElementTree import ParseError
 from zipfile import BadZipFile
 
 from pypdf.errors import PyPdfError
@@ -109,6 +109,8 @@ def _source(root: Path, folder: str, name: str, digest: str, *, pages: bool = Tr
             PyPdfError,
             ParseError,  # a workbook part that is not well-formed XML
             zlib.error,  # a corrupt compressed stream
+            EOFError,  # truncated compressed data
+            RuntimeError,  # zipfile: an encrypted member (NotImplementedError is a subclass)
         ) as error:
             problem = f"source pages unavailable: {type(error).__name__}"
             _LOG.warning(
