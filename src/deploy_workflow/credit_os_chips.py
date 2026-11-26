@@ -83,6 +83,19 @@ MODULE_NAMES = {
     "CP-8": "Changes since the last run",
 }
 
+# The reader name of a module in one pathway where it differs (owner, 2026-11-25, ruling R12):
+# CP-L10 writes the five screens of the credit screening, not a short snapshot. Every other
+# pathway, and the pinned list above, keep MODULE_NAMES.
+PATHWAY_MODULE_NAMES: dict[str, dict[str, str]] = {
+    "credit_screening": {"CP-L10": "Credit screening"},
+}
+
+
+def module_names(pathway: str | None = None) -> dict[str, str]:
+    """The module names a run of ``pathway`` is sent and shown: ``MODULE_NAMES`` with that
+    pathway's variants; for any other pathway (or none) exactly ``MODULE_NAMES``."""
+    return {**MODULE_NAMES, **PATHWAY_MODULE_NAMES.get(pathway or "", {})}
+
 
 class Locator(TypedDict):
     kind: Literal["issuer_page", "upstream", "gap"]

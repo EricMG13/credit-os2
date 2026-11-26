@@ -15,6 +15,7 @@ const caps = {
   covenant_refinancing: "20",
   distressed_restructuring: "20",
   portfolio_decision: "20",
+  credit_screening: "10",
   short_snapshot: "20",
 };
 const file = new File(["sample input"], "Credit & facts.html", { type: "text/html" });

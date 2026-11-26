@@ -52,12 +52,13 @@ function worst(items: readonly ReadinessItem[]): LimitOutcome | undefined {
 export function moduleReadiness(
   planned: readonly string[],
   checked?: { modules: readonly string[]; items: readonly ReadinessItem[] },
+  pathway?: string | null,
 ): ModuleReadiness {
   const modules = drawnModules(checked ? checked.modules : planned);
   const limits = checked?.items.filter(needsCheck) ?? [];
   const markOf = (scope: string): ModuleMark =>
     checked ? (worst(limits.filter((item) => item.scope === scope)) ?? "none") : "unchecked";
-  const rows = modules.map((id) => ({ id, name: scopeText(id), mark: markOf(id) }));
+  const rows = modules.map((id) => ({ id, name: scopeText(id, pathway), mark: markOf(id) }));
   const drawn = new Set(modules);
   const others = [...new Set(limits.map((item) => item.scope))].filter(
     (scope) => scope !== "run" && !drawn.has(scope),
@@ -68,7 +69,11 @@ export function moduleReadiness(
     ...(run !== "none" && run !== "unchecked"
       ? { run: { id: "run", name: scopeText("run"), mark: run } }
       : {}),
-    other: others.map((scope) => ({ id: scope, name: scopeText(scope), mark: markOf(scope) })),
+    other: others.map((scope) => ({
+      id: scope,
+      name: scopeText(scope, pathway),
+      mark: markOf(scope),
+    })),
     groups: byStage(rows).map((group) => ({
       ...(Object.hasOwn(STAGE_NUMBER, group.name) ? { number: STAGE_NUMBER[group.name] } : {}),
       name: group.name,

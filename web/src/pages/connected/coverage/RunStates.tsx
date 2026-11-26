@@ -40,10 +40,10 @@ export function RunStates({
                         href={`${reportPath(run.folder)}#modules/${column.code}`}
                         className="inline-flex min-h-8 items-center text-small font-normal max-[480px]:min-h-11"
                       >
-                        {named(column)}
+                        {named(column, run.pathway)}
                       </TextLink>
                     ) : (
-                      <span className="text-text-secondary">{named(column)}</span>
+                      <span className="text-text-secondary">{named(column, run.pathway)}</span>
                     )}
                     <StateMark cell={cell} />
                   </li>

@@ -35,6 +35,7 @@ SOURCES = {
         "tests/fixtures/live_2026_11_15/earnings_update-CP-1-draft1.md",
     ),
     "cp1b_tdg_fy2024": ("CP-1B", "tests/fixtures/CP-1B-earnings_update-tdg-fy2024-t44-t46.md"),
+    "credit_screening_cpl10": ("CP-L10", "tests/fixtures/credit-screening/CP-L10.md"),
     "cp0_synthetic": ("CP-0", "proof/handoffs/CP-0.md"),
     "cp5_synthetic": ("CP-5", "proof/handoffs/CP-5.md"),
     "cp6_synthetic": ("CP-6", "proof/handoffs/CP-6.md"),

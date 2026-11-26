@@ -43,7 +43,7 @@ from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell
 from deploy_vii.model.metrics import _ratio
 from deploy_vii.preparation import pdf_page_text, xlsx_content
-from deploy_vii.registry import modules
+from deploy_vii.registry import modules, purpose
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, BudgetError, OverrunStop, exact_multiply, exact_sum
 from deploy_workflow.model.configs import CONFIGS
@@ -1570,7 +1570,11 @@ class HandoffExecutor:
                 "markdown": task.draft.decode("utf-8"),
             },
             "module_roles": {
-                **{m.module_id: m.purpose for m in modules() if m.module_id != "CP-MEMO"},
+                **{
+                    m.module_id: purpose(m.module_id, task.run.pathway)
+                    for m in modules()
+                    if m.module_id != "CP-MEMO"
+                },
                 "CP-OS": (
                     "Orchestrates selected analysis, current handoffs, bounded retries/cost, "
                     "resume and verified delivery."

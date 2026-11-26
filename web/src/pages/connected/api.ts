@@ -520,6 +520,11 @@ export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[
     label: "Portfolio Decision",
     modules: ["CP-0", "CP-1", "CP-MODEL", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"],
   },
+  credit_screening: {
+    label: "Credit screening",
+    // A screen, not an assessment (owner, 2026-11-25; PR 6): CP-L10 names where a full one is needed.
+    modules: ["CP-0", "CP-1", "CP-DR", "CP-L10"],
+  },
 };
 /** `CP-MODEL` publishes the forecast and makes no model call: it is sent, never drawn as a module. */
 export const FORECAST_CODE = "CP-MODEL";
@@ -559,6 +564,11 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-MODEL": "Cash flow model",
 };
 
+/** A module's name in one pathway where it differs from the default (ruling C6). */
+const PATHWAY_MODULE_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  credit_screening: { "CP-L10": "Credit screening" },
+};
+
 /** What a reader sees for a methodology module the page has no name for: never its code. */
 export const UNNAMED_MODULE = "Unnamed module";
 
@@ -574,8 +584,14 @@ const UNNAMED_CODES: ReadonlySet<string> = new Set([
 /**
  * A methodology module code's reader name, the unnamed wording for one that has none, or null for
  * anything that is not a methodology code (an issuer's "CP-10", commercial paper's "CP-BACKSTOP").
+ * `pathway` is the run's pathway: a module the pathway names differently reads by that name.
  */
-export function moduleCodeName(code: string): string | null {
+export function moduleCodeName(code: string, pathway?: string | null): string | null {
+  const named =
+    pathway && Object.hasOwn(PATHWAY_MODULE_NAMES, pathway)
+      ? PATHWAY_MODULE_NAMES[pathway]?.[code]
+      : undefined;
+  if (named) return named;
   if (Object.hasOwn(MODULE_NAMES, code)) return MODULE_NAMES[code] ?? null;
   return UNNAMED_CODES.has(code) ? UNNAMED_MODULE : null;
 }
@@ -583,10 +599,11 @@ export function moduleCodeName(code: string): string | null {
 /**
  * The reader's name for a module id held in a module field (never for free text: `serviceText`).
  * A code is never returned: an id shaped as one that the page cannot name reads as unnamed. So does
- * an empty id. An id that is no code ("Report") stays as written.
+ * an empty id. An id that is no code ("Report") stays as written. `pathway` is the run's pathway,
+ * where a run's modules are named.
  */
-export function moduleName(id: string) {
-  return moduleCodeName(id) ?? (/^(?:CP-[A-Z0-9]+|\s*)$/.test(id) ? UNNAMED_MODULE : id);
+export function moduleName(id: string, pathway?: string | null) {
+  return moduleCodeName(id, pathway) ?? (/^(?:CP-[A-Z0-9]+|\s*)$/.test(id) ? UNNAMED_MODULE : id);
 }
 
 /**
@@ -594,8 +611,11 @@ export function moduleName(id: string) {
  * other "CP-…" word (commercial paper's "CP-backed", a case named "CP-10") is the writer's own and
  * stays as written.
  */
-export function serviceText(text: string) {
-  return text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleCodeName(code) ?? code);
+export function serviceText(text: string, pathway?: string | null) {
+  return text.replace(
+    /(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g,
+    (code) => moduleCodeName(code, pathway) ?? code,
+  );
 }
 
 /** The changes line without the launcher's "changes:" label or the service's `(not used: <run>: <why>)` note, which names a run id. */

@@ -332,7 +332,9 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
 function RowEditors({ view, kinds }: { view: IntakeView; kinds: readonly RowKind[] }) {
   const focusChoices = [
     ["", ANY_FOCUS] as const,
-    ...drawnModules(pathwayModules(view.run.pathway)).map((id) => [id, moduleName(id)] as const),
+    ...drawnModules(pathwayModules(view.run.pathway)).map(
+      (id) => [id, moduleName(id, view.run.pathway)] as const,
+    ),
   ];
   return (
     <div className="grid gap-4 lg:col-span-2">
@@ -467,7 +469,7 @@ function ModelFields({ view }: { view: IntakeView }) {
                   view.toggleModule(code, event.target.checked);
                 }}
               />{" "}
-              {moduleName(code)}
+              {moduleName(code, view.run.pathway)}
             </label>
           ))}
         </div>

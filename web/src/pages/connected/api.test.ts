@@ -107,7 +107,11 @@ describe("connected module names", () => {
       expect(modules.indexOf("CP-DR")).toBeGreaterThan(-1);
       expect(modules.indexOf("CP-DR")).toBeLessThan(modules.indexOf("CP-1C"));
     }
-    for (const { modules } of Object.values(PATHWAYS)) expect(modules).not.toContain("CP-L10");
+    expect(
+      Object.entries(PATHWAYS)
+        .filter(([, p]) => p.modules.includes("CP-L10"))
+        .map(([id]) => id),
+    ).toEqual(["credit_screening"]);
   });
   it("has a plain name for every module the run start can schedule", () => {
     for (const { modules } of Object.values(PATHWAYS))

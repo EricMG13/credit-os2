@@ -99,7 +99,9 @@ function Sentence({
 
 /** The modules of the run as the pipeline draws them: the lead, then every other but the changes module. */
 function pipelineModules(run: RowProps["run"], view: ReportView) {
-  const lead = view.lead ? [{ name: moduleName(view.lead.output.module), entry: view.lead }] : [];
+  const lead = view.lead
+    ? [{ name: moduleName(view.lead.output.module, run.pathway), entry: view.lead }]
+    : [];
   return [...lead, ...moduleBottomLines(view, run).map(({ name, entry }) => ({ name, entry }))];
 }
 
@@ -307,7 +309,7 @@ function CallTile({ snapshot, run, view }: RowProps) {
         <RunFacts run={run} view={view} />
       </Tile>
     );
-  const name = moduleName(lead.output.module);
+  const name = moduleName(lead.output.module, run.pathway);
   return (
     // No `self-start`: a call shorter than the trust column ends level with it, its foot at the foot.
     <Tile span={8} label="The call" className="gap-7">
@@ -542,11 +544,17 @@ function ConfidenceTile({ run, view }: Pick<RowProps, "run" | "view">) {
       <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <Figure className="text-h1 font-medium">{score.value}</Figure>
         <span className="text-body font-medium text-text-primary">{score.band}</span>
-        <span className="text-caption text-text-tertiary">{moduleName(lead.output.module)}</span>
+        <span className="text-caption text-text-tertiary">
+          {moduleName(lead.output.module, run.pathway)}
+        </span>
       </p>
       <Meter
-        first={{ name: moduleName(lead.output.module), score }}
-        second={selection ? { name: moduleName(selection.output.module), score: second } : null}
+        first={{ name: moduleName(lead.output.module, run.pathway), score }}
+        second={
+          selection
+            ? { name: moduleName(selection.output.module, run.pathway), score: second }
+            : null
+        }
       />
     </Tile>
   );

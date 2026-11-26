@@ -26,6 +26,7 @@ const submissionCaps = {
   covenant_refinancing: "20",
   distressed_restructuring: "20",
   portfolio_decision: "20",
+  credit_screening: "10",
   short_snapshot: "20",
 };
 const file = new File(["sample input"], "Credit & facts.html", { type: "text/html" });
@@ -250,6 +251,7 @@ describe("connected run start", () => {
       "covenant_refinancing",
       "distressed_restructuring",
       "portfolio_decision",
+      "credit_screening",
     ]);
     fireEvent.click(within(pathways).getByRole("radio", { name: "Deep credit assessment" }));
     expect(

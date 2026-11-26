@@ -7,7 +7,8 @@ export type SearchHit = { key: string; title: string; detail: string; href: stri
 
 const MARKS = /\*\*|`/g;
 // Reader text: a module code reads as the module's name, so a hit shows and matches the name.
-const clean = (text: string) => readerText(text.replace(MARKS, "")).replace(/\s+/g, " ").trim();
+const cleanText = (text: string, pathway?: string | null) =>
+  readerText(text.replace(MARKS, ""), pathway).replace(/\s+/g, " ").trim();
 
 /** The Sources address that lands on one file's row: its place across the three groups, in order. */
 const sourceRowHref = (index: number) => `#evidence/sources/-/file-${String(index)}`;
@@ -35,13 +36,14 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
     words,
   };
   if (words.length === 0) return none;
+  const clean = (text: string) => cleanText(text, run.pathway);
   const holds = (text: string) => {
     const lower = text.toLowerCase();
     return words.every((word) => lower.includes(word));
   };
   const lines: SearchHit[] = [];
   for (const entry of entries.filter((item) => item.selected)) {
-    const module = moduleName(entry.output.module);
+    const module = moduleName(entry.output.module, run.pathway);
     for (const section of entry.sections) {
       const heading = clean(section.heading);
       const add = (line: number, title: string, text: string) => {
@@ -93,7 +95,9 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
     }),
   );
   const gaps: SearchHit[] = collectGaps(entries)
-    .filter(({ entry, gap }) => holds(`${clean(gap.title)} ${moduleName(entry.output.module)}`))
+    .filter(({ entry, gap }) =>
+      holds(`${clean(gap.title)} ${moduleName(entry.output.module, run.pathway)}`),
+    )
     .map(({ entry, gap }) => ({
       key: `${entry.output.id}:${String(gap.line)}`,
       title: clean(gap.title),

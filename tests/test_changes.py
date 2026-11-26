@@ -225,6 +225,7 @@ def test_an_older_run_without_a_recorded_selection_is_a_base_only_with_the_leadi
         ("covenant_refinancing", "CP-2"),
         ("earnings_update", "CP-1B"),
         ("short_snapshot", "CP-L10"),
+        ("credit_screening", "CP-L10"),
     ],
 )
 def test_the_lead_module_of_each_pathway_decides_an_older_run(pathway, lead):
@@ -833,7 +834,7 @@ def _prior():
     "pathway",
     [
         *("relative_value", "distressed_restructuring", "portfolio_decision", "short_snapshot"),
-        *("earnings_update", "covenant_refinancing"),
+        *("earnings_update", "covenant_refinancing", "credit_screening"),
     ],
 )
 def test_a_pack_built_from_the_cp1_handoff_of_each_formerly_unasked_pathway_states_measures(

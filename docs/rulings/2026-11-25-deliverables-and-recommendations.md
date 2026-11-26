@@ -147,6 +147,30 @@ Coordinator's ruling (not the owner's), the tie key when two instruments give th
 one that is not capped before one that is; then the better (lower) Valuation; then the
 instrument's name in alphabetical order. The order instruments are listed in never decides.
 
+## Credit Screening pathway (PR 6, 2026-11-25 and 2026-11-26)
+
+Owner's words are quoted; the rest is the coordinating session's or the PR's controller's.
+
+- The pathway id is `credit_screening`, shown as "Credit screening": CP-0, CP-1, CP-DR, then CP-L10
+  with its five screens, cap USD 10 (R12; coordinator). `short_snapshot` stays deactivated and
+  unchanged, with its one-page method.
+- Both methods of CP-L10 are kept, chosen by pathway: the one-page method everywhere it was, the
+  archived five-screen method in `credit_screening` only, with its 20 registers required and
+  checked (coordinator; the owner was asked and did not choose, and this option changed nothing
+  that existed).
+- In a Credit Screening run the module reads "Credit screening" (owner: "Credit screening").
+- CP-L10 is sent CP-DR's handoff as an optional input in this pathway, so the research is consumed
+  (coordinator).
+- `web/src/pages/connected/api.test.ts`: "no pathway holds CP-L10" became "exactly
+  `credit_screening` holds CP-L10" (owner: "Yes, change it").
+- The trimming of every module's method as sent, ruled on `main` ("apply to all modules"), applies
+  to the five-screen method too (owner, 2026-11-26: "Yes, trim it"): three sections that cannot
+  apply in this transport and eight exact repeats are cut; no register is lost.
+- The PR's controller: a credit screening is not an issuer assessment; the pathway is listed last
+  on the run start page; the five screens are shown in the Modules lead and not repeated below it.
+- Not amended: the cap sentence of `AGENTS.md` (it does not list USD 10), as this record already
+  said of the two new caps.
+
 ## Amends
 
 - `AGENTS.md`, the Excel bullet: Excel stays an input format for analysis; exactly one generated
