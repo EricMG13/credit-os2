@@ -166,9 +166,8 @@ async function checkMobileDocuments(page, channel, paidPreview) {
   await page.setViewportSize(desktop);
 }
 
-// The synthetic server's standing-portfolios Desk refuses every fetch with a fixed sentence and
-// stores the failure in the shared run root, so each fetchable line shows it in both browsers. This
-// proves the ensure POST answered 200 and the Desk is the synthetic one.
+// The synthetic Desk refuses every fetch and stores the failure in the shared root, so both
+// browsers show it: the ensure POST answered 200 and the Desk is the synthetic one.
 async function checkStandingRefusal(page) {
   // The answer key is src/deploy_workflow/reference_portfolios.py: the two funds have a holdings
   // address; the CLO portfolio has none, so it has no fetch button.
@@ -1082,8 +1081,7 @@ async function checkForecastPresentation(report, page, channel) {
     .getByRole("group", { name: "Net leverage view", exact: true })
     .getByRole("button", { name: "Table", exact: true })
     .click();
-  // Derived from proof/handoffs/CP-2G.md: base net debt 388 / EBITDA 315 = 1.23x; downside
-  // 454.6 / 252 = 1.80x.
+  // From proof/handoffs/CP-2G.md: base 388 / 315 = 1.23x; downside 454.6 / 252 = 1.80x.
   const byCase = leverage.getByRole("table", { name: "Net leverage by case", exact: true });
   assert.deepEqual(
     await byCase
@@ -1334,9 +1332,8 @@ async function checkForecastRunCharts(report, page, sourceHref) {
     .getByRole("cell", { name: "-450", exact: true })
     .waitFor();
   const refinancing = await openTable("Refinancing need");
-  // The table holds two Debt maturing points (FY2026 500, FY2027 1,250; CP-3C.md), one
-  // committed-resource point (FY2026 300), and no invented zero for the second period's missing
-  // commitment.
+  // Two Debt maturing points (FY2026 500, FY2027 1,250; CP-3C.md), one committed-resource point
+  // (FY2026 300), and no invented zero for the second period's missing commitment.
   for (const [period, maturing] of [
     ["FY2026", "500"],
     ["FY2027", "1,250"],

@@ -900,9 +900,7 @@ def test_synthetic_server_records_standing_fetch_failures_without_the_network(
     from deploy_workflow import reference_fetch
     from deploy_workflow.research import webfetch
 
-    signal_fetch = (
-        reference_fetch.signal_fetch
-    )  # importing the Signal package would guard this file
+    signal_fetch = reference_fetch.signal_fetch  # no direct import: see tests/signal_guard.py
 
     touched: list[str] = []
 
