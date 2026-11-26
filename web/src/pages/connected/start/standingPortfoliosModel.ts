@@ -134,7 +134,6 @@ export function useStandingPortfolios(): StandingView {
       const first = listed(await getStandingPortfolios(signal));
       if (left()) return;
       setListing(first);
-      setProblem("");
       absent = first.filter(neverFetched).map(({ key }) => key);
       if (absent.length === 0) return;
       step = "fetch";
@@ -143,7 +142,6 @@ export function useStandingPortfolios(): StandingView {
       const after = listed(await ensuring.current);
       if (left()) return;
       setListing(after);
-      setProblem("");
     };
     load()
       .catch((failure: unknown) => {
@@ -163,6 +161,12 @@ export function useStandingPortfolios(): StandingView {
     };
   }, []);
 
+  /** A newer listing; the automatic-fetch notice goes only once no fund is still never fetched. */
+  function settled(next: StandingPortfolio[]) {
+    setListing(next);
+    if (!next.some(neverFetched)) setProblem("");
+  }
+
   function begin(key: string, work: Work) {
     setWorking((now) => ({ ...now, [key]: work }));
   }
@@ -176,8 +180,7 @@ export function useStandingPortfolios(): StandingView {
     begin(key, "fetch");
     try {
       const done = await refreshStandingPortfolio(key);
-      setListing(listed(done));
-      setProblem("");
+      settled(listed(done));
       finish(key, fetchedNote(done));
     } catch (failure) {
       finish(key, refused(failure));
@@ -200,8 +203,7 @@ export function useStandingPortfolios(): StandingView {
       await clearStandingFiles(key);
       for (const file of files) await uploadStandingFile(key, file);
       const read = await storeStandingFiles(key);
-      setListing(listed(read));
-      setProblem("");
+      settled(listed(read));
       finish(key, { text: `Stored. ${comparisonFacts(read.portfolio).join(" ")}`, alert: false });
     } catch (failure) {
       finish(key, refused(failure));

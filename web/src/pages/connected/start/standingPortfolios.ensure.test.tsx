@@ -53,47 +53,94 @@ function Standing() {
 
 const LISTED = "The standing portfolios could not be listed.";
 
+const JNK_SET: StandingPortfolio = {
+  ...JNK,
+  as_of: "2026-11-23",
+  stored_at: "2026-11-25T09:30:00+00:00",
+  positions: 2,
+};
+const NOTICE =
+  "The automatic fetch of the standing portfolios failed. The fund manager's site did not answer.";
+
+const stored = (key: string, portfolios: StandingPortfolio[]) => ({
+  [`POST ${BASE}/${key}/refresh`]: {
+    body: {
+      outcome: "stored",
+      as_of: "2026-11-24",
+      file_as_of: "2026-11-24",
+      message: null,
+      columns_gained: [],
+      columns_lost: [],
+      portfolios,
+    },
+  },
+});
+
+const ENSURE_502 = {
+  [`POST ${BASE}/ensure`]: {
+    status: 502,
+    body: { error: "The fund manager's site did not answer." },
+  },
+};
+
+async function fetchLatest(name: string) {
+  const button = screen.getByRole("button", { name: `Fetch latest holdings: ${name}` });
+  await waitFor(() => {
+    expect(button).toBeEnabled();
+  });
+  fireEvent.click(button);
+}
+
+const region = () => screen.getByRole("region", { name: "Standing portfolios" });
+
 describe("a failed automatic fetch", () => {
-  it("is worded as the fetch failing, and is cleared by a later fetch that succeeds", async () => {
+  it("is worded as the fetch failing and stays until no fund is still never fetched", async () => {
     service({
       [`GET ${BASE}`]: { body: { portfolios: [CLO, LVLN, JNK] } },
-      [`POST ${BASE}/ensure`]: {
-        status: 502,
-        body: { error: "The fund manager's site did not answer." },
-      },
-      [`POST ${BASE}/lvln/refresh`]: {
-        body: {
-          outcome: "stored",
-          as_of: "2026-11-24",
-          file_as_of: "2026-11-24",
-          message: null,
-          columns_gained: [],
-          columns_lost: [],
-          portfolios: [CLO, LVLN_SET, JNK],
-        },
-      },
+      ...ENSURE_502,
+      ...stored("lvln", [CLO, LVLN_SET, JNK]),
+      ...stored("jnk", [CLO, LVLN_SET, JNK_SET]),
     });
     render(<Standing />);
     const problem = await screen.findByText(
       /^The automatic fetch of the standing portfolios failed\./,
     );
-    expect(problem).toHaveTextContent(
-      "The automatic fetch of the standing portfolios failed. The fund manager's site did not answer.",
-    );
+    expect(problem).toHaveTextContent(NOTICE);
     expect(screen.queryByText(new RegExp(LISTED))).toBeNull();
-    const button = screen.getByRole("button", {
-      name: "Fetch latest holdings: Loan index fund (LVLN)",
-    });
+    await fetchLatest("Loan index fund (LVLN)");
+    await screen.findByText(/As of 2026-11-24 · 5 positions/);
+    expect(region()).toHaveTextContent(NOTICE); // JNK is still never fetched
+    await fetchLatest("High-yield bond fund (JNK)");
+    await screen.findByText(/As of 2026-11-23 · 2 positions/);
     await waitFor(() => {
-      expect(button).toBeEnabled();
+      expect(within(region()).queryByText(/automatic fetch/)).toBeNull();
     });
-    fireEvent.click(button);
-    await waitFor(() => {
-      expect(
-        within(screen.getByRole("region", { name: "Standing portfolios" })).queryByText(
-          /automatic fetch/,
-        ),
-      ).toBeNull();
+  });
+
+  it("stays when a fetch of one fund failed while the other is still never fetched", async () => {
+    const failed = {
+      ...LVLN,
+      failure: { message: "Loan index fund (LVLN): HTTP 404.", at: "2026-11-25T09:30:00+00:00" },
+    };
+    service({
+      [`GET ${BASE}`]: { body: { portfolios: [CLO, LVLN, JNK] } },
+      ...ENSURE_502,
+      [`POST ${BASE}/lvln/refresh`]: {
+        body: {
+          outcome: "failed",
+          as_of: null,
+          file_as_of: null,
+          message: "Loan index fund (LVLN): HTTP 404.",
+          columns_gained: [],
+          columns_lost: [],
+          portfolios: [CLO, failed, JNK],
+        },
+      },
     });
+    render(<Standing />);
+    await screen.findByText(/^The automatic fetch of the standing portfolios failed\./);
+    await fetchLatest("Loan index fund (LVLN)");
+    await screen.findByText(/The last fetch failed: Loan index fund \(LVLN\): HTTP 404\./);
+    expect(region()).toHaveTextContent(NOTICE);
   });
 });
