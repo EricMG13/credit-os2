@@ -173,8 +173,12 @@ async function checkStandingRefusal(page) {
   // The answer key is src/deploy_workflow/reference_portfolios.py: the two funds have a holdings
   // address; the CLO portfolio has none, so it has no fetch button.
   const fetchable = ["High-yield bond fund (JNK)", "Loan index fund (LVLN)"];
-  const fetchers = page.getByRole("button", { name: /^Fetch latest holdings: /u });
-  await fetchers.first().waitFor();
+  const panel = page.getByRole("region", { name: "Standing portfolios", exact: true });
+  const fetchers = panel.getByRole("button", { name: /^Fetch latest holdings: /u });
+  // Wait on a named fund's button, not on whichever comes first.
+  await panel
+    .getByRole("button", { name: `Fetch latest holdings: ${fetchable[0]}`, exact: true })
+    .waitFor();
   const labels = await Promise.all(
     (await fetchers.all()).map((one) => one.getAttribute("aria-label")),
   );
@@ -183,13 +187,13 @@ async function checkStandingRefusal(page) {
     fetchable.map((name) => `Fetch latest holdings: ${name}`),
   );
   for (const name of fetchable) {
-    await page
+    await panel
       .getByRole("listitem")
       .filter({ hasText: name })
       .getByText(/The last fetch failed: .*\(a synthetic run fetches nothing\)/u)
       .waitFor();
   }
-  const clo = page.getByRole("listitem").filter({ hasText: "CLO portfolio" });
+  const clo = panel.getByRole("listitem").filter({ hasText: "CLO portfolio" });
   await clo.waitFor();
   assert.equal(await clo.getByRole("button", { name: /^Fetch latest holdings/u }).count(), 0);
 }
@@ -401,8 +405,9 @@ async function submit(page, channel, paidPreview = false) {
   return new URL(page.url()).pathname.split("/").at(-1);
 }
 
-async function checkPaidConfirmation(context, endpoint, channel) {
+async function checkPaidConfirmation(context, endpoint, channel, standingResponses) {
   const page = await context.newPage();
+  recordStandingResponses(page, standingResponses);
   try {
     // Exercise the production paid dialog with the offline service and no eligible submit URL.
     await page.route(/\/api\/submissions\/[^/]+\/submit$/u, (route) => route.abort());
@@ -1295,9 +1300,14 @@ async function checkForecastRunCharts(report, page, sourceHref) {
     return row;
   };
   const forecastLimits = await openTable("Portfolio limits");
-  // The table's cells are the bare numbers; the unit is its own "% NAV" column.
+  // The table's cells are the bare numbers; the unit is its own "Reporting unit" column (main
+  // asserted "3.73%"), so each value's own row must carry "% NAV".
   for (const value of ["3.73", "2.37"])
-    await forecastLimits.getByRole("cell", { name: value, exact: true }).waitFor();
+    await forecastLimits
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: value, exact: true }) })
+      .getByRole("cell", { name: "% NAV", exact: true })
+      .waitFor();
   const forecastDebt = await openTable("Debt maturities");
   await forecastDebt.getByRole("cell", { name: "1,250", exact: true }).waitFor();
   const wall = await checkTraceFocus(
@@ -1316,12 +1326,25 @@ async function checkForecastRunCharts(report, page, sourceHref) {
   );
   assert.notEqual(rowHref, sourceHref);
   const bridge = await openTable("Liquidity bridge");
-  for (const value of ["-450", "570"]) {
-    await bridge.getByRole("cell", { name: value, exact: true }).waitFor();
-  }
+  await bridge.getByRole("cell", { name: "570", exact: true }).waitFor();
+  // The sign belongs to its step: -450 is the Debt repayment row's amount (CP-2D.md).
+  await bridge
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader", { name: "Debt repayment", exact: true }) })
+    .getByRole("cell", { name: "-450", exact: true })
+    .waitFor();
   const refinancing = await openTable("Refinancing need");
-  // C4-020 uses period lines: two maturity points, one committed-resource point,
-  // and no invented zero for the second period's missing commitment.
+  // The table holds two Debt maturing points (FY2026 500, FY2027 1,250; CP-3C.md), one
+  // committed-resource point (FY2026 300), and no invented zero for the second period's missing
+  // commitment.
+  for (const [period, maturing] of [
+    ["FY2026", "500"],
+    ["FY2027", "1,250"],
+  ])
+    await refinancing
+      .getByRole("row", { name: new RegExp(period, "u") })
+      .getByRole("cell", { name: maturing, exact: true })
+      .waitFor();
   await refinancing
     .getByRole("row", { name: /FY2026/u })
     .getByRole("cell", { name: "300", exact: true })
@@ -1529,15 +1552,25 @@ async function checkLibrarySearch(context, endpoint) {
   }
 }
 
+// The standing-portfolios statuses a page received. The GET listing is "/api/reference-portfolios"
+// (no trailing slash); the POSTs are under it.
+function recordStandingResponses(page, statuses) {
+  page.on("response", (result) => {
+    const { pathname } = new URL(result.url());
+    if (
+      pathname === "/api/reference-portfolios" ||
+      pathname.startsWith("/api/reference-portfolios/")
+    )
+      statuses.push(result.status());
+  });
+}
+
 function recordBrowserRequests(page) {
   const errors = [];
   const publicationRequests = [];
   const scriptRequests = [];
   const standingResponses = [];
-  page.on("response", (result) => {
-    if (!new URL(result.url()).pathname.startsWith("/api/reference-portfolios/")) return;
-    standingResponses.push(result.status());
-  });
+  recordStandingResponses(page, standingResponses);
   page.on("request", (request) => {
     const url = new URL(request.url());
     if (url.pathname.endsWith(".js")) scriptRequests.push(url.pathname);
@@ -1762,7 +1795,7 @@ async function checkBrowserRun(context, service, workspace, channel, brand) {
   const { errors, publicationRequests, scriptRequests, standingResponses } =
     recordBrowserRequests(page);
   await checkStartRoute(page, service.endpoint, scriptRequests, brand);
-  await checkPaidConfirmation(context, service.endpoint, channel);
+  await checkPaidConfirmation(context, service.endpoint, channel, standingResponses);
   const run = await submit(page, channel);
   const open = await waitForFinishedRun(page, service.endpoint, workspace, channel, run);
   const report = await checkFinishedReport(page, open, scriptRequests, channel, run);

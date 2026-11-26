@@ -929,10 +929,11 @@ def test_synthetic_server_records_standing_fetch_failures_without_the_network(
     assert status == 200
     entries = listed["portfolios"]
     assert len(entries) == 3
-    fetchable = [entry for entry in entries if entry["fetchable"]]
-    assert fetchable
-    for entry in fetchable:
+    fetchable = {entry["key"]: entry for entry in entries if entry["fetchable"]}
+    assert set(fetchable) == {"lvln", "jnk"}  # the loan-index and high-yield funds; CLO has no URL
+    for entry in fetchable.values():
         assert "a synthetic run fetches nothing" in entry["failure"]["message"]
+    assert {entry["key"]: entry["failure"] for entry in entries}["clo"] is None
     assert touched == []
 
 
