@@ -733,17 +733,40 @@ function Axis({ slots, g }: { slots: Slot[]; g: Geometry }) {
 
 type ScheduleCell = NonNullable<ScheduleYear["cell"]>;
 
-/** A schedule cell the module states has no amount; text it gives without a figure is no gap. */
-const isStatedGap = (cell: ScheduleCell | null): cell is ScheduleCell =>
-  cell !== null && cell.value === null && cell.reason !== null;
+/** A gap marker the module writes in place of an amount: "Not supplied", "n.a.", "n.m.". */
+const GAP_MARKER = /^(?:Not\s+\w+|n\.[am]\.)\.?$/iu;
 
-/** A schedule cell as a reader sees it: a cited source stays in Evidence. */
-const scheduleText = (cell: ScheduleCell) => drawnReason(cell.text);
+/**
+ * A schedule cell with no amount: the module stated a reason, or wrote only a gap marker. Other
+ * text without a parsed figure ("approx. 500") is an amount, drawn as written.
+ */
+const isStatedGap = (cell: ScheduleCell | null): boolean =>
+  cell !== null &&
+  cell.value === null &&
+  (cell.reason !== null || GAP_MARKER.test(cell.text.trim()) || !cell.text.trim());
+
+/**
+ * A schedule cell as a reader sees it. An amount is its text exactly; only the reason of a stated
+ * gap is read by the reader rule (a cited source stays in Evidence), after its own lead words.
+ */
+function scheduleText(cell: ScheduleCell) {
+  if (!isStatedGap(cell)) return cell.text;
+  const reason = cell.reason ?? "";
+  if (reason && cell.text.endsWith(reason))
+    return `${cell.text.slice(0, cell.text.length - reason.length)}${drawnReason(reason)}`;
+  return drawnReason(cell.text) || cell.text;
+}
 const scheduleLine = (item: ScheduleYear) =>
   `${item.label} ${item.cell ? scheduleText(item.cell) : ""}`;
 
 /** A cell's own words for why it has no amount, short enough for the lane: "Not supplied". */
-const gapWords = (text: string) => /^(Not \w+)/u.exec(text.trim())?.[1] ?? "No amount";
+const gapWords = (text: string) => /^(Not \w+|n\.[am]\.)/iu.exec(text.trim())?.[1] ?? "No amount";
+
+/** An amount written as text, cut to what its lane slot holds; the whole text stays in the title. */
+const clamp = (text: string, room: number) => {
+  const fits = Math.max(4, Math.floor(room / 6.5));
+  return text.length > fits ? `${text.slice(0, fits - 1)}\u2026` : text;
+};
 
 /** The maturity schedule as written, by fiscal year, under the path on the same axis. A year with
  * several rows draws each, side by side; a year with no row draws nothing. */
@@ -810,7 +833,8 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
               textAnchor="middle"
               className="fill-text-primary font-mono text-caption"
             >
-              {scheduleText(item.cell)}
+              <title>{item.cell.text}</title>
+              {clamp(item.cell.text, room)}
             </text>
           );
         const height =
@@ -912,8 +936,8 @@ function notes(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule: 
     ...missingNotes(drawn, slots),
   );
   for (const item of schedule.years)
-    if (isStatedGap(item.cell) && yearAt(slots, item.year) >= 0)
-      out.push(sentence(`Debt maturing, ${item.label}: ${drawnReason(item.cell.text)}`));
+    if (item.cell && isStatedGap(item.cell) && yearAt(slots, item.year) >= 0)
+      out.push(sentence(`Debt maturing, ${item.label}: ${scheduleText(item.cell)}`));
   const beyond = schedule.years.filter((item) => item.cell && yearAt(slots, item.year) < 0);
   if (beyond.length)
     out.push(`Debt maturing in years not on this axis: ${beyond.map(scheduleLine).join(", ")}.`);

@@ -69,7 +69,7 @@ it("draws a schedule gap that cites a register id as the evidence sentence", () 
   };
   const { container } = drawn(schedule, [ok, ok]);
   expect(container.textContent).not.toContain("T2E.3.r03");
-  expect(screen.getByText(`Debt maturing, FY2026: ${EVIDENCE}`)).toBeInTheDocument();
+  expect(screen.getByText(`Debt maturing, FY2026: Not supplied: ${EVIDENCE}`)).toBeInTheDocument();
 });
 
 it("draws unparsed schedule text as written, not as a gap", () => {
@@ -88,4 +88,60 @@ it("draws unparsed schedule text as written, not as a gap", () => {
   expect(container.querySelector('[data-lane-gap="FY2026"]')).toBeNull();
   expect(screen.queryByText("No amount")).toBeNull();
   expect(screen.getByRole("figure").querySelector("svg")?.textContent).toContain("approx. 500");
+});
+
+const scheduleOf = (...cells: { text: string; value: number | null; reason: string | null }[]) =>
+  ({
+    years: cells.map((cell, at) => ({
+      year: 2026 + at,
+      label: `FY${String(2026 + at)}`,
+      key: `FY${String(2026 + at)}`,
+      cell,
+    })),
+    offAxis: [],
+  }) satisfies PathSchedule;
+
+it("keeps an unparsed amount with a citation exactly, in the table and the reading", () => {
+  const { container } = drawn(scheduleOf({ text: "250 (see p. 45)", value: null, reason: null }), [
+    ok,
+    ok,
+  ]);
+  expect(container.querySelector('[data-lane-gap="FY2026"]')).toBeNull();
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain("FY2026 250 (see p. 45)");
+  expect(container.textContent).not.toContain(EVIDENCE);
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  expect(screen.getByText("250 (see p. 45)")).toBeInTheDocument();
+});
+
+it("keeps the sign of an unparsed negative amount", () => {
+  drawn(scheduleOf({ text: "- 250 (approx.)", value: null, reason: null }), [ok, ok]);
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain("FY2026 - 250 (approx.)");
+});
+
+it("hatches a bare gap marker with its own words and notes it", () => {
+  const { container } = drawn(
+    scheduleOf(
+      { text: "Not supplied", value: null, reason: null },
+      { text: "n.a.", value: null, reason: null },
+    ),
+    [ok, ok],
+  );
+  expect(container.querySelector('[data-lane-gap="FY2026"]')).not.toBeNull();
+  expect(container.querySelector('[data-lane-gap="FY2027"]')).not.toBeNull();
+  expect(screen.getByText("Debt maturing, FY2026: Not supplied.")).toBeInTheDocument();
+  expect(screen.getByText("Debt maturing, FY2027: n.a.")).toBeInTheDocument();
+});
+
+it("clamps a long unparsed label in the lane and keeps it whole in the reading and table", () => {
+  const long = "approx. 500 of which revolving facility 200";
+  const { container } = drawn(scheduleOf({ text: long, value: null, reason: null }), [ok, ok]);
+  const label = [...container.querySelectorAll("figure svg text")].find((node) =>
+    node.textContent.startsWith("approx"),
+  );
+  const drawnLabel = label?.lastChild?.textContent ?? "";
+  expect(drawnLabel.length).toBeLessThan(long.length);
+  expect(drawnLabel.endsWith("\u2026")).toBe(true);
+  expect(screen.getByRole("img").getAttribute("aria-label")).toContain(long);
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  expect(screen.getByText(long)).toBeInTheDocument();
 });
