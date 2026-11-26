@@ -1,7 +1,10 @@
 import dataclasses
+import hashlib
+import io
 import json
 import os
 import re
+import shutil
 import threading
 from collections.abc import Iterator, Mapping
 from decimal import Decimal
@@ -10,8 +13,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, get_args
 
+import credit_snapshot_case as cs
 import pytest
 import update_library
+from openpyxl import load_workbook
 
 from deploy_vii.contracts import PATHWAY_CAP_USD
 from deploy_workflow.inbox import activity, runs, startup
@@ -885,3 +890,149 @@ def test_copilot_preflight_rpc_failure_still_launches_offline(
     diagnostic = capsys.readouterr().err
     assert "Copilot seat could not be verified" in diagnostic
     assert "private diagnostic" not in diagnostic
+
+
+# --- The Credit Snapshot download -----------------------------------------------------------------
+
+SNAPSHOT_PATH = "/connected/deliverables/{}/credit-snapshot.xlsx"
+SHEETS = ("Snapshot", "Inputs", "Matrix", "Sources")
+
+
+def _publish_run(root: Path, folder: str, *, status: str | None = "finished") -> Layout:
+    """List `folder` in a hand-written data.js; `status` is the scheduler record's (None: none)."""
+    engine = root / "_engine"
+    library = engine / "library"
+    library.mkdir(parents=True, exist_ok=True)
+    published = {
+        "catalogue": {"real": []},
+        "workspace": {"runs": {"one": {"folder": folder, "pathway": "credit_snapshot"}}},
+        "activity": {},
+        "chips": {},
+    }
+    (library / "data.js").write_text(f"window.CREDIT_OS_DATA={json.dumps(published)};")
+    layout = Layout(root)
+    if status is not None:
+        record = runs.Record(
+            id=folder, pathway="credit_snapshot", folder=folder, status=status, claimed_at=""
+        )
+        runs.save(layout, record)
+    return layout
+
+
+def _tree(folder: Path) -> dict[str, str]:
+    return {
+        str(path.relative_to(folder)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _no_leak(root: Path, folder: str, body: bytes, headers: Mapping[str, str]) -> None:
+    shown = body.decode("utf-8", "replace") + json.dumps(dict(headers))
+    for secret in (str(root), folder, "_engine", "CP-"):
+        assert secret not in shown
+
+
+@pytest.mark.parametrize("name", ["full", "no_scorecard"])
+def test_credit_snapshot_downloads_for_an_admitted_finished_run(
+    hosted: _Server, root: Path, name: str
+) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES[name])
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    before = _tree(built.folder)
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 200
+    assert headers["Content-Type"] == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert headers["Content-Disposition"] == 'attachment; filename="credit-snapshot.xlsx"'
+    assert headers["Cache-Control"] == "no-store"
+    assert load_workbook(io.BytesIO(body)).sheetnames == list(cs.SHEETS)
+    assert _tree(built.folder) == before
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "no-such-run",
+        "..",
+        "%2e%2e",
+        "northbridge-2026-03-31-credit_snapshot%2F..%2Fx",
+        "no%20such%20run",
+    ],
+)
+def test_credit_snapshot_refuses_an_unknown_folder(
+    hosted: _Server, root: Path, target: str
+) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES["full"])
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(target))
+    assert status == 404
+    assert json.loads(body)["error"] == "unknown report"
+    _no_leak(root, folder, body, headers)
+
+
+@pytest.mark.parametrize("state", ["running", "failed", "queued"])
+def test_credit_snapshot_refuses_a_run_that_is_not_finished(
+    hosted: _Server, root: Path, state: str
+) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES["full"])
+    folder = built.case.run_id
+    _publish_run(root, folder, status=state)
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 404
+    _no_leak(root, folder, body, headers)
+
+
+def test_credit_snapshot_refuses_a_tampered_handoff(hosted: _Server, root: Path) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES["full"])
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    handoffs = list(built.folder.glob("requests/CP-1/*/1.response.md"))
+    assert handoffs
+    for handoff in handoffs:
+        handoff.write_bytes(handoff.read_bytes() + b"\nchanged after pinning\n")
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 404
+    assert json.loads(body)["error"] == "credit snapshot unavailable"
+    _no_leak(root, folder, body, headers)
+
+
+def test_credit_snapshot_refuses_a_run_without_a_completion_record(
+    hosted: _Server, root: Path
+) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES["full"])
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    for record in built.folder.glob("completed-*.json"):
+        record.unlink()
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 404
+    assert json.loads(body)["error"] == "credit snapshot unavailable"
+    _no_leak(root, folder, body, headers)
+
+
+def test_credit_snapshot_is_refused_in_the_read_only_preview(root: Path, web: Path) -> None:
+    built = cs.build_case(root / "_engine", cs.CASES["full"])
+    folder = built.case.run_id
+    _publish_run(root, folder, status=None)
+    with TemporaryDirectory(dir=None if os.name == "nt" else "/tmp") as name:
+        preview = Path(name)
+        copied = preview / "_engine" / "runs" / folder
+        copied.mkdir(parents=True)
+        shutil.copy2(built.folder / "workflow.json", copied / "workflow.json")
+        for part in ("inputs", "deliveries"):
+            shutil.copytree(built.folder / part, copied / part)
+        shutil.copytree(root / "_engine" / "library", preview / "_engine" / "library")
+        with make_server(preview, web=web, read_only=True) as server:
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                status, body, headers = request(server, SNAPSHOT_PATH.format(folder))
+            finally:
+                server.shutdown()
+                thread.join()
+        assert status == 404
+        _no_leak(preview, folder, body, headers)
