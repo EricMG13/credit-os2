@@ -977,7 +977,8 @@ def test_a_store_that_cannot_be_opened_stops_start_up_with_one_message(
     from react_frontend import __main__ as main
 
     def serve_this_build(path: Path, **options: Any) -> None:
-        react_frontend.serve(path, web=web, environ={}, **options)  # the command has no --web
+        options["environ"] = {}
+        react_frontend.serve(path, web=web, **options)  # the command has no --web
 
     monkeypatch.setattr(main, "serve", serve_this_build)
     monkeypatch.setattr(sys, "argv", ["react_frontend", "--root", str(root), "--port", "0"])
@@ -997,7 +998,8 @@ def test_a_port_that_is_taken_stops_the_command_with_one_stderr_line(
     from react_frontend import __main__ as main
 
     def serve_this_build(path: Path, **options: Any) -> None:
-        react_frontend.serve(path, web=web, environ={}, **options)  # the command has no --web
+        options["environ"] = {}
+        react_frontend.serve(path, web=web, **options)  # the command has no --web
 
     with socket.socket() as taken:
         taken.bind(("127.0.0.1", 0))

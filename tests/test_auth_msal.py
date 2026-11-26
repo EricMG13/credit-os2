@@ -17,6 +17,7 @@ from auth_provider import (
     TENANT_ID,
     LoopbackHttpClient,
     LoopbackIdentityProvider,
+    ProviderRejected,
 )
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -90,6 +91,73 @@ def _request_authorization(provider: LoopbackIdentityProvider, query: dict[str, 
         return response.status
     finally:
         connection.close()
+
+
+def _b64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def test_provider_requires_declared_scopes_before_consuming_code(
+    guarded_loopback: list[str],
+) -> None:
+    verifier = "v" * 43
+    challenge = _b64url(hashlib.sha256(verifier.encode("ascii")).digest())
+    with LoopbackIdentityProvider(
+        signature_modes=["valid"],
+        redirect_uri_path=REDIRECT_URI_PATH,
+        expected_scopes=EXPECTED_SCOPES,
+        expected_state=FIXED_STATE,
+    ) as provider:
+        redirect_uri = f"{provider.base_url}{REDIRECT_URI_PATH}"
+        authorization = {
+            "client_id": CLIENT_ID,
+            "response_type": "code",
+            "response_mode": "query",
+            "redirect_uri": redirect_uri,
+            "scope": " ".join(EXPECTED_SCOPES),
+            "state": FIXED_STATE,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "nonce": "a" * 64,
+            "client_info": "1",
+        }
+        callback = urlsplit(provider.authorize(authorization))
+        code = parse_qs(callback.query, strict_parsing=True)["code"][0]
+        form = {
+            "grant_type": "authorization_code",
+            "client_id": CLIENT_ID,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": verifier,
+            "scope": " ".join(EXPECTED_SCOPES),
+            "client_info": "1",
+        }
+        invalid_forms = [
+            {key: value for key, value in form.items() if key != "scope"},
+            {**form, "scope": ""},
+            {**form, "scope": " ".join((*EXPECTED_SCOPES, EXPECTED_SCOPES[0]))},
+            {**form, "scope": f"{SCOPES[0]} offline_access openid profile email"},
+        ]
+        for invalid_form in invalid_forms:
+            with pytest.raises(ProviderRejected):
+                provider.exchange(invalid_form)
+            assert provider.used_codes == []
+            assert provider.token_requests == []
+            assert provider.issued_tokens == []
+
+        valid = provider.exchange(
+            {
+                **form,
+                "scope": " ".join(reversed(EXPECTED_SCOPES)),
+            }
+        )
+        assert set(valid["scope"].split()) == set(EXPECTED_SCOPES)
+        assert provider.used_codes == [code]
+        assert len(provider.token_requests) == 1
+        assert len(provider.issued_tokens) == 1
+        with pytest.raises(ProviderRejected, match="unknown or used code"):
+            provider.exchange({**form, "scope": " ".join(EXPECTED_SCOPES)})
+    assert guarded_loopback == []
 
 
 def _signature(token: str) -> bytes:
@@ -224,6 +292,9 @@ def _assert_provider_exchange(
     assert provider.token_requests[0]["code_verifier"] == flow["code_verifier"]
     assert provider.token_requests[0]["redirect_uri"] == redirect_uri
     assert provider.token_requests[0]["client_id"] == CLIENT_ID
+    requested_scopes = provider.token_requests[0]["scope"].split()
+    assert len(requested_scopes) == len(set(requested_scopes))
+    assert set(requested_scopes) == set(EXPECTED_SCOPES)
     assert "client_secret" not in provider.token_requests[0]
     assert len(provider.used_codes) == 2
     assert len(set(provider.used_codes)) == 2

@@ -93,7 +93,7 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         signature_modes: list[str],
         redirect_uri_path: str,
         expected_scopes: tuple[str, ...],
-        expected_state: str,
+        expected_state: str | None,
         clock: Callable[[], float] = time.time,
     ) -> None:
         if not signature_modes or any(mode not in {"valid", "altered"} for mode in signature_modes):
@@ -102,12 +102,15 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             raise ValueError("declare an absolute callback path without a query")
         if not expected_scopes or any(not scope for scope in expected_scopes):
             raise ValueError("declare every expected nonempty scope")
-        if not expected_state:
+        if expected_state is not None and not expected_state:
             raise ValueError("declare a nonempty expected state")
         self._signature_modes = list(signature_modes)
         self._redirect_uri_path = redirect_uri_path
         self._expected_scopes = expected_scopes
         self._expected_state = expected_state
+        self._expected_redirect_uri: str | None = None
+        self._include_session_state = False
+        self._next_identity_mode = "valid"
         self._issued_at = int(clock())
         self._private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._server: HTTPServer | None = None
@@ -120,8 +123,26 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         self.used_codes: list[str] = []
         self.issued_tokens: list[str] = []
         self.access_tokens: list[str] = []
+        self.refresh_tokens: list[str] = []
         self.network_events: list[tuple[str, str]] = []
         self.last_token_request: dict[str, str] = {}
+
+    @property
+    def credential_material(self) -> tuple[str, ...]:
+        """Return every credential value issued or submitted by this provider."""
+        submitted = tuple(
+            value
+            for request in self.token_requests
+            for field in ("code", "code_verifier")
+            if (value := request.get(field)) is not None
+        )
+        return (
+            *self._codes,
+            *submitted,
+            *self.issued_tokens,
+            *self.access_tokens,
+            *self.refresh_tokens,
+        )
 
     @property
     def authority_url(self) -> str:
@@ -129,7 +150,47 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
 
     @property
     def expected_redirect_uri(self) -> str:
-        return f"{self.base_url}{self._redirect_uri_path}"
+        return self._expected_redirect_uri or f"{self.base_url}{self._redirect_uri_path}"
+
+    def expect_flow(
+        self,
+        *,
+        state: str,
+        redirect_uri: str,
+        identity_mode: str = "valid",
+        include_session_state: bool = False,
+    ) -> None:
+        """Declare the route's concrete browser state and listener URI for one test flow."""
+        parsed = urlsplit(redirect_uri)
+        if (
+            not state
+            or not state.isascii()
+            or parsed.scheme != "http"
+            or parsed.hostname != "localhost"
+            or parsed.port is None
+            or parsed.path != self._redirect_uri_path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("declare a localhost callback URI and nonempty ASCII state")
+        if identity_mode not in {
+            "valid",
+            "wrong_issuer",
+            "wrong_tenant",
+            "wrong_audience",
+            "wrong_nonce",
+        }:
+            raise ValueError("declare one supported identity-claim response")
+        self._expected_state = state
+        self._expected_redirect_uri = redirect_uri
+        self._next_identity_mode = identity_mode
+        self._include_session_state = include_session_state
+
+    def declare_signature(self, mode: str) -> None:
+        """Permit one additional, explicitly declared signature response in a test flow."""
+        if mode not in {"valid", "altered"}:
+            raise ValueError("declare a valid or altered signature response")
+        self._signature_modes.append(mode)
 
     def __enter__(self) -> Self:
         provider = self
@@ -262,9 +323,10 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             raise ProviderRejected("unexpected client or response type")
         if query["redirect_uri"] != self.expected_redirect_uri:
             raise ProviderRejected("redirect URI was not declared")
-        if tuple(query["scope"].split()) != self._expected_scopes:
+        scopes = query["scope"].split()
+        if len(scopes) != len(self._expected_scopes) or set(scopes) != set(self._expected_scopes):
             raise ProviderRejected("scope set was not declared")
-        if query["state"] != self._expected_state:
+        if self._expected_state is not None and query["state"] != self._expected_state:
             raise ProviderRejected("state was not declared")
         if query["client_info"] != "1":
             raise ProviderRejected("client metadata request was not declared")
@@ -278,6 +340,8 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         signature_mode = self._signature_modes.pop(0) if self._signature_modes else None
         if signature_mode is None:
             raise ProviderRejected("this authorization was not declared")
+        identity_mode = self._next_identity_mode
+        self._next_identity_mode = "valid"
         self.authorize_requests.append(dict(query))
         self._code_number += 1
         code = f"test-code-{self._code_number}-7dba"
@@ -287,8 +351,12 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "nonce": query["nonce"],
             "scope": query["scope"],
             "signature_mode": signature_mode,
+            "identity_mode": identity_mode,
         }
-        return f"{query['redirect_uri']}?{urlencode({'code': code, 'state': query['state']})}"
+        response = {"code": code, "state": query["state"]}
+        if self._include_session_state:
+            response["session_state"] = f"opaque-session-{self._code_number}"
+        return f"{query['redirect_uri']}?{urlencode(response)}"
 
     def exchange(self, form: dict[str, str]) -> dict[str, Any]:
         expected = {
@@ -308,6 +376,13 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             or form["client_info"] != "1"
         ):
             raise ProviderRejected("unexpected token request client")
+        requested_scopes = form["scope"].split()
+        if (
+            not requested_scopes
+            or len(requested_scopes) != len(set(requested_scopes))
+            or set(requested_scopes) != set(self._expected_scopes)
+        ):
+            raise ProviderRejected("token request scope was not declared")
         code = form["code"]
         details = self._codes.get(code)
         if details is None or code in self.used_codes:
@@ -320,21 +395,24 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         self.used_codes.append(code)
         self.last_token_request = dict(form)
         self.token_requests.append(dict(form))
-        id_token = self._id_token(details["nonce"])
+        id_token = self._id_token(details["nonce"], details["identity_mode"])
         if details["signature_mode"] == "altered":
             id_token = self._alter_signature(id_token)
         self.issued_tokens.append(id_token)
         access_token = f"opaque-test-access-{len(self.access_tokens) + 1}"
         self.access_tokens.append(access_token)
+        refresh_token = f"opaque-test-refresh-{len(self.refresh_tokens) + 1}"
+        self.refresh_tokens.append(refresh_token)
         return {
             "token_type": "Bearer",
             "expires_in": 3600,
             "scope": details["scope"],
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "id_token": id_token,
         }
 
-    def _id_token(self, nonce: str) -> str:
+    def _id_token(self, nonce: str, identity_mode: str = "valid") -> str:
         now = self._issued_at
         claims = {
             "iss": f"{self.authority_url}/{TENANT_ID}/v2.0",
@@ -344,11 +422,21 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "oid": OBJECT_ID,
             "name": DISPLAY_NAME,
             "preferred_username": EMAIL,
+            # MSAL already hashes the raw nonce stored in its flow for the authorization
+            # request; Entra returns that request nonce unchanged in the ID token.
             "nonce": nonce,
             "iat": now,
             "exp": now + 3600,
             "ver": "2.0",
         }
+        if identity_mode == "wrong_issuer":
+            claims["iss"] = f"{claims['iss']}/unexpected"
+        elif identity_mode == "wrong_tenant":
+            claims["tid"] = "00000000-0000-4000-8000-000000000199"
+        elif identity_mode == "wrong_audience":
+            claims["aud"] = "00000000-0000-4000-8000-000000000199"
+        elif identity_mode == "wrong_nonce":
+            claims["nonce"] = hashlib.sha256(b"wrong declared nonce").hexdigest()
         header = {"alg": "RS256", "typ": "JWT", "kid": "loopback-key-1"}
         encoded_header = _b64url(json.dumps(header, separators=(",", ":")).encode())
         encoded_claims = _b64url(json.dumps(claims, separators=(",", ":")).encode())

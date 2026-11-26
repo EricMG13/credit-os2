@@ -2,32 +2,41 @@
 
 from __future__ import annotations
 
-import json
 import gzip
+import json
 import os
 import re
+import sys
 import threading
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from functools import partialmethod
 from pathlib import Path
 from typing import Any
-from urllib.parse import SplitResult, parse_qs, unquote
+from urllib.parse import SplitResult, parse_qs, unquote, urlsplit
 
-from deploy_workflow import http_base
-from deploy_workflow.inbox.layout import Layout
-from deploy_workflow.inbox import teams
-from deploy_workflow.inbox.scheduler import Scheduler, Settings
-from deploy_workflow import reference_fetch
-from deploy_workflow.run_start import service, standing_portfolios
-from deploy_workflow.accounts import store as account_store
-from deploy_workflow.signal import fetch as signal_fetch
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
+from deploy_workflow import http_base, reference_fetch
+from deploy_workflow.accounts import store as account_store
+from deploy_workflow.accounts.entra import (
+    ACCOUNTS_DIR_ENV,
+    HTTPS_REQUIRED,
+    PAIR_REQUIRED,
+    EntraIds,
+    EntraProviderFactory,
+    EntraRuntimeConfig,
+)
+from deploy_workflow.inbox import teams
+from deploy_workflow.inbox.layout import Layout
+from deploy_workflow.inbox.scheduler import Scheduler, Settings
+from deploy_workflow.run_start import service, standing_portfolios
+from deploy_workflow.signal import fetch as signal_fetch
 
 from . import (
     admission,
     artifacts,
     auth_gate,
+    auth_routes,
     coverage,
     deliverables,
     portfolio,
@@ -387,19 +396,45 @@ class _SignalReplies(service.Handler):
     raw_requestline: bytes  # set by http.server before any reply; its stubs do not list it
     accounts: Path | None = None  # the resolved account store folder where sign-in is on
     account: account_store.Account | None = None  # who the gate found (None without a session)
+    auth_config: EntraRuntimeConfig | None = None
+    auth_routes: auth_routes.AuthRoutes | None = None
 
     def check_origin(self) -> None:
         super().check_origin()
         if self.accounts is not None:
             self.account = auth_gate.check(
-                self, self.accounts, lambda path: _app_page(path, signal=self.hosted is not None)
+                self,
+                self.accounts,
+                lambda path: _app_page(path, signal=self.hosted is not None),
+                configured=self.auth_config is not None,
             )
+            if (
+                self.auth_config is not None
+                and self.command == "POST"
+                and urlsplit(self.path).path == "/auth/passcode"
+                and self.account is None
+            ):
+                raise http_base.refuse(401, "sign in first")
 
     def end_headers(self) -> None:
         # Here, as the base's own: every reply passes, those http.server writes itself included.
         for name, value in signal_host.reply_headers(self.hosted, self.raw_requestline).items():
             self.send_header(name, value)
         super().end_headers()
+
+    def _auth_get(self, url: SplitResult) -> None:
+        router = self.auth_routes
+        if router is not None:
+            reply = router.get(self, url)
+            if reply is not None:
+                raise reply
+
+    def _auth_post(self, url: SplitResult) -> None:
+        router = self.auth_routes
+        if router is not None:
+            reply = router.post(self, url, self.account)
+            if reply is not None:
+                raise reply
 
 
 def _auth_me(accounts: Path | None, path: str, account: account_store.Account | None) -> None:
@@ -461,6 +496,7 @@ def _handler(
             super().send_reply(response)
 
         def _post(self, url: SplitResult) -> None:
+            self._auth_post(url)
             _only_get(self.accounts, url.path)
             signal_host.divert(signal, self, url)
             _require_writable(read_only)
@@ -476,6 +512,7 @@ def _handler(
 
         def _get(self, url: SplitResult) -> None:
             path = url.path
+            self._auth_get(url)
             if path in auth_gate.LIBRARY_PATHS:
                 raise http_base.Reply(308, b"", {"Location": "/"})
             if _app_page(path, signal=signal is not None):
@@ -513,6 +550,7 @@ class Server(service._Server):
     read-only preview and in synthetic mode)."""
 
     signal: signal_host.SignalHost | None = None
+    auth_config: EntraRuntimeConfig | None = None
 
 
 def _is_inside(folder: Path, root: Path) -> bool:
@@ -570,6 +608,7 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     environ: Mapping[str, str] | None = None,
     sign_in: bool = False,
     accounts_dir: Path | None = None,
+    provider_factory: EntraProviderFactory | None = None,
 ) -> Iterator[Server]:
     """Hold the upstream scheduler for the lifetime of the React HTTP server.
 
@@ -581,14 +620,42 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
         raise ValueError("an explicit launcher is required in synthetic mode only")
     if not 0 <= port <= 65535:
         raise ValueError("--port must be from 0 to 65535")
+    environment = os.environ if environ is None else environ
+    preview = read_only or synthetic
+    if preview and provider_factory is not None:
+        raise ValueError("sign-in is for the live application only")
+    entra_ids = None if preview else EntraIds.from_environment(environment)
+    if provider_factory is not None and entra_ids is None:
+        raise ValueError(PAIR_REQUIRED)
+    if entra_ids is not None and provider_factory is None:
+        raise ValueError(HTTPS_REQUIRED)
+    sign_in_enabled = sign_in or (entra_ids is not None and provider_factory is not None)
+    selected_accounts_dir = accounts_dir
+    if sign_in_enabled and selected_accounts_dir is None:
+        configured_folder = environment.get(ACCOUNTS_DIR_ENV)
+        if configured_folder:
+            selected_accounts_dir = Path(configured_folder)
     accounts = _accounts_folder(
-        root, sign_in=sign_in, accounts_dir=accounts_dir, preview=read_only or synthetic
+        root,
+        sign_in=sign_in_enabled,
+        accounts_dir=selected_accounts_dir,
+        preview=preview,
+    )
+    auth_config = (
+        EntraRuntimeConfig(
+            tenant_id=entra_ids.tenant_id,
+            client_id=entra_ids.client_id,
+            accounts_dir=accounts,
+            provider_factory=provider_factory,
+        )
+        if entra_ids is not None and provider_factory is not None and accounts is not None
+        else None
     )
     dist = (web or PROJECT / "web" / "dist").resolve()
     # A proof run and the read-only preview open no feed store and run no background loop.
     hosted = None
     if not (read_only or synthetic):
-        hosted = signal_host.SignalHost(root, environ=os.environ if environ is None else environ)
+        hosted = signal_host.SignalHost(root, environ=environment)
     page = _read_page(
         dist,
         synthetic=synthetic,
@@ -610,9 +677,13 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     context["copilot_models"] = scheduler.model_choices
     handler = _handler(dist, page, context, read_only=read_only, signal=hosted)
     handler.accounts = accounts
+    handler.auth_config = auth_config
+    handler.auth_routes = (
+        auth_routes.AuthRoutes(auth_config, dist) if auth_config is not None else None
+    )
     try:
         with Server(("127.0.0.1", port), handler) as server:
-            server.scheduler, server.signal = scheduler, hosted
+            server.scheduler, server.signal, server.auth_config = scheduler, hosted, auth_config
             server.standing = standing_portfolios.Desk(
                 reference_fetch.Wiring(resolve=_offline_resolve) if synthetic else None
             )
@@ -636,6 +707,11 @@ def serve(  # noqa: PLR0913 - match the server options
     """Serve until interrupted: the HTTP server, the scheduler loop and, where Signal is hosted,
     its loop (started once the server is bound, stopped and joined on the way out). OSError
     when Signal's store cannot be opened."""
+    environment = os.environ if environ is None else environ
+    if not synthetic:
+        entra_ids = EntraIds.from_environment(environment)
+        if entra_ids is not None:
+            raise ValueError(HTTPS_REQUIRED)
     with (
         make_server(
             root,
@@ -644,12 +720,14 @@ def serve(  # noqa: PLR0913 - match the server options
             launcher=launcher,
             synthetic=synthetic,
             copilot_models=copilot_models,
-            environ=environ,
+            environ=environment,
             sign_in=sign_in,
             accounts_dir=accounts_dir,
         ) as server,
         signal_host.running(server.signal),
     ):
+        if not synthetic and not sign_in:
+            print("sign-in is off", file=sys.stderr, flush=True)
         worker = threading.Thread(target=server.serve_forever)
         worker.start()
         try:

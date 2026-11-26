@@ -102,20 +102,27 @@ def try_passcode(
     if not object_id.strip():
         raise StoreError("the identity has no object id")
     with write_transaction(db):
-        state = db.execute(
-            "SELECT locked_until FROM registration_attempts WHERE object_id=?", (object_id,)
-        ).fetchone()
-        if (
-            state is not None
-            and state["locked_until"] is not None
-            and now < datetime.fromisoformat(state["locked_until"])
-        ):
-            return "locked"
-        # Count first: if the store cannot take the count, this raises and no passcode is judged.
-        _record_failure(db, object_id, now)
-        if MIN_LENGTH <= len(passcode) <= MAX_LENGTH and _is_text(passcode):
-            for row in db.execute("SELECT profile_type, hash, salt FROM passcodes"):
-                if _matches(passcode, row):
-                    db.execute("DELETE FROM registration_attempts WHERE object_id=?", (object_id,))
-                    return "analyst" if row["profile_type"] == "analyst" else "admin"
-        return "wrong passcode"
+        return _try_passcode_locked(db, object_id, passcode=passcode, now=now)
+
+
+def _try_passcode_locked(
+    db: sqlite3.Connection, object_id: str, *, passcode: str, now: datetime
+) -> Attempt:
+    """Check and count a passcode while the caller holds the account store write lock."""
+    state = db.execute(
+        "SELECT locked_until FROM registration_attempts WHERE object_id=?", (object_id,)
+    ).fetchone()
+    if (
+        state is not None
+        and state["locked_until"] is not None
+        and now < datetime.fromisoformat(state["locked_until"])
+    ):
+        return "locked"
+    # Count first: if the store cannot take the count, this raises and no passcode is judged.
+    _record_failure(db, object_id, now)
+    if MIN_LENGTH <= len(passcode) <= MAX_LENGTH and _is_text(passcode):
+        for row in db.execute("SELECT profile_type, hash, salt FROM passcodes"):
+            if _matches(passcode, row):
+                db.execute("DELETE FROM registration_attempts WHERE object_id=?", (object_id,))
+                return "analyst" if row["profile_type"] == "analyst" else "admin"
+    return "wrong passcode"
