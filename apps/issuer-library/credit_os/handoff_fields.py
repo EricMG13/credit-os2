@@ -21,6 +21,10 @@ CHART_PREFIX = "Chart data: "
 CHART_LAST_COLUMNS = ["Reporting unit", "Basis and limitation"]
 CHART_FIRST_COLUMNS = ("Period", "Step")  # Periods are columns over time; steps are a bridge.
 STEP_HEADERS = ["Step", "Amount", *CHART_LAST_COLUMNS]
+# CP-1's EBITDA bridge also carries an Add-Back ID column after Amount; the old header is read too.
+# The id is a label, never a value: the amount stays column 1 alone.
+BRIDGE_HEADING = "Chart data: EBITDA bridge"
+BRIDGE_HEADERS = ["Step", "Amount", "Add-Back ID", *CHART_LAST_COLUMNS]
 DIRECTIONS = ("Passes below", "Passes at or below", "Passes above", "Passes at or above")
 # Row tables the launcher asks for (cpos_launch.py OWNER_TABLES with `columns`): the exact leading
 # header, the drawn kind with its column roles, the numeric columns and the columns of fixed words.
@@ -153,6 +157,19 @@ def _bridge_amounts(table: dict[str, Any]) -> list[decimal.Decimal] | None:
     return values if sum(values[:-1], decimal.Decimal(0)) == values[-1] else None
 
 
+def _is_step_table(heading: str, headers: list[str]) -> bool:
+    """A step table: the one step header, or CP-1's bridge under its heading with the id column."""
+    return headers == STEP_HEADERS or (heading == BRIDGE_HEADING and headers == BRIDGE_HEADERS)
+
+
+def _value_columns(heading: str, headers: list[str]) -> range:
+    """The columns holding values: the bridge's Amount alone, else every column between the first
+    and the last two."""
+    if heading == BRIDGE_HEADING and headers == BRIDGE_HEADERS:
+        return range(1, 2)
+    return range(1, len(headers) - 2)
+
+
 def _gap_reasons(cells: list[str]) -> str:
     """Each distinct reason of `Not supplied: <reason>` cells, once, in the order stated."""
     return "; ".join(dict.fromkeys(c.partition(":")[2].strip() for c in cells))
@@ -165,7 +182,7 @@ def _chart_gap(section: dict[str, Any]) -> dict[str, Any] | None:
         return None
     table = tables[0]
     headers, rows = table["headers"], [r["cells"] for r in table["rows"]]
-    step = headers == STEP_HEADERS
+    step = _is_step_table(section["heading"], headers)
     known = tuple(headers[:-2]) in {leading for leading, *_ in ROW_CHARTS}
     if not (step or known) or headers[-2:] != CHART_LAST_COLUMNS:
         return None
@@ -261,25 +278,21 @@ def _period_cells_ok(section: dict[str, Any], table: dict[str, Any]) -> bool:
     )
     heading = section["heading"]
     if fixed and (heading in MONEY_HEADINGS or heading.startswith(ALLOCATION_HEADING)):
-        stated = {
-            r["cells"][-2]
+        values = [
+            (r["cells"][-2], r["cells"][c])
             for r in table["rows"]
-            for c in r["cells"][1:-2]
-            if not STATED_GAP.match(c)
-        }
+            for c in _value_columns(heading, table["headers"])
+        ]
+        stated = {unit for unit, c in values if not STATED_GAP.match(c)}
         return (
             len(stated) <= 1
             and all(map(MONEY_UNIT.fullmatch, stated))
-            and all(
-                STATED_GAP.match(c) or PLAIN_AMOUNT.fullmatch(c)
-                for r in table["rows"]
-                for c in r["cells"][1:-2]
-            )
+            and all(STATED_GAP.match(c) or PLAIN_AMOUNT.fullmatch(c) for _, c in values)
         )
     return not fixed or all(
         STATED_GAP.match(c) or (PLAIN_AMOUNT.fullmatch(c) and r["cells"][-2] == "US$m")
         for r in table["rows"]
-        for c in r["cells"][1:-2]
+        for c in (r["cells"][i] for i in _value_columns(heading, table["headers"]))
     )
 
 
@@ -402,14 +415,19 @@ def _chart_table(section: dict[str, Any]) -> dict[str, Any] | None:
         or not _period_cells_ok(section, table)
     ):
         return None
-    valued = [r for r in table["rows"] if any(PLAIN_AMOUNT.fullmatch(c) for c in r["cells"][1:-2])]
+    value_columns = _value_columns(section["heading"], headers)
+    valued = [
+        r
+        for r in table["rows"]
+        if any(PLAIN_AMOUNT.fullmatch(r["cells"][i]) for i in value_columns)
+    ]
     chart = {
         **_chart_head(section, table),
         "unit": (valued or table["rows"])[0]["cells"][-2],
-        "columns": list(range(1, len(headers) - 2)),
+        "columns": list(value_columns),
     }
     if headers[0] == "Step":
-        if headers != STEP_HEADERS or _bridge_amounts(table) is None:
+        if not _is_step_table(section["heading"], headers) or _bridge_amounts(table) is None:
             return None
         chart |= {"kind": "waterfall", "amount": 1}
     else:

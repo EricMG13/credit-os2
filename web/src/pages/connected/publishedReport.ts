@@ -3,7 +3,7 @@ import { moduleCodeName, pathwayName, RequestError } from "./api";
 import { asOfDate } from "./runFigures";
 import { changeText } from "./signal";
 import { withUnit } from "./moneyUnits";
-export { unitLabel, withUnit } from "./moneyUnits";
+export { unitLabel, withUnit, writtenUnit } from "./moneyUnits";
 
 export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };
@@ -217,6 +217,9 @@ export type PublishedRun = {
   period: string;
   asOf: string | null;
   pathway: string | null;
+  /** The modules the run asked for, as its manifest records them (a custom run's completed list,
+   * with CP-8 last when it compared); none when the manifest records none. */
+  requested?: string[] | null;
   modules: Record<string, { outputs: string[]; default: string | null }>;
   record?: {
     steps: { module: string; started?: string | null; accepted?: string | null }[];
@@ -254,6 +257,8 @@ type Metric = {
   value?: number | string | null;
   unit?: string | null;
   period?: string | null;
+  /** The heading the catalogue states the figure under, set when it is not the plain name (the adjusted twin). */
+  label?: string;
   /** The same metric one year earlier, and `current - prior` as the back end computed it. */
   prior?: { value: string; period: string };
   change?: string;

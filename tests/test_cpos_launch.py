@@ -161,6 +161,9 @@ PRESET_ANSWER_KEY = {
     ),
     # Owner, 2026-11-25 (ruling R12): CP-0, CP-1, CP-DR and the five-screen CP-L10.
     "credit_screening": "CP-0 CP-1 CP-DR CP-L10",
+    # Owner, 2026-11-26 (coordinator's ruling, brief-7a): "PATHWAY_MODULES["custom"] is CP-0 and
+    # CP-1 (the contract requires at least one module)"; a custom run's modules are the analyst's.
+    "custom": "CP-0 CP-1",
 }
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the
@@ -247,6 +250,13 @@ POST_BS_NONE = (
     POST_BS_HEADER
     + "\n| --- | --- | --- | --- | --- | --- | --- |\n"
     + "| None found in the sources read | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
+    "| Synthetic; the annual report and its notes were read. |"
+)
+PRO_FORMA_NONE = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| Not stated | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
     "| Synthetic; the annual report and its notes were read. |"
 )
 POST_BS_EVENT = (
@@ -465,11 +475,11 @@ OWNER_TABLES = {
         ),
         "Chart data: debt stack": synthetic_table(DEBT_STACK_HEAD, *DEBT_STACK_ROWS),
         "Chart data: EBITDA bridge": synthetic_table(
-            "| Step | Amount | Reporting unit | Basis and limitation |",
-            "| Reported EBITDA | 410 | US$m | Synthetic. |",
-            "| Restructuring add-back | 30 | US$m | Synthetic. |",
-            "| Disposal | -10 | US$m | Synthetic. |",
-            "| Issuer-adjusted EBITDA | 430 | US$m | Synthetic. |",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| Reported EBITDA | 410 | Not applicable | US$m | Synthetic. |",
+            "| Restructuring add-back | 30 | AB-1 | US$m | Synthetic. |",
+            "| Disposal | -10 | AB-2 | US$m | Synthetic. |",
+            "| Issuer-adjusted EBITDA | 430 | Not applicable | US$m | Synthetic. |",
         ),
     },
     "CP-2H": {
@@ -757,6 +767,7 @@ def answer(context: dict, plan_routes: list) -> str:
         lines += ["### Net debt data", "", NET_DEBT_TABLE, ""]
         lines += [part for h, t in CP1_CHECKED.items() for part in (f"### {h}", "", t, "")]
         lines += ["### Post-balance-sheet adjustments", "", POST_BS_NONE, ""]
+        lines += ["### Pro forma interest and cover", "", PRO_FORMA_NONE, ""]
     for heading, table in OWNER_TABLES.get(context["module_id"], {}).items():
         lines += [f"### {heading}", "", table, ""]
     lines += OWNED_SECTIONS.get(context["module_id"], [])
@@ -1767,6 +1778,9 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 INSTRUCTION_BUDGET = {
     "credit_screening": 346_500,
     "deep_credit_assessment": 1_903_059,
+    # Owner, 2026-11-26 (PR 7a): every module a custom run offers is one of Deep's and is sent
+    # Deep's request, so Deep's ceiling bounds any custom selection.
+    "custom": 1_903_059,
     "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
     "covenant_refinancing": 1_157_279,
@@ -2247,9 +2261,12 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
 # words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed
 # (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
-# without its repeats, and the value was recomputed again. The constant keeps its name.
+# without its repeats, and the value was recomputed again. 2026-11-26 (CP-1 instruction PR): the
+# every-module sentence gained "Treat its interest cover the same way, ..." (owner's item 3), so
+# every module's instructions changed on purpose; the value pinned then (d3c2d13b...) was
+# recomputed (edc64bfc...). The constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "d3c2d13b8612b80519353aaee84b74504e29de1206190710e6f30fffe925306a"
+    "edc64bfc9891947aaf66ee5acaa86dc84f8ce77fac2497e7431cea9c0baeee80"
 )
 
 
@@ -3261,6 +3278,19 @@ def test_the_step_file_gives_the_fixed_register_rows_the_money_unit_not_us_dolla
 # docs/rulings/2026-11-16-reporting-currency-from-sources.md: a facility in another currency counts
 # at the amount the filings state for it in the reporting currency, else at the FX rate the source
 # materials state for the reporting, recorded beside it; no rate is looked up, derived or invented.
+# Owner ruling, 2026-11-26 ("By governing document"): T4.18 gains `Asset type` after `Type`; the
+# value follows the governing document a source states, never the instrument's name.
+T418_ASSET_TYPE_COLUMNS = "| `Type` | `Asset type` | `Carrying Value` |"
+T418_ASSET_TYPE_RULES = (
+    "Security, ranking, rate type and asset type are never inferred from the instrument name.",
+    (
+        "`Asset type` follows the governing document a source states: `loan` for a facility "
+        "under a credit agreement (term loan, revolver, ABL), `bond` for a security under an "
+        "indenture (notes, bonds), `other` for a securitisation, receivables facility, finance "
+        "lease or other debt; `Not applicable` for the `Financing cost adjustment` row; "
+        "`Not supplied: <reason>` when no source states the governing document."
+    ),
+)
 T418_COLUMNS = "| `Currency` | `Reporting Currency Amount` | `FX Rate` | `Coupon or Margin` |"
 T418_RULES = (
     (
@@ -3303,9 +3333,10 @@ CP2D_CURRENCY_RULE = (
 def test_cp1_is_sent_each_instruments_reporting_currency_amount_and_never_invents_a_rate(tmp_path):
     text = _built_instruction(tmp_path, "CP-1", ("CP-1",))
     (t418,) = [line for line in text.splitlines() if "### T4.18 Debt instruments" in line]
-    assert T418_COLUMNS in t418
-    for rule in T418_RULES:
+    assert T418_COLUMNS in t418 and T418_ASSET_TYPE_COLUMNS in t418
+    for rule in T418_RULES + T418_ASSET_TYPE_RULES:
         assert rule in t418, rule
+    assert "Security, ranking and rate type are never inferred" not in t418
     assert "in the table's currency" not in t418 and "FX Rate and Source" not in text
     step3 = text.partition("## REF_CP-1_03_Normalization.md")[2].partition("## REF_CP-1_04")[0]
     assert CP1_STEP3_CURRENCY in step3
@@ -3474,6 +3505,7 @@ def test_cp1_method_files_are_archived_with_hashes_and_named_edits():
         "prohibited conclusion, reader question and decision drivers",
         "FFO/Debt trajectory",
         "WC inclusion",
+        "Asset-type edit (owner, 2026-11-26",
     ):
         assert named in edits, named
 
@@ -3526,12 +3558,14 @@ def all_instructions(tmp_path, pathway="distressed_restructuring", modules=None,
         data = json.loads(context.read_text())
         data["valuation"].update(peer_source=peer_source, peers=[])
         context.write_text(json.dumps(data))
+    # A custom run is priced from GPT runs on Copilot and launches at its computed cap (PR 7a T2).
+    custom = pathway == "custom"
     prepared = prepare(
         context,
         issuer_folder(tmp_path),
         tmp_path / "out",
-        config="sol-medium",
-        cap="15",
+        config="copilot-sol-medium" if custom else "sol-medium",
+        cap=None if custom else "15",
         modules=modules,
     )
     return prepared, {
@@ -3636,9 +3670,13 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # repeats (`TRIMMED_METHODS`). The method files are byte-identical; the blocks of every module
 # but CP-8 and CP-L10 are not, so the library marks those modules in every earlier run as
 # answered under an earlier method. The values before are in this file's history at 941ff81.
+# CP-1 pin recomputed on 2026-11-26 (owner, "By governing document"): T4.18 gains the `Asset type`
+# column and its rule (`loan`, `bond`, `other`, `Not supplied`), so runs made before it are listed
+# as answered on an earlier CP-1 method: expected. Only CP-1's hash moved. It was
+# 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
-    "CP-1": "8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a",
+    "CP-1": "58a9d83093b9932163d537073388e96e72659ec80004ff10a9aa91d7c6daeb5f",
     "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
     "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
     "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
@@ -4703,7 +4741,7 @@ def forecast_run(  # noqa: PLR0913 - one keyword per scenario setting
 
 
 def test_cp2g_run_publishes_model_delivery(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     receipt = json.loads((folder / "delivery.json").read_text())
@@ -4754,13 +4792,25 @@ def test_cp2g_run_publishes_model_delivery(tmp_path, provider, capsys):
         "95.4",
     ]
     assert (first["year"], first["planning_start"], first["planning_end"]) == (
-        2025,
-        "2025-04-01",
-        "2026-03-31",
+        2026,
+        "2026-04-01",
+        "2027-03-31",
     )
     assert "Model not published" not in seen.err
     completed = json.loads(next(out.glob("completed-*.json")).read_text())
     assert completed["cp_forecast_published"] is True and completed["forecast_failure"] is None
+
+
+# The flows are named under FY2025, so the forecast starts with FY2026.
+AFTER_FY2025 = [
+    {"year": 2026 + i, "start": f"{2026 + i}-04-01", "end": f"{2027 + i}-03-31"} for i in range(3)
+]
+
+
+def named_forecast_block(**changes) -> str:
+    """CP-2G's block with every operand naming its CP-1 cell, as acceptance requires of a flow."""
+    base = {k: {"amount": v, "reason": None, "row": k, "period": "FY2025"} for k, v in BASE.items()}
+    return forecast_block(base=base, **{"years": AFTER_FY2025, **changes})
 
 
 def layer1_block(**changes) -> str:
@@ -4768,7 +4818,7 @@ def layer1_block(**changes) -> str:
     base = changes.pop("base", None) or {
         k: {"amount": v, "reason": None, "row": k, "period": "FY2025"} for k, v in BASE.items()
     }
-    return forecast_block(downside_shock=None, base=base, **changes)
+    return forecast_block(downside_shock=None, base=base, **{"years": AFTER_FY2025, **changes})
 
 
 def _operand(amount, row="revenue", period="FY2025"):
@@ -4798,7 +4848,9 @@ TWO_YEARS = "| Metric | FY2024 | FY2025 |\n| --- | --- | --- |\n| revenue | 900 
 def test_a_layer1_operand_is_the_cell_at_its_row_and_period():
     inputs = _parse_layer1(_cp1_doc(TWO_YEARS), amount="1000", period="FY2025")
     assert inputs.base["revenue"].amount == "1000"
-    assert _parse_layer1(_cp1_doc(TWO_YEARS), amount="900", period="FY2024")
+    # 900 is CP-1's FY2024 cell, but the other flows are named under FY2025: one block, one header.
+    with pytest.raises(ValueError, match="different headers"):
+        _parse_layer1(_cp1_doc(TWO_YEARS), amount="900", period="FY2024")
 
 
 @pytest.mark.parametrize(
@@ -4956,7 +5008,9 @@ def test_a_layer1_operand_must_name_its_cell_exactly_when_it_states_an_amount(op
 def _named_cp2g(doc: str, **operands):
     """A CP-2G block that names each operand's cell, parsed against the CP-1 document."""
     base = {k: _operand(v, k) for k, v in BASE.items()} | operands
-    return cpos_forecast.parse(forecast_block(base=base), doc.replace("__BLOCK__", ""))
+    return cpos_forecast.parse(
+        forecast_block(base=base, years=AFTER_FY2025), doc.replace("__BLOCK__", "")
+    )
 
 
 def test_a_cp2g_block_may_name_the_row_and_period_of_every_base_operand():
@@ -5026,9 +5080,10 @@ def test_a_named_cp2g_operand_that_is_not_its_cell_is_sent_back_for_repair():
     )
     task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
     base = {k: _operand(v, k) for k, v in BASE.items()}
-    assert cpos_launch._forecast_issues(task, forecast_block(base=base)) == ()
+    block = {"years": AFTER_FY2025}
+    assert cpos_launch._forecast_issues(task, forecast_block(base=base, **block)) == ()
     base["capex"] = _operand("40", "Capex")
-    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base))
+    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base, **block))
     assert issue == (
         "Forecast inputs: CP-2G: base capex: no table cell of CP-1 is at row `Capex`, period "
         "`FY2025`. Correct the row, period, column or amount of capex; if you cannot, state "
@@ -5052,7 +5107,9 @@ def test_a_refusal_that_is_not_about_a_base_operand_keeps_the_null_every_driver_
 
 def test_a_cp2g_block_that_names_its_rows_publishes_their_history(tmp_path, provider, capsys):
     base = {k: _operand(v, k) for k, v in BASE.items()}
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block(base=base))
+    code, out, seen = forecast_run(
+        tmp_path, provider, capsys, forecast_block(base=base, years=AFTER_FY2025)
+    )
     assert code == 0, seen.err
     assert "Model not published" not in seen.err
     (folder,) = (out / "deliveries").iterdir()
@@ -5115,7 +5172,7 @@ def test_cp2gs_block_wins_when_both_modules_state_one(tmp_path, provider, capsys
         tmp_path,
         provider,
         capsys,
-        forecast_block(),
+        named_forecast_block(),
         modules=("CP-2G", "CP-MODEL"),
         cp1_block=cp1_block,
     )
@@ -5216,7 +5273,7 @@ def test_model_publish_failure_keeps_the_delivery(tmp_path, provider, capsys, mo
         raise ValueError("synthetic failure")
 
     monkeypatch.setattr(cpos_forecast, "model_files", refuse)
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0
     (folder,) = (out / "deliveries").iterdir()
     assert (folder / "delivery.json").is_file() and not (folder / "forecast_exact.json").exists()
@@ -5269,7 +5326,8 @@ def test_an_invalid_or_missing_inputs_block_is_sent_back_for_repair_naming_why(
 
 
 def test_without_a_shock_only_the_reference_case_is_published(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block(downside_shock=None))
+    block = named_forecast_block(downside_shock=None)
+    code, out, seen = forecast_run(tmp_path, provider, capsys, block)
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     assert list(json.loads((folder / "forecast_exact.json").read_text())["outputs"]) == [
@@ -5278,7 +5336,7 @@ def test_without_a_shock_only_the_reference_case_is_published(tmp_path, provider
 
 
 def test_a_new_forecast_run_publishes_the_history_record(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     assert "history" in json.loads((folder / "calculation.json").read_text())
@@ -5291,7 +5349,7 @@ def test_the_forecast_request_does_not_change_the_identity_of_other_plans(
 ):
     """Existing plans keep their identity.json: the flag is not part of it, and a plan without
     CP-2G does not even carry it."""
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     identity = json.loads((out / "identity.json").read_text())
     assert "publish_forecast" not in identity and "forecast" not in identity
@@ -5334,7 +5392,7 @@ def case_drivers(paths: dict) -> dict:
 
 
 def cased_block(**changes) -> str:
-    return forecast_block(
+    return named_forecast_block(
         upside_drivers=case_drivers(UPSIDE), downside_drivers=case_drivers(DOWNSIDE), **changes
     )
 
@@ -5392,7 +5450,7 @@ def test_cp2g_upside_and_downside_drivers_are_computed_as_their_own_cases(
 
 
 def test_without_case_drivers_the_forecast_record_is_unchanged(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     exact = json.loads((folder / "forecast_exact.json").read_text())
@@ -5436,7 +5494,9 @@ def test_the_cp2g_instruction_asks_for_the_row_and_period_of_every_base_operand(
         "positive magnitude",
         "with its sign reversed",
         "is not a cell",
-        "`FY2024`, `Q3 2025`, `H1 2025` or `9M 2025`",
+        "under one twelve-month column (`FY2024` or an LTM column;",
+        "A balance (debt, cash, undrawn) may be named under a quarter-end column",
+        "`Q3 2025`, `H1 2025` or `9M 2025`",
     ):
         assert words in block, words
     assert "copied exactly as CP-1 prints it (outflows as positive magnitudes)" not in block
@@ -5451,13 +5511,13 @@ def test_the_forecast_instructions_ask_for_the_cases_as_driver_overrides():
 def test_the_library_lists_the_published_forecast_as_a_model(tmp_path, provider, capsys):
     """The launcher's own refresh builds the library: its real methodology check accepts the
     CP-2G instructions and the Forecast data carries the published figures."""
-    code, _, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, _, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0 and "Library not updated" not in seen.err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
     data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
     (model,) = (m for m in data["workspace"]["models"] if m["cashflow"] is not None)
     grid = model["cashflow"]
-    assert [c["label"] for c in grid["columns"]][-6:] == ["FY2025E", "FY2026E", "FY2027E"] * 2
+    assert [c["label"] for c in grid["columns"]][-6:] == ["FY2026E", "FY2027E", "FY2028E"] * 2
     assert [c["group"] for c in grid["columns"]][-6::3] == ["Base case", "Downside case"]
 
 
@@ -5495,7 +5555,7 @@ def test_delivery_fails_closed_when_the_pinned_handoff_no_longer_yields_the_fore
     tmp_path, provider, capsys
 ):
     """The publish step fails open; a delivery that asks for the forecast never does."""
-    code, out, _ = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, _ = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0
     manifest = next(out.glob("delivery-*.json"))
     request = DeliveryRequest.model_validate_json(manifest.read_text())
@@ -5516,7 +5576,7 @@ def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
     CP-2G shows the not-published notice."""
     from test_library_page_browser import visit
 
-    code, _, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, _, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0 and "Library not updated" not in seen.err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
     data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
@@ -5526,7 +5586,7 @@ def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
         f"#W-Forecast/{model['id']}?c={RUN_ID}",
     )
     assert console == []
-    assert "FY2025E" in dom and "1,050" in dom and "Downside" in dom
+    assert "FY2026E" in dom and "1,050" in dom and "Downside" in dom
     assert "No forecast model was published" not in dom
     other = tmp_path / "other"
     other.mkdir()
@@ -5618,7 +5678,9 @@ def test_each_pathways_run_reaches_the_library_screens(tmp_path, provider, capsy
     )
     forecast = "CP-2G" in PATHWAY_MODULES[pathway]
     provider.answer = lambda context: (
-        forecast_answer(context, routes, forecast_block()) if forecast else answer(context, routes)
+        forecast_answer(context, routes, named_forecast_block())
+        if forecast
+        else answer(context, routes)
     )
     assert main(argv) == 0
     assert "Library not updated" not in capsys.readouterr().err
@@ -5711,7 +5773,7 @@ def _deep_run_in_the_library(tmp_path, provider, capsys) -> dict:
     argv = launch(tmp_path, "--live", "--ruling", str(RULING), pathway="deep_credit_assessment")
     argv[argv.index("--out") + 1] = str(tmp_path / "runs" / RUN_ID)
     routes = prepare_routes(tmp_path, "sol-medium", None)
-    provider.answer = lambda context: forecast_answer(context, routes, forecast_block())
+    provider.answer = lambda context: forecast_answer(context, routes, named_forecast_block())
     assert main(argv) == 0
     assert "Library not updated" not in capsys.readouterr().err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
@@ -5768,7 +5830,7 @@ def test_a_deep_run_fills_the_library_pages(tmp_path, provider, capsys):
         assert UNFILLED.search(shown[name]) is None, (name, UNFILLED.findall(shown[name]))
         assert ISSUER in shown[name] and "Deep credit assessment" in shown[name], name
     assert "First run of this pathway" in shown["Changes"]
-    assert "FY2025E" in shown["Forecast"]
+    assert "FY2026E" in shown["Forecast"]
 
 
 def test_a_delivery_without_a_forecast_has_no_forecast_key_in_its_receipt(
@@ -5866,7 +5928,7 @@ def test_the_forecast_instructions_cap_driver_values_at_four_decimal_places():
 def cp2g_check(tmp_path, block):
     """The in-loop check of a CP-2G answer holding `block`, with a CP-1 that prints BASE."""
     prepared, task, context = good_task(tmp_path, "CP-2G", "distressed_restructuring")
-    cp1 = " ".join(BASE.values()).encode()
+    cp1 = _cp1_with_rows({}).encode()  # a table printing BASE, so a named block finds its cells
     task = dataclasses.replace(task, handoffs={"CP-1": cp1})
     context["handoffs"] = {"CP-1": {"sha256": hashlib.sha256(cp1).hexdigest()}}
     routes = list(prepared.plan.layout.routes)
@@ -5928,7 +5990,7 @@ def test_a_schema_refusal_naming_a_facility_key_is_told_to_null_the_drivers():
 
 
 def test_checker_accepts_a_valid_or_declined_forecast_block(tmp_path):
-    assert cp2g_check(tmp_path, forecast_block()) == ()
+    assert cp2g_check(tmp_path, named_forecast_block()) == ()
     (tmp_path / "declined").mkdir()
     assert cp2g_check(tmp_path / "declined", REAL_DECLINED_BLOCK) == ()
 
@@ -6129,6 +6191,83 @@ def test_a_bridge_with_every_amount_not_supplied_is_accepted_and_a_mixed_one_is_
     assert any("Not supplied" in i for i in mixed), mixed
 
 
+def add_back_issues(*rows: tuple[str, str]) -> tuple[str, ...]:
+    """CP-1's EBITDA bridge from (Amount, Add-Back ID) rows, as the check reads it."""
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    lines = [f"| Step {i} | {a} | {b} | US$m | Synthetic. |" for i, (a, b) in enumerate(rows)]
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *lines,
+        ]
+    )
+    return cpos_launch.chart_issues(text, table, money="US$m")
+
+
+NA = "Not applicable"
+
+
+def test_the_ebitda_bridge_ids_run_from_ab_1_in_row_order():
+    assert add_back_issues(("10", NA), ("5", "AB-1"), ("-2", "AB-2"), ("13", NA)) == ()
+    assert add_back_issues(("10", NA), ("10", NA)) == ()  # no add-back: opening is closing
+
+
+def test_every_bad_id_of_a_bridge_is_listed_in_one_review():
+    issues = add_back_issues(
+        ("10", "AB-1"), ("5", "AB-3"), ("-2", NA), ("1", "AB-10"), ("14", "AB-2")
+    )
+    assert len(issues) == 5, issues
+    assert all("Chart data: EBITDA bridge" in i and "Step " in i for i in issues)
+
+
+def test_a_stated_bridge_refuses_not_applicable_on_a_middle_row_but_an_all_gap_one_allows_it():
+    (issue,) = add_back_issues(("10", NA), ("5", NA), ("15", NA))
+    assert "Step 1" in issue and "must be `AB-1`" in issue
+    gap = "Not supplied: not stated"
+    assert add_back_issues((gap, NA), (gap, NA), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-1"), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-2"), (gap, NA))
+
+
+@pytest.mark.parametrize("short_at", [1, 3])
+def test_a_short_bridge_row_gives_only_the_row_length_issue(short_at):
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    rows = [
+        "| Step 0 | 10 | Not applicable | US$m | Synthetic. |",
+        "| Step 1 | 5 | AB-1 | US$m | Synthetic. |",
+        "| Step 2 | -2 | AB-2 | US$m | Synthetic. |",
+        "| Step 3 | 13 | Not applicable | US$m | Synthetic. |",
+    ]
+    rows[short_at] = f"| Step {short_at} | 1 | US$m | Synthetic. |"
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *rows,
+        ]
+    )
+    (issue,) = cpos_launch.chart_issues(text, table, money="US$m")
+    assert "row needs 5 cells" in issue and f"Step {short_at}" in issue
+
+
+def test_the_id_check_leaves_the_bridge_arithmetic_alone():
+    issues = add_back_issues(("10", NA), ("5", "AB-1"), ("14", NA))
+    assert len(issues) == 1 and "does not equal the closing" in issues[0]
+
+
+def test_only_the_cp1_bridge_asks_for_an_add_back_id():
+    ids = {
+        m: [t.heading for t in tables if t.id_column]
+        for m, tables in cpos_launch.OWNER_TABLES.items()
+    }
+    assert {m: h for m, h in ids.items() if h} == {"CP-1": ["Chart data: EBITDA bridge"]}
+
+
 def test_a_bridge_check_names_the_stated_and_summed_amounts():
     (issue,) = bridge_issues("900", "-300", "700")
     assert "600" in issue and "700" in issue
@@ -6187,7 +6326,9 @@ def test_delivery_presents_each_owner_table_as_a_plain_table_with_its_heading(tm
 # ---- Package 2 (2026-11-10): the credit-structure tables. Every value is synthetic.
 STRUCTURE_HEADERS = {
     "Chart data: debt stack": DEBT_STACK_HEAD,
-    "Chart data: EBITDA bridge": "| Step | Amount | Reporting unit | Basis and limitation |",
+    "Chart data: EBITDA bridge": (
+        "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |"
+    ),
     "Chart data: covenant headroom": COVENANT_HEAD,
     "Chart data: rating triggers": TRIGGER_HEAD,
     "Chart data: portfolio limits": LIMITS_HEAD,
@@ -7503,7 +7644,7 @@ def test_a_facilities_refusal_keeps_the_facilities_line():
          "floor_pct": None, "reference_rate": None, "annual_amortisation": None,
          "maturity": None}
     ]  # fmt: skip
-    block = forecast_block(base=_named_base(), facilities=notes)
+    block = forecast_block(base=_named_base(), years=AFTER_FY2025, facilities=notes)
     (issue,) = _repair_issues(block, _cp1_with_rows({}))
     assert issue.endswith(FACILITY_END) and issue.count("Correct the facilities;") == 1
 
@@ -8132,7 +8273,7 @@ def test_the_forecast_instruction_sentences_say_what_python_does():  # whole-bra
     assert "check that the last twelve months are twelve months; add no figure to it." in table
     assert "LTM Qn YYYY" not in table and "to date a balance" not in table
     assert "only to check" not in table and "change no other table" not in table
-    shown = "history only for a line named under such a header."
+    shown = "history only for a line named under a period header."
     for block in (cpos_launch.FORECAST_BLOCK, cpos_launch.LAYER1_FORECAST_BLOCK):
         assert shown in block
         assert "Those tables are in US$ million" not in block
@@ -8267,7 +8408,7 @@ def test_the_sent_forecast_instructions_offer_history_only_under_a_period_header
     for module, modules in (("CP-2G", ("CP-1", "CP-2G")), ("CP-1", ("CP-1", "CP-MODEL"))):
         (tmp_path / module).mkdir(exist_ok=True)
         text = _built_instruction(tmp_path / module, module, modules)
-        assert "history only for a line named under such a header." in text
+        assert "history only for a line named under a period header." in text
         assert "labelled with one" not in text
     assert "where you print the balance only there" in text
     assert "where CP-1 prints the balance only there" not in text
@@ -10848,3 +10989,320 @@ def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothin
     )
     handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
     assert cpos_launch._forecast_issues(task, handoff) == ()
+
+
+def test_an_unnamed_cp2g_flow_block_is_sent_back_at_acceptance():
+    """S04-2-1: a block that states revenue 270 and names no cell passed `_printed` against any
+    CP-1 figure; acceptance asks for the cells to be named (parse itself still reads it)."""
+    cp1 = (
+        "| Reported label | Q3 2025 | FY2024 |\n| --- | --- | --- |\n| Net sales | 270 | 1,000 |\n"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "270", "reason": None}
+    }
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
+    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base))
+    assert cpos_forecast.UNNAMED_FLOW in issue
+    assert issue.endswith("and say why in scope_limits.")
+    named = base | {
+        "revenue": {"amount": "1000", "reason": None, "row": "Net sales", "period": "FY2024"}
+    }
+    assert (
+        cpos_launch._forecast_issues(
+            task,
+            forecast_block(
+                base=named,
+                years=[
+                    {"year": 2025 + i, "start": f"{2025 + i}-01-01", "end": f"{2025 + i}-12-31"}
+                    for i in range(3)
+                ],
+            ),
+        )
+        == ()
+    )
+
+
+def _flow_block_under(header: str, cp1_end: str = "") -> tuple[str, str]:
+    cp1 = (
+        f"| Reported label | {header} | FY2024 |\n| --- | --- | --- |\n"
+        f"| Net sales | 270 | 1,000 |\n| Adjusted EBITDA | 84 | 300 |\n{cp1_end}"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "270", "reason": None, "row": "Net sales", "period": header},
+        "ebitda": {"amount": "84", "reason": None, "row": "Adjusted EBITDA", "period": header},
+    }
+    return forecast_block(base=base), cp1
+
+
+@pytest.mark.parametrize("header", ["Q3 2025", "Q3 FY25", "H2 2025", "3Q25", "9M FY25"])
+def test_a_part_year_flow_header_is_refused_whatever_its_spelling(header):
+    """S04-2-2: a header `period_of` cannot read is a twelve-month column only as FY or LTM."""
+    block, cp1 = _flow_block_under(header)
+    with pytest.raises(ValueError, match="not twelve months|not a period the Forecast page"):
+        cpos_forecast.parse(block, cp1)
+
+
+def test_an_open_ended_period_end_is_a_value_error_not_an_overflow():
+    """S04-2-3: the day after 9999-12-31 is not a date."""
+    cp1 = (
+        "| Reported label | FY2024 |\n| --- | --- |\n"
+        "| Net sales | 1,000 |\n| Adjusted EBITDA | 300 |\n"
+        "\n| Period | Start | End |\n| --- | --- | --- |\n| FY2024 | 2024-01-01 | 9999-12-31 |\n"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "1000", "reason": None, "row": "Net sales", "period": "FY2024"},
+        "ebitda": {"amount": "300", "reason": None, "row": "Adjusted EBITDA", "period": "FY2024"},
+    }
+    with pytest.raises(ValueError, match="9999-12-31"):
+        cpos_forecast.parse(forecast_block(base=base), cp1)
+
+
+# --- a forecast whose first year CP-1 already reports (ADV-4; owner items 9) ---------------------
+# Synthetic. Answer key by hand: CP-1 prints FY2023 and FY2024 revenue (1,000 and 1,100); a block
+# naming FY2023 as its base and forecasting FY2024 forecasts a reported year.
+_REPORTED_CP1 = (
+    "## Findings\n\n| Period | Start | End |\n| --- | --- | --- |\n"
+    "| FY2023 | 2023-01-01 | 2023-12-31 |\n| FY2024 | 2024-01-01 | 2024-12-31 |\n\n"
+    "| Reported label | FY2023 | FY2024 |\n| --- | --- | --- |\n"
+    "| Net sales | 1,000 | 1,100 |\n| Adjusted EBITDA | 300 | 330 |\n"
+)
+
+
+def _reported_year_issues(base_year: int):
+    """The flows are named under ``base_year``; the forecast starts the year after it (the S04
+    rule), so a base year before CP-1's last printed year forecasts a printed year."""
+    amounts = {2023: ("1000", "300"), 2024: ("1100", "330")}[base_year]
+    missing = {"amount": None, "reason": "CP-1 does not state it."}
+    base = {key: missing for key in BASE}
+    period = f"FY{base_year}"
+    base["revenue"] = {"amount": amounts[0], "reason": None, "row": "Net sales", "period": period}
+    base["ebitda"] = {
+        "amount": amounts[1],
+        "reason": None,
+        "row": "Adjusted EBITDA",
+        "period": period,
+    }
+    years = [
+        {"year": y, "start": f"{y}-01-01", "end": f"{y}-12-31"}
+        for y in range(base_year + 1, base_year + 4)
+    ]
+    block = forecast_block(base=base, years=years, downside_shock=None)
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": _REPORTED_CP1.encode()})
+    return cpos_launch._forecast_issues(task, block)
+
+
+def test_a_forecast_starting_in_a_year_cp1_reports_is_sent_back():
+    (issue,) = _reported_year_issues(2023)
+    assert "CP-1 reports FY2024; start the forecast after it (from FY2025)" in issue
+
+
+def test_a_forecast_starting_after_the_last_reported_year_is_accepted():
+    assert _reported_year_issues(2024) == ()
+
+
+# --- the none row of a row table names its own first column and case (CP-1 instruction PR) ------
+# Expected text hand-copied from the request as sent before the pro forma table was added.
+POST_BS_NONE_SENTENCE = (
+    " If no such event is stated, write one row whose Event is exactly `None found in the "
+    "sources read` (no other punctuation or wording), whose Date, Amount, Pro forma net debt "
+    "and Pro forma net leverage are each `—`, with Reporting unit and Basis and limitation "
+    "stated (say which sources were read)."
+)
+POST_BS_NEAR_NONE = (
+    "`Post-balance-sheet adjustments`: to state that there is no event, write the Event exactly "
+    "`None found in the sources read` and the other cells as asked; any other Event names an "
+    "event."
+)
+
+
+def test_the_post_balance_sheet_none_sentence_and_near_none_issue_are_unchanged():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.POST_BS
+    assert cpos_launch_prompts._none_rule(spec) == POST_BS_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(POST_BS_NONE_SENTENCE)
+    assert cpos_launch_tables._near_none_issues(
+        spec, spec.heading, "None found in the sources read."
+    ) == [POST_BS_NEAR_NONE]
+    none_text = "None found in the sources read"
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, none_text) == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Notes issued") == []
+
+
+PRO_FORMA_NONE_SENTENCE = (
+    " If no source states a pro forma interest, write one row whose As of is exactly "
+    "`Not stated` (no other punctuation or wording), whose Pro forma interest, Interest measure, "
+    "EBITDA and Pro forma interest cover are each `\u2014`, with Reporting unit and Basis and "
+    "limitation stated (say which sources were read)."
+)
+
+
+def test_the_pro_forma_table_is_sent_the_none_sentence_naming_its_own_first_column():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    assert cpos_launch_prompts._none_rule(spec) == PRO_FORMA_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(PRO_FORMA_NONE_SENTENCE)
+    assert "If no such event" not in cpos_launch_prompts._selector(spec)
+
+
+def test_a_near_none_pro_forma_as_of_is_told_the_exact_text():
+    from deploy_workflow.owners import cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    expected = (
+        "`Pro forma interest and cover`: to state that there is no pro forma interest, write "
+        "the As of exactly `Not stated` and the other cells as asked; any other As of names "
+        "a pro forma interest."
+    )
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "not stated.") == [expected]
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Not stated") == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "2024-11-05") == []
+
+
+PRO_FORMA_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 500 | 4.55 | US$m | Reported EBITDA; the notes issue. |"
+)
+PRO_FORMA_ADJUSTED_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 550 | 5.00 | US$m | Adjusted EBITDA; the notes issue. |"
+)
+
+
+def _pro_forma_issues_of(tmp_path, *rows):
+    home = tmp_path / f"case{len(list(tmp_path.iterdir()))}"
+    home.mkdir()
+    prepared, task, context = good_task(home, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    header, separator, _none = PRO_FORMA_NONE.splitlines()
+    table = "\n".join([header, separator, *rows])
+    changed = raw.replace(PRO_FORMA_NONE, table)
+    assert changed != raw
+    return _checked_handoff(task, changed.encode(), checker(prepared.layout))
+
+
+def test_pro_forma_rows_with_a_stated_cover_only_beside_stated_figures_are_accepted(tmp_path):
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW) == ()
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+    gap = (
+        "| 2024-11-05 | Not supplied: x | cash interest | 500 | Not supplied: x | US$m "
+        "| Reported EBITDA; s. |"
+    )
+    assert _pro_forma_issues_of(tmp_path, gap) == ()
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | 500 | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | 110 | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+    ],
+)
+def test_a_pro_forma_cover_beside_a_stated_gap_is_refused_naming_the_row(tmp_path, row):
+    issues = _pro_forma_issues_of(tmp_path, row)
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and "Not supplied" in i
+        for i in issues
+    ), issues
+
+
+@pytest.mark.parametrize("cover", ["4.545", "5", "4.5", "1,004.55"])
+def test_a_pro_forma_cover_not_to_exactly_two_decimals_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any("Pro forma interest cover" in i and "two decimal" in i for i in issues), issues
+
+
+@pytest.mark.parametrize(
+    ("rows", "words"),
+    [
+        (
+            [PRO_FORMA_ROW.replace("Reported EBITDA", "Core earnings")],
+            "Reported EBITDA` or `Adjusted EBITDA",
+        ),
+        ([PRO_FORMA_ROW, PRO_FORMA_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ROW], "first"),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW.replace("5.00", "5.01")],
+            "at most two",
+        ),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW.replace("cash interest", "interest expense")],
+            "one Interest measure",
+        ),
+    ],
+)
+def test_pro_forma_rows_name_one_ebitda_basis_each_and_one_interest_measure(tmp_path, rows, words):
+    issues = _pro_forma_issues_of(tmp_path, *rows)
+    assert any("Pro forma interest and cover" in i and words in i for i in issues), issues
+
+
+def test_a_pro_forma_shape_refusal_is_not_reported_twice(tmp_path):
+    # Fails the shape check (Interest measure) and `_pro_forma_issues` (cover to three decimals).
+    bad = PRO_FORMA_ROW.replace("cash interest", "interest paid").replace("4.55", "4.545")
+    issues = [i for i in _pro_forma_issues_of(tmp_path, bad) if "Pro forma interest" in i]
+    assert len(issues) == 1, issues
+
+
+@pytest.mark.parametrize("cover", ["9.99", "4.54", "4.56"])
+def test_a_pro_forma_cover_that_is_not_ebitda_over_interest_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and cover in i and "4.55" in i
+        for i in issues
+    ), issues
+
+
+def test_a_pro_forma_cover_is_accepted_at_half_up_or_half_even(tmp_path):
+    # 1 / 8 = 0.125 is a tie at two places: 0.13 half-up, 0.12 half-even.
+    row = "| 2024-11-05 | 8 | cash interest | 1 | {} | US$m | Reported EBITDA; s. |"
+    for cover in ("0.13", "0.12"):
+        issues = _pro_forma_issues_of(tmp_path, row.format(cover))
+        assert not any("expected cover" in i for i in issues), issues
+    issues = _pro_forma_issues_of(tmp_path, row.format("0.14"))
+    assert any("expected cover is 0.13" in i for i in issues), issues
+
+
+def test_a_pro_forma_cover_stated_as_a_gap_beside_two_figures_is_refused_unless_interest_is_zero(
+    tmp_path,
+):
+    gap = PRO_FORMA_ROW.replace("4.55", "Not supplied: not worked")
+    issues = _pro_forma_issues_of(tmp_path, gap)
+    assert any("Pro forma interest and cover" in i and "calculate" in i for i in issues), issues
+    zero = PRO_FORMA_ROW.replace("| 110 |", "| 0 |")
+    gap_zero = zero.replace("4.55", "Not supplied: interest is zero")
+    assert not any("calculate" in i for i in _pro_forma_issues_of(tmp_path, gap_zero))
+    issues = _pro_forma_issues_of(tmp_path, zero)
+    assert any("Pro forma interest and cover" in i and "zero" in i for i in issues), issues
+
+
+def test_a_pro_forma_ebitda_must_equal_t4_9s_latest_numerator_of_its_label(tmp_path):
+    other = PRO_FORMA_ROW.replace("| 500 |", "| 501 |").replace("4.55", "4.55")
+    issues = _pro_forma_issues_of(tmp_path, other)
+    assert any(
+        "Pro forma interest and cover" in i and "501" in i and "500" in i and "T4.9" in i
+        for i in issues
+    ), issues
+    # The helper's register has no adjusted row: the adjusted row is untied.
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+
+
+def test_a_lone_adjusted_pro_forma_row_is_refused(tmp_path):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ADJUSTED_ROW)
+    assert any("Pro forma interest and cover" in i and "Reported EBITDA" in i for i in issues)
+
+
+def test_the_cp1_bridge_rule_names_no_subtotal_and_keeps_ids_in_the_column(tmp_path):
+    prepared, *_ = good_task(tmp_path, "CP-1", "credit_snapshot")
+    text = (tmp_path / "out" / prepared.plan.instructions["CP-1"].path).read_text()
+    line = next(x for x in text.splitlines() if "Add-Back ID numbers" in x)
+    assert "subtotal" not in line and "in this column only" in line, line

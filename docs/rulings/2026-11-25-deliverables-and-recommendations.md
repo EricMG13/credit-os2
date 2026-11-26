@@ -171,6 +171,69 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
 - The cap sentence of `AGENTS.md` lists Credit Screening 10 (owner, 2026-11-26: "add it"), after
   PR 6 merged.
 
+## CP-1 instruction PR (PR 120, 2026-11-26)
+
+Owner's words are quoted; the rest is the coordinating session's or the PR's controller's.
+
+- Run as a cloud session (owner: "launch as cloud session"). CP-1 only; CP-1D copying the id is
+  the next PR (coordinator).
+- T4.18 `Asset type` follows the governing document a source states: `loan` for a facility under a
+  credit agreement (term loan, revolver, ABL), `bond` for a security under an indenture (notes,
+  bonds), `other` for a securitisation, receivables facility, finance lease or other debt; never
+  inferred from the instrument's name (owner: "By governing document").
+- The new-issue table is not written by CP-1; the workbook fills it from the run context's
+  `deal_terms`, and CP-1A's transaction summary owns the transaction's facts (owner: "Leave it
+  out"). The spec's input map is amended to match.
+- The bridge's join key is `Add-Back ID`, `AB-1`, `AB-2`, ... in bridge order, `Not applicable`
+  on the first and last rows (coordinator); the launcher checks them, readers do not, and the id
+  is shown only on Evidence and in the trace drawer (controller).
+- Pro forma interest and cover is a required table outside the chart tables, with a `Reporting
+  unit` column; interest only as a source states it, as cash interest or interest expense, never
+  mixed; cover = EBITDA / interest, its EBITDA tied to T4.9's for the latest period (coordinator;
+  the tie and the unit column, controller).
+- Plan critique and pre-merge review on Opus while Fable is rate-limited until 2026-12-02 07:00
+  Europe/London (owner: "Use Opus meanwhile").
+- Follow-ups (controller): a launcher check of `Asset type` values before anything reads the
+  column; the React app holding back `AB-<n>` ids written in prose; an adjusted pro forma row
+  where T4.9 states no adjusted row is not refused; CP-1B, whose method validates CP-1's add-back
+  ids, may change its output with no edit of its own.
+
+## Credit Snapshot workbook (PR 4, PR 124, 2026-11-26)
+
+Owner's words are quoted; the rest is the coordinating session's or the PR's controller's.
+
+- Nothing may require LibreOffice (owner: "no libra office should be required"). Formulas are
+  pinned by exact-text tests and checked by hand evaluation against `recommendation.py`; Excel's
+  own evaluation is a manual check for the owner, its steps in the PR body.
+- FIGI and Bloomberg ID are copied from the run's RV worksheet (owner: "you can extract FIGI and
+  BBGID from RV worksheet and add providing BBG formulas on todo list"). Either identifies an
+  instrument (owner: "bloomberg id or figi will work with the same formula, so either is fine").
+  The Bloomberg formulas are `docs/TODO.md` item 14, work PC only (owner: "adding the formulas can
+  only be done on the work PC").
+- The join to T4.18 is exact: a maturity date unique on both sides with agreeing asset type; one
+  unreadable loan maturity on either side refuses every join (controller; fail-safe).
+- Pre-merge review on Opus while Fable is rate-limited until 2026-12-02 07:00 Europe/London
+  (owner: "Use Opus meanwhile").
+- Market fields (facility ratings, bid, ask, 1M and YTD moves, index and peer rows) are analyst
+  cells; the reference portfolios feed the Matrix's valuation bands (controller).
+- Copying (controller): Principal and Drawn are both copied; free-label rows match ignoring case
+  and spacing; senior and unsecured debt and leverage only from a row of that name, else a gap;
+  each figure keeps its table's unit, and a table with no unit, or a unit that differs by period,
+  shows that as a gap.
+- Pro forma interest and cover come only from the `Reported EBITDA` row of CP-1's PR 120 table,
+  else `not in handoff`; an adjusted cover is not shown under that label (controller).
+- Reader rule (controller): a Basis goes into a cell comment only when it holds no module id, file
+  name, hash or run id; every Basis is on Sources. Copied text is drawn by the findings-page rule
+  of `2026-11-11-reader-and-issuer-report.md`, a reference-bearing cell showing its own words
+  without the reference.
+- Formulas (controller): EV is equity value plus net debt, else EV multiple × reported EBITDA, for
+  the period the analyst picks; % EV is principal over EV. KPI tiles use the latest period by its
+  stated end date, else the gap `period order not stated`. Levels are rounded to six decimals
+  before banding. A result held to 3 names the limits that hold it.
+- The Snapshot is one landscape page wide; its height follows the content (controller).
+- openpyxl is loaded untyped through `importlib`; no stub package was added (controller; adding
+  one needs a decision record).
+
 ## Amends
 
 - `AGENTS.md`, the Excel bullet: Excel stays an input format for analysis; exactly one generated
@@ -189,11 +252,13 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
   `2026-11-13-appendix-and-routing-scope.md` is amended so that a register it cut is restored for
   a phase the analyst ticks; and the CP-8 bullet of `AGENTS.md` is refined so that a custom run is
   compared only with an earlier custom run of the same module and phase selection. Neither text
-  is edited in PR 0.
+  is edited in PR 0. Done for whole modules with PR 7a (2026-11-26, owner: "Add both"): the CP-8
+  bullet names the same completed modules; the register restoration waits for phase selection
+  (PR 7b).
 - Not amended: the cap tables of `2026-11-15-pathway-tiers-and-caps.md` and
   `2026-11-25-layer-1-in-all-assessment-pathways.md` (Lite USD 20, Full 30, Deep 50). The two caps
   above are recorded here; the cap sentence of `AGENTS.md` gained Credit Screening 10 on
-  2026-11-26 (owner: "add it"), and the custom routing cap waits for PR 7. By those rulings a
+  2026-11-26 (owner: "add it"), and the custom selection cap on 2026-11-26 with PR 7a (`2026-11-26-custom-routing.md`). By those rulings a
   cap enters `PATHWAY_CAP_USD` and `RULED_CAPS_USD` by deliberate edits, which belong to the
   pathway PRs (6 and 7).
 - `PRODUCT.md`, its Excel line: brought into step with the `AGENTS.md` Excel bullet (owner,

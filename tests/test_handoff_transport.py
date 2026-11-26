@@ -9,7 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from deploy_workflow.model.handoff import HandoffExecutor, ModuleTools
+from deploy_vii.inputs.csv_text import CsvDecodeError
+from deploy_workflow.model.handoff import HandoffExecutor, ModuleTools, _pages, _read_pages
 from deploy_workflow.model.handoff_transport import (
     MAX_CHUNK_BYTES,
     MAX_HEADING_CHARS,
@@ -394,3 +395,31 @@ def test_compact_exchange_refuses_credentials_that_span_the_chunk_boundary(tmp_p
     with pytest.raises(ValueError, match="upstream handoff contains credential-like content"):
         loop(current)
     assert adapter.requests == []
+
+
+def test_a_csv_source_reads_as_windows_1252_when_it_is_not_utf_8_and_a_text_file_does_not() -> None:
+    raw = "Name,Note\nCaf\u00e9,\u201cquoted\u201d\n".encode("cp1252")
+    assert _read_pages("export.csv", raw) == ["Name,Note\nCafé,\u201cquoted\u201d\n"]
+    assert _read_pages("EXPORT.CSV", raw) == _read_pages("export.csv", raw)
+    with pytest.raises(UnicodeDecodeError):
+        _read_pages("export.txt", raw)  # only a CSV is read as Windows-1252
+    with pytest.raises(CsvDecodeError):
+        _read_pages("export.csv", b"a,b\x81\n")
+
+
+def test_the_page_cache_keeps_a_csv_read_apart_from_a_text_read_of_the_same_bytes() -> None:
+    raw = "Caf\u00e9,1\n".encode("cp1252")
+    assert _pages("same-bytes.csv", raw) == ["Café,1\n"]
+    with pytest.raises(UnicodeDecodeError):
+        _pages("same-bytes.txt", raw)
+    with pytest.raises(UnicodeDecodeError):
+        _pages("other-bytes.txt", raw + b" ")  # a text read first, then the CSV
+    assert _pages("other-bytes.csv", raw + b" ") == ["Café,1\n "]
+
+
+def test_a_utf_8_csv_source_keeps_its_page_text_and_its_byte_order_mark() -> None:
+    text = "\ufeffBorrower,Par\n" + "".join(f"Fern {n:04d} S.\u00e0 r.l.,{n}\n" for n in range(900))
+    pages = _read_pages("holdings.csv", text.encode())
+    assert pages == [text[i : i + 12000] for i in range(0, len(text), 12000)]
+    assert len(pages) == 2 and pages[0].startswith("\ufeffBorrower")
+    assert _pages("holdings.csv", text.encode()) == pages

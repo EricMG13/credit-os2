@@ -65,6 +65,7 @@ from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
 from deploy_vii.inputs import portfolio_export as pe
+from deploy_vii.inputs.csv_text import CsvDecodeError
 
 Kind = Literal["clo", "loan_index", "hy_index", "custom"]
 AssetType = Literal["loan", "bond"]
@@ -76,7 +77,8 @@ MatchedBy = Literal["name", "name_without_legal_form", "identifier"]
 
 MAX_ROWS = 50_000  # rows with text under a holdings header; a larger table is refused
 
-SCHEMA = 1  # the stored file's version; a file of another version is reported, never guessed at
+SCHEMA = 2  # the stored file's version; a file of another version is reported, never guessed at
+READS = (1, SCHEMA)  # 1: written before `Quantity.strict`, read through `_schema_1`
 BUCKET_NAMES: tuple[str, ...] = (*(name for name, _ in pe.BUCKETS), "Unrated")
 
 # Position flags. `ERROR_MARKER` and `UNREADABLE` are followed by `:` and the field's name.
@@ -556,6 +558,11 @@ def _dated(cell: pe.Cell, order: DateOrder | None) -> _Dated:
 _BLANK = pe.NOT_APPLICABLE | {""}  # an empty cell, or one that says not applicable (a dash, n/a)
 
 
+def _all_tokens(rating: str) -> bool:
+    """Every filled agency part of a Ratings cell is a vendor error token."""
+    return all(pe.TOKEN.match(part.strip()) for part in pe.agency_parts(rating) if part.strip())
+
+
 class _Cells:
     """One row's cells by field. A blank or not-applicable cell is None; an error marker, a
     formula with no stored value or a cell that cannot be read is None and adds a flag."""
@@ -578,7 +585,9 @@ class _Cells:
             return None
         if pe.folded(cell.text) in _BLANK:
             return None
-        if pe.TOKEN.match(cell.text):
+        # A token-led Ratings cell keeps its other agency (`#N/A N/A / B+`); `_bucket` reads it.
+        # One whose every agency part is a token (`#N/A N/A / #N/A N/A`) has none to keep.
+        if pe.TOKEN.match(cell.text) and (name != "rating" or _all_tokens(cell.text)):
             self.flags.append(f"{ERROR_MARKER}:{name}")
             return None
         return cell
@@ -616,9 +625,6 @@ def _figi(read: _Cells) -> str | None:
     return None
 
 
-_NOT_RATED = pe.WITHDRAWN | {"NOT RATED", "UNRATED"}
-
-
 def _bucket(rating: str) -> str:
     """The project's bucket for a rating cell: `Moody's / S&P` as the export reads it, or one
     rating on either agency's scale."""
@@ -634,8 +640,11 @@ def _rating(read: _Cells) -> tuple[str | None, str, str | None]:
     rating = read.text("rating")
     bucket = "Unrated" if rating is None else _bucket(rating)
     if rating is not None and bucket == "Unrated":
-        agencies = [part.strip().upper() for part in rating.split("/")]
-        if any(part and part not in _NOT_RATED for part in agencies):
+        # Each agency part is a vendor token (missing), a not-rated mark, a rating, or unread.
+        agencies = [part.strip() for part in pe.agency_parts(rating) if part.strip()]
+        if any(pe.TOKEN.match(part) for part in agencies):
+            read.flags.append(f"{ERROR_MARKER}:rating")
+        if any(not pe.TOKEN.match(part) and not pe.not_rated(part) for part in agencies):
             read.flags.append(RATING_UNREAD)
     stated = read.text("stated_bucket")
     if stated is not None and (pe.label_bucket(stated) or stated) != bucket:
@@ -728,26 +737,6 @@ def _is_holding(cells: Sequence[pe.Cell], table: _Table) -> bool:
     return bool(filled & names) and bool(filled - names)
 
 
-_TOTALS = frozenset({"total", "totals", "subtotal", "sub-total", "sub total", "grand total", "sum"})
-_NOTES = ("source:", "note:", "notes:", "disclaimer")
-_LETTERS = re.compile(r"[^\W\d_]+")
-_SENTENCE_WORDS = 4  # a sentence has at least this many words
-
-
-def _is_note(text: str) -> bool:
-    """A total, subtotal or sum (the whole cell), a source, note or disclaimer (its start), or a
-    sentence: four words or more ending in `.`, `!` or `?`, more than half of them lower case
-    (a name of that length is capitalised: `Bank of America Corp.`)."""
-    said = pe.folded(text)
-    if said.rstrip(":").strip() in _TOTALS or said.startswith(_NOTES):
-        return True
-    words = _LETTERS.findall(text)
-    lower = sum(1 for word in words if word[0].islower())
-    return (
-        len(words) >= _SENTENCE_WORDS and said.endswith((".", "!", "?")) and 2 * lower > len(words)
-    )
-
-
 class _Rows(NamedTuple):
     """A table's positions and the rows with text it does not read: total, note and disclaimer
     rows; other rows between the header and the last position; rows below the table."""
@@ -759,15 +748,16 @@ class _Rows(NamedTuple):
 
 
 def _kind(cells: Sequence[pe.Cell], table: _Table) -> Literal["position", "note", "other"]:
-    """A position, a total or note row (`_is_note` of its name, or of its first filled cell
-    when it has no name: a ticker `SUM` beside a name is no sum), or another row."""
+    """A position, a total or note row (`pe.row_kind`, the export check's own rule, on the cells
+    under the export's column names), or another row."""
     if not _is_holding(cells, table):
         return "other"
-    names = [table.columns[name] for name in _NAMES if name in table.columns]
-    label = next((cells[i].text for i in names if i < len(cells) and cells[i].text), None)
-    if label is None:
-        label = next((cell.text for cell in cells if cell.text), "")
-    return "note" if _is_note(label) else "position"
+    shared = {"instrument": "loan", "rating": "ratings"}
+    texts = {
+        shared.get(name, name): cells[i].text for name, i in table.columns.items() if i < len(cells)
+    }
+    first = next((cell.text for cell in cells if cell.text), "")
+    return "position" if pe.row_kind(texts, first) == "position" else "note"
 
 
 def _positions(table: _Table, of: Reference) -> _Rows:
@@ -1123,6 +1113,8 @@ def _csv_readable(name: str, raw: bytes) -> None:
         raise PortfolioFileError(
             f"{name} cannot be read as a CSV file: a cell is too long or its quotes do not close."
         ) from error
+    except CsvDecodeError as error:
+        raise PortfolioFileError(_DAMAGED) from error
 
 
 def read_clo_pack(
@@ -1247,8 +1239,24 @@ def _limit_from(data: Mapping[str, Any]) -> Limit:
     return Limit(**{**data, "quantity": stated})
 
 
-def _portfolio_from(data: Mapping[str, Any]) -> Portfolio:
+def _schema_1(data: Mapping[str, Any]) -> dict[str, Any]:
+    """A version-1 file written before `Quantity.strict`: the flag is read again from each stored
+    limit text (a stored `<` keeps its strictness). The file itself is never edited."""
+    migrated = dict(data)
+    limits = []
+    for item in data["limits"]:
+        stated = item["quantity"]
+        if isinstance(stated, dict) and "strict" not in stated:
+            read = pe.quantity(item["limit"])
+            item = {**item, "quantity": {**stated, "strict": read is not None and read.strict}}
+        limits.append(item)
+    migrated["limits"] = limits
+    return migrated
+
+
+def _portfolio_from(stored: Mapping[str, Any], schema: int) -> Portfolio:
     """The stored portfolio, refused unless writing it again gives the same content."""
+    data = _schema_1(stored) if schema == 1 else stored
     body = dict(data)
     if body["as_of"] is not None:
         body["as_of"] = date.fromisoformat(body["as_of"])
@@ -1316,12 +1324,12 @@ class Store:
             raise NotStored(f"No portfolio is stored as '{key}'.")
         try:
             stored = json.loads(path.read_bytes())
-            if stored["schema"] != SCHEMA:
+            if type(stored["schema"]) is not int or stored["schema"] not in READS:
                 raise StoreError(
                     f"The stored portfolio '{key}' cannot be read: it was written as version "
-                    f"{stored['schema']}, and this application reads version {SCHEMA}."
+                    f"{stored['schema']}, and this application reads versions 1 to {SCHEMA}."
                 )
-            found = _portfolio_from(stored["portfolio"])
+            found = _portfolio_from(stored["portfolio"], stored["schema"])
             if found.key != key:
                 raise ValueError("the content is another portfolio's")
         except _UNREADABLE as error:

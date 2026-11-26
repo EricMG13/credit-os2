@@ -1,6 +1,19 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  configure,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { Coverage } from "./Coverage";
 import type { Coverage as Data } from "./coverageData";
+
+// Each test finds its first element right after render. A role query costs ~90 ms here (156 nodes,
+// measured) and far more on a loaded CI runner, so the 1000 ms default let one find time out
+// (run 45738808247). Still inside vitest's 5000 ms test timeout, so a real hang fails the same.
+configure({ asyncUtilTimeout: 4000 });
 
 const SHA = "b".repeat(64);
 const data: Data = {
@@ -421,18 +434,16 @@ test("a bound never removes an issuer stated in another unit: it stays, listed a
   expect(
     screen.getByText("8 of 9 issuers shown · 7 compared, 1 not compared (another unit)"),
   ).toBeInTheDocument();
-  expect(
-    screen.getByText(/Not compared, stated in another unit: I \(EURm\)\./),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Remove filter .*≥ 1 US\$m · FY2025/ })).toBeVisible();
+  expect(screen.getByText(/Not compared, stated in another unit: I \(€m\)\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Remove filter .*≥ \$1m · FY2025/ })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Rank" }));
-  expect(screen.getByRole("list", { name: /reporting unit EURm/ })).toBeVisible();
+  expect(screen.getByRole("list", { name: /reporting unit €m/ })).toBeVisible();
   expect(
-    screen.getByText(/Bound not applied: this list is in EURm, and the bound compares US\$m\./),
+    screen.getByText(/Bound not applied: this list is in €m, and the bound compares \$m\./),
   ).toBeVisible();
   // A bound below the other unit's figure does not remove it either.
   fireEvent.change(screen.getByRole("textbox", { name: /At least/ }), { target: { value: "-5" } });
-  expect(screen.getByRole("list", { name: /reporting unit EURm/ })).toBeVisible();
+  expect(screen.getByRole("list", { name: /reporting unit €m/ })).toBeVisible();
 });
 
 test("two units that tie leave the bound open and ask the reader to choose; no unit stated never wins a tie", async () => {
@@ -732,7 +743,10 @@ test("the trend view draws the figure by period, and only ticked issuers can be 
   expect(
     await screen.findByRole("region", { name: "Net debt / EBITDA by period, table" }),
   ).toBeInTheDocument();
-  expect(window.location.search).toContain("field=lev");
+  // The address is written by a passive effect, which can land after the table is found.
+  await waitFor(() => {
+    expect(window.location.search).toContain("field=lev");
+  });
   fireEvent.click(
     within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Modules" }),
   );

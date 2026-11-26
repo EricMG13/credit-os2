@@ -22,6 +22,8 @@ import {
 } from "../coverageData";
 import { Chip } from "@/components/kit/Chip";
 import { card } from "../layout";
+import { unitLabel } from "../moneyUnits";
+import { unitNamer } from "./boundUnit";
 import { prose } from "./shared";
 import { layoutTrend, type Box, type Metrics, type Placed, type Point } from "./trendLayout";
 
@@ -47,8 +49,11 @@ const isStated = (fact: Fact | null | undefined): fact is Stated =>
 /** The module's own reason for a stated gap, when it can be drawn on a working page. */
 const gapReason = (fact: Fact): string => prose(fact.text) ?? IN_EVIDENCE;
 
-const unitsOf = (facts: readonly Fact[]): string =>
-  [...new Set(facts.map((fact) => fact.unit || "no unit stated"))].join(", ");
+const unitsOf = (facts: readonly Fact[], unit: string): string => {
+  const stated = facts.map((fact) => fact.unit ?? "");
+  const name = unitNamer([...stated, unit]);
+  return [...new Set(stated.map(name))].join(", ");
+};
 
 /** What is true of a period the run's panel draws no point for. */
 function missingAt(facts: readonly Fact[], period: string, unit: string): Missing {
@@ -70,7 +75,7 @@ function missingAt(facts: readonly Fact[], period: string, unit: string): Missin
   }
   const other = here.filter((fact) => fact.at !== null);
   if (other.length > 0) {
-    const units = unitsOf(other);
+    const units = unitsOf(other, unit);
     return { long: `stated in another unit (${units}), not drawn here`, short: `In ${units} only` };
   }
   return { long: "no figure stated for this period", short: "No figure" };
@@ -79,7 +84,7 @@ function missingAt(facts: readonly Fact[], period: string, unit: string): Missin
 /** Why an issuer's newest run gives no panel in this unit: another unit first, then its stated gap. */
 function absentReason(facts: readonly Fact[], unit: string): string {
   const other = facts.filter((fact) => fact.at !== null && (fact.unit ?? "") !== unit);
-  if (other.length > 0) return `stated only in another unit (${unitsOf(other)}), not drawn here`;
+  if (other.length > 0) return `stated only in another unit (${unitsOf(other, unit)}), not drawn here`;
   const gaps = facts.filter((fact) => fact.at === null);
   if (gaps.length > 0) return [...new Set(gaps.map(gapReason))].join("; ");
   if (facts.length > 0) return "states figures in this unit without a period, so none is drawn";
@@ -283,6 +288,9 @@ function Panel({
   const dots: Dot[] = series.points.flatMap((fact, index) =>
     isStated(fact) ? [{ fact, index }] : [],
   );
+  const headings = [
+    ...new Set(dots.flatMap((dot) => (dot.fact.heading ? [dot.fact.heading] : []))),
+  ];
   const missing = periods.flatMap((period, index) =>
     isStated(series.points[index]) ? [] : [{ period, index, ...missingAt(facts, period, unit) }],
   );
@@ -328,6 +336,11 @@ function Panel({
       className="flex min-w-0 flex-col gap-3 rounded-ds-lg border border-border-subtle bg-surface-card p-4"
     >
       <h3 className="text-small font-semibold wrap-anywhere">{series.name}</h3>
+      {headings.length > 0 && (
+        <p className="m-0 text-caption text-text-secondary">
+          {`Stated as ${headings.join("; ")}`}
+        </p>
+      )}
       <div ref={holder} className="w-full min-w-0">
         <svg
           ref={svg}
@@ -503,7 +516,7 @@ function TableView({
       >
         <table className="w-full border-collapse text-small tabular-nums">
           <caption className="pb-2 text-left text-text-secondary">
-            {`${field.label} by period, ${unit || "no unit stated"}`}
+            {`${field.label} by period, ${unitLabel(unit) || "no unit stated"}`}
           </caption>
           <thead>
             <tr className="border-b border-border-subtle text-left">
@@ -518,10 +531,21 @@ function TableView({
             </tr>
           </thead>
           <tbody>
-            {series.map((item) => (
+            {series.map((item) => {
+              const headings = [
+                ...new Set(
+                  item.points.flatMap((fact) => (fact?.heading ? [fact.heading] : [])),
+                ),
+              ];
+              return (
               <tr key={item.name} className="border-b border-border-subtle last:border-b-0">
                 <th scope="row" className="min-w-36 p-2 text-left font-semibold">
                   {item.name}
+                  {headings.length > 0 && (
+                    <span className="block text-caption font-normal text-text-secondary">
+                      {`Stated as ${headings.join("; ")}`}
+                    </span>
+                  )}
                 </th>
                 {periods.map((period, index) => {
                   const fact = item.points[index];
@@ -535,7 +559,8 @@ function TableView({
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -550,7 +575,7 @@ function Absent({ rows, unit }: { rows: readonly { issuer: Issuer; reason: strin
     <div className="gap-hatch grid gap-2 rounded-ds-lg border border-dashed border-border-gap p-4">
       <div className="grid gap-2 rounded-ds-sm bg-surface-card p-3">
         <h3 className="font-semibold text-text-primary">
-          {`No figure to draw: the newest run states none in ${unit || "no unit stated"}`}
+          {`No figure to draw: the newest run states none in ${unitLabel(unit) || "no unit stated"}`}
         </h3>
         <ul className="m-0 grid list-none gap-1 p-0 text-small text-gap-text">
           {rows.map(({ issuer, reason }) => (
@@ -609,7 +634,7 @@ export function TrendView({
                 setPicked(item);
               }}
             >
-              {item || "No unit stated"}
+              {item === "" ? "No unit stated" : unitNamer(units)(item)}
             </Chip>
           ))}
         </div>

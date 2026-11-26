@@ -74,6 +74,9 @@ CAPS = {
     "short_snapshot": D(20),
     # Owner, 2026-11-25 (ruling R12): the credit screening is capped at USD 10.
     "credit_screening": D(10),
+    # Owner, 2026-11-26: the custom selection's ceiling, USD 50
+    # (docs/rulings/2026-11-26-custom-routing.md).
+    "custom": D(50),
 }
 # What one GPT Sol call holds, whatever its size (pricing.request_reservation_usd at the configured
 # context ceiling): 1,050,000 tokens at the dearest input rate USD 5 a million, plus 32,000 output
@@ -182,11 +185,13 @@ def test_the_peer_range_figure_is_drawn_wherever_peer_positioning_is_shown() -> 
     from deploy_vii import report_view
 
     shown = {p.id for p in pathways() if "peer-positioning" in p.blocks}
-    assert shown == {"relative_value", "lite_credit_assessment", "credit_snapshot", DEEP}
+    # A custom selection draws Deep's blocks, so it draws their figures too (PR 7a, 2026-11-26).
+    assert shown == {"relative_value", "lite_credit_assessment", "credit_snapshot", DEEP, "custom"}
     assert report_view._FIGURE_PRODUCERS["peer-positioning"][1] == shown
     assert report_view._FIGURE_PRODUCERS["covenant-tests-headroom"][1] == {
         "covenant_refinancing",
         DEEP,
+        "custom",
     }
 
 

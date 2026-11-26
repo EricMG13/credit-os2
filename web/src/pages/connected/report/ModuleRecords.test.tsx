@@ -288,8 +288,8 @@ describe("records tables take the mockup's form", () => {
     expect(sales).toHaveClass("text-right", "font-mono", "tabular-nums");
     expect(within(region).getByRole("cell", { name: "NET SALES" })).not.toHaveClass("text-right");
     expect(within(region).queryByRole("columnheader", { name: "Unit" })).toBeNull();
-    expect(screen.getAllByText("USD millions")).toHaveLength(1);
-    expect(screen.getByText("USD millions").closest("p")).toHaveTextContent("Unit: USD millions");
+    expect(screen.getAllByText("$m")).toHaveLength(1);
+    expect(screen.getByText("$m").closest("p")).toHaveTextContent("Unit: $m");
     expect(
       within(region).getAllByRole("cell", { name: /^Not supplied: source dash$/ }),
     ).toHaveLength(2);
@@ -376,9 +376,7 @@ describe("records tables take the mockup's form", () => {
     const tranche = screen.getByRole("row", { name: /^Tranche J / });
     expect(tranche.querySelector('[style*="width"]')).toHaveStyle({ width: "100%" });
     // The reporting unit is one value in every row: stated once, its column not drawn.
-    expect(screen.getByText("USD millions").closest("p")).toHaveTextContent(
-      "Currency: USD millions",
-    );
+    expect(screen.getByText("$m").closest("p")).toHaveTextContent("Currency: $m");
   });
 
   it("draws no bars and no scale line in a bridge", () => {
@@ -509,8 +507,8 @@ describe("reference columns", () => {
     expect(screen.getAllByText("Basis and limitation: in Evidence, by row.")).toHaveLength(1);
     expect(screen.queryByText(/Annual p63/)).toBeNull();
     // The single reporting unit is still one statement in the handoff's words.
-    expect(screen.getAllByText("US$m")).toHaveLength(1);
-    expect(screen.getByText("US$m").closest("p")).toHaveTextContent("Reporting unit: US$m");
+    expect(screen.getAllByText("$m")).toHaveLength(1);
+    expect(screen.getByText("$m").closest("p")).toHaveTextContent("Reporting unit: $m");
     // Each row still leads to its sources.
     expect(
       within(region).getByRole("button", {
@@ -672,4 +670,30 @@ it("draws a figure kept off the scale in the figure slot, with no bar", () => {
   expect(figure).toHaveClass("font-mono", "text-right");
   expect(figure.closest("td")?.querySelector("[style]")).toBeNull();
   expect(screen.getByText("3632").closest("td")?.querySelector("[style]")).not.toBeNull();
+});
+
+describe("money units are drawn as the currency's symbol (owner ruling 2026-11-26)", () => {
+  it("draws each Unit cell of a mixed-unit table as its symbol, and the Evidence table as written", () => {
+    const mixed = table(
+      11,
+      ["Line item", "FY2024", "Unit"],
+      [
+        ["Net sales", "7940", "USD millions"],
+        ["Operating income", "3,463", "GBP millions"],
+        ["Margin", "43", "%"],
+      ],
+    );
+    draw(one("T4.4 Income statement", mixed));
+    openRecords();
+    const region = screen.getByRole("region", { name: "Income statement" });
+    expect(within(region).getByRole("cell", { name: "$m" })).toBeVisible();
+    expect(within(region).getByRole("cell", { name: "£m" })).toBeVisible();
+    expect(within(region).getByRole("cell", { name: "%" })).toBeVisible();
+    expect(region.textContent).not.toMatch(/USD millions|GBP millions/);
+    // Evidence draws the same table through PublishedTable with no cell drawer: as written.
+    cleanup();
+    render(<PublishedTable table={mixed} evidence />);
+    expect(screen.getByRole("cell", { name: "USD millions" })).toBeVisible();
+    expect(screen.getByRole("cell", { name: "GBP millions" })).toBeVisible();
+  });
 });

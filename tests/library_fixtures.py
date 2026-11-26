@@ -16,9 +16,17 @@ METHOD = {
 }
 
 
+def stand_in(module: str) -> str:
+    """The fixture's method text for a module: its own entry, else a stand-in (a custom run may
+    name any module the registry offers; no test reads these words)."""
+    return METHOD.get(module) or (
+        f"=== methods/{module.lower()}.md sha256 {{h}} ===\n# {module} method\nStand-in method."
+    )
+
+
 def method_block(module: str, version: str = "") -> str:
-    body = METHOD[module].split("\n", 1)[1] + version
-    heading = METHOD[module].split("\n", 1)[0].format(h=sha(body.encode()))
+    body = stand_in(module).split("\n", 1)[1] + version
+    heading = stand_in(module).split("\n", 1)[0].format(h=sha(body.encode()))
     return f"{heading}\n{body}"
 
 
@@ -26,7 +34,7 @@ def method(version: str = ""):
     """A stand-in for the launcher's current method: (text, headings) per module."""
 
     def text(module):
-        return method_block(module, version) if module in METHOD else None
+        return method_block(module, version)
 
     def headings(module):
         block = method_block(module, version)
@@ -93,6 +101,7 @@ class RunSpec:
     cp8: str | None = None  # The whole CP-8 handoff, when the run has that module.
     answers: Mapping[str, str] = field(default_factory=dict)  # module -> its whole handoff
     test_adaptations: tuple[str, ...] = ()  # workflow.json `test_adaptations`, when a test flag ran
+    preset_requested: tuple[str, ...] | None = None  # workflow.json `preset_requested_modules`
 
 
 def make_run(workspace: Path, folder: str, **changes) -> Path:
@@ -155,7 +164,16 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
         path = f"requests/{module}/{folder_sha}/1.response.md"
         handoffs[module] = {"path": path, "sha256": put(run_dir / path, answer.encode())}
         selected[module] = path
-    workflow = {"run": run, "instructions": instructions, "provider_cap_usd": "12"}
+    workflow = {
+        "run": run,
+        "instructions": instructions,
+        "provider_cap_usd": "12",
+        **(
+            {}
+            if spec.preset_requested is None
+            else {"preset_requested_modules": [*spec.preset_requested]}
+        ),
+    }
     if spec.selection is not None:
         workflow["selection"] = spec.selection
     if spec.test_adaptations:
@@ -415,3 +433,40 @@ def materialize_reference_ui(library: Path) -> Path:
         encoding="utf-8",
     )
     return index
+
+
+def make_custom_run(workspace: Path, folder: str, modules: tuple[str, ...], **changes) -> Path:
+    """A completed custom run as the launcher records it (`prepare`'s manifest, read on 2026-11-26):
+    pathway `custom`, selection `explicit`, `requested_modules` the completed list (with CP-8
+    appended when the run compared), the preset's own list under `preset_requested_modules`. The
+    delivered modules are the requested ones. Synthetic: no model was called."""
+    answers = {
+        m: new_format_handoff(m, name=changes.get("issuer_name", "Northbridge Synthetic Group"))
+        for m in modules
+        if not (m == "CP-8" and changes.get("cp8") is not None)  # `make_run` takes the given one
+    }
+    answers.update(changes.pop("answers", {}))
+    return make_run(
+        workspace,
+        folder,
+        pathway="custom",
+        selection="explicit",
+        modules=modules,
+        preset_requested=("CP-0", "CP-1"),
+        answers=answers,
+        **changes,
+    )
+
+
+def new_format_handoff(
+    module: str, bottom: str | None = None, name: str = "Northbridge Synthetic Group"
+) -> str:
+    """A handoff in the current format (a Bottom line passage under Findings), as a real run
+    writes it. A custom run exists only in this format."""
+    return (
+        f"# {module} handoff\n\n## Request\n{name}, as of 2025-03-31.\n\n"
+        f"## Findings\n\n### Bottom line\n\n{bottom or f'{module} view holds.'}\n\n"
+        "### Key findings\n\nA finding.\n\n"
+        "### Contrary evidence and what would change the view\n\nNone.\n\n"
+        "### Limitations\n\nSynthetic.\n\n## Sources\n- fixture\n"
+    )

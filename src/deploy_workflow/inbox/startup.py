@@ -25,6 +25,7 @@ STANDING_RULING = ROOT / "docs/rulings/2026-11-11-run-start-submit.md"
 
 LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
 CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
+CUSTOM_CAP_RULING = "docs/rulings/2026-11-26-custom-routing.md"
 
 # The caps the owner ruled, USD per run (docs/rulings/2026-11-15-pathway-tiers-and-caps.md; Lite,
 # Full and Deep raised on 2026-11-25, "raise cap to 20/30/50",
@@ -43,7 +44,10 @@ RULED_CAPS_USD: dict[str, int] = {
     "portfolio_decision": 20,
     "short_snapshot": 20,
     "credit_screening": 10,
+    "custom": 50,  # ruled 2026-11-26, docs/rulings/2026-11-26-custom-routing.md
 }
+
+_CAP_RULINGS = {"credit_screening": CREDIT_SCREENING_CAP_RULING, "custom": CUSTOM_CAP_RULING}
 
 
 class StartupRefused(ValueError):
@@ -100,7 +104,7 @@ def check_launchable(ruling: Path) -> None:
     for pathway, cap in PATHWAY_CAP_USD.items():
         ruled = RULED_CAPS_USD.get(pathway)
         if ruled is None or not cap.is_finite() or cap > ruled:
-            cited = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
+            cited = _CAP_RULINGS.get(pathway, LAYER_1_RULING)
             raise StartupRefused(
                 f"the {pathway} cap USD {cap} is above the ruled USD {ruled} of {cited}"
                 if ruled is not None

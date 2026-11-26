@@ -1,0 +1,1153 @@
+[
+  {
+    "name": "Governance and ESG",
+    "chosen": ["CP-1A", "CP-2E"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2E"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0", "CP-2E"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2E 0.66",
+        "total": "1.92",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2E 0.66 CP-8 0.26",
+        "total": "2.18",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2E 0.66",
+        "total": "2.03",
+        "cap": 10
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2E 0.66 CP-8 0.26",
+        "total": "2.29",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2E 0.80",
+        "total": "2.52",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2E 0.80 CP-8 0.36",
+        "total": "2.88",
+        "cap": 11
+      }
+    }
+  },
+  {
+    "name": "Covenant Capacity",
+    "chosen": ["CP-4"],
+    "completed": ["CP-0", "CP-1", "CP-4"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37",
+        "total": "1.08",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37 CP-8 0.20",
+        "total": "1.28",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37",
+        "total": "1.08",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37 CP-8 0.20",
+        "total": "1.28",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-4 0.37",
+        "total": "1.43",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-4 0.37 CP-8 0.27",
+        "total": "1.70",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "Portfolio Fit",
+    "chosen": ["CP-6"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-3", "CP-5", "CP-6"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit.",
+      "CP-2": "Needed by Security selection and Committee decision.",
+      "CP-3": "Needed by Committee decision.",
+      "CP-5": "Needed by Committee decision."
+    },
+    "page_only": ["CP-0", "CP-5"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80 CP-5 1.13 CP-6 0.73",
+        "total": "4.36",
+        "cap": 12
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80 CP-5 1.13 CP-6 0.73 CP-8 0.46",
+        "total": "4.82",
+        "cap": 12
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.13 CP-6 0.99",
+        "total": "5.07",
+        "cap": 13
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.13 CP-6 0.99 CP-8 0.46",
+        "total": "5.53",
+        "cap": 13
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.40 CP-6 0.99",
+        "total": "5.69",
+        "cap": 13
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.40 CP-6 0.99 CP-8 0.63",
+        "total": "6.32",
+        "cap": 14
+      }
+    }
+  },
+  {
+    "name": "Research, covenants and peers",
+    "chosen": ["CP-DR", "CP-4", "CP-1C"],
+    "completed": ["CP-0", "CP-1", "CP-DR", "CP-4", "CP-1C"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0", "CP-DR"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-4 0.37 CP-1C 0.35",
+        "total": "1.71",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-4 0.37 CP-1C 0.35 CP-8 0.33",
+        "total": "2.04",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-4 0.37 CP-1C 0.35",
+        "total": "1.71",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-4 0.37 CP-1C 0.35 CP-8 0.33",
+        "total": "2.04",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-DR 0.44 CP-4 0.37 CP-1C 0.46",
+        "total": "2.33",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-DR 0.44 CP-4 0.37 CP-1C 0.46 CP-8 0.45",
+        "total": "2.78",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "Every offered module",
+    "chosen": [
+      "CP-0",
+      "CP-1",
+      "CP-1A",
+      "CP-1B",
+      "CP-DR",
+      "CP-1C",
+      "CP-1D",
+      "CP-2",
+      "CP-2A",
+      "CP-2E",
+      "CP-2G",
+      "CP-2H",
+      "CP-3",
+      "CP-4",
+      "CP-4C",
+      "CP-5",
+      "CP-6",
+      "CP-2D",
+      "CP-3D",
+      "CP-3C"
+    ],
+    "completed": [
+      "CP-0",
+      "CP-1",
+      "CP-1A",
+      "CP-1B",
+      "CP-DR",
+      "CP-1C",
+      "CP-1D",
+      "CP-2",
+      "CP-4",
+      "CP-2A",
+      "CP-2E",
+      "CP-2D",
+      "CP-2G",
+      "CP-2H",
+      "CP-3D",
+      "CP-3C",
+      "CP-4C",
+      "CP-3",
+      "CP-5",
+      "CP-6"
+    ],
+    "reasons": {},
+    "page_only": ["CP-0", "CP-2E", "CP-5", "CP-DR"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-1B 0.52 CP-DR 0.28 CP-1C 0.35 CP-1D 0.53 CP-2 0.44 CP-4 0.37 CP-2A 0.62 CP-2E 0.66 CP-2D 0.51 CP-2G 0.41 CP-2H 0.51 CP-3D 0.51 CP-3C 0.51 CP-4C 0.51 CP-3 0.80 CP-5 4.07 CP-6 0.73",
+        "total": "13.59",
+        "cap": 21
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-1B 0.52 CP-DR 0.28 CP-1C 0.35 CP-1D 0.53 CP-2 0.44 CP-4 0.37 CP-2A 0.62 CP-2E 0.66 CP-2D 0.51 CP-2G 0.41 CP-2H 0.51 CP-3D 0.51 CP-3C 0.51 CP-4C 0.51 CP-3 0.80 CP-5 4.07 CP-6 0.73 CP-8 1.32",
+        "total": "14.91",
+        "cap": 23
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-1B 0.52 CP-DR 0.28 CP-1C 0.35 CP-1D 0.94 CP-2 0.61 CP-4 0.37 CP-2A 0.80 CP-2E 0.66 CP-2D 0.51 CP-2G 0.41 CP-2H 0.51 CP-3D 0.51 CP-3C 0.67 CP-4C 0.67 CP-3 0.97 CP-5 4.07 CP-6 0.99",
+        "total": "15.21",
+        "cap": 23
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-1B 0.52 CP-DR 0.28 CP-1C 0.35 CP-1D 0.94 CP-2 0.61 CP-4 0.37 CP-2A 0.80 CP-2E 0.66 CP-2D 0.51 CP-2G 0.41 CP-2H 0.51 CP-3D 0.51 CP-3C 0.67 CP-4C 0.67 CP-3 0.97 CP-5 4.07 CP-6 0.99 CP-8 1.32",
+        "total": "16.53",
+        "cap": 24
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-1B 0.69 CP-DR 0.44 CP-1C 0.46 CP-1D 0.94 CP-2 0.61 CP-4 0.37 CP-2A 0.80 CP-2E 0.80 CP-2D 0.67 CP-2G 0.77 CP-2H 0.67 CP-3D 0.67 CP-3C 0.67 CP-4C 0.67 CP-3 0.97 CP-5 5.04 CP-6 0.99",
+        "total": "17.95",
+        "cap": 26
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-1B 0.69 CP-DR 0.44 CP-1C 0.46 CP-1D 0.94 CP-2 0.61 CP-4 0.37 CP-2A 0.80 CP-2E 0.80 CP-2D 0.67 CP-2G 0.77 CP-2H 0.67 CP-3D 0.67 CP-3C 0.67 CP-4C 0.67 CP-3 0.97 CP-5 5.04 CP-6 0.99 CP-8 1.80",
+        "total": "19.75",
+        "cap": 27
+      }
+    }
+  },
+  {
+    "name": "Nothing beyond the two every run holds",
+    "chosen": [],
+    "completed": ["CP-0", "CP-1"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63",
+        "total": "1.06",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-8 0.18",
+        "total": "1.24",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-0 alone",
+    "chosen": ["CP-0"],
+    "completed": ["CP-0", "CP-1"],
+    "reasons": {
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63",
+        "total": "1.06",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-8 0.18",
+        "total": "1.24",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-1 alone",
+    "chosen": ["CP-1"],
+    "completed": ["CP-0", "CP-1"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42",
+        "total": "0.71",
+        "cap": 8
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-8 0.13",
+        "total": "0.84",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63",
+        "total": "1.06",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-8 0.18",
+        "total": "1.24",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-1A alone",
+    "chosen": ["CP-1A"],
+    "completed": ["CP-0", "CP-1", "CP-1A"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55",
+        "total": "1.26",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-8 0.20",
+        "total": "1.46",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66",
+        "total": "1.37",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-8 0.20",
+        "total": "1.57",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66",
+        "total": "1.72",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-8 0.27",
+        "total": "1.99",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-1B alone",
+    "chosen": ["CP-1B"],
+    "completed": ["CP-0", "CP-1", "CP-1B"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1B 0.52",
+        "total": "1.23",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1B 0.52 CP-8 0.20",
+        "total": "1.43",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1B 0.52",
+        "total": "1.23",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1B 0.52 CP-8 0.20",
+        "total": "1.43",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1B 0.69",
+        "total": "1.75",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1B 0.69 CP-8 0.27",
+        "total": "2.02",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-DR alone",
+    "chosen": ["CP-DR"],
+    "completed": ["CP-0", "CP-1", "CP-DR"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0", "CP-DR"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28",
+        "total": "0.99",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-8 0.20",
+        "total": "1.19",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28",
+        "total": "0.99",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-DR 0.28 CP-8 0.20",
+        "total": "1.19",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-DR 0.44",
+        "total": "1.50",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-DR 0.44 CP-8 0.27",
+        "total": "1.77",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-1C alone",
+    "chosen": ["CP-1C"],
+    "completed": ["CP-0", "CP-1", "CP-1C"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1C 0.35",
+        "total": "1.06",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1C 0.35 CP-8 0.20",
+        "total": "1.26",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1C 0.35",
+        "total": "1.06",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1C 0.35 CP-8 0.20",
+        "total": "1.26",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1C 0.46",
+        "total": "1.52",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1C 0.46 CP-8 0.27",
+        "total": "1.79",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-1D alone",
+    "chosen": ["CP-1D"],
+    "completed": ["CP-0", "CP-1", "CP-1D"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1D 0.53",
+        "total": "1.24",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1D 0.53 CP-8 0.20",
+        "total": "1.44",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1D 0.94",
+        "total": "1.65",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1D 0.94 CP-8 0.20",
+        "total": "1.85",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1D 0.94",
+        "total": "2.00",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1D 0.94 CP-8 0.27",
+        "total": "2.27",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-2 alone",
+    "chosen": ["CP-2"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44",
+        "total": "1.70",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-8 0.26",
+        "total": "1.96",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61",
+        "total": "1.98",
+        "cap": 10
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-8 0.26",
+        "total": "2.24",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61",
+        "total": "2.33",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-8 0.36",
+        "total": "2.69",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-2A alone",
+    "chosen": ["CP-2A"],
+    "completed": ["CP-0", "CP-1", "CP-2A"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62",
+        "total": "1.33",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-8 0.20",
+        "total": "1.53",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80",
+        "total": "1.51",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-8 0.20",
+        "total": "1.71",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80",
+        "total": "1.86",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-8 0.27",
+        "total": "2.13",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-2E alone",
+    "chosen": ["CP-2E"],
+    "completed": ["CP-0", "CP-1", "CP-2E"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0", "CP-2E"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2E 0.66",
+        "total": "1.37",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2E 0.66 CP-8 0.20",
+        "total": "1.57",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2E 0.66",
+        "total": "1.37",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2E 0.66 CP-8 0.20",
+        "total": "1.57",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2E 0.80",
+        "total": "1.86",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2E 0.80 CP-8 0.27",
+        "total": "2.13",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-2G alone",
+    "chosen": ["CP-2G"],
+    "completed": ["CP-0", "CP-1", "CP-2A", "CP-2G"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-2A": "Needed by Forward credit model."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-2G 0.41",
+        "total": "1.74",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-2G 0.41 CP-8 0.26",
+        "total": "2.00",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-2G 0.41",
+        "total": "1.92",
+        "cap": 10
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-2G 0.41 CP-8 0.26",
+        "total": "2.18",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-2G 0.77",
+        "total": "2.63",
+        "cap": 10
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-2G 0.77 CP-8 0.36",
+        "total": "2.99",
+        "cap": 11
+      }
+    }
+  },
+  {
+    "name": "CP-2H alone",
+    "chosen": ["CP-2H"],
+    "completed": ["CP-0", "CP-1", "CP-2A", "CP-2G", "CP-2H"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-2A": "Needed by Forward credit model.",
+      "CP-2G": "Needed by Ratings & triggers."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-2G 0.41 CP-2H 0.51",
+        "total": "2.25",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-2G 0.41 CP-2H 0.51 CP-8 0.33",
+        "total": "2.58",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-2G 0.41 CP-2H 0.51",
+        "total": "2.43",
+        "cap": 10
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-2G 0.41 CP-2H 0.51 CP-8 0.33",
+        "total": "2.76",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-2G 0.77 CP-2H 0.67",
+        "total": "3.30",
+        "cap": 11
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-2G 0.77 CP-2H 0.67 CP-8 0.45",
+        "total": "3.75",
+        "cap": 11
+      }
+    }
+  },
+  {
+    "name": "CP-3 alone",
+    "chosen": ["CP-3"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-3"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit.",
+      "CP-2": "Needed by Security selection."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80",
+        "total": "2.50",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80 CP-8 0.33",
+        "total": "2.83",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97",
+        "total": "2.95",
+        "cap": 11
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-8 0.33",
+        "total": "3.28",
+        "cap": 11
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97",
+        "total": "3.30",
+        "cap": 11
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-8 0.45",
+        "total": "3.75",
+        "cap": 11
+      }
+    }
+  },
+  {
+    "name": "CP-4 alone",
+    "chosen": ["CP-4"],
+    "completed": ["CP-0", "CP-1", "CP-4"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37",
+        "total": "1.08",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37 CP-8 0.20",
+        "total": "1.28",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37",
+        "total": "1.08",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-4 0.37 CP-8 0.20",
+        "total": "1.28",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-4 0.37",
+        "total": "1.43",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-4 0.37 CP-8 0.27",
+        "total": "1.70",
+        "cap": 9
+      }
+    }
+  },
+  {
+    "name": "CP-4C alone",
+    "chosen": ["CP-4C"],
+    "completed": ["CP-0", "CP-1", "CP-2A", "CP-4", "CP-2G", "CP-4C"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-2A": "Needed by Forward credit model and Recovery & fulcrum.",
+      "CP-4": "Needed by Recovery & fulcrum.",
+      "CP-2G": "Needed by Recovery & fulcrum."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-4 0.37 CP-2G 0.41 CP-4C 0.51",
+        "total": "2.62",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.62 CP-4 0.37 CP-2G 0.41 CP-4C 0.51 CP-8 0.40",
+        "total": "3.02",
+        "cap": 11
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-4 0.37 CP-2G 0.41 CP-4C 0.67",
+        "total": "2.96",
+        "cap": 11
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-2A 0.80 CP-4 0.37 CP-2G 0.41 CP-4C 0.67 CP-8 0.40",
+        "total": "3.36",
+        "cap": 11
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-4 0.37 CP-2G 0.77 CP-4C 0.67",
+        "total": "3.67",
+        "cap": 11
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-2A 0.80 CP-4 0.37 CP-2G 0.77 CP-4C 0.67 CP-8 0.54",
+        "total": "4.21",
+        "cap": 12
+      }
+    }
+  },
+  {
+    "name": "CP-5 alone",
+    "chosen": ["CP-5"],
+    "completed": ["CP-0", "CP-1", "CP-5"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0", "CP-5"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-5 0.45",
+        "total": "1.16",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-5 0.45 CP-8 0.20",
+        "total": "1.36",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-5 0.45",
+        "total": "1.16",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-5 0.45 CP-8 0.20",
+        "total": "1.36",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-5 0.56",
+        "total": "1.62",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-5 0.56 CP-8 0.27",
+        "total": "1.89",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-6 alone",
+    "chosen": ["CP-6"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-3", "CP-5", "CP-6"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit.",
+      "CP-2": "Needed by Security selection and Committee decision.",
+      "CP-3": "Needed by Committee decision.",
+      "CP-5": "Needed by Committee decision."
+    },
+    "page_only": ["CP-0", "CP-5"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80 CP-5 1.13 CP-6 0.73",
+        "total": "4.36",
+        "cap": 12
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-3 0.80 CP-5 1.13 CP-6 0.73 CP-8 0.46",
+        "total": "4.82",
+        "cap": 12
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.13 CP-6 0.99",
+        "total": "5.07",
+        "cap": 13
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.13 CP-6 0.99 CP-8 0.46",
+        "total": "5.53",
+        "cap": 13
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.40 CP-6 0.99",
+        "total": "5.69",
+        "cap": 13
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-3 0.97 CP-5 1.40 CP-6 0.99 CP-8 0.63",
+        "total": "6.32",
+        "cap": 14
+      }
+    }
+  },
+  {
+    "name": "CP-2D alone",
+    "chosen": ["CP-2D"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-2D"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit.",
+      "CP-2": "Needed by Liquidity."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-2D 0.51",
+        "total": "2.21",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-2D 0.51 CP-8 0.33",
+        "total": "2.54",
+        "cap": 10
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-2D 0.51",
+        "total": "2.49",
+        "cap": 10
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-2D 0.51 CP-8 0.33",
+        "total": "2.82",
+        "cap": 10
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-2D 0.67",
+        "total": "3.00",
+        "cap": 11
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-2D 0.67 CP-8 0.45",
+        "total": "3.45",
+        "cap": 11
+      }
+    }
+  },
+  {
+    "name": "CP-3D alone",
+    "chosen": ["CP-3D"],
+    "completed": ["CP-0", "CP-1", "CP-3D"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-3D 0.51",
+        "total": "1.22",
+        "cap": 9
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-3D 0.51 CP-8 0.20",
+        "total": "1.42",
+        "cap": 9
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-3D 0.51",
+        "total": "1.22",
+        "cap": 9
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-3D 0.51 CP-8 0.20",
+        "total": "1.42",
+        "cap": 9
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-3D 0.67",
+        "total": "1.73",
+        "cap": 9
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-3D 0.67 CP-8 0.27",
+        "total": "2.00",
+        "cap": 10
+      }
+    }
+  },
+  {
+    "name": "CP-3C alone",
+    "chosen": ["CP-3C"],
+    "completed": ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-2D", "CP-3C"],
+    "reasons": {
+      "CP-0": "Every run needs the source register and the financial base.",
+      "CP-1": "Every run needs the source register and the financial base.",
+      "CP-1A": "Needed by Fundamental credit.",
+      "CP-2": "Needed by Liquidity.",
+      "CP-2D": "Needed by Refinancing & LME."
+    },
+    "page_only": ["CP-0"],
+    "estimates": {
+      "fast/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-2D 0.51 CP-3C 0.51",
+        "total": "2.72",
+        "cap": 10
+      },
+      "fast/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.55 CP-2 0.44 CP-2D 0.51 CP-3C 0.51 CP-8 0.40",
+        "total": "3.12",
+        "cap": 11
+      },
+      "balanced/no-cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-2D 0.51 CP-3C 0.67",
+        "total": "3.16",
+        "cap": 11
+      },
+      "balanced/cp8": {
+        "per": "CP-0 0.29 CP-1 0.42 CP-1A 0.66 CP-2 0.61 CP-2D 0.51 CP-3C 0.67 CP-8 0.40",
+        "total": "3.56",
+        "cap": 11
+      },
+      "high/no-cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-2D 0.67 CP-3C 0.67",
+        "total": "3.67",
+        "cap": 11
+      },
+      "high/cp8": {
+        "per": "CP-0 0.43 CP-1 0.63 CP-1A 0.66 CP-2 0.61 CP-2D 0.67 CP-3C 0.67 CP-8 0.54",
+        "total": "4.21",
+        "cap": 12
+      }
+    }
+  }
+]

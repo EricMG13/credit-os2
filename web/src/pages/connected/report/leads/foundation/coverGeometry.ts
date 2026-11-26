@@ -11,9 +11,8 @@ import {
 } from "../kit/marks";
 import type { LegendEntry } from "../kit/marks/Legend";
 import { group } from "../kit/numbers";
-import { safeText } from "../kit/reader";
 import { isReported, unplacedNotes } from "../kit/tables";
-import { cellText, type InterestCover } from "./foundationData";
+import { cellText, handoffWords, type InterestCover } from "./foundationData";
 
 // Interest cover as a dot strip at the measured width: one row per stated period in the one period
 // order on one scale from zero, the latest reported period as the dot and the others as rings,
@@ -69,7 +68,7 @@ function markOf(cover: InterestCover, at: number): Mark {
   if (cell.kind === "number")
     return { kind: "value", value: cell.value, text: coverText(cell.text, cover.unit) };
   if (cell.kind === "gap") return { kind: "gap", reason: cellText(cell) };
-  return { kind: "words", text: safeText(cell.text) };
+  return { kind: "words", text: handoffWords(cell.text) };
 }
 
 const marksOf = (cover: InterestCover) => cover.values.map((_, at) => markOf(cover, at));

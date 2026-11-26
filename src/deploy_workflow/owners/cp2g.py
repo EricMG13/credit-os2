@@ -53,6 +53,7 @@ from deploy_vii.contracts import (
     Text,
 )
 from deploy_vii.contracts import Claim as ModuleClaim
+from deploy_vii.display import written_places
 from deploy_vii.execution import (
     Attempt,
     Execution,
@@ -394,8 +395,13 @@ def _book_millions(name: str, fact: Fact, basis: PeriodBasis) -> None:
         )
 
 
-def _operand_reason(key: str, basis: PeriodBasis) -> str:
-    return f"Not calculable: base {_OPERAND_WORDS[key]} is missing in CP-1 ({basis.ltm_period})"
+def _operand_reason(key: str, basis: PeriodBasis, state: str = "missing") -> str:
+    return f"Not calculable: base {_OPERAND_WORDS[key]} is {state} in CP-1 ({basis.ltm_period})"
+
+
+def _operand_state(val: Val) -> str:
+    """How a base operand's reason names its CP-1 fact: conflicting, else missing."""
+    return "conflicting" if " is conflicting in CP-1 " in (val.reason or "") else "missing"
 
 
 @dataclass(frozen=True)
@@ -420,7 +426,8 @@ class Operands:
         for key, metric in OPERAND_METRIC.items():
             fact = cp1[metric]
             if fact.status != "known" or fact.amount is None:
-                vals[key] = Val(None, _operand_reason(key, basis))
+                state = "conflicting" if fact.status == "conflicting" else "missing"
+                vals[key] = Val(None, _operand_reason(key, basis, state))
             else:
                 _book_millions(f"CP-1 {metric}", fact, basis)
                 vals[key] = _known(-fact.amount if key in OUTFLOWS else fact.amount)
@@ -882,10 +889,9 @@ def _metric_check(
     if s_star is None:
         missing = [k for k in _OPERAND_ORDER[kind] if getattr(operands, k).amount is None]
         if missing:  # the first operand in formula order names the cause
-            return (
-                True,
-                f"base {_OPERAND_WORDS[missing[0]]} is missing in CP-1 for {basis.ltm_period}",
-            )
+            word = _OPERAND_WORDS[missing[0]]
+            state = _operand_state(getattr(operands, missing[0]))
+            return True, f"base {word} is {state} in CP-1 for {basis.ltm_period}"
         e = operands.ebitda.amount
         if e is not None and e <= 0:
             return True, _unverified_ebitda(basis)
@@ -1127,6 +1133,16 @@ CP1D_WHY = {
 }
 
 
+def _submitted_places(fact: Fact) -> Fact:
+    """An analyst-submitted percent shows its own places, within the reader ruling's two.
+
+    Any other fact, computed ratios included, keeps the unit class default."""
+    if fact.unit != "PERCENT" or fact.value_class != "analyst_judgment" or fact.amount is None:
+        return fact
+    places = min(2, max(1, written_places(fact.amount, "percent")))
+    return fact.model_copy(update={"decimals": places})
+
+
 class _Book:
     """The module's cells in table, row and field order, and each table's rows."""
 
@@ -1137,6 +1153,7 @@ class _Book:
         self.rows: dict[str, list[Row]] = {t: [] for t in TABLES}
 
     def _add(self, fact: Fact, derives: Sequence[str]) -> None:
+        fact = _submitted_places(fact)
         if fact.fact_id in self.by_id:
             raise ValueError(f"CP-2G: duplicate fact {fact.fact_id}")
         shown = fact_spelling(fact, None)[2] if fact.status == "known" else None

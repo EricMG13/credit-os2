@@ -11,7 +11,7 @@ import {
 import { wallSlots } from "../../overview/structureData";
 import { FigureTile, GapTile, Link } from "../kit/LeadFrame";
 import { GapSlot, LINE, Measured, SIZE } from "../kit/marks";
-import { IN_EVIDENCE, namesSource, safeText } from "../kit/reader";
+import { citesSource, clauses, IN_EVIDENCE, safeText } from "../kit/reader";
 import { unitLabel } from "../../../publishedReport";
 import type { LeadProps } from "../types";
 import { dashed } from "./periodsData";
@@ -29,15 +29,12 @@ const FALLBACK = 412;
 
 type Ready = Extract<FigureSource, { state: "ready" }>;
 
-// Words that cite a filing the library's `containsReference` does not catch ("…annual Form 10-K
-// debt note."): such a note is a source reference and stays in Evidence.
-const FILING = /\b(?:Form\s+)?10-?[KQ]\b|\bannual report\b|\bprospectus\b/i;
-
-/** True when handoff text cites a source: a file, page, register, calculation or a named filing. */
-export const citesSource = (text: string) => namesSource(text) || FILING.test(text);
+/** True when any sentence or clause of the text cites a source (each tested as the net debt tile does). */
+const citesAny = (text: string) =>
+  clauses(text).some((clause) => citesSource(clause.replace(/[;.]$/, "")));
 
 /** Handoff words for the page, or "Detail is in Evidence." when they cite a source. */
-const words = (text: string) => dashed(citesSource(text) ? IN_EVIDENCE : safeText(text));
+const words = (text: string) => dashed(citesAny(text) ? IN_EVIDENCE : safeText(text));
 
 /** A sentence ends with one full stop, even when the handoff's words already carry it. */
 const sentence = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
@@ -81,13 +78,20 @@ function furtherNotes(notes: readonly string[]) {
   return out;
 }
 
-/** The cell's own reason, in its words; null when it states none. */
-const reasonOf = (mark: WallMark) => (mark.cell?.reason ? words(mark.cell.reason) : null);
+/**
+ * The cell's own reason, in its words: "—" for a cell the source left as a dash (`dashed`, which
+ * reads the whole cell; S15-5-3); null when it states none.
+ */
+const reasonOf = (mark: WallMark) => {
+  if (!mark.cell?.reason) return null;
+  return dashed(mark.cell.text) === "—" ? "—" : words(mark.cell.reason);
+};
 
 const amountText = (mark: WallMark) => {
   if (mark.kind === "none") return "No row read";
   if (mark.kind !== "gap") return mark.text ?? "";
   const reason = reasonOf(mark);
+  if (reason === "—") return reason;
   return reason ? `Not supplied: ${reason}` : "Not supplied";
 };
 
@@ -402,7 +406,7 @@ function MaturityFigure({ lead, source, span }: { lead: LeadProps; source: Ready
           ? `${mark.label}: this page could not read a row for this year.`
           : sentence(`${mark.label}: ${reasonOf(mark) ?? "this page could not read an amount"}`),
       ),
-    ...furtherNotes(basisNotes(source.table).filter((note) => !citesSource(note))),
+    ...furtherNotes(basisNotes(source.table).filter((note) => !citesAny(note))),
   ];
   const legend = [
     { tone: "primary" as const, text: "Dated period" },

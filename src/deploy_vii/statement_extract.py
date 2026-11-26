@@ -99,6 +99,9 @@ _NUMERIC_CELL = re.compile(
     rf"(?P<dollar>[$\u00a3\u20ac] ?)?(?P<raw>\((?:{_NUMBER})\)|(?:{_NUMBER})|{_NIL})"
 )
 _CELL = re.compile(r"\S+(?: \S+)*")
+# A no-break, thin or narrow no-break space between a digit and a three-digit group is a thousands
+# separator, which `\S` would take for a cell break; it is read as the ASCII space `1 234` has.
+_GROUP_SPACE = re.compile(r"(?<=\d)[\u00a0\u2009\u202f](?=\d{3}(?!\d))")
 # A printed number the cell rules do not read: a leading ASCII or Unicode minus (`-1,234`,
 # `\u221245`), a percent (`12.5%`), a decimal comma or dotted thousands (`1.234,5`, `1.234.567`).
 _DIGITS = r"[-\u2212]?[$\u00a3\u20ac]?\d(?:[\d,.]*\d)?"
@@ -496,11 +499,17 @@ def _note_reference(cells: _Cells, years: int, year_column: int | None, note_col
     )
 
 
+def _page_lines(text: str) -> tuple[list[str], list[str]]:
+    """A page's lines as printed, and as read (a Unicode thousands space made an ASCII one)."""
+    shown = [line.removesuffix("\r") for line in text.split("\n")]
+    return shown, [_GROUP_SPACE.sub(" ", line) for line in shown]
+
+
 def extract_statement_lines(
     text: str, locator: str, source_id: str | None = None
 ) -> ExtractedTable:
     """The printed data lines of one page's text (module docstring rules); prose yields none."""
-    lines = [line.removesuffix("\r") for line in text.split("\n")]
+    shown, lines = _page_lines(text)
     found: list[ExtractedLine] = []
     read: list[_Cells] = []
     first: int | None = None
@@ -608,7 +617,7 @@ def extract_statement_lines(
         )
     kept = {line.line_no - 1 for line in found}.union(header_at)
     omitted = tuple(
-        OmittedLine(line_no=index + 1, text=text)
+        OmittedLine(line_no=index + 1, text=shown[index])
         for index, text in enumerate(lines)
         if index not in kept and _is_omitted_candidate(text)
     )

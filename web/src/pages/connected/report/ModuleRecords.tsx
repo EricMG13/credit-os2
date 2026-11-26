@@ -13,6 +13,7 @@ import {
   type PublishedRun,
   type Table,
 } from "../publishedReport";
+import { unitLabel } from "../moneyUnits";
 import { FindingParagraph, isOneLine, PublishedTable } from "../ReportContent";
 import { plainText, richParts } from "../richText";
 import { traceKey } from "../reportView";
@@ -25,6 +26,7 @@ import {
   RECORD_KINDS,
   scaleNote,
   statedGap,
+  unitCells,
   unitColumn,
   type AmountColumn,
   type HeldRecord,
@@ -239,6 +241,7 @@ function RecordDrawing({
     return <RecordGap run={run} entry={entry} record={record} />;
   const { unit, compact, referenced } = form;
   const cards = narrow && compact !== null && !all;
+  const drawUnits = unitCells(record.table);
   const drawnBars = cards ? new Map<number, AmountColumn>() : form.drawnBars;
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -247,7 +250,7 @@ function RecordDrawing({
           {unit && (
             <p className="text-caption text-text-tertiary">
               <span>{`${unit.header}: `}</span>
-              <span>{unit.value}</span>
+              <span>{unitLabel(unit.value)}</span>
             </p>
           )}
           {compact && (
@@ -279,7 +282,9 @@ function RecordDrawing({
           wideBars
           records
           emptyLabel="Left blank"
-          drawCell={compact && !all ? gapChip : undefined}
+          drawCell={(column, cell) =>
+            drawUnits(column, cell) ?? (compact && !all ? gapChip(column, cell) : undefined)
+          }
         />
       )}
       {drawnBars.size > 0 && (

@@ -7,7 +7,6 @@ import { Bento, Tile } from "./report/overview/Tile";
 import {
   carryDocuments,
   getPriorInputs,
-  pathwayModules,
   removeDocument,
   createSubmission,
   getContext,
@@ -28,6 +27,7 @@ import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
 import { Breadcrumb } from "./layout";
 import { carryAccepted } from "./start/limits";
+import { CUSTOM, CUSTOM_EFFORTS, OFFERED } from "./start/customSelection";
 import { ANALYST_NAME_RULE, isAnalystName } from "./start/analystName";
 import {
   documentRefusal,
@@ -36,6 +36,7 @@ import {
   issuerIdRefusal,
   LEVELS,
   copilotEfforts,
+  nameKey,
   storedName,
 } from "./start/plain";
 import { asSentence, errorText, useResource } from "./useResource";
@@ -51,6 +52,8 @@ import {
   type Reviewed,
   capForPathway,
   requireSummaryCap,
+  reviewCapStands,
+  reviewedCap,
   isFieldRow,
   type Forms,
   type SettledSlug,
@@ -132,6 +135,8 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
   const [uploaded, setUploaded] = useState(new Map<File, string>());
   const [documentsCopied, setDocumentsCopied] = useState(false);
   const [ignoredCopies, setIgnoredCopies] = useState<string[]>([]);
+  /** Earlier file -> the upload with its bytes: the carry did not copy it. */
+  const [sameContent, setSameContent] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Partial<Record<Attachment, string>>>({});
   const [legal, setLegal] = useState(() => carriedLegal(initial?.prior));
   const [forms, setForms] = useState<Forms>({});
@@ -148,6 +153,8 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
     setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
+    sameContent,
+    setSameContent,
     attachments,
     setAttachments,
     legal,
@@ -419,6 +426,8 @@ function IntakeForm({
     setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
+    sameContent,
+    setSameContent,
     attachments,
     setAttachments,
     legal,
@@ -490,6 +499,8 @@ function IntakeForm({
       newestOverride,
       reading,
       ignoredCopies,
+      chosen: modules,
+      effort,
     });
   const issuerNotice = useIssuerNotice(issuerId, identity.issuer_name);
   const comparison = useComparisonPortfolio(() => {
@@ -560,6 +571,7 @@ function IntakeForm({
       if (failure instanceof RequestError && failure.status === 404) {
         draftRef.current = null;
         setDocumentsCopied(false);
+        setSameContent({});
         setUploaded(new Map());
         setReading(undefined);
       }
@@ -588,7 +600,7 @@ function IntakeForm({
 
   async function refreshDocuments() {
     const incoming = files.map((file) => ({ file, name: fileName(file) }));
-    const names = incoming.map(({ name }) => name.normalize("NFC").toLowerCase());
+    const names = incoming.map(({ name }) => nameKey(name));
     if (new Set(names).size !== names.length) {
       throw new Error("Choose documents with distinct file names.");
     }
@@ -599,14 +611,11 @@ function IntakeForm({
     for (const { file, name } of incoming) {
       if (draft.uploaded.has(file)) continue;
       const result = await upload(draft.id, file, name);
-      const collisionKey = result.name.normalize("NFC").toLowerCase();
-      if (
-        [...draft.uploaded.values()].some(
-          (stored) => stored.normalize("NFC").toLowerCase() === collisionKey,
-        )
-      ) {
+      const collisionKey = nameKey(result.name);
+      if ([...draft.uploaded.values()].some((stored) => nameKey(stored) === collisionKey)) {
         draftRef.current = null;
         setDocumentsCopied(false);
+        setSameContent({});
         setUploaded(new Map());
         setReading(undefined);
         throw new Error(
@@ -617,10 +626,10 @@ function IntakeForm({
       setUploaded(new Map(draft.uploaded));
     }
     if (!draft.copied && copy?.prior.files.length && !copy.prior.error) {
-      await carryDocuments(draft.id, copy.run);
-      for (const name of ignoredCopies) {
-        if (![...draft.uploaded.values()].includes(name)) await removeDocument(draft.id, name);
-      }
+      // The files the analyst left out are named in the carry, so they are neither copied nor
+      // counted against the service's limits; nothing is deleted afterwards.
+      const carried = await carryDocuments(draft.id, copy.run, ignoredCopies);
+      setSameContent(carried.same_content ?? {});
       draft.copied = true;
       setDocumentsCopied(true);
     }
@@ -664,14 +673,24 @@ function IntakeForm({
     await withDraft("documents", async () => {
       const draft = draftRef.current;
       const stored = file ? draft?.uploaded.get(file) : name;
-      if (draft && stored) {
+      // A carried name is on the service only once the carry has run; before it, only skip it.
+      // An earlier file the carry did not copy (same bytes as an upload) is not on the service.
+      const onService = file
+        ? stored !== undefined
+        : draft?.copied === true && !(name in sameContent);
+      if (draft && stored && onService) {
         await removeDocument(draft.id, stored);
         if (file) {
           draft.uploaded.delete(file);
           setUploaded(new Map(draft.uploaded));
         }
       }
-      if (copy && stored) setIgnoredCopies((previous) => [...new Set([...previous, stored])]);
+      // Only a carried name is ignored; a removed upload was never on the earlier run.
+      const carried = copy?.prior.files.find(
+        (item) => nameKey(item.name) === nameKey(stored ?? ""),
+      );
+      if (stored && carried)
+        setIgnoredCopies((previous) => [...new Set([...previous, carried.name])]);
       if (file) {
         const remaining = files.filter((item) => item !== file);
         setFiles(remaining);
@@ -683,7 +702,17 @@ function IntakeForm({
           Object.entries(previous).filter(([, chosen]) => chosen !== (stored || name)),
         ),
       );
-      if (draft && stored) await readDocuments(draft);
+      if (draft && stored && onService) {
+        const dropped = new Set(
+          [...ignoredCopies, stored, ...Object.keys(sameContent)].map(nameKey),
+        );
+        const carriedLeft =
+          !copy?.prior.error &&
+          (copy?.prior.files ?? []).some((item) => !dropped.has(nameKey(item.name)));
+        if (draft.uploaded.size > 0 || (draft.copied && carriedLeft)) await readDocuments(draft);
+        else if (carriedLeft) setReading(undefined);
+        else setReading({ documents: [], ignored: [], error: "" });
+      }
     });
   }
 
@@ -695,12 +724,12 @@ function IntakeForm({
           .split("/")
           .some((part) => part.startsWith(".")),
     );
-    const names = new Set(files.map((file) => fileName(file).normalize("NFC").toLowerCase()));
+    const names = new Set(files.map((file) => nameKey(fileName(file))));
     const added: File[] = [];
     const problems: string[] = [];
     for (const file of candidates) {
       const name = fileName(file);
-      const key = name.normalize("NFC").toLowerCase();
+      const key = nameKey(name);
       if (file.size > FILE_SIZE_LIMIT) problems.push(`${name} exceeds the 50 MB limit.`);
       else if (!SOURCE_TYPES.test(name))
         problems.push(`${name} is not a document type the run reads.`);
@@ -758,6 +787,7 @@ function IntakeForm({
     setReading(undefined);
     draftRef.current = null;
     setDocumentsCopied(false);
+    setSameContent({});
     setUploaded(new Map());
   }
 
@@ -867,18 +897,13 @@ function IntakeForm({
     const details: Record<string, unknown> = {};
     if (forms.valuation) details.valuation = sendableValuation(forms.valuation);
     if (forms.module_options) {
-      const wanted = pathwayModules(run.pathway);
       details.module_options = sendableModuleOptions(forms.module_options, {
-        cp3: wanted.includes("CP-3"),
-        cp6: wanted.includes("CP-6"),
+        cp3: requested.includes("CP-3"),
+        cp6: requested.includes("CP-6"),
       });
     }
     if (forms.assumptions)
-      details.assumptions = sendableAssumptions(
-        forms.assumptions,
-        context.assumptions,
-        pathwayModules(run.pathway),
-      );
+      details.assumptions = sendableAssumptions(forms.assumptions, context.assumptions, requested);
     for (const kind of CONTEXT_ROW_KINDS) {
       const edited = rows[kind];
       if (edited) details[kind] = sendableRows(kind, edited, run.run_type === "primary");
@@ -927,7 +952,8 @@ function IntakeForm({
         throw (await idProblem(failure)) ?? refusedField(failure, requested, noteAt) ?? failure;
       },
     );
-    requireSummaryCap(summary, shownCap);
+    const custom = answers.context.run.pathway === CUSTOM;
+    requireSummaryCap(summary, shownCap, custom);
     if (comparison.files.length > 0 && !summary.reference_portfolio)
       throw new Error(
         "This summary does not cover the comparison portfolio. Select Review run to request a new summary.",
@@ -949,7 +975,8 @@ function IntakeForm({
       id: draft.id,
       answers,
       summary,
-      cap: shownCap,
+      // A custom run is submitted at the cap its summary issued, not the table's ceiling.
+      cap: reviewedCap(summary, shownCap, custom),
       // The file named in each box, for the review to show: shown only, never sent.
       attachmentNames: {
         management_bridge: attachments.management_bridge,
@@ -1007,11 +1034,7 @@ function IntakeForm({
 
   async function submitReviewed() {
     if (!review || !approved || !checksComplete || (mode === "live" && !cap)) return;
-    if (
-      review.answers.context.run.pathway !== run.pathway ||
-      review.cap !== caps[run.pathway] ||
-      review.summary.cap !== review.cap
-    ) {
+    if (!reviewCapStands(review, caps, run.pathway)) {
       setReview(undefined);
       setAccepted(new Set());
       setApproved(false);
@@ -1035,6 +1058,7 @@ function IntakeForm({
           if (failure.status === 404) {
             draftRef.current = null;
             setDocumentsCopied(false);
+            setSameContent({});
             setUploaded(new Map());
             setReading(undefined);
           }
@@ -1089,6 +1113,17 @@ function IntakeForm({
       },
     }));
     setModules([]);
+    if (pathway === CUSTOM) keepToGpt();
+  }
+
+  /** A custom selection is estimated from GPT runs only: another model or effort is put back. */
+  function keepToGpt() {
+    const valid = copilotEfforts(copilotModels, "gpt").filter((item) =>
+      CUSTOM_EFFORTS.some((allowed) => allowed === item),
+    );
+    setModel("gpt");
+    if (!valid.includes(effort))
+      setEffort(valid.includes("balanced") ? "balanced" : (valid[0] ?? "balanced"));
   }
 
   function changePurpose(value: string) {
@@ -1135,15 +1170,27 @@ function IntakeForm({
     setNewestOverride(undefined);
     draftRef.current = null;
     setDocumentsCopied(false);
+    setSameContent({});
     setUploaded(new Map());
   }
 
   function toggleModule(code: string, checked: boolean) {
+    if (run.pathway === CUSTOM) {
+      // A custom run lists the analyst's own choice only (the rules complete it), in the page's order.
+      chooseModules(
+        OFFERED.map(({ id }) => id).filter((id) => (id === code ? checked : modules.includes(id))),
+      );
+      return;
+    }
     const selected = modules.length ? modules : requested;
     const next = checked ? [...selected, code] : selected.filter((item) => item !== code);
     setModules(
       next.length === requested.length ? [] : requested.filter((item) => next.includes(item)),
     );
+  }
+
+  function chooseModules(next: string[]) {
+    setModules(next);
   }
 
   function rowsOf(kind: RowKind): Row[] {
@@ -1165,6 +1212,7 @@ function IntakeForm({
     copy,
     ignoredCopies,
     documentsCopied,
+    sameContent,
   );
 
   const { title, previous, next } = FORM_STEPS[step];
@@ -1311,7 +1359,16 @@ function IntakeForm({
     changePathway,
     changePurpose,
     changeLevel: (value) => {
-      if (value !== "advanced") setModules([]);
+      if (value !== "advanced") {
+        setModules([]);
+        // A custom selection is offered at the Advanced level only: the pathway goes back.
+        if (run.pathway === CUSTOM) {
+          changePathway("credit_snapshot");
+          setChangeNotice(
+            "Custom selection is offered at the Advanced level, so the pathway is back to Full credit assessment. Review the run again and decide its limits.",
+          );
+        }
+      }
       setLevel(value);
     },
     changeAnalystNote: (value) => {
@@ -1340,6 +1397,7 @@ function IntakeForm({
       setTurns(value);
     },
     toggleModule,
+    chooseModules,
     problem: fieldError,
     idNote: reviewIssuerNote(review, settledSlug),
     missing: missingAtLastReview(lastReview, run.pathway, issuerId),

@@ -20,6 +20,7 @@ import { PAGE_NAME, PageTitle } from "./parts/PageTitle";
 import { RUN_START } from "./parts/links";
 import {
   MEASURES,
+  type MeasureKey,
   type HomeCard,
   type IssuerCard as IssuerCardData,
   type LibraryHome,
@@ -130,6 +131,12 @@ function RangeFilters({
   );
 }
 
+function heldBand(home: LibraryHome, key: MeasureKey, saved: number | null | undefined) {
+  return typeof saved === "number" && home.list.measures[key].bands[saved] !== undefined
+    ? saved
+    : null;
+}
+
 function Layout({ home }: { home: LibraryHome }) {
   // Browser history restores this entry's choices before the home is mounted again.
   const saved = (
@@ -138,7 +145,13 @@ function Layout({ home }: { home: LibraryHome }) {
     } | null
   )?.libraryHome;
   const [filters, setFilters] = useState<Filters>(saved?.filters ?? NO_FILTERS);
-  const [bands, setBands] = useState<Bands>(saved?.bands ?? NO_BANDS);
+  // A saved band is kept only where the delivered spec still has it: the spec can change between
+  // the save and the restore (a reload, a redeploy), and a stale index must not break the page.
+  const [bands, setBands] = useState<Bands>(() => ({
+    leverage: heldBand(home, "leverage", saved?.bands.leverage),
+    netLeverage: heldBand(home, "netLeverage", saved?.bands.netLeverage),
+    interestCoverage: heldBand(home, "interestCoverage", saved?.bands.interestCoverage),
+  }));
   const [layout, setLayout] = useState<"cards" | "list">(saved?.layout ?? "cards");
   useEffect(() => {
     window.history.replaceState(

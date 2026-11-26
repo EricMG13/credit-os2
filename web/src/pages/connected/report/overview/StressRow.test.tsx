@@ -271,7 +271,7 @@ it("draws a negative stated value as a figure, and keeps the module's own word f
     />,
   );
   const [ebitda, charge] = within(headroomTile()).getAllByRole("listitem");
-  expect(ebitda).toHaveTextContent("-US$20m / -US$50m");
+  expect(ebitda).toHaveTextContent("-$20m / -$50m");
   expect(ebitda).not.toHaveTextContent("Not supplied");
   expect(ebitda?.querySelector(".bg-chart-1")).not.toBeNull();
   expect(charge).toHaveTextContent("Not calculated");
@@ -293,7 +293,7 @@ it("places a negative lead test and its threshold on one scale that holds zero",
   const threshold = x(tile.querySelector("[data-threshold]"), "x1");
   expect(x(bar, "width") / (zero - threshold)).toBeCloseTo(20 / 50, 6);
   expect(
-    within(tile).getByText("-US$20m against a threshold of -US$50m. Passes at or above."),
+    within(tile).getByText("-$20m against a threshold of -$50m. Passes at or above."),
   ).toBeVisible();
 });
 
@@ -853,4 +853,45 @@ it("says a stated unitless fraction is stated and not drawn, with no empty axis"
   expect(tile).toHaveTextContent("0.075562700964630225080385852090032154341");
   // No scale is drawn for a panel with nothing placed on it.
   expect(panel?.querySelectorAll("[data-axis] text")).toHaveLength(0);
+});
+
+it("S17-2-1 says why a case named in the key has no figure", () => {
+  const value = (display: string, exact: string) => ({
+    exact,
+    display,
+    reason: null,
+    status: "value",
+  });
+  const gap = { exact: null, display: "n.m.", reason: "EBITDA is not positive", status: "na" };
+  const col = (label: string, group: string) => ({
+    label,
+    group,
+    start: "2025-04-01",
+    end: "2026-03-31",
+  });
+  const gapModel = {
+    cashflow: {
+      columns: [
+        col("FY2026E", "Base case"),
+        col("FY2027E", "Base case"),
+        col("FY2026E", "Downside case"),
+        col("FY2027E", "Downside case"),
+      ],
+      rows: [
+        {
+          band: "Credit metrics",
+          label: "Net leverage (net debt / Adj EBITDA)",
+          kind: "multiple",
+          total: false,
+          cells: [value("2.00x", "2.0"), value("1.00x", "1.0"), gap, gap],
+        },
+      ],
+      limits: [],
+    },
+  };
+  render(<StressRow {...rowProps([], [gapModel])} />);
+  const tile = screen.getByRole("region", { name: "Forward path" });
+  expect(
+    within(tile).getAllByText(/Downside case: no figure, EBITDA is not positive/i),
+  ).toHaveLength(1);
 });

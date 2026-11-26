@@ -20,6 +20,7 @@ from decimal import Decimal
 import pytest
 
 from deploy_vii.inputs import portfolio_export as pe
+from deploy_vii.inputs.csv_text import CsvDecodeError
 from deploy_vii.inputs.portfolio_export import Quantity
 from deploy_workflow import reference_portfolios as rp
 from tools import synthetic_portfolio_exports as exports
@@ -687,7 +688,7 @@ def test_a_stored_portfolio_comes_back_exactly(tmp_path):
 def test_the_stored_file_is_json_with_a_schema_version_and_text_decimals(tmp_path):
     rp.Store(tmp_path).save(pack())
     stored = json.loads((tmp_path / "clo.json").read_text(encoding="utf-8"))
-    assert stored["schema"] == 1
+    assert stored["schema"] == 2  # version 2 carries `strict` in each limit's quantity
     body = stored["portfolio"]
     assert (body["as_of"], body["stored_at"]) == ("2026-10-31", "2026-11-25T09:30:00+00:00")
     assert body["positions"][1]["par"] == "1234567.89"
@@ -1107,8 +1108,10 @@ def test_a_packs_total_and_source_rows_are_not_positions_and_the_exports_own_cou
         "Total, subtotal, note and disclaimer rows, not read as positions: 2 rows (rows 9, 10)."
         in found.findings
     )
-    # The export's own check still counts every filled row under the header.
-    assert len(pe.read_export(synth.pack_files(rows)).holdings) == 9
+    # The export's own check now leaves total and note rows out, as the reference reader does.
+    assert len(pe.read_export(synth.pack_files(rows)).holdings) == 7
+    assert pe.row_kind({"borrower": "Total"}, "Total") == "total"  # the one rule both readers call
+    assert pe.row_kind({"borrower": "Source: trustee report, unaudited"}, "Source:") == "note"
 
 
 # 6. A file name with " [" in it; a file that cannot be read is a reader's error.
@@ -1459,3 +1462,181 @@ def test_blank_rows_right_under_the_header_do_not_end_the_table():
     found = loans(replace(synth.LOANS, rows=([None], [None], *rows)))
     # The header is row 5; rows 6 and 7 are empty; the holdings are rows 8 to 12.
     assert [p.row for p in found.positions] == [8, 9, 10, 11, 12]
+
+
+def _without_strict(stored: dict) -> None:
+    for item in stored["portfolio"]["limits"]:
+        if isinstance(item["quantity"], dict):
+            del item["quantity"]["strict"]
+
+
+def test_a_portfolio_stored_before_strict_limits_loads(tmp_path):
+    base = pack()
+    strict = replace(base.limits[0], limit="< 5% NAV", quantity=pe.quantity("< 5% NAV"))
+    portfolio = replace(base, limits=(strict, *base.limits[1:]))
+    assert strict.quantity is not None and strict.quantity.strict
+    rp.Store(tmp_path).save(portfolio)
+    path = tmp_path / "clo.json"
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    _without_strict(stored)
+    stored["schema"] = 1  # as the build before `strict` wrote it
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    back = rp.Store(tmp_path).load("clo")
+    assert back == portfolio
+    assert back.limits[0].quantity.strict is True
+    assert back.limits[1].quantity.strict is False
+
+
+def test_a_version_2_file_without_strict_is_damaged_not_migrated(tmp_path):
+    rp.Store(tmp_path).save(pack())
+    path = tmp_path / "clo.json"
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["schema"] == 2
+    _without_strict(stored)
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    with pytest.raises(rp.StoreError, match="damaged"):
+        rp.Store(tmp_path).load("clo")
+
+
+@pytest.mark.parametrize("schema", ["1", True, 1.0])
+def test_a_schema_that_is_not_a_whole_version_number_is_refused(tmp_path, schema):
+    rp.Store(tmp_path).save(pack())
+    path = tmp_path / "clo.json"
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    stored["schema"] = schema
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    with pytest.raises(rp.StoreError, match="written as version"):
+        rp.Store(tmp_path).load("clo")
+
+
+def test_a_stored_quantity_with_an_unknown_field_is_still_damaged(tmp_path):
+    rp.Store(tmp_path).save(pack())
+    path = tmp_path / "clo.json"
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    stored["portfolio"]["limits"][0]["quantity"]["surprise"] = True
+    path.write_text(json.dumps(stored), encoding="utf-8")
+    with pytest.raises(rp.StoreError, match="damaged"):
+        rp.Store(tmp_path).load("clo")
+
+
+@pytest.mark.parametrize(
+    ("rating", "bucket"),
+    [("N/A / N/A", "Unrated"), ("N/A / B+", "B"), ("N/R / B+", "B"), ("n/a / B+", "B")],
+)
+def test_a_plain_not_available_marker_gives_no_rating_for_that_agency(rating, bucket):
+    found = one(Ratings=rating)
+    assert (found.rating, found.rating_bucket, found.flags) == (rating, bucket, ())
+
+
+@pytest.mark.parametrize(
+    "rating", ["#N/A N/A / B+", "#N/A N/A/B+", "#N/A Field Not Applicable / B+"]
+)
+def test_a_vendor_token_for_moodys_keeps_the_sp_rating(rating):
+    # Mirror of `B1 / #N/A N/A`: no Moody's rating, S&P B+ (index 14), bucket B.
+    found = one(Ratings=rating)
+    assert (found.rating, found.rating_bucket) == (rating, "B")
+    assert one(Ratings="B1 / #N/A N/A").rating_bucket == "B"
+    lone = one(Ratings="#N/A N/A")
+    assert (lone.rating, lone.flags) == (None, ("error_marker:rating",))
+
+
+@pytest.mark.parametrize("rating", ["#N/A N/A / #N/A N/A", "#N/A N/A/#N/A N/A"])
+def test_a_rating_cell_of_two_vendor_tokens_is_an_error_marker_as_one_token_is(rating):
+    found = one(Ratings=rating)
+    assert (found.rating, found.rating_bucket, found.flags) == (
+        None,
+        "Unrated",
+        ("error_marker:rating",),
+    )
+
+
+@pytest.mark.parametrize("rating", ["Not Rated", "Unrated", "NR / -", "NR / NA", "WR / —"])
+def test_a_not_rated_word_or_mark_is_no_rating_and_no_defect(rating):
+    found = one(Ratings=rating)
+    assert (found.rating_bucket, found.flags) == ("Unrated", ())
+
+
+def test_a_totals_row_is_still_left_out_of_the_pack():
+    rows = [
+        {"Borrower Name": "Aster Fictional Co", "Mid Market Value (USD)": "100"}
+        | synth.pack_row(Ratings="B2 / B"),
+        {"Borrower Name": "Total", "Mid Market Value (USD)": "100"} | synth.pack_row(),
+    ]
+    read = rp.read_clo_pack(synth.pack_files(rows, synth.PACK_HEADER), stored_at=AT)
+    assert [p.borrower for p in read.positions] == ["Aster Fictional Co"]
+
+
+# --- One row classifier and one rating rule shared with the export check (S10 round 7) -----------
+
+STORED = datetime(2025, 4, 1, tzinfo=UTC)
+
+
+def _export_pack(spec: exports.Spec) -> rp.Portfolio:
+    return rp.read_clo_pack(exports.files(spec), stored_at=STORED)
+
+
+@pytest.mark.parametrize("name", ["Rossini S.à r.l.", "Lottomatica s.p.a.", "Biofarma s.p.a."])
+def test_a_pack_borrower_with_a_lower_case_legal_form_is_a_position(name):
+    spec = exports.clean()
+    for row in spec.holdings:
+        if row[1] == "Fern Placeholder SA":
+            row[1] = name
+    found = _export_pack(spec)
+    assert len(found.positions) == 7
+    assert [p.borrower for p in found.positions].count(name) == 1
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        ((2, "Software Total", 40_000_000), (2, "Chemicals Total", 25_000_000),
+         (2, "Healthcare Total", 35_000_000), (2, "Grand Total", 100_000_000)),
+        ((1, "Total Portfolio", 100_000_000),),
+        ((1, "Total (USD)", 100_000_000),),
+    ],
+)  # fmt: skip
+def test_a_pack_totals_row_is_left_out_as_the_export_check_leaves_it_out(rows):
+    spec = exports.clean()
+    for column, label, par in rows:
+        row: list[object] = [""] * len(spec.holdings[0])
+        row[column], row[-1] = label, par
+        spec.holdings.append(row)
+    found = _export_pack(spec)
+    par = sum((p.par for p in found.positions if p.par is not None), start=Decimal(0))
+    assert len(found.positions) == 7
+    assert par == 100_000_000  # 20 + 10 + 15 + 10 + 25 + 10 + 10 (m)
+    assert len({p.sector for p in found.positions if p.sector}) == 3
+
+
+@pytest.mark.parametrize(
+    "rating", ["#N/A N/A / NR", "#N/A N/A / WR", "#N/A N/A / Not Rated", "NR / #N/A N/A"]
+)
+def test_a_token_beside_a_not_rated_mark_is_an_error_marker_not_an_unread_rating(rating):
+    found = one(Ratings=rating)
+    assert found.rating_bucket == "Unrated"
+    assert f"{rp.ERROR_MARKER}:rating" in found.flags
+    assert rp.RATING_UNREAD not in found.flags
+
+
+def test_a_windows_1252_pack_stores_the_borrower_as_written():
+    name = "Dave & Buster’s Inc"  # 0x92 in Windows-1252 is U+2019
+    spec = exports.clean()
+    for row in spec.holdings:
+        if row[1] == "Fern Placeholder SA":
+            row[1] = name
+    files = {
+        key: raw.decode("utf-8").replace("≤", "<=").replace("≥", ">=").replace("Δ", "Chg")
+        .encode("cp1252")
+        if key.endswith(".csv")
+        else raw
+        for key, raw in exports.csv_files(spec).items()
+    }  # fmt: skip
+    assert rp.read_clo_pack(files, stored_at=STORED).positions[-1].borrower == name
+
+
+def test_a_csv_that_is_neither_utf_8_nor_windows_1252_is_a_damaged_file():
+    files = synth.pack_files()
+    files[synth.PACK_HOLDINGS] += b"\nBad,\x81\n"  # 0x81 is undefined in Windows-1252
+    with pytest.raises(rp.PortfolioFileError, match="damaged") as error:
+        rp.read_clo_pack(files, stored_at=AT)
+    assert isinstance(error.value.__cause__, CsvDecodeError)

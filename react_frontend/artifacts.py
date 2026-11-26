@@ -52,13 +52,11 @@ def entries(available: dict[tuple[str, str], Path], folder: str) -> list[dict[st
     ]
 
 
-def reply(
-    match: re.Match[str],
-    root: Path,
-    folder_pattern: re.Pattern[str],
-    snapshot: dict[str, Any] | None,
-) -> http_base.Reply:
-    encoded, delivery, name = match.groups()
+def admitted(
+    encoded: str, folder_pattern: re.Pattern[str], snapshot: dict[str, Any] | None
+) -> tuple[str, dict[str, Any]]:
+    """The run folder named in a request and its record in the admitted snapshot, or a 404
+    `unknown report` when the name is not a run folder or the snapshot holds no such run."""
     folder = unquote(encoded)
     if folder in {".", ".."} or not folder_pattern.fullmatch(folder):
         raise http_base.refuse(404, "unknown report")
@@ -66,6 +64,17 @@ def reply(
     record = next((item for item in records if item["folder"] == folder), None)
     if record is None:
         raise http_base.refuse(404, "unknown report")
+    return folder, record
+
+
+def reply(
+    match: re.Match[str],
+    root: Path,
+    folder_pattern: re.Pattern[str],
+    snapshot: dict[str, Any] | None,
+) -> http_base.Reply:
+    encoded, delivery, name = match.groups()
+    folder, record = admitted(encoded, folder_pattern, snapshot)
     available = artifacts(record, root, folder)
     if delivery is None:
         return http_base.Reply(

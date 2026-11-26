@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
-import type { MaturityProfile } from "../../publishedReport";
+import { unitLabel, type MaturityProfile } from "../../publishedReport";
 import { amount, distinct } from "../../visuals/visualData";
 import { PublishedSource } from "../PublishedTrace";
 import type { maturityTraces } from "../comparisonTrace";
@@ -215,7 +215,7 @@ export function MaturityPair({ profile, traces }: { profile: MaturityProfile; tr
     <Tile
       span={12}
       label="Maturities then and now"
-      kicker={`Debt maturing by period, ${profile.unit}`}
+      kicker={`Debt maturing by period, ${unitLabel(profile.unit)}`}
       title="Debt maturities, earlier run against this run"
       trace={
         <div className="flex items-center gap-3">

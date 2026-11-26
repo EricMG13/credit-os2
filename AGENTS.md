@@ -42,7 +42,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - Analytical modules own analysis and inter-module Markdown communication.
   Markdown handoffs are intermediate artifacts, not completion of the user task.
 - CP-8 runs last in a run with an earlier listed run of the same issuer and pathway and compares
-  the two: values, periods, assumptions, conclusions, sources and limitations. Its handoff is
+  the two: values, periods, assumptions, conclusions, sources and limitations. A custom run is
+  compared only with an earlier custom run of the same issuer and the same completed modules; a
+  preset run is never the base of a custom run, nor the reverse. Its handoff is
   shown in the issuer library's Changes page.
   It explains material changes and unresolved differences. The imported investment
   decision post-mortem/calibration task is superseded; it is not an input gate.
@@ -58,7 +60,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   handoff content remains an explicit gap or a targeted repair request. One exception
   (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`): a proposed recommendation
   derived by ruled arithmetic from module-written scores through the owner-approved table,
-  always labelled proposed until the analyst confirms.
+  always labelled proposed until the analyst confirms. Drawing a money unit as its currency
+  symbol (`$m` for `USD millions`, `docs/rulings/2026-11-26-money-unit-symbols.md`) changes its
+  notation, not the unit.
 - Completion requires the issuer library's Overview, Changes, Modules, Forecast and Evidence
   pages for the run populated from its actual module handoffs and checked against
   them, not just successful handoff generation. Once the Deliverables page is built,
@@ -84,7 +88,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   Full 30, Deep 50, the five purpose pathways 20 (owner, 2026-11-25;
   `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`, amending
   `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`), Credit Screening 10 (owner, 2026-11-25;
-  `docs/rulings/2026-11-25-deliverables-and-recommendations.md`). The build itself does not run providers. (checked: tests/test_repo_rules.py)
+  `docs/rulings/2026-11-25-deliverables-and-recommendations.md`); Custom selection: the sum of its
+  modules' estimates plus one call's hold, rounded up to the whole dollar, at most USD 50 (owner,
+  2026-11-26; `docs/rulings/2026-11-26-custom-routing.md`). The build itself does not run providers. (checked: tests/test_repo_rules.py)
 - Run confidence-review after code changes: enumerate doubts, trace their causes,
   test adversarial cases and repair confirmed defects before completion.
 - Run rewrite-tournament in post-edit mode for nontrivial changed functions,

@@ -794,7 +794,7 @@ function cashProxyOutput(
   const comparison = (
     <div className="grid min-w-0 gap-2">
       <p className="text-small text-text-secondary">
-        Cash proxy values ({word(raw.units) || "units not recorded"}).
+        Cash proxy values ({unitLabel(word(raw.units)) || "units not recorded"}).
       </p>
       <ChartTable caption="Scenario comparison" head={head} rows={rows} endHeading={endHeading} />
     </div>
@@ -805,7 +805,7 @@ function cashProxyOutput(
     selectedCase,
     source,
     sourceFor,
-    units: word(raw.units),
+    units: unitLabel(word(raw.units)),
     table: { head, rows, endHeading },
     unified,
   });

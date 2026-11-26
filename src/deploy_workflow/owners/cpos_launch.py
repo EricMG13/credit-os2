@@ -21,7 +21,7 @@ import re
 import sys
 import tempfile
 import textwrap
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -104,7 +104,7 @@ from deploy_workflow.model.pricing import (
     web_search_usd,
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
-from deploy_workflow.owners import cpos_forecast, cpos_reader
+from deploy_workflow.owners import cpos_custom, cpos_forecast, cpos_periods, cpos_reader
 from deploy_workflow.owners.cpos import (
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
@@ -192,11 +192,13 @@ from deploy_workflow.owners.cpos_launch_tables import (
     NO_MONEY,
     OWNER_TABLES,
     POST_BS,
+    PRO_FORMA,
     OwnerTable,
     _chart_header,
     _chart_route,
     _net_debt_issues,
     _owner_tables,
+    _pro_forma_issues,
     chart_issues,
 )
 from deploy_workflow.owners.cpos_reader import without_notes
@@ -269,6 +271,7 @@ __all__ = [
     "POST_BS",
     "PRESENCE_RULE",
     "PROSE_PASSAGES",
+    "PRO_FORMA",
     "READER_PERSONA",
     "REGISTER_SCOPE",
     "REGISTER_SCOPE_MODULES",
@@ -289,6 +292,7 @@ __all__ = [
     "_none_rule",
     "_owner_tables",
     "_print_review",
+    "_pro_forma_issues",
     "_review_lines",
     "_selector",
     "chart_issues",
@@ -302,6 +306,7 @@ __all__ = [
 ROOT = Path(__file__).resolve().parents[3]
 LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
 CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
+CUSTOM_CAP_RULING = "docs/rulings/2026-11-26-custom-routing.md"
 HTML_SUFFIXES = frozenset({".htm", ".html"})
 # Converted to text pages, pinned as ``<name>.jsonl``: HTML filings and Word documents.
 CONVERTED_SUFFIXES = HTML_SUFFIXES | {".docx"}
@@ -354,6 +359,31 @@ BLOCK_OWNERS: dict[str, tuple[str, ...]] = {
 }
 # CP-8 owns this section and compares two completed deliveries; a single run has nothing to compare.
 SECOND_RUN_ONLY = "what-changed"
+# A custom run is priced from GPT runs only (owner, 2026-11-26): the two configs the run start
+# service launches GPT with, whose per-call hold the estimate is computed with.
+CUSTOM_CONFIGS = ("copilot-sol-medium", "copilot-sol-high")
+NOT_GPT = "A custom selection is estimated from GPT runs only; choose GPT."
+
+
+def custom_owned_modules() -> frozenset[str]:
+    """The modules that own a block of the custom composition, as `_layout` reads a block's owners.
+    A module outside it owns no report section of its own."""
+    preset = next(p for p in pathways() if p.id == "custom")
+    return frozenset(
+        module
+        for block_id in preset.blocks
+        for module in BLOCK_OWNERS.get(block_id, _spec_of(block_id).producers)
+    )
+
+
+def sent_at_high(
+    config: str, high_modules: Sequence[str], ordered: Sequence[str]
+) -> frozenset[str]:
+    """The planned modules the live run sends at high effort: all of them on a config whose own
+    effort is high, else the named ones (`main`'s ``--balanced`` and ``--high-modules``)."""
+    if CONFIGS[config].effort == "high":
+        return frozenset(ordered)
+    return frozenset(m for m in high_modules if m in ordered)
 
 
 class LaunchRefused(ValueError):
@@ -383,6 +413,7 @@ class Prepared:
     prior: PriorRun | None = None  # The earlier run CP-8 compares with, when one is listed.
     changes: str = ""  # The one line the run records about that comparison.
     portfolio: PortfolioCheck = NOT_COLLECTED  # The portfolio workbook found and its checks.
+    estimate: cpos_custom.Estimate | None = None  # A custom run's estimate and cap; else None.
 
     @property
     def omitted_titles(self) -> tuple[str, ...]:
@@ -937,6 +968,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     pathway: str,
     as_of: str,
     choice: str | None = None,
+    planned: Sequence[str] | None = None,
 ) -> tuple[PriorRun | None, str | None, dict[str, bytes]]:
     """The earlier run CP-8 compares with, the line recorded about it, and the pinned copies of its
     handoffs to write (source name -> bytes).
@@ -944,7 +976,8 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     ``choice`` is the approval's: ``NO_PRIOR`` ("first run"), the folder name of the run it named,
     or None (a launch from the command line, which searches). A named run is used exactly, if it is
     still listed and passes the same tests as a searched one; otherwise the run proceeds without
-    CP-8 and says so.
+    CP-8 and says so. ``planned`` is this run's planned modules (the completed list, which holds no
+    CP-8): a custom run is compared only with an earlier custom run that completed the same ones.
 
     ``held`` is the manifest the run folder already holds: it keeps what that manifest records, so
     a newer completed run appearing since cannot change it and get the relaunch refused; the copies
@@ -975,6 +1008,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
         as_of=as_of,
         only=choice,
         skipped=skipped,
+        planned=planned,
     )
     why = f" (not used: {'; '.join(skipped)})" if skipped else ""
     if found is None:
@@ -988,6 +1022,47 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     )
 
 
+def _complete_custom(config: str, requested: Sequence[str]) -> cpos_custom.Completion:
+    """A custom selection completed by the registry's rules (`cpos_custom.complete`). Done before
+    the earlier run is looked for, so that it can be found for the planned list. Refused: a config
+    other than the GPT ones the estimate is priced on, and what cannot be completed."""
+    if config not in CUSTOM_CONFIGS:
+        raise LaunchRefused(NOT_GPT)
+    try:
+        return cpos_custom.complete(requested, owned=custom_owned_modules())
+    except cpos_custom.CustomRefused as refused:
+        raise LaunchRefused(f"--modules: {refused}") from None
+
+
+def _custom_estimate(
+    completion: cpos_custom.Completion | None,
+    *,
+    compared: bool,
+    high: frozenset[str],
+    hold: Decimal,
+) -> cpos_custom.Estimate | None:
+    """A custom run's estimate and cap; None for a preset pathway."""
+    if completion is None:
+        return None
+    return cpos_custom.estimate(completion, compared=compared, high=high, hold=hold)
+
+
+def _provider_cap(cap: Decimal | str | None, estimate: cpos_custom.Estimate | None) -> Decimal:
+    """The cap the run's request records. A custom run launches at exactly its computed cap: none
+    asked gives it and any other is refused, lower included (a cap below it could not cover the
+    estimate, and the summary the analyst approved named this one). A preset takes the cap asked."""
+    if estimate is None:
+        if cap is None:
+            raise LaunchRefused("--cap: this pathway's run needs a cap")
+        return Decimal(cap)
+    computed = Decimal(estimate.cap)
+    if cap is not None and Decimal(cap) != computed:
+        raise LaunchRefused(
+            f"--cap {cap}: this custom selection's cap is USD {computed}; review the summary again"
+        )
+    return computed
+
+
 def _cap_differs(held: HandoffPlan | None, request: HandoffPlan) -> str:
     """Why a run folder's request differs, when its cap is the cause: a folder started at another
     cap (the USD 20 before per-pathway caps) resumes only at that cap, never at a higher one."""
@@ -996,6 +1071,34 @@ def _cap_differs(held: HandoffPlan | None, request: HandoffPlan) -> str:
     return (
         f" (the folder was started at a cap of USD {held.provider_cap_usd}, not USD "
         f"{request.provider_cap_usd}; resume it with --cap {held.provider_cap_usd})"
+    )
+
+
+def _custom_resume_advice(
+    held: HandoffPlan | None,
+    request: HandoffPlan,
+    cap_for: Callable[[frozenset[str]], int],
+    config: str,
+    ordered: Sequence[str],
+) -> str:
+    """Why a custom run folder's request differs when its cap is the cause: the effort flags it
+    was started with. A custom run's cap follows from them and never from ``--cap``, so the advice
+    names the flags: none, ``--balanced``, or the ``--high-modules`` it was given. ``cap_for`` is
+    the cap the estimate gives for the modules sent at high effort."""
+    if held is None or held.provider_cap_usd == request.provider_cap_usd:
+        return ""
+    options = (
+        (sent_at_high(config, (), ordered), "without --balanced or --high-modules"),
+        (sent_at_high(config, BALANCED_HIGH_MODULES, ordered), "with --balanced"),
+    )
+    advice = "with the --high-modules it was started with"
+    for high, words in options:
+        if Decimal(cap_for(high)) == held.provider_cap_usd:
+            advice = words
+            break
+    return (
+        f" (the folder was started at a cap of USD {held.provider_cap_usd}, which the effort "
+        f"flags it was started with give, not USD {request.provider_cap_usd}; resume it {advice})"
     )
 
 
@@ -1048,13 +1151,14 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
     out: Path | None,
     *,
     config: str,
-    cap: Decimal | str,
+    cap: Decimal | str | None,
     modules: Sequence[str] | None = None,
     web_search: bool = False,
     workspace: Path | None = None,
     prior: str | None = None,
     test_adaptations: Sequence[str] = (),
     reading_notes: Path | None = None,
+    high_modules: Sequence[str] = (),
 ) -> Prepared:
     """Check everything and write the manifest and instructions; a refusal writes nothing.
 
@@ -1073,7 +1177,12 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
     same hold.
 
     ``test_adaptations`` names screen-test-only changes to the instructions (`TEST_ADAPTATIONS`);
-    it is empty for every delivery run, and then nothing about the run differs."""
+    it is empty for every delivery run, and then nothing about the run differs.
+
+    A custom run (``cap`` None, or exactly its computed cap) is completed by the registry's rules
+    (`cpos_custom.complete`), priced with the modules in ``high_modules`` at high effort (all of
+    them on a config whose own effort is high), and launched at the cap that estimate gives; any
+    other cap is refused. A preset pathway ignores ``high_modules`` and needs ``cap``."""
     if unknown := [t for t in test_adaptations if t not in TEST_ADAPTATIONS]:
         raise LaunchRefused(f"test adaptation {', '.join(unknown)}: not one of {TEST_ADAPTATIONS}")
     if prior is not None and prior != NO_PRIOR and not _RUN_NAME.fullmatch(prior):
@@ -1093,6 +1202,7 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
             left_out=left_out,
             test_adaptations=tuple(test_adaptations),
             reading_notes=reading_notes,
+            high_modules=tuple(high_modules),
         )
 
     try:
@@ -1137,7 +1247,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     out: Path | None,
     *,
     config: str,
-    cap: Decimal | str,
+    cap: Decimal | str | None,
     modules: Sequence[str] | None,
     web_search: bool,
     workspace: Path | None,
@@ -1145,6 +1255,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     left_out: str | None,
     test_adaptations: tuple[str, ...],
     reading_notes: Path | None = None,
+    high_modules: tuple[str, ...] = (),
 ) -> Prepared:
     """`prepare`; ``left_out`` is the note of a run planned without CP-8 because its call did not
     fit the cap."""
@@ -1153,9 +1264,14 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     raw_context = context_path.read_bytes()
     settings = load_context(raw_context)
     chosen = tuple(modules) if modules else tuple(PATHWAY_MODULES[settings.run.pathway])
-    # CP-MODEL means "publish the forecast" (owner, 2026-11-11); it makes no model call.
-    model_wanted = "CP-MODEL" in chosen
+    # CP-MODEL means "publish the forecast" (owner, 2026-11-11); it makes no model call. A custom
+    # run always plans it (owner, 2026-11-26), so CP-1 gets Deep's period block and the forecast is
+    # published whether or not the request names it.
+    custom = settings.run.pathway == "custom"
+    model_wanted = "CP-MODEL" in chosen or custom
     requested = tuple(m for m in (modules or pathway_modules(settings)) if m != "CP-MODEL")
+    completion = _complete_custom(config, requested) if custom else None
+    requested = requested if completion is None else completion.modules
     if "CP-8" in requested:
         raise LaunchRefused(
             "--modules: CP-8 is planned automatically when an earlier run of this issuer and "
@@ -1176,6 +1292,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         pathway=settings.run.pathway,
         as_of=settings.run.as_of,
         choice=choice,
+        planned=requested,
     )
     if left_out is not None:
         prior, note, earlier = None, left_out, {}
@@ -1264,6 +1381,24 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
             texts[module] = head + block.encode() + mark + method
     guesses, documents = _documents(covers)
     _add_reading_notes(texts, reading_notes, pinned, documents)
+    # The loop's own bound for the first call of the largest module; later calls hold more.
+    hold = max(
+        request_reservation_usd(price_of(config), len(text) + 4096, output_limit(config))
+        + (
+            web_search_usd(WEB_SEARCH_CALLS_PER_TURN)
+            if web_search_offered(web_search, module, settings.run.case_kind)
+            else 0
+        )
+        for module, text in texts.items()
+        if module != "CP-8"
+    )
+    estimate = _custom_estimate(
+        completion,
+        compared=prior is not None,
+        high=sent_at_high(config, high_modules, ordered),
+        hold=hold,
+    )
+    provider_cap = _provider_cap(cap, estimate)
     items = expectations(
         ordered,
         tuple(guesses.values()),
@@ -1299,21 +1434,11 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         else held.preset_requested_modules,
         execution="live-provider",
         max_attempts=1,
-        provider_cap_usd=Decimal(cap),
-    )
-    # The loop's own bound for the first call of the largest module; later calls hold more.
-    hold = max(
-        request_reservation_usd(price_of(config), len(text) + 4096, output_limit(config))
-        + (
-            web_search_usd(WEB_SEARCH_CALLS_PER_TURN)
-            if web_search_offered(web_search, module, settings.run.case_kind)
-            else 0
-        )
-        for module, text in texts.items()
-        if module != "CP-8"
+        provider_cap_usd=provider_cap,
     )
     if request.provider_cap_usd < hold:
         raise LaunchRefused(f"--cap {cap}: one {config} call holds up to USD {hold:.2f}")
+    estimate_hold = hold
     if prior is not None:
         hold = max(
             hold,
@@ -1322,9 +1447,23 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     raw = request.model_dump_json(indent=2).encode()
     manifest = directory / "workflow.json"
     if manifest.exists() and manifest.read_bytes() != raw:
+        cap_advice = (
+            _custom_resume_advice(
+                held,
+                request,
+                lambda high: (
+                    cpos_custom.estimate(
+                        completion, compared=prior is not None, high=high, hold=estimate_hold
+                    ).cap
+                ),
+                config,
+                ordered,
+            )
+            if completion is not None
+            else _cap_differs(held, request)
+        )
         raise LaunchRefused(
-            f"--out {directory}: holds a different request{_cap_differs(held, request)}; "
-            "choose a new --out"
+            f"--out {directory}: holds a different request{cap_advice}; choose a new --out"
         )
     for relative, content in (*converted.items(), *earlier.items()):
         _put(directory / relative, content)
@@ -1345,6 +1484,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         prior,
         note or "",
         portfolio,
+        estimate,
     )
 
 
@@ -1381,11 +1521,12 @@ def _owned_issues(
     any other module's is `cp1` (its CP-1 handoff; none means no money unit, `NO_MONEY`)."""
     source = text if module == "CP-1" else cp1.decode("utf-8") if cp1 is not None else None
     money = money_unit(source) if source is not None else None
-    issues = [
-        i
-        for owned in _owner_tables(module, routes, pathway)
-        for i in chart_issues(text, owned, money=money)
-    ]
+    issues: list[str] = []
+    for owned in _owner_tables(module, routes, pathway):
+        found = chart_issues(text, owned, money=money)
+        issues += found
+        if owned is PRO_FORMA and not found:  # CP-1's own rows check, after the shape check
+            issues += _pro_forma_issues(text)
     return [*issues, *_net_debt_issues(text), *_cp1_issues(text)] if module == "CP-1" else issues
 
 
@@ -1532,6 +1673,43 @@ _BOTH_KEY_OPERAND = re.compile(
 _UNNAMED_AT_SCALE = re.compile(r"^[\w-]+: a block at scale 1000 must name the row and period")
 
 
+_NAME_THE_CELLS = (
+    "Name the row and the period or column of each base operand; if you cannot, set every "
+    "driver's values to [null, null, null] and say why in scope_limits."
+)
+
+
+def _unnamed_flow_issues(inputs: cpos_forecast.ForecastInputs) -> tuple[str, ...]:
+    """The repair line when a flow operand states an amount and names no row, period or column.
+    Acceptance only. `parse` and `model_files` are unchanged, so delivery reads a retained block
+    as before; resume re-checks a retained CP-2G through acceptance (`cpos._handoff`), so one
+    that names no cell is refused there (`cpos_retained_rejected`), fail-closed."""
+    if all(
+        inputs.base[key].amount is None
+        or inputs.base[key].row
+        or inputs.base[key].period
+        or inputs.base[key].column
+        for key in cpos_forecast.FLOWS
+    ):
+        return ()
+    return (f"Forecast inputs: CP-2G: a block {cpos_forecast.UNNAMED_FLOW}. {_NAME_THE_CELLS}",)
+
+
+def _reported_year_issues(
+    task: HandoffTask, inputs: cpos_forecast.ForecastInputs
+) -> tuple[str, ...]:
+    """A forecast whose first year CP-1 already reports is sent back (owner items 9, amended
+    ruling): the year meets the condition under which the history leaves it out and prints
+    `IN_FORECAST` (`cpos_periods.reported_forecast_years`). Acceptance only: `parse` and
+    `model_files` are unchanged, so delivery reads a retained block as before."""
+    reported = cpos_periods.reported_forecast_years(task.handoffs["CP-1"].decode("utf-8"), inputs)
+    if not reported:
+        return ()
+    last = int(reported[-1].removeprefix("FY"))
+    advice = f"start the forecast after it (from FY{last + 1})."
+    return (f"Forecast inputs: CP-1 reports {reported[-1]}; {advice}",)
+
+
 def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
     """Live run tdg-forecast-004 (2026-11-10): a forecast block delivery cannot parse is sent
     back for repair here, not dropped after payment. Declining (all null) stays the method's call
@@ -1559,10 +1737,7 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             advice = f"State either `period` or `column` for {who}, not both."
             return (f"Forecast inputs: {stem}. {advice}",)
         if _UNNAMED_AT_SCALE.match(message):
-            fix = "Name the row and the period or column of each base operand; if you cannot, "
-            advice = (
-                f"{fix}set every driver's values to [null, null, null] and say why in scope_limits."
-            )
+            advice = _NAME_THE_CELLS
         elif _FACILITY_REFUSAL.match(message):
             fallback = "write `facilities` as null and keep the drivers."
             advice = f"Correct the facilities; if you cannot, {fallback}"
@@ -1571,9 +1746,13 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             advice = f"{fix}[null, null, null] and say why in scope_limits."
         return (f"Forecast inputs: {stem}. {advice}",)
     return (
-        *_unstated_currency(inputs),
-        *_shock_issues(task, inputs),
-        *_downside_issues(task, text, inputs),
+        _unnamed_flow_issues(inputs)
+        or _reported_year_issues(task, inputs)
+        or (
+            *_unstated_currency(inputs),
+            *_shock_issues(task, inputs),
+            *_downside_issues(task, text, inputs),
+        )
     )
 
 
@@ -1801,20 +1980,28 @@ def _cap(text: str) -> Decimal:
     return value
 
 
-def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
+def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal | None:
     """The cap a launch runs at: the pathway's (`PATHWAY_CAP_USD`), or a lower one asked for.
+    A custom run has no fixed cap: none asked gives None (the launcher computes it from the
+    estimate, `_provider_cap`), and the table's USD 50 is only the ceiling of what may be asked.
 
     Owner, 2026-11-15: "Hard cap per pathway". Every launch ends here (the run start service
     passes `--cap` too), so a cap above the pathway's is refused whoever asks; the pathway is the
     context's, which is what runs."""
     ceiling = PATHWAY_CAP_USD[pathway]
     if asked is None:
-        return ceiling
+        return None if pathway == "custom" else ceiling
     if asked > ceiling:
-        ruling = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
+        ruling = {"credit_screening": CREDIT_SCREENING_CAP_RULING, "custom": CUSTOM_CAP_RULING}.get(
+            pathway, LAYER_1_RULING
+        )
+        advice = (
+            "the cap is computed from the chosen modules, so leave --cap out"
+            if pathway == "custom"
+            else "a lower cap is allowed"
+        )
         raise LaunchRefused(
-            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); "
-            "a lower cap is allowed"
+            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); {advice}"
         )
     return asked
 
@@ -1885,6 +2072,28 @@ def _lookup_lines(
     return (head, *refused)
 
 
+def _estimate_lines(estimate: cpos_custom.Estimate | None) -> tuple[str, ...]:
+    """A custom run's estimate: its sum, hold and cap, then a line per module with its figure, the
+    reason the launcher added it, and whether it owns no report section of its own."""
+    if estimate is None:
+        return ()
+    margin = " " * 10
+    return (
+        (
+            f"Estimate: USD {estimate.total} for {len(estimate.rows)} modules, hold USD "
+            f"{estimate.hold}, cap USD {estimate.cap}"
+        ),
+        *(
+            f"{margin}{row.module:<6} {row.name:<24} {row.figure:>5}"
+            f"{' high' if row.high else ''}"
+            f"{' (not measured)' if not row.measured else ''}"
+            f"{' (No report section of its own)' if row.modules_page_only else ''}"
+            f"{f' - {row.added}' if row.added else ''}"
+            for row in estimate.rows
+        ),
+    )
+
+
 def _readiness(
     prepared: Prepared,
     config: str,
@@ -1901,6 +2110,7 @@ def _readiness(
             f"Run:      {run.run_id}",
             f"Model:    {config} = {selected.provider} {selected.model}, effort {selected.effort}",
             f"Cap:      USD {prepared.plan.provider_cap_usd} (hold per call: {prepared.hold:.2f})",
+            *_estimate_lines(prepared.estimate),
             f"Modules:  {', '.join(prepared.ordered)}",
             f"Sources:  {', '.join(names)}",
             f"Ignored:  {', '.join(prepared.ignored) or 'none'}",
@@ -2193,6 +2403,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             prior=args.prior,
             test_adaptations=adaptations,
             reading_notes=args.reading_notes,
+            high_modules=BALANCED_HIGH_MODULES if args.balanced else tuple(args.high_modules),
         )
         efforts = (
             _high_efforts(

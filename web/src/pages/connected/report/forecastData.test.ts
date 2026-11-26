@@ -327,10 +327,8 @@ it("reads the horizon from the Years column and counts no dash cell as a figure 
   ]);
   const [gap] = fundingGap(view([refinancing])).gaps;
   expect(gap?.horizon).toBe("Years: 1");
-  expect(gap?.figures).toEqual([
-    { header: "Amount", text: "0", value: 0 },
-    { header: "Years", text: "1", value: 1 },
-  ]);
+  // S18-1-2: the Years cell is the horizon (read above), not a second funding-gap figure.
+  expect(gap?.figures).toEqual([{ header: "Amount", text: "0", value: 0 }]);
 });
 
 it("says what it looked for when neither module states a funding gap", () => {

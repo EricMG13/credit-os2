@@ -23,6 +23,7 @@ import uuid
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from pathlib import Path, PurePath
 from typing import Any, BinaryIO, NotRequired, TypedDict, cast
 
@@ -36,8 +37,10 @@ from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.handoff import settled_web_lookup
 from deploy_workflow.owners.cpos import web_search_run
 from deploy_workflow.owners.cpos_launch import (
+    BALANCED_HIGH_MODULES,
     NO_PRIOR,
     LaunchRefused,
+    Prepared,
     _lookup_lines,
     prepare,
     read_documents,
@@ -81,6 +84,8 @@ _KEYS = {"context", "modules", "max_turns", "level", "submitted_by", "model", "e
 _NEWEST_DOCUMENT_DATE = "newest_document_date"
 DEFAULT_MODEL, DEFAULT_EFFORT = "gpt", "balanced"  # the only pair below the Advanced level
 _ADVANCED = "advanced"
+CUSTOM: PathwayId = "custom"
+ESTIMATE_LABEL = "Estimated from earlier runs"
 _CHANGED = "the documents changed while the summary was being made; open the summary again"
 
 log = logging.getLogger(__name__)
@@ -120,6 +125,31 @@ def _validate_newest_document_date(value: object) -> None:
     raise Refused("Date of your newest file must be a valid date in YYYY-MM-DD form.")
 
 
+def _validate_custom(answers: dict[str, Any]) -> None:
+    """A custom run is offered at the Advanced level and estimated from GPT runs only (owner,
+    2026-11-26); the launcher refuses any other config as well (`cpos_launch.CUSTOM_CONFIGS`)."""
+    run = answers["context"].get("run")
+    if not isinstance(run, dict) or run.get("pathway") != CUSTOM:
+        return
+    if answers["level"] != _ADVANCED:
+        raise Refused("Custom selection is offered at the Advanced level.")
+    if answers["model"] != DEFAULT_MODEL:
+        raise Refused("A custom selection is estimated from GPT runs only; choose GPT.")
+
+
+def custom_cap_ok(cap: object) -> bool:
+    """Whether ``cap`` is a custom run's cap as the launcher issues it: whole USD from 1 to the
+    pathway's ceiling, written without a sign, a zero in front or a decimal point."""
+    return (
+        isinstance(cap, str)
+        and cap.isascii()
+        and len(cap) <= len(str(int(PATHWAY_CAP_USD[CUSTOM])))
+        and cap.isdigit()
+        and cap == str(int(cap))
+        and 1 <= int(cap) <= int(PATHWAY_CAP_USD[CUSTOM])
+    )
+
+
 def validated(answers: object) -> Answers:
     """``answers`` as an ``Answers``, or ``Refused`` with a plain sentence."""
     if not isinstance(answers, dict) or set(answers) - {_NEWEST_DOCUMENT_DATE} != _KEYS:
@@ -146,6 +176,7 @@ def validated(answers: object) -> Answers:
         config_for(answers["model"], answers["effort"])
     except ValueError:
         raise Refused("the selected model does not offer that reasoning effort") from None
+    _validate_custom(answers)
     chosen = (answers["model"], answers["effort"]) != (DEFAULT_MODEL, DEFAULT_EFFORT)
     if chosen and answers["level"] != _ADVANCED:
         raise Refused("the model and effort can be changed only at the Advanced level")
@@ -278,8 +309,10 @@ _SUFFIX_AT_MOST = 10
 _HASH_CHARS = 8
 
 
-def _kept_suffix(original: str) -> str:
-    """``safe_name`` of the last part, with its suffix kept and made unique when it is cut.
+def _kept_suffix(original: str, *, folder: bool = False) -> str:
+    """``safe_name`` of a part, with its suffix kept and made unique when it is cut.
+
+    A folder part has no suffix to keep (``folder``); it is only made unique.
 
     ``safe_name`` cuts at 80 characters and so removes ``.pdf``, which the launcher needs, and
     gives two long names with one beginning one stored name. A name that would be cut becomes
@@ -288,8 +321,8 @@ def _kept_suffix(original: str) -> str:
     full = safe_name(original, limit=10**6)
     if len(full) <= _NAME_AT_MOST:
         return full
-    suffix = safe_name(PurePath(original).suffix, limit=10**6)
-    if not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
+    suffix = "" if folder else safe_name(PurePath(original).suffix, limit=10**6)
+    if folder or not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
         suffix = ""
     tag = hashlib.sha256(original.encode("utf-8")).hexdigest()[:_HASH_CHARS]
     room = _NAME_AT_MOST - len(suffix) - len(tag) - 1
@@ -312,11 +345,26 @@ def _parts(name: str) -> list[str]:
     for part in raw:
         if part.strip() in ("", ".", ".."):
             raise Refused(f"{name!r} has an empty, '.' or '..' part")
-    parts = [safe_name(part) for part in raw]
-    parts[-1] = _kept_suffix(raw[-1])
+    parts = [_kept_suffix(part, folder=True) for part in raw[:-1]]
+    parts.append(_kept_suffix(raw[-1]))
     if len(parts) == 1 and parts[0].casefold() == _CONTEXT_NAME:
         raise Refused("context.json is made from the answers, not uploaded")
     return parts
+
+
+def _legacy_folders(folder: Path, name: str, parts: list[str]) -> list[str]:
+    """``parts`` with each hashed folder part put back to its 80-character cut form when that
+    folder is already stored and the hashed one is not (a run stored before folders were hashed
+    keeps the cut form; a re-upload of the same document belongs in it)."""
+    root = folder / "files"
+    here = root
+    out = list(parts)
+    for i, raw in enumerate(re.split(r"[/\\]", name)[:-1]):
+        cut = safe_name(raw)
+        if out[i] != cut and not (here / out[i]).exists() and (here / cut).is_dir():
+            out[i] = cut
+        here = here / out[i]
+    return out
 
 
 def _stored(root: Path, *, strict: bool = False, any_error: bool = False) -> dict[str, int]:
@@ -387,6 +435,17 @@ def _reference_bytes(folder: Path) -> int:
     return 0 if root.is_symlink() or not root.is_dir() else sum(_stored(root).values())
 
 
+def _refuse_fold_clash(stored: str, others: Collection[str]) -> None:
+    """``Refused`` when ``stored`` is a different name from one already stored or in flight that
+    the disk compares as the same (case, normalisation): the second would replace the first."""
+    key = _folded(stored)
+    for other in others:
+        if other != stored and _folded(other) == key:
+            raise Refused(
+                f"{stored!r} is the same file name as {other!r} on a disk that folds case"
+            )
+
+
 def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -> str:
     """Check the limits against what is stored and in flight; record the reservation."""
     tmp = f".part-{uuid.uuid4().hex}"
@@ -396,6 +455,7 @@ def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -
         _refuse_links(root, parts)
         existing = _stored(root)
         own = _PENDING.get(sid, {})
+        _refuse_fold_clash(stored, [*existing, *(name for name, _ in own.values())])
         count = len(set(existing) - {stored}) + len(own) + 1
         total = sum(v for k, v in existing.items() if k != stored)
         total += sum(size for _, size in own.values()) + length
@@ -464,7 +524,7 @@ def add_file(layout: Layout, sid: str, name: str, body: BinaryIO, length: int) -
     folder = _folder(layout, sid)
     if _is_sealed(folder):
         raise Refused("this submission has been submitted")
-    parts = _parts(name)
+    parts = _legacy_folders(folder, name, _parts(name))
     if not isinstance(length, int) or isinstance(length, bool) or length < 0:
         raise Refused("the upload has no valid length")
     if length > MAX_FILE:
@@ -551,9 +611,13 @@ def open_regular(path: Path, size: int | None = None) -> _Carried:
         raise
 
 
-def _fold(name: str) -> str:
+def _folded(stored: str) -> str:
     """A stored name as a case- and normalisation-insensitive disk sees it."""
-    return unicodedata.normalize("NFC", "/".join(_parts(name))).casefold()
+    return unicodedata.normalize("NFC", stored).casefold()
+
+
+def _fold(name: str) -> str:
+    return _folded("/".join(_parts(name)))
 
 
 def _check_carry(root: Path, sid: str, wanted: dict[str, int]) -> tuple[list[str], list[str]]:
@@ -599,16 +663,79 @@ def _roll_back(layout: Layout, sid: str, made: list[tuple[str, int]]) -> None:
             log.warning("carry %s: could not remove %s (%s)", sid, stored, error)
 
 
-def carry(layout: Layout, sid: str, source: Path) -> dict[str, list[str]]:
+def _without_left_out(wanted: dict[str, int], leave_out: Collection[str]) -> dict[str, int]:
+    """``wanted`` less the files named in ``leave_out`` (compared in folded form, as the disk
+    compares them); ``Refused`` for a name that is not one of the earlier run's files."""
+    folds = {_fold(name): name for name in wanted}
+    gone: set[str] = set()
+    for given in leave_out:
+        key = _fold(given)
+        if key not in folds:
+            raise Refused(f"{given!r} is not a file of the earlier run")
+        gone.add(folds[key])
+    return {name: size for name, size in wanted.items() if name not in gone}
+
+
+def _digest(path: Path, size: int) -> str:
+    """SHA-256 of a regular file of ``size`` bytes (``Refused`` when it is not one)."""
+    sha = hashlib.sha256()
+    with open_regular(path, size) as handle:
+        while chunk := handle.read(1 << 20):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def _same_content(
+    source: Path, root: Path, wanted: dict[str, int], held: dict[str, int]
+) -> dict[str, str]:
+    """Earlier file (stored form) -> stored name of a file already in the draft with the same
+    bytes under another name. Only pairs of equal size are hashed, and the caller holds no lock.
+    A stored file that cannot be read is logged and not compared."""
+    held_keys = {_fold(name) for name in held}
+    found: dict[str, str] = {}
+    digests: dict[str, str | None] = {}
+    for name in sorted(wanted):
+        if _fold(name) in held_keys:
+            continue  # same name: the carry keeps the stored file
+        twins = [other for other in sorted(held) if held[other] == wanted[name]]
+        if not twins:
+            continue
+        mine = _digest(source / name, wanted[name])
+        for other in twins:
+            if other not in digests:
+                try:
+                    digests[other] = _digest(root.joinpath(*other.split("/")), held[other])
+                except Refused as error:
+                    log.warning("carry: %s was not compared (%s)", other, error)
+                    digests[other] = None
+            if digests[other] == mine:
+                found["/".join(_parts(name))] = other
+                break
+    return found
+
+
+def carry(
+    layout: Layout, sid: str, source: Path, leave_out: Collection[str] = ()
+) -> dict[str, Any]:
     """Copy each file under ``source`` (but its context.json) into the submission.
 
-    A name already stored is kept, never replaced, and is reported as kept. Nothing is copied when
-    a link is found or a limit would be passed; a copy that fails part-way removes the files this
-    call created. Returns the names carried and the names kept, each sorted."""
+    ``leave_out`` names earlier files not to copy (``Refused`` for an unknown name); they and the
+    files not copied below do not count toward the limits. A name already stored is kept, never
+    replaced, and is reported as kept. An earlier file with the same bytes as a file already in
+    the draft under another name is not copied: ``same_content`` ({earlier name: stored name},
+    present only when not empty) reports it. Only uploads made before the carry are compared.
+    Nothing is copied when a link is found or a limit would be passed; a copy that fails
+    part-way removes the files this call created. Returns the names carried and the names kept,
+    each sorted."""
     folder = _folder(layout, sid)
     if source.is_symlink() or not source.is_dir():
         raise Refused("the earlier run's files are not a plain folder")
-    wanted = listing(source)
+    wanted = _without_left_out(listing(source), leave_out)
+    with _LOCK:
+        stored_root = _usable_root(folder)
+        held = _stored(stored_root)
+    same = _same_content(source, stored_root, wanted, held)
+    wanted = {name: size for name, size in wanted.items() if "/".join(_parts(name)) not in same}
     with _LOCK:
         root = _usable_root(folder)
         names, kept = _check_carry(root, sid, wanted)
@@ -633,7 +760,13 @@ def carry(layout: Layout, sid: str, source: Path) -> dict[str, list[str]]:
     except BaseException:
         _roll_back(layout, sid, made)
         raise
-    return {"carried": sorted(stored for stored, _ in made), "kept": sorted(set(kept))}
+    result: dict[str, Any] = {
+        "carried": sorted(stored for stored, _ in made),
+        "kept": sorted(set(kept)),
+    }
+    if same:
+        result["same_content"] = same
+    return result
 
 
 def reading(layout: Layout, sid: str) -> dict[str, Any]:
@@ -749,6 +882,13 @@ def bound(value: str, prior: str) -> str:
     if not prior:
         return value
     return hashlib.sha256(f"{value}\nprior={prior}".encode()).hexdigest()
+
+
+def bound_cap(value: str, cap: str) -> str:
+    """``value`` (a digest) with a custom run's issued cap folded in: its cap is computed by the
+    launcher, so no table holds it and the approval must carry it (PR 7a). Only a custom run's
+    digest is folded; every preset's is exactly what it was."""
+    return hashlib.sha256(f"{value}\ncap={cap}".encode()).hexdigest()
 
 
 def digest(layout: Layout, sid: str, answers: Answers) -> str:
@@ -952,6 +1092,39 @@ def _document_date_limits(
     ]
 
 
+def _high_modules(answers: Answers) -> tuple[str, ...]:
+    """The modules the launch sends at high effort when it adds ``--balanced`` (`runs.command`);
+    on a config whose own effort is high the launcher sends all of them, so none are named."""
+    return (
+        BALANCED_HIGH_MODULES if runs.launch_options(answers["model"], answers["effort"])[1] else ()
+    )
+
+
+def _custom_estimate(prepared: Prepared) -> tuple[str, dict[str, Any]]:
+    """A custom run's issued cap and the estimate the page shows: each module's figure to the
+    cent, the sum, the hold and the cap, from the launcher's own estimate."""
+    estimate = prepared.estimate
+    if estimate is None:  # not reachable: `prepare` estimates every custom run
+        raise Refused("the launcher gave no estimate for this custom selection")
+    return str(estimate.cap), {
+        "rows": [
+            {
+                "module": row.module,
+                "name": row.name,
+                "usd": f"{row.figure:.2f}",
+                "measured": row.measured,
+                "added": row.added,
+                "modules_page_only": row.modules_page_only,
+            }
+            for row in estimate.rows
+        ],
+        "sum": f"{estimate.total:.2f}",
+        "hold": f"{estimate.hold:.2f}",
+        "cap": str(estimate.cap),
+        "label": ESTIMATE_LABEL,
+    }
+
+
 def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
     try:
         answers = validated(answers)
@@ -972,7 +1145,9 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                 run = load_context(context_bytes(answers))
                 refuse_deactivated(run.run.pathway)
                 refuse_filed_elsewhere(layout, answers)
-                cap = PATHWAY_CAP_USD[run.run.pathway]
+                custom = run.run.pathway == CUSTOM
+                # A custom run's cap is the launcher's own computed one, shown after `prepare`.
+                cap: Decimal | None = None if custom else PATHWAY_CAP_USD[run.run.pathway]
                 if len(run.identity.issuer_id) > MAX_ISSUER_ID:
                     raise Refused(
                         f"issuer_id is {len(run.identity.issuer_id)} characters; "
@@ -990,6 +1165,9 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                         config=config,
                         cap=cap,
                         modules=answers["modules"] or None,
+                        # What the launch will send at high effort: the launcher's own set
+                        # (--balanced), so the summary and the launch compute one cap.
+                        high_modules=_high_modules(answers) if custom else (),
                         web_search=web_search_run(config, STANDING_RULING),
                         # The summary prepares in a temporary folder, so it names where the
                         # earlier runs are: the launcher's own `_engine` folder.
@@ -1006,8 +1184,10 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
             # What CP-8 compares with is part of the approval: the run named here is the one the
             # launcher is told to use (`--prior`), and it is folded into the digest.
             chosen = prepared.prior.folder if prepared.prior is not None else NO_PRIOR
+            issued_cap_text, shown_estimate = _custom_estimate(prepared) if custom else ("", None)
+            approved = bound(after, chosen)
             return {
-                "digest": bound(after, chosen),
+                "digest": bound_cap(approved, issued_cap_text) if custom else approved,
                 "prior_choice": chosen,
                 "prior": None
                 if prepared.prior is None
@@ -1052,7 +1232,8 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                 ),
                 "model": answers["model"],
                 "effort": answers["effort"],
-                "cap": str(cap),
+                "cap": issued_cap_text if custom else str(cap),
+                **({"estimate": shown_estimate} if shown_estimate is not None else {}),
             }
         finally:
             _remove(work)

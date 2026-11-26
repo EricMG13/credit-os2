@@ -32,8 +32,47 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   did not echo (review probe). Reviews: per-task `mx-precise`, `mx-invariants` on the account race
   and the lockout, `mx-adversary` on the slice (two Mediums fixed, re-review passed), `mx-architect`
   pre-merge PASS, 6 Low and 5 Info (run on Opus 5.5 at xhigh: Fable usage was exhausted).
+- Merge with `main` `cebb1726`: accounts and repo-rules tests 113 passed on macOS, including the
+  passcode log check. The changed-code gate and all three import contracts passed.
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
+
+- Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
+- Built: `GET /connected/deliverables/<folder>/credit-snapshot.xlsx` writes one workbook (Snapshot, Inputs, Matrix, Sources) from a finished run's verified handoffs and pinned context; `credit_snapshot_workbook.py` is the one workbook writer (`tests/test_repo_rules.py`). Copied figures keep their digits; a missing value is a gap in words, never zero; every non-empty reader cell has one Sources row, and source references, file names, hashes and module ids appear on Sources only. The proposed recommendation is live Excel arithmetic over module-written scores and analyst cells, labelled proposed until confirmed. FIGI and Bloomberg ID are copied from a supplied RV worksheet on an exact maturity and asset-type join; no Bloomberg formula is written (`docs/TODO.md` item 14, work PC only).
+- Presentation change and its fidelity check: `tests/test_credit_snapshot_fidelity.py` re-reads the saved file against a frozen answer key written apart from the reader (`tests/fixtures/credit_snapshot/`, `tests/credit_snapshot_case.py`) on the three cases. Formulas checked by exact text and by hand evaluation against `recommendation.py`; mutation testing (mutmut 3.8.1) on the figure path, every survivor killed or justified as equivalent.
+- Coordinator's own check, PR head `02e05049` merged onto `main` `36c39519`: the fidelity, workbook, formulas, recommendation and repo-rules tests 602 passed; the every-module and TransDigm workbooks, built and reopened with openpyxl, hold exactly the four sheets, live formulas on the reader sheets and the formulas listed as text on Sources.
+- Reviews: task reviews with fix rounds (Task 3b's third through an `mx-autonomous` plan); confidence review 2 Medium fixed; rewrite tournament six simplifications, output identical over 61,755 cells; sweep one defect fixed, structural rows to the next phase sweep; pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"), 6 Medium, then 2, fixed, then pass. 18 Lows parked for the end batch.
+- Not verified: Excel's own evaluation and rendering on Windows and Mac (hand-check steps in the PR body); a real run with a scorecard; real handoffs other than CP-1; an RV worksheet with real Bloomberg cached values; reading CP-1's `Asset type` (follow-up); the realised and unrealised split until CP-1D carries the Add-Back IDs; the weekly full suite.
+
+## 2026-11-26 — Custom selection with whole modules: run type, handoff rules, estimate and cap, CP-8 base, run start picker (PR #121)
+
+- Scope: offline only. No provider call and no paid run; no real custom run exists. Rulings: `docs/rulings/2026-11-26-custom-routing.md` (owner: "Yes, whole modules first", "Approve the cap").
+- Built: pathway `custom` ("Custom selection") at the Advanced level, GPT only; the analyst's whole modules completed by the registry with a reason per added module; the Deep block list, a module with no block reading "No report section of its own"; cap = min(USD 50, ceiling(sum of per-module estimates + the USD 7.17 hold)); CP-8 compares only with an earlier custom run of the same issuer and completed modules; three Advanced presets as starting selections.
+- Presentation change and its fidelity check: the custom selection page's picker, presets, running sum, hold and cap equal the hand-worked `answer-key-caps.md` for three presets at three efforts (rows without CP-8); the summary's server estimate replaces the page's; the web copy is pinned by `tests/test_custom_selection_web.py`. Scope: jsdom only, no rendered browser page.
+- Other pathways: requests byte for byte against `main` `3cfcc52f` (170 prepare and 40 service cases); a custom run's instructions equal Deep's apart from pathway lines.
+- Coordinator's own check at `7647979c`: the estimate code and its answer key read as ruled (Governance and ESG at fast effort 1.92 + 7.17 → USD 10); the custom, pathway and repo-rules tests 328 passed. The label commit `0e8e4aaa` was read.
+- Reviews: plan critique and pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"); task reviews with fix rounds; confidence review and rewrite tournament found no confirmed defect; sweep 2 Low fixed, 9 structural rows to the next phase sweep; pre-merge pass with 3 Low and 3 Info.
+- Not verified: any real custom run; whether a run completes within its cap; the USD 50 ceiling binding on a real selection; a rendered page; Windows; parallel width above 1.
+
+## 2026-11-26 — CP-1 instructions: bridge Add-Back ID, T4.18 asset type, pro forma interest and cover (PR #120)
+
+- Scope: offline only. No provider call and no paid run; built by a cloud controller session. Evidence is synthetic tables, the retained Opus replay `tests/fixtures/live_2026_11_25/CP-1-replay-tdg.md` (TDG FY2024, outdated; a real model response replayed at USD 0) and the five retained CP-1 handoffs as a regression snapshot. No real CP-1 run on the new instructions exists.
+- Built: CP-1's EBITDA bridge is asked for `Step | Amount | Add-Back ID | Reporting unit | Basis and limitation` with ids `AB-1`, `AB-2`, ... checked by the launcher; T4.18 gains `Asset type` by governing document (owner: "By governing document"), a named method edit with the CP-1 method pin moved; a required `Pro forma interest and cover` table, outside the chart tables, whose cover and EBITDA the launcher ties to T4.9. The CP-2D liquidity bridge and CP-4C value allocation are asked for and checked as before (request bytes identical; 196 probed cases).
+- Presentation change and its fidelity check: the library and the React web read the bridge under the old and the new header to the same figures (chart columns, labels, amounts, unit); `Add-Back ID` is hidden in the chart Table view and on the Modules page and shown only on Evidence and in the trace drawer; the pro forma table is placed as a statement on the Modules page, not in a reader passage, Overview or chart, and CP-8's pack is unchanged with it. Store- and JS-level checks; no browser render.
+- Answer key written by hand before the code (`tests/fixtures/cp1-instruction-pr/answer-key.json`; 67 Python and 5 web tests). Coordinator's own check, PR head `04e4dc44` merged onto `main` `542c2276`: the answer-key, bridge-reader, CP-1 check, changes and repo-rules tests 1,000 passed; the launcher tests on bridge, pro forma, T4.18, method, budget, manifest and post-balance-sheet 110 passed.
+- Consequences: earlier runs show CP-1 as answered on an earlier method; a sentence added to the rule every module is sent changes every module's request bytes, so a run folder prepared before this is refused on re-prepare and resuming an in-flight run re-executes its modules; a retained pre-PR CP-1 response is refused on replay (the existing contract). `short_snapshot` (deactivated) has 775 characters of instruction headroom left.
+- Reviews: plan critique and pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"); task reviews, a figure-path adversarial review (no High; one Medium fixed) and the pre-merge review (two Medium fixed, then merge-ready with Low only). `confidence-review`, `rewrite-tournament`, the sweep and `adversarial-reviewer` were absent in the cloud and not run.
+- Not verified: what a real model writes for the ids, `Asset type` and the pro forma table; CP-1D's use of the id (next PR) and CP-1B's validation of it; a launcher check of `Asset type` values; `tests/test_financial_workflow.py` and `tests/test_reporting_currency_proof.py`; a browser render; the weekly full suite. Two Lows open (a repair message's wording; a Basis label prefix).
+
+## 2026-11-26 — Money units drawn as currency symbols ($m, £m, €m) (branch `claude/module-currency-labels-34fdbf`)
+
+- Scope: presentation only, web reader (`docs/rulings/2026-11-26-money-unit-symbols.md`). No handoff, prompt, method, check, stored value or Python output changed; no provider call. Owner: all reader pages and the printed purpose reports; the Model page keeps `US$m`.
+- Built: `moneyUnits.ts` draws a money unit as its en-US `Intl` symbol (`$m`, `£m`, `€m`, `CA$m`, `¥m`; `CHFm` where none) and figures as `$1,250m`, `−$25m`, `CHF 300m`; Unit columns, unit fields, basis lines, chart Table views, captions and Coverage labels convert where drawn. Stored and matching values, Evidence's Unit cells and source text, the trace drawer and module prose keep the written unit.
+- Fidelity check: answer keys `moneyUnits.cases.json` and `signal.cases.json` (coordinator-written); a Modules-page test on the retained CP-1 TransDigm fixture and a replay test over eight retained handoffs find no `USD millions` or `US$m` outside module prose; an Evidence test keeps the raw cells. Rendered check on the synthetic run (`check-render.cjs`, 1440/1280/1024, Overview, Modules, Forecast, Changes, Coverage): 15 of 15 pass; page text shows no raw unit except module-written Forecast wording ("Stressed FCF (USD millions)"). Chromium and Node give the same symbols for 18 currencies.
+- Reviews: advisor (Opus 5.5 xhigh, Fable exhausted) 2 High, 5 Medium ruled into the plan; task reviews pass (task B: 1 Medium fixed); confidence review and rewrite tournament (one shared helper adopted); sweep discover 4 Lows, fixed in one batch; pre-merge review (mx-architect on Opus 5.5 xhigh) 1 Medium (chart Table views) fixed and re-reviewed, Lows taken.
+- Gates: CI `checks` run 45760301029 on `0580f154` (web: lint, format, types, unused, duplication, tests with coverage, build, scripts; fast tests; changed code; gitleaks) pass on attempt 2; attempt 1 failed one test this branch does not touch (`runLayout.test.tsx` tab title, read before its effect runs; passes 3 of 3 locally). Locally: `npm audit --omit=dev` exit 0; the browser file check passed 2 of 3 runs (the first failed in `checkRoutes`).
+- Not verified: Safari and Firefox symbol output (their Playwright builds are not installed); printed purpose reports in a real print dialog; a real non-USD run; the merge with `main` at `932e252c` (only this file conflicted).
 
 ## 2026-11-26 — Copilot GPT Sol and GPT-6 Luna sessions at 1M context (branch `claude/copilot-1m-context-795226`)
 
@@ -956,40 +995,3 @@ then 5; the narrow layout and the controls listed below.
   Astra confirmed the merge retained the desktop styles and Copilot approval and cap checks.
 - Deployment-seat verification, the first authorized paid run and Windows work-PC acceptance
   are pending. Native Copilot search stays unavailable pending evidence and cost verification.
-
-## 2026-11-18 — Desktop review follow-up after PR #64
-
-- Astra reviewed the merged desktop diff. Fixed activity polling after a malformed response, source-run provenance for reused inputs, Forecast copy for missing calculations, and the retry action named by the service. Verified the regressions, exact source-run link and draft preservation, retained layout, 680 Forecast cells and three confidence scores in the live desktop checks. Chrome and Edge passed offline workflow proof (`run-ryqfCu`), and all 83 file routes rendered. 1,161 frontend and 42 Python tests, build, lint, formatting and the quality gate passed. Fallow passed against merged main with zero new findings and against the original base with 12 styling advisories for values already on that base.
-
-## 2026-11-18 — Desktop Impeccable refinement
-
-- Distill, Clarify, Layout, Typeset, Quieter, Harden, Animate and Polish covered the connected and file-based React workflow. The retained Caesars desktop preview checked Library, History, Overview, Calendar, Changes, Modules, Forecast and Evidence. All 680 Forecast display cells and confidence scores of 33, 0 and 54 matched, including source trace access.
-- Chrome and Edge passed the synthetic desktop workflow (`run-0lS2Cg`). Local browser fixtures verified long text, stale-filter recovery, keyboard focus as runs changed groups, stable feed and module rows, and the reduced-motion setting. Chrome rendered 83 file-based Library, Model and Run routes.
-- All 3,844 focused tests, production build, changed-file ESLint and Prettier, and the quality gate passed. The confidence review checked report figures, source destinations, run approval and caps, polling behavior, and missing values.
-
-## 2026-11-18 — Fallow follow-up on main
-
-- Verified all 18 original warnings with per-file Fallow inspection before refactoring. Fallow 3.8.1 audit against `origin/main` passed with zero new complexity, dead-code, or duplication findings. Seven styling advisories point to arbitrary utility literals already present on main. No suppressions or threshold changes.
-- All 570 focused tests passed. Build, changed-file lint and formatting, and Python quality gate passed. Desktop synthetic proof passed in Chrome and Edge (`run-LeBkY9`). Retained Caesars matched all 680 display cells and confidence scores of 33, 0, and 54 with their trace controls. Post-edit review retained the separate intake session, validation, and report trace responsibilities.
-
-## 2026-11-18 — Module Bottom line confidence
-
-- Retained Caesars desktop preview. Verified 33/100 and 0/100 as Insufficient Information and 54/100 as Low, with distinct fills and the original confidence and prose traces. The tile remains available when the score has no rendered Bottom line. All 97 focused tests, build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded.
-
-## 2026-11-18 — Forecast redesign
-
-- Desktop preview verified at 1440 × 900 and 1280 × 900. Cash flow and scenario comparison open together. Compared all 680 historical and forecast display cells with the retained Caesars calculation record, including periods, missing values and zeros.
-- In-app preview verified FY2029E scenario comparison, Growth rates, Chart or Table and the downside source drawer. Design review confirmed the stronger selected-control state after recapture. Claude Model handoff and RBOT-HTML `fc010a7` informed the layout.
-- 174 focused tests passed. Chrome and Edge completed the synthetic desktop proof in `run-ikJ2Lt`. Build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded. Post-edit review retained exact row matching and the separate-grid fallback.
-
-## 2026-11-18 — Desktop Forecast case comparison
-
-- Retained Caesars, Chrome at 1440 × 900. The four FY2029E figures fit on one row, reducing the case section from 384 to 230 px. Each value matched the retained preview. The opening qualification and shared rounding note appeared once in the comparison. Verified all four source buttons, arrow-key case selection, active comparison row and downside trace.
-- The focused frontend suite passed 134 tests. Chrome and Edge passed desktop synthetic proof (run-1oq0zs). Build, formatting and changed-component lint passed. The unfiltered Python gate found 3,008 issues in the untracked predecessor copy; excluding it yielded zero. Post-edit review confirmed the model supplies a common period and unit, and only exact matches to visible qualification text are removed from case labels.
-
-## 2026-11-18 — Connected desktop findings and Forecast proof
-
-- Retained Caesars preview at 1440 × 900 in Chrome. Library identified the test preview in both layouts and labelled 4.19× using the retained debt cash-interest basis. Read-only intake and progress controls were checked.
-- All 49 limitations across 12 modules matched the previous preview in order, prose and trace labels. Chart index focused Run charts 16 px from the top, including on reload. The Evidence model register appeared for Forward credit model and was absent under Legal.
-- Chrome and Edge passed the desktop-only synthetic proof (run-DQdHfb), including both intake cost labels, the qualification immediately preceding case figures, the scope disclosure and scenario comparison. An earlier Edge run timed out loading intake. The complete rerun passed on both browsers.
-- 314 focused frontend and 94 backend tests passed, as did build, lint and formatting. The Python gate reported 3,008 findings in the untracked predecessor copy and zero on the changed project code. Post-edit review retained grouped rows and per-history-entry scroll offsets.

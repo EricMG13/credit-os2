@@ -107,10 +107,13 @@ def issuer(layout: Layout, issuer_id: str) -> dict[str, Any]:
     mine = [r for r in records if r.issuer_id == issuer_id]
     if not mine:
         return {"runs": 0, "latest_as_of": "", "latest_run": "", "issuer_name": ""}
-    latest = max(mine, key=lambda r: (r.as_of, r.id))
+    finished = [r for r in mine if r.status == "finished"]
+    # The date and run offered come from the finished runs the count is of; with none finished
+    # the issuer's latest record of any status stands (the count is then 0).
+    latest = max(finished or mine, key=lambda r: (r.as_of, r.id))
     return {
-        "runs": sum(1 for r in mine if r.status == "finished"),
+        "runs": len(finished),
         "latest_as_of": latest.as_of,
         "latest_run": latest.id,
-        "issuer_name": latest.issuer_name,
+        "issuer_name": max(mine, key=lambda r: (r.as_of, r.id)).issuer_name,
     }

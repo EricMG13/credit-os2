@@ -74,7 +74,7 @@ it("draws a gap row's stated threshold, and only its missing cells as gaps with 
   const liquidity = screen.getAllByRole("listitem")[2];
   if (!liquidity) throw new Error("gap row");
   // proof/handoffs/CP-4.md: threshold 100 stated; current and headroom not supplied.
-  expect(within(liquidity).getByText("US$100m")).toBeVisible();
+  expect(within(liquidity).getByText("$100m")).toBeVisible();
   expect(within(liquidity).getAllByText("Not supplied")).toHaveLength(2);
   expect(within(liquidity).getByText("Not stated")).toBeVisible();
   expect(within(liquidity).getByText("No current")).toBeVisible();
@@ -131,10 +131,10 @@ it("draws a stated negative current from zero to its value, with every stated fi
     ) ?? [];
   render(<Bullets label="Covenant tests" tests={[read ?? test]} />);
   const item = screen.getByRole("listitem");
-  expect(within(item).getAllByText("-US$20m")[0]).toBeVisible();
-  expect(within(item).getAllByText("US$100m")[0]).toBeVisible();
+  expect(within(item).getAllByText("-$20m")[0]).toBeVisible();
+  expect(within(item).getAllByText("$100m")[0]).toBeVisible();
   const bar = within(item).getByRole("img");
-  expect(bar).toHaveAccessibleName(/-US\$20m against a threshold of US\$100m/);
+  expect(bar).toHaveAccessibleName(/-\$20m against a threshold of \$100m/);
   // Only the headroom is not supplied; the stated current and threshold are never marked so.
   expect(within(item).getAllByText("Not supplied")).toHaveLength(1);
   expect(within(item).getByText("Negative")).toBeVisible();
@@ -193,4 +193,27 @@ it("insets a threshold tick at either end of the scale so it never overhangs the
   expect(leverage).not.toHaveClass("-translate-x-1/2");
   // 2.0 inside 0 to 3: centred on its value.
   expect(cover).toHaveClass("-translate-x-1/2");
+});
+
+it("S16-2-3 says a unit gap once and prints no figure or axis end with it", () => {
+  const tests = leadTests(
+    source(40, HEAD, [
+      [
+        "Net leverage",
+        "6.5",
+        "6.1",
+        "0.4x",
+        "Passes at or below",
+        "Not supplied: only a ratio",
+        "Synthetic.",
+      ],
+    ]),
+    ROLES,
+  );
+  if (!tests) throw new Error("one test");
+  render(<Bullets label="Covenant tests" tests={tests} />);
+  const item = screen.getByRole("listitem");
+  expect(within(item).getByText("6.1")).toBeVisible();
+  expect(within(item).getAllByText(/only a ratio/i)).toHaveLength(1);
+  expect(item.textContent).not.toMatch(/\d Not supplied/);
 });

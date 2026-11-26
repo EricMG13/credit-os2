@@ -39,6 +39,7 @@ from deploy_vii.business_context import (
     governance_sponsor_score,
 )
 from deploy_vii.contracts import Span
+from deploy_vii.inputs.csv_text import decode_csv_text
 from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell
 from deploy_vii.model.metrics import _ratio
@@ -500,14 +501,14 @@ def _workbook_pages(raw: bytes) -> list[str]:
 # report opened (about 9.6 s for a 250-page PDF each time; VERIFICATION.md 2026-11-18). The least
 # recently read go once the kept text passes the limit. Kept in memory only: text kept on disk
 # would be read back unchecked.
-_PAGE_TEXT: OrderedDict[tuple[str, bool], tuple[str, ...]] = OrderedDict()
+_PAGE_TEXT: OrderedDict[tuple[str, bool, bool], tuple[str, ...]] = OrderedDict()
 _PAGE_TEXT_LOCK = threading.Lock()
 _PAGE_TEXT_CHARS = 50_000_000
 
 
 def _pages(name: str, raw: bytes) -> list[str]:
     """The pages of a source, read once for the same bytes; a failure to read is not kept."""
-    key = (hashlib.sha256(raw).hexdigest(), name.endswith(".jsonl"))
+    key = (hashlib.sha256(raw).hexdigest(), name.endswith(".jsonl"), name.lower().endswith(".csv"))
     with _PAGE_TEXT_LOCK:
         kept = _PAGE_TEXT.get(key)
         if kept is not None:
@@ -529,7 +530,8 @@ def _read_pages(name: str, raw: bytes) -> list[str]:
         return [pdf_page_text(p)[0] for p in PdfReader(io.BytesIO(raw)).pages]
     if _is_workbook(raw):
         return _workbook_pages(raw)
-    text = raw.decode("utf-8")
+    # a CSV is read as the portfolio export check reads it (UTF-8, else Windows-1252)
+    text = decode_csv_text(raw) if name.lower().endswith(".csv") else raw.decode("utf-8")
     if name.endswith(".jsonl"):
         rows = [json.loads(line) for line in text.splitlines() if line.strip()]
         if rows and all(
@@ -549,6 +551,7 @@ def _read_pages(name: str, raw: bytes) -> list[str]:
 CITATION_MARKER = "\ue200[^\ue200\ue201\n]*\ue201"
 _MARKER_RUN = re.compile(rf"(?:{CITATION_MARKER}[ \t]*)+")
 _MARKER = re.compile(CITATION_MARKER)
+_DELIMITERS = {0xE200: None, 0xE201: None}
 _CLOSERS = ".,;:!?)]}"
 
 
@@ -582,7 +585,13 @@ def strip_citation_markers(text: str) -> tuple[str, int]:
         parts.append(_marker_replacement(text, start, pre, found[0], found.end()))
         last = found.end()
     parts.append(text[last:])
-    return "".join(parts), count
+    out = "".join(parts)
+    if _MARKER.search(out):
+        # Removing a marker joined a stray opener to a stray closer into a span that was never in
+        # the reply: the stray delimiters go too (one linear pass; they are not counted, as the
+        # reply held no marker there).
+        out = out.translate(_DELIMITERS)
+    return out, count
 
 
 def _where(dropped: dict[str, str | int]) -> str:

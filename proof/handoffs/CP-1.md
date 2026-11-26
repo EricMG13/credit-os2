@@ -104,6 +104,12 @@ The synthetic issuer shows one observed item.
 | --- | --- | --- | --- | --- | --- | --- |
 | None found in the sources read | — | — | — | — | US$m | Synthetic; the annual report and its notes were read. |
 
+### Pro forma interest and cover
+
+| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- | --- | --- |
+| Not stated | — | — | — | — | US$m | Synthetic; the annual report and its notes were read. |
+
 ### Base operands
 
 | Base | FY2025 |
@@ -136,12 +142,12 @@ The synthetic issuer shows one observed item.
 
 ### Chart data: EBITDA bridge
 
-| Step | Amount | Reporting unit | Basis and limitation |
-| --- | --- | --- | --- |
-| Reported EBITDA | 410 | US$m | Synthetic. |
-| Restructuring add-back | 30 | US$m | Synthetic. |
-| Disposal | -10 | US$m | Synthetic. |
-| Issuer-adjusted EBITDA | 430 | US$m | Synthetic. |
+| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| Reported EBITDA | 410 | Not applicable | US$m | Synthetic. |
+| Restructuring add-back | 30 | AB-1 | US$m | Synthetic. |
+| Disposal | -10 | AB-2 | US$m | Synthetic. |
+| Issuer-adjusted EBITDA | 430 | Not applicable | US$m | Synthetic. |
 
 ### Confidence inputs
 

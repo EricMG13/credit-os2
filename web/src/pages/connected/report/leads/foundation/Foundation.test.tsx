@@ -16,6 +16,8 @@ import {
 import { addRow, dropTable, edited, mixedPeriodsCp1, threePeriodCp1 } from "../fixtures/mutations";
 import { section, table } from "../../overview/rows.fixture";
 import { FoundationLead } from "./Foundation";
+import { statedPeriods } from "./foundationData";
+import replayCp1 from "./cp1_replay_tdg.json";
 
 afterEach(cleanup);
 
@@ -98,6 +100,20 @@ describe("gaps", () => {
       "Financial foundationThis page could not read a figure of the financial foundation.",
     );
     expect(screen.queryAllByRole("img")).toHaveLength(0);
+  });
+
+  it("S15-5-5 lists the stated liquidity rows when the net debt data cannot be read", () => {
+    const entry = addRow(cp1Entry(), "Net debt data", [
+      "FY2024",
+      "1",
+      "1",
+      "0",
+      "US$m",
+      "Test row.",
+    ]);
+    const { container } = render(<FoundationLead {...leadProps(entry)} />);
+    expect(container.textContent).toMatch(/liquidity/i);
+    expect(container.textContent).toContain("843");
   });
 
   it("draws nothing for a blocked or unreadable module: the frame states it in the header", () => {
@@ -337,5 +353,60 @@ describe("a pro forma period beside the reported ones, and a period that cannot 
         expect(said(region), region.getAttribute("aria-label") ?? "").not.toMatch(/\.\./);
       unmount();
     }
+  });
+});
+
+// S15-5-1: the newest retained real CP-1 (tests/fixtures/live_2026_11_25/CP-1-replay-tdg.md, the offline
+// TDG replay; outdated evidence, shape only), parsed as the library parses it (`cp1_replay_tdg.json`,
+// built as fixtures/build_fixtures.py builds its fixtures). It writes the segment EBITDA as a second table
+// under `### T4.4 Income statement`; the owner check reads the first table under a statement heading
+// (cpos_cp1_statements._table) and accepts it. Answer key by hand from the handoff's first T4.4 table:
+// `EBITDA (Reported) | 3813 | 3148` and `EBITDA (Adjusted) | 4173 | 3395`.
+describe("a statement heading that holds a further table (S15-5-1)", () => {
+  const replay = (): OutputEntry =>
+    ({
+      output: {
+        module: "CP-1",
+        id: "run/CP-1",
+        label: "CP-1",
+        sha256: "hash-CP-1",
+        href: "CP-1.md",
+        charts: replayCp1.charts,
+      },
+      sections: replayCp1.sections,
+      selected: true,
+    }) as unknown as OutputEntry;
+
+  it("reads the income statement by its first table: reported EBITDA and the ladder's opening level", () => {
+    render(<FoundationLead {...leadProps(replay())} />);
+    const earnings = screen.getByRole("region", { name: "Earnings and debt" }).textContent;
+    expect(earnings).not.toMatch(/could not read the income statement/);
+    expect(earnings).toMatch(/EBITDA \(Reported\)/);
+    expect(earnings).toMatch(/3,813/);
+    expect(earnings).toMatch(/3,148/);
+    const ladder = screen.getByRole("region", { name: "Cash conversion" }).textContent;
+    expect(ladder).not.toMatch(/could not read the income statement/);
+    expect(ladder).toMatch(/4,173/);
+    expect(ladder).not.toMatch(/Cash Interest Paid1,158 · not placed/);
+  });
+
+  it("does not say the income statement appears more than once", () => {
+    const { container } = render(<FoundationLead {...leadProps(replay())} />);
+    expect(container.textContent).not.toMatch(/appears more than once/);
+    expect(statedPeriods(replay()).gaps).toEqual([]);
+  });
+
+  it("still says so when the statement heading itself is written twice", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff): the T4.4 section repeated.
+    const accepted = cp1Entry();
+    const income = accepted.sections.find(({ heading }) => heading === "T4.4 Income statement");
+    const twice = { ...accepted, sections: [...accepted.sections, ...(income ? [income] : [])] };
+    expect(statedPeriods(twice).gaps).toEqual([
+      {
+        table: "Income statement",
+        reason:
+          "This page could not read the periods of income statement because it appears more than once.",
+      },
+    ]);
   });
 });

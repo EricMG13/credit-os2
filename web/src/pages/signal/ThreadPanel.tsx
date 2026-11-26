@@ -9,8 +9,9 @@ import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
-import { useSignalActions, useSignalAsOf } from "./actions";
+import { STALE_SENTENCE, useSignalActions, useSignalAsOf } from "./actions";
 import { useChoices } from "./choices";
+import { FeedAlert } from "./FeedStates";
 import { sceneHref } from "./SignalFrame";
 import { BYLINE, HEADLINE, HEADLINE_LINK, isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
@@ -138,9 +139,12 @@ function ConversationContent({
   refused,
   onToggle,
   own,
+  waiting,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
+  /** The group says the thread has comments the snapshot has not delivered: null when it has, else the read's failure (or none yet). */
+  waiting: { error: SignalScene["snapshot"]["feed"]["error"] } | null;
   comments: SignalComment[];
   canWrite: boolean;
   named: boolean;
@@ -166,7 +170,13 @@ function ConversationContent({
           {thread.note}
         </p>
       )}
-      {comments.length === 0 ? (
+      {waiting !== null ? (
+        waiting.error === null ? (
+          <p className={NOTE}>Loading the comments</p>
+        ) : (
+          <FeedAlert error={waiting.error} />
+        )
+      ) : comments.length === 0 ? (
         <p className={NOTE}>No comments yet</p>
       ) : (
         <MessageList
@@ -241,10 +251,11 @@ function useOwnComments(
     onSave: (comment, text) => {
       setEditing({ id: comment.id, busy: true });
       refuse("");
-      void actions.write(writes.editComment(comment.id, text)).then(({ refusal }) => {
+      void actions.write(writes.editComment(comment.id, text)).then(({ refusal, stale }) => {
         if (refusal === null) {
           setEditing(null);
           say("Comment changed");
+          if (stale === true) refuse(STALE_SENTENCE);
         } else {
           setEditing({ id: comment.id, busy: false });
           refuse(refusal);
@@ -292,10 +303,13 @@ function Conversation({
   story,
   writer,
   unread,
+  waiting,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
   writer: boolean;
+  /** See `ConversationContent`: set while the thread's comments are not in hand. */
+  waiting: { error: SignalScene["snapshot"]["feed"]["error"] } | null;
   /** The group lists this thread as unread. */
   unread: boolean;
 }) {
@@ -315,13 +329,14 @@ function Conversation({
       ? null
       : (key, on) => {
           const [commentId, word] = JSON.parse(key) as [string, string];
-          return actions.write(writes.react(commentId, word, on)).then((answer) => answer.refusal);
+          return actions.write(writes.react(commentId, word, on));
         },
     refuse,
   );
   const mine = (comment: SignalComment, word: ReactionWord) =>
     comment.reactions.find((r) => r.word === word)?.mine ?? false;
-  useThreadRead(thread.id, unread);
+  // The read mark waits for the comments: they are what the reader has then seen.
+  useThreadRead(thread.id, unread && waiting === null);
   // The live region stays and each post puts a fresh node in it (as Share does), so the same sentence twice is announced twice.
   const [said, setSaid] = useState({ count: 0, text: "" });
   const say = (text: string) => {
@@ -353,9 +368,10 @@ function Conversation({
     if (actions !== null) {
       const request =
         replyTo === null ? writes.comment(thread.id, text) : writes.reply(replyTo.id, text);
-      void actions.write(request).then(({ refusal }) => {
+      void actions.write(request).then(({ refusal, stale }) => {
         setAdded((held) => held.filter((one) => one !== entry));
         if (refusal !== null) refuse(refusal);
+        else if (stale === true) refuse(STALE_SENTENCE);
       });
     }
     say(replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`);
@@ -368,6 +384,7 @@ function Conversation({
       <ConversationContent
         thread={thread}
         story={story}
+        waiting={waiting}
         comments={comments}
         canWrite={canWrite}
         named={named}
@@ -453,6 +470,13 @@ export function ThreadPanel({
           story={story}
           writer={writer}
           unread={group.threads.some((one) => one.id === thread.id && one.unread)}
+          // A summary thread (the group lists comments, the thread carries none) is not yet read in full.
+          waiting={
+            thread.comments.length === 0 &&
+            group.threads.some((one) => one.id === thread.id && one.commentCount !== null)
+              ? { error: scene.snapshot.feed.error }
+              : null
+          }
         />
       )}
     </SlideoutMenu>

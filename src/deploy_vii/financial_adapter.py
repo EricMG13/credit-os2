@@ -14,6 +14,7 @@ from deploy_vii.financial_contracts import (
     ACCOUNT_IDS,
     FacilityObservation,
     FinancialBook,
+    FinancialPeriod,
     FinancialReview,
     Observation,
 )
@@ -43,12 +44,18 @@ def _ref(value: Observation | None) -> SourceRef | None:
     )
 
 
+def _same_date(period: FinancialPeriod) -> date | str:
+    """What ties periods to one balance date: the end date, or for an undated period (which
+    shares no date with another) its own id."""
+    return period.end_date or period.period_id
+
+
 def _accounts(book: FinancialBook) -> tuple[AccountRow, ...]:
     accounts = effective_accounts(book)
     supplied = {(row.metric_id, row.period_id): row.value for row in accounts}
     periods = {period.period_id: period for period in book.periods}
     conflicted = {
-        (row.metric_id, periods[row.period_id].end_date)
+        (row.metric_id, _same_date(periods[row.period_id]))
         for row in accounts
         if row.metric_id in BALANCE_METRICS and row.value.status == "conflicting"
     }
@@ -74,7 +81,7 @@ def _accounts(book: FinancialBook) -> tuple[AccountRow, ...]:
                 # statement normalization register records this extra convention;
                 # standard outflows remain normalized by the existing kernel.
                 value = value.copy_abs().copy_negate()
-            if (metric, period.end_date) in conflicted:
+            if (metric, _same_date(period)) in conflicted:
                 value = None
             status = "VERIFIED" if value is not None else "PARTIAL"
             if metric == "cogs" and period.expense_presentation == "by_nature":
@@ -86,7 +93,9 @@ def _accounts(book: FinancialBook) -> tuple[AccountRow, ...]:
                     if value is not None and value.copy_abs().copy_negate() != calculation.value:
                         raise ValueError("OPEX disagrees with source expense composition")
                     value, status = calculation.value, "CALCULATED"
-            result.append(AccountRow(metric, period.period_id, value, status, _ref(observation), calculation))
+            result.append(
+                AccountRow(metric, period.period_id, value, status, _ref(observation), calculation)
+            )
     return tuple(result)
 
 
@@ -111,7 +120,7 @@ def _facilities(book: FinancialBook) -> tuple[FacilityRow, ...]:
     templates.update({row.facility_id: row for row in book.facilities if row.issued_on})
     periods = {period.period_id: period for period in book.periods}
     conflicted = {
-        (row.facility_id, periods[row.period_id].end_date)
+        (row.facility_id, _same_date(periods[row.period_id]))
         for row in book.facilities
         if row.carrying_value.status == "conflicting"
     }
@@ -126,7 +135,7 @@ def _facilities(book: FinancialBook) -> tuple[FacilityRow, ...]:
                 value = normalized[facility_id, period.period_id, "carrying_value"]
                 carrying = value.amount
                 source = SourceRef(value.normalization_id, CONVERTED, str(carrying))
-            if (facility_id, period.end_date) in conflicted:
+            if (facility_id, _same_date(period)) in conflicted:
                 carrying = None
             elif supplied_row is None and facility_issued_after(book, facility_id, period.end_date):
                 carrying = Decimal(0)

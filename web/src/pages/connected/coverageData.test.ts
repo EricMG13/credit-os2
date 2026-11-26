@@ -208,7 +208,7 @@ test("a figure is drawn as written and links to its own line of evidence", () =>
   const [alpha] = data.issuers;
   if (!first || !money || !gap || !alpha?.runs[0]) throw new Error("fixture");
   expect(figure(first)).toBe("5.1x");
-  expect(figure(money)).toBe("1,250 US$m");
+  expect(figure(money)).toBe("$1,250m");
   expect(figure(gap)).toBe("Not supplied: no cash");
   expect(evidenceLink(alpha.runs[0], first)).toBe(
     `/report/folder%20a2#evidence/a2%2FCP-1.md~${"a".repeat(64)}-1`,
@@ -436,4 +436,36 @@ test("the view opens on the most stated reported period, not a pro forma or fore
     ),
   };
   expect(commonPeriod(gaps, gaps.issuers, LEVERAGE)).toBe("FY2024");
+});
+
+it("a search does not keep an issuer on a decision module's passage", () => {
+  const base = run("r1", "2026-03-31");
+  const issuer: Issuer = { key: "a", name: "Alpha", sector: null, runs: [base] };
+  const text = (module: string): Coverage["fields"][number] => ({
+    id: `${module.toLowerCase()}/reader-summary/bottomline`,
+    module,
+    group: "Findings",
+    label: "Bottom line",
+    kind: "text",
+  });
+  const fact = (module: string, words: string): Fact => ({
+    field: text(module).id,
+    issuer: "a",
+    run: "r1",
+    period: null,
+    row: null,
+    text: words,
+    at: null,
+    line: 1,
+    output: `f/${module}.md`,
+    sha256: "a".repeat(64),
+  });
+  const data: Coverage = {
+    columns: [],
+    issuers: [issuer],
+    fields: [text("CP-2"), text("CP-6")],
+    facts: [fact("CP-2", "moderate leverage"), fact("CP-6", "add exposure")],
+  };
+  expect(matchIssuers(data, { ...NO_FILTERS, query: "moderate" }, null)).toHaveLength(1);
+  expect(matchIssuers(data, { ...NO_FILTERS, query: "add exposure" }, null)).toHaveLength(0);
 });

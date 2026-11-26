@@ -302,7 +302,8 @@ def test_at_most_eight_pairs_are_listed():
 
 def test_a_skipped_check_is_logged_with_its_reason(caplog):
     assert issues(CORRECT, READABLE_FORMS["percent only"]) == ()
-    (record,) = caplog.records
+    # The T2H.6 downside check (f68456d6) logs its own skip for this block, which has no T2H.6.
+    (record,) = [r for r in caplog.records if "downside_shock" in r.msg]
     assert (record.levelno, "not checked against downside_shock" in record.msg) == (30, True)
     assert "does not open with a Share" in record.getMessage()
 

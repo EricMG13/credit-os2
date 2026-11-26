@@ -4,6 +4,7 @@ import { Button } from "@/components/base/buttons/button";
 import { TextLink } from "../../run/TextLink";
 import { evidenceLink, factsOf, latestRun, type Coverage as Data, type Issuer } from "../coverageData";
 import { card, heading } from "../layout";
+import { DECISION_MODULES } from "../reportView";
 import { RunStates } from "./RunStates";
 import { stateWord } from "./StateMark";
 import { HIT, IN_EVIDENCE, moduleTitle, named, prose, reportPath, RunLine } from "./shared";
@@ -14,7 +15,11 @@ export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
   const titles = new Map(data.columns.map((column) => [column.code, named(column, newest?.pathway)]));
   const fields = new Map(data.fields.map((item) => [item.id, item]));
   const said = newest
-    ? factsOf(data, newest.key).filter((fact) => fact.field.endsWith("/bottomline"))
+    ? factsOf(data, newest.key).filter(
+        (fact) =>
+          fact.field.endsWith("/bottomline") &&
+          !DECISION_MODULES.includes(fields.get(fact.field)?.module ?? ""),
+      )
     : [];
   const title = useRef<HTMLHeadingElement>(null);
   // Opened below the matrix, the detail comes into view and takes focus at its heading.

@@ -854,6 +854,7 @@ FORECAST_LIMITATION = (
 )
 THRESHOLD_NS = "Not calculable: the trigger threshold is not stated in the agency source"
 THRESHOLD_UNSTATED = "The trigger threshold is not stated in the agency source"
+_PP_PLACES = Decimal("0.01")
 _UNITS = {"multiple": "MULTIPLE", "percent": "PERCENT"}
 NOTCH_UNIT, POSITION_UNIT, COUNT_UNIT = "notches", "scale position", "triggers"
 # The tables that may have zero rows (round 7 items 4, 5; the CP-2A T2B.7 precedent).
@@ -1277,15 +1278,17 @@ class _Test:
         if threshold is None or value is None:
             raise ValueError(f"CP-2H: {self.row} has no threshold or metric to test")
         comparison = self.term.comparison
-        return (
-            headroom(
-                comparison=comparison,
-                metric=value,
-                threshold=threshold,
-                unit_class=self.metric.unit_class,
-            ),
-            is_reached(comparison=comparison, metric=value, threshold=threshold),
+        distance = headroom(
+            comparison=comparison,
+            metric=value,
+            threshold=threshold,
+            unit_class=self.metric.unit_class,
         )
+        if self.metric.unit_class == "percent":
+            # A percentage-point cell is shown as its exact text, so it holds the reader's two
+            # decimals (ruling 2026-11-11 item 8); whether the trigger is reached stays exact.
+            distance = CONTEXT.quantize(distance, _PP_PLACES) + 0
+        return distance, is_reached(comparison=comparison, metric=value, threshold=threshold)
 
 
 def _current(
