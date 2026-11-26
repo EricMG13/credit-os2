@@ -1,6 +1,7 @@
 import {
   blocked,
   containsReference,
+  eachClauseOnce,
   evidencePath,
   methodNote,
   readParagraph,
@@ -250,7 +251,7 @@ export function chartOf(entry: OutputEntry, title: string): Chart {
     .map(record)
     .find((chart) => chart.title === title);
   const reason = word(gap?.gap).trim();
-  if (gap && reason) return { state: "gap", reason: readerCell(capital(reason)) };
+  if (gap && reason) return { state: "gap", reason: readerCell(capital(eachClauseOnce(reason))) };
   const written = descriptor || gap ? undefined : handoffTable(entry, CHART, title, true);
   if (written) return { state: "withheld", table: written, line: written.line };
   return { state: "absent" };
@@ -312,7 +313,8 @@ export function mapOf(entry: OutputEntry, name: string): MapRead {
     .find((map) => map.name === name);
   const at = typeof descriptor?.table === "number" ? descriptor.table : undefined;
   const reason = word(descriptor?.gap).trim();
-  if (reason) return { state: "gap", reason: readerCell(capital(reason)), line: at };
+  if (reason)
+    return { state: "gap", reason: readerCell(capital(eachClauseOnce(reason))), line: at };
   const table = descriptor
     ? at === undefined
       ? undefined
@@ -380,7 +382,8 @@ export function eventsOf(entry: OutputEntry, lane: string): Lane | null {
     .find((events) => events.lane === lane);
   const at = typeof descriptor?.table === "number" ? descriptor.table : undefined;
   const reason = word(descriptor?.gap).trim();
-  if (reason) return { state: "gap", reason: readerCell(capital(reason)), line: at };
+  if (reason)
+    return { state: "gap", reason: readerCell(capital(eachClauseOnce(reason))), line: at };
   const table = descriptor
     ? at === undefined
       ? undefined

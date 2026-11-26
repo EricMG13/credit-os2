@@ -330,7 +330,7 @@ it("draws the gap in place: no row, two unmatched rows, a case without the row",
   const second = draw(null, { rows: ["Net leverage (one)", "Net leverage (two)"] });
   expect(
     screen.getByText(
-      "The model publishes 2 net leverage rows: Net leverage (one) and Net leverage (two). None is on net debt over Adj EBITDA, so none is drawn.",
+      "The model publishes 2 net leverage rows: Net leverage (one) and Net leverage (two). None is on net debt over EBITDA, so none is drawn.",
     ),
   ).toBeInTheDocument();
   second.unmount();

@@ -703,3 +703,44 @@ it("reads the whole replayed handoff: its clearance sentence and its three gaps"
   expect(groups).toHaveLength(7);
   expect(groups).toContain("Review boundary; no additional exception assigned");
 });
+
+// The replayed handoff writes no contradictions register: its "Map: support and contradiction" table
+// is the module's account, so the page states no failure. The gaps register's "Affected conclusion or
+// decision" column is the remediation table's "Affects"; the paragraph under the clearance decision is
+// drawn with the clearance tile. Expected strings typed by hand from the handoff (fixtures/cp5_tdg_replay.md).
+describe("the replayed handoff's open items", () => {
+  const replay = () =>
+    render5(
+      fixtureEntry("CP-5", path.resolve(import.meta.dirname, "fixtures", "cp5_tdg_replay.md")),
+    );
+  it("does not say the page could not read contradictions when the module wrote a map and no register", () => {
+    replay();
+    expect(screen.getByRole("region", { name: "Clearance" }).textContent).not.toContain(
+      "could not read a list of contradictions",
+    );
+  });
+  it("still says it when neither a register nor a map is written", () => {
+    render5(cp5(text("Clearance decision", REAL_CLEARANCE), REAL_GAPS));
+    expect(screen.getByRole("region", { name: "Clearance" }).textContent).toContain(
+      "could not read a list of contradictions",
+    );
+  });
+  it("fills the remediation table's Affects column as the gaps register wrote it", () => {
+    replay();
+    const tile = screen.getByRole("region", { name: "Remediation" });
+    fireEvent.click(within(tile).getByRole("button", { name: /Table view/ }));
+    const rows = within(tile).getAllByRole("row");
+    expect(rows[1]).toHaveTextContent(
+      "Binding legal capacity and independently established compliance",
+    );
+    expect(rows[6]).toHaveTextContent(
+      "Actionable valuation, agency triggers, peer comparison and recovery",
+    );
+  });
+  it("draws the clearance paragraph with the clearance tile", () => {
+    replay();
+    expect(screen.getByRole("region", { name: "Clearance" }).textContent).toContain(
+      "The legal-capacity exception prevents overall approval; it does not establish an issuer covenant breach.",
+    );
+  });
+});

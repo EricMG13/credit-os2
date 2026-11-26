@@ -20,12 +20,13 @@ import {
   endOf,
   extremeOf,
   fundingGap,
-  gapContext,
   NOT_STATED_IN_ROW,
   periodList,
   type MeasureCell,
   type MeasureRead,
 } from "./forecastData";
+import { gapLine } from "./gapLine";
+import { caseRationale } from "./caseRationale";
 import { ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
 import { bottomLine } from "./overview/read";
@@ -129,6 +130,7 @@ export function CaseFigure({
   notice,
   shownQualifications,
   source,
+  handoff,
 }: {
   option: CaseOption | undefined;
   /** The cell's display as the model publishes it; the page never rounds it. */
@@ -136,9 +138,12 @@ export function CaseFigure({
   notice: string | undefined;
   shownQualifications: string[];
   source?: ForecastSource;
+  /** The forward-model handoff: its own words for a case the published model describes not. */
+  handoff?: OutputEntry | undefined;
 }) {
   if (!option) return null;
   const { name, rawGroup, period, periodStart, periodEnd, description, reason, units } = option;
+  const described = description || caseRationale(handoff, rawGroup);
   return (
     <div
       id="forecast-cases"
@@ -174,9 +179,9 @@ export function CaseFigure({
           })}
         </dd>
       </dl>
-      {(!description || !shownQualifications.includes(description)) && (
+      {(!described || !shownQualifications.includes(described)) && (
         <p className="text-caption text-text-secondary">
-          {description || "Case description not recorded."}
+          {described || "Case description not recorded."}
         </p>
       )}
       {reason && <p className="text-caption text-text-secondary">{readerText(reason)}</p>}
@@ -449,7 +454,7 @@ function fundingStat(view: ReportView, folder: string): Stat {
     ),
     mark: (
       <span className="text-caption text-text-secondary">
-        {[gapContext(gap), figure.header].filter(Boolean).join(" · ")}
+        {[gapLine(gap), figure.header].filter(Boolean).join(" · ")}
       </span>
     ),
   };

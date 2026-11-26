@@ -216,11 +216,23 @@ def _table_after(lines: list[str], start: int, name: str) -> Table | str:
     return header, rows
 
 
+def _one_start_each(lines: list[str], starts: list[int]) -> list[int]:
+    """A register's heading and its `<!-- table-id: ... -->` tag, with no table or other heading
+    between them, are one start (the heading's); a start after a table or a heading is another."""
+    kept: list[int] = []
+    for at in starts:
+        between = lines[kept[-1] + 1 : at] if kept else []
+        if kept and not any(_HEADING.match(x) or x.lstrip().startswith("|") for x in between):
+            continue
+        kept.append(at)
+    return kept
+
+
 def register_table(text: str, ident: str) -> Table | str:
     """The table of the register ``ident`` (a method id such as `T2E.5`), or why it is not read."""
     lines = _unfenced(text)
     pattern = _register_start(ident)
-    found = [i for i, line in enumerate(lines) if pattern.match(line)]
+    found = _one_start_each(lines, [i for i, line in enumerate(lines) if pattern.match(line)])
     if not found:
         return f"the handoff has no {ident} register"
     if len(found) > 1:

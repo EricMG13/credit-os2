@@ -16,7 +16,8 @@ import {
   ReasonNotes,
   basisNoteList,
   figureText,
-  gapReading,
+  cellReading as stressReading,
+  cellWord,
   gapText,
   gapWord,
   labelText,
@@ -313,7 +314,7 @@ function Headroom({ source, href }: { source: Ready; href: NoteHref }) {
 type Downside = NonNullable<ReturnType<typeof downsidePanels>>;
 
 const cellReading = (cell: DownsidePanel["cells"][number] | undefined) =>
-  !cell ? "" : cell.value === null ? gapReading(cell.text) : figureText(cell.text);
+  !cell ? "" : cell.value === null ? stressReading(cell) : figureText(cell.text);
 
 function downsideReading(cases: Downside["cases"], panels: DownsidePanel[]) {
   return cases
@@ -391,15 +392,15 @@ const firstBaseline = (middle: number, count: number) =>
 function PanelGap({
   x,
   y,
-  text,
+  word,
   layout,
 }: {
   x: number;
   y: number;
-  text: string;
+  word: string;
   layout: PanelLayout;
 }) {
-  const place = gapPlace(text, layout.zero, layout.room);
+  const place = gapPlace(word, layout.zero, layout.room);
   return (
     <>
       <rect
@@ -466,7 +467,7 @@ function PanelBars({
       {panel.cells.map((cell, row) => {
         const middle = head + row * height + height / 2;
         if (cell.value === null)
-          return <PanelGap key={row} x={x} y={middle} text={cell.text} layout={layout} />;
+          return <PanelGap key={row} x={x} y={middle} word={cellWord(cell)} layout={layout} />;
         const end = at(cell.value);
         const lines = layout.values[row] ?? [];
         return (

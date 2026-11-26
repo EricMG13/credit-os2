@@ -9,7 +9,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
   only. No route uses it; no request to Microsoft, no model call, no network access; no new
   dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
-  the three oldest entries (2026-11-17).
+  the four oldest entries (2026-11-17).
 - Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
   (absolute path only; never under `--root`), WAL, one numbered migration, a made-here guard. On
   POSIX the folder and file must belong to the running account and be open to no one else; the
@@ -33,6 +33,19 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   pre-merge review not yet run (its model's limit resets 2 December).
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+
+## 2026-11-26 — Offline replay: open items from the entry below resolved (branch `claude/replay-open-items`)
+
+- Scope: branch cut from `main` at `5e4f9aee` (PR 97 merged). Same real TDG Deep replay `20261125-162721-01` (USD 0, no provider call), viewed from the same copy of its root. No paid run; the build ran no provider.
+- Earnings label: the cash flow history says "EBITDA", not "Adj EBITDA" (`cashflow.py` labels and notes); the web readers accept both forms, so libraries published before this still read. `NET_LEVERAGE` is defined once.
+- Forward credit model downside (the handoff item, ruled by the coordinator: the tables and the machine block must describe one case): the launcher now recomputes the downside from the machine block and refuses a handoff whose stated downside net leverage differs from it, with a repair request naming the two ways to agree (a pre-shock downside interest rate, or no shock and full downside drivers); the instruction says the same. Tested on the real handoff: it is refused as written (7.39x stated, 6.81x / 6.29x / 5.82x computed) and both repairs pass. The check fails open, logged, where either side cannot be read.
+- Reader: the Forward credit model lead draws the upside case; Validation no longer reports an unread contradictions list where the module wrote a map, fills "Affects" and states its clearance note; Forecast states the module's case rationale, a stated zero funding gap as stated, and "no quarter column that can be read"; Ratings keeps the note under its register and states its notice once; Market-implied risk says "Not drawn." with the module's reason; a cell holding both a reference and a limitation keeps the limitation; "Stated, not drawn" replaces "No figure" for the stated FCF / debt fractions.
+- Evidence and trace: "Escalation consequence" columns are shown (seen on the real page: Downside, handoff line 214); "Downstream module affected" only where every cell is within this analysis; a Basis line after a list covers the items before it; the Forecast gap horizon is read from the Years column; Evidence links name the table. Chips (Python): a row's own source id, web keys, an n–n page range as one page, upstream chips in reader words, and list-form `## Sources` read into the inventory (this run: issuer-page chips 0 before, 1,524 computed after); a heading and its table-id tag count as one register.
+- Signal accent (left unchecked on PR 97): the hosted Signal pages use the theme's tokens and are already blue; no change.
+- Whole-branch adversarial review (independent, on the diff): 0 High, 2 Medium, both fixed with the reviewer's probes run: the downside repair request could not converge (its remedies are now ones that pass both checks, tested), and the chips fix had no effect on the real run because its inventory was empty (list-form sources are now read). Three Lows taken. The fixes had no second review.
+- Final state: rendered check 75 of 75 at 1440, 1280 and 1024 on the final build; tsc, build, eslint, prettier, knip, duplication exit 0; web tests 8,963 of 8,965 in a loaded run, the two that failed (`ReportLibrary.design` filter, `case-choice` S5-010) pass alone (26 of 26); CI's Python set 2,267 pass and 1 fails (`test_actual_adapter_classification…`, the macOS temp-root limit, as before); launcher tests 1,094 pass, 1 skipped; quality gate 0 findings.
+- Open: five modules' bottom-line paragraphs carry no Basis of their own (handoff content; not invented here); 191 chips cite a page without a source key and the peer module's web key is not in the inventory (55 chips, labelled); `ForecastRecord.tsx` still keys only "Adj EBITDA"; the model's block is named "Downside shock" where the reader says "Downside case"; the committee challenge ledger's presentation; four review Lows.
+- Not verified: the replay copy's published library was not regenerated, so the chip fixes, the "EBITDA" label and the reworded quarter-column message are proved by tests on the real handoffs, not seen on the replay pages; that a module follows the new downside instruction (needs a paid run); no confidence-review or rewrite-tournament of the diff; trace drawers beyond the cases above; widths below 1024; any run but this replay.
 
 ## 2026-11-26 — Credit screening pathway: CP-0, CP-1, CP-DR and the five-screen CP-L10, cap USD 10 (PR #102)
 
@@ -980,19 +993,3 @@ then 5; the narrow layout and the controls listed below.
 - Retained test preview, 1440 × 900 Chrome. The base-case qualification immediately precedes the four FY2029E cash proxies (US$m 496.85, 131.38, 684.03, 326.97). The first value is visible in the opening viewport.
 - The Interest and Interest coverage basis rows in both tables matched the retained limitation exactly. The trace included the original scope limit. Evidence reproduced all 17 register rows cell for cell, with 17 matched source-row links. Forecast omitted the register identifiers and production categories.
 - At desktop widths the driver table has a named keyboard scroll region and pinned driver names. Focused tests passed (183), as did TypeScript, changed-file ESLint, formatting and the connected build. The unfiltered Python gate reported 3,008 findings in the existing untracked predecessor copy; excluding only that copy produced zero findings. Scope is presentation fidelity for this run.
-
-## 2026-11-17 — Post-audit app repairs
-
-- Re-ran connected sections C1–C5 and static sections S2 and S6. All 2,374 focused
-  frontend tests and 553 focused backend tests passed. The build and 125 offline
-  route visits passed. The Python quality gate passed in an isolated checkout
-  containing the patch. ESLint and Prettier passed on changed web files.
-- On macOS Chrome, the accepted newest-document warning matched the saved
-  metadata and Evidence Record. The static build guided readers to the connected
-  service when no draft was available and opened the sample form when one was.
-- Chrome and Edge passed the connected synthetic flow after the browser check
-  began waiting for the Evidence Summary tab to become active.
-- Confidence review checked digest compatibility, changed overrides, restart
-  recovery, approval snapshot consistency, History output ownership and labels,
-  prior repayment inputs, and the empty-draft boundary. The rewrite tournament
-  retained the ordered History metadata scan and date limit calculation.
