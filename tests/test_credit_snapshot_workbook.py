@@ -608,3 +608,11 @@ def test_a_scorecard_level_written_another_way_is_listed_as_written_on_sources(f
     assert shown == marked
     plain = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
     assert not [r for r in sources(plain) if r["Column"] == "As written"]
+
+
+def test_put_returns_the_address_of_the_cell_it_wrote(full):
+    book = writer._Book(full[1])
+    page = writer._Page(book, book.workbook.active, writer.LAYOUTS[0])
+    spec = writer._Put("Header", "Title", "Value", snap.COPIED, "Northbridge", writer.LABEL)
+    assert page.put(3, 2, 1, spec) == "B3"
+    assert book.workbook.active["B3"].value == "Northbridge"

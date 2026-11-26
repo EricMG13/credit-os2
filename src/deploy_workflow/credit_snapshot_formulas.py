@@ -78,7 +78,6 @@ VALUATION_NAMES = ("Very attractive", None, None, None, "Very unattractive")  # 
 ARROWS = {"Improving": "▲", "Stable": "►", "Deteriorating": "▼"}
 WORST_LEVEL = 5  # a factor scored 5 triggers the floor (section 4)
 MIN_NAMES_TEXT = str(rec.MIN_NAMES)
-BREACHED_WORD = "breached"  # `credit_snapshot._OUTCOME_WORDS["breached"]`
 
 
 # --- What a formula is -------------------------------------------------------------------------
@@ -603,7 +602,7 @@ class _Builder:
         if ref.breached:
             tests.append("COUNTA(" + ",".join(d(cell) for cell in ref.breached) + ")>0")
         counts = [
-            f'({bucket}="{word}")*COUNTIF({d(Span(cells))},"{BREACHED_WORD}")'
+            f'({bucket}="{word}")*COUNTIF({d(Span(cells))},"{snap.BREACHED}")'
             for word, cells in ref.rating.items()
         ]
         if counts:
@@ -689,7 +688,7 @@ class _Builder:
             outcome = '""'
             for word in reversed(list(limit.by_bucket)):
                 outcome = f'IF({bucket}="{word}",{d(limit.by_bucket[word])},{outcome})'
-            template = f'=IF({outcome}="{BREACHED_WORD}",1,0)'
+            template = f'=IF({outcome}="{snap.BREACHED}",1,0)'
         elif limit.cell:
             price = d(self._inputs(name, "Price"))
             template = f"=IF(AND(ISNUMBER({price}),{price}<{d(limit.cell)}),1,0)"
@@ -998,36 +997,29 @@ class _Builder:
         period's own label states (`FY2024 / 2024-09-30`). A period with no readable end date
         leaves its order unknown, so every tile shows that as a gap."""
         wanted = (
-            ("Net leverage", TOTALS, "Net debt / EBITDA"),
-            ("Interest cover", TOTALS, "EBITDA / cash interest"),
-            ("Liquidity", TOTALS, "Cash"),
+            ("Net leverage", "Net debt / EBITDA"),
+            ("Interest cover", "EBITDA / cash interest"),
+            ("Liquidity", "Cash"),
         )
-        sources = {
-            tile: [
-                c
-                for c in self._cells(SNAPSHOT, block)
-                if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
-            ]
-            for tile, block, row in wanted
-        }
+        totals = [
+            c
+            for c in self._cells(SNAPSHOT, TOTALS)
+            if c.column not in TAIL_COLUMNS and c.kind != snap.GAP
+        ]
+        sources = {tile: [c for c in totals if c.row == row] for tile, row in wanted}
         ends = {c.column: _period_end(c.column) for found in sources.values() for c in found}
         unordered = None in ends.values()
         latest = max((e for e in ends.values() if e is not None), default=None)
         cells: list[snap.SnapshotCell] = []
-        for tile, block, row in wanted:
+        for tile, row in wanted:
             at = self._tile("Value", tile)
             use = [c for c in sources[tile] if ends[c.column] == latest]
-            if unordered:
-                cells.append(_gap(at, NO_ORDER))
-            elif not use:
-                cells.append(_gap(at, snap.NOT_IN_HANDOFF))
-            else:
-                there = _at(use[0])
-                d = _Draft()
-                cells.append(self.formula(at, d, f"={d(there)}", mirror=there))
-                cells.append(
-                    _label(SNAPSHOT, KEY_FIGURES, "Reading", tile, f"{row}, {use[0].column}")
-                )
+            if unordered or not use:
+                cells.append(_gap(at, NO_ORDER if unordered else snap.NOT_IN_HANDOFF))
+                continue
+            there, d = _at(use[0]), _Draft()
+            cells.append(self.formula(at, d, f"={d(there)}", mirror=there))
+            cells.append(_label(SNAPSHOT, KEY_FIGURES, "Reading", tile, f"{row}, {use[0].column}"))
         return cells
 
     # -- the unit and the dropdowns that are fixed words

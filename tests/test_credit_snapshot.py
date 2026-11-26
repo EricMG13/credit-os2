@@ -1684,3 +1684,14 @@ def test_a_formula_in_an_rv_workbook_is_its_stored_value_or_an_absent_identifier
     row = found[0].rows[0]
     assert "Formula" not in row.cells["Bloomberg ID"] and "=" not in row.cells["Bloomberg ID"]
     assert not any("=" in v or "Formula" in v for v in snap._present(row).values())
+
+
+def test_a_reference_name_with_a_control_character_is_the_gap_text_and_is_logged(tmp_path, caplog):
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    own = replace(cs.clo_portfolio(), key="custom", name="Own\x01 book", kind="custom")
+    built.stores.run.save(own)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        snapshot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    names = [view.name for view in snapshot.references]
+    assert snap.CONTROL_CHARACTER in names and not any(snap.ILLEGAL.search(n) for n in names)
+    assert "its name holds a control character" in caplog.text

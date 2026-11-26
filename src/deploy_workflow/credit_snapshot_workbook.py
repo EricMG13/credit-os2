@@ -55,7 +55,7 @@ _validation = importlib.import_module("openpyxl.worksheet.datavalidation")
 _utils = importlib.import_module("openpyxl.utils")
 
 SNAPSHOT, INPUTS, MATRIX, SOURCES = "Snapshot", "Inputs", "Matrix", "Sources"
-LABEL, FORMULA, RULE = "label", fx.FORMULA, fx.RULE
+LABEL, FORMULA, RULE = fx.LABEL, fx.FORMULA, fx.RULE
 SOURCES_HEADER = (
     *("Sheet", "Cell", "Kind", "Block", "Row", "Column", "Module", "Section", "Line"),
     *("Handoff text", "Handoff sha256", "Run", "As of"),
@@ -75,7 +75,7 @@ LINE_POINTS = 12.0
 MAX_HEIGHT = 409.0
 CHARS_PER_UNIT = 1.15
 CAP_WEIGHT = 60
-TAIL_COLUMNS = ("Unit", "Currency")  # shown after the periods they describe
+TAIL_COLUMNS = fx.TAIL_COLUMNS  # shown after the periods they describe
 NO_HEADER = ("Value", "Text")  # a one-column block needs no header over its values
 GAP_LINE_ROW, GAP_LINE_COLUMN = "Gap", "Text"
 
@@ -266,27 +266,20 @@ class _Page:
     def put(self, row: int, col: int, span: int, spec: _Put) -> str:
         """Write `spec` at (row, col), merged over `span` grid columns; return its address."""
         item = spec.item
-        figure = item.figure if item is not None else None
         if spec.kind == RULE:
             figure = snap.figure(spec.text)  # a constant is a number where it is one
-        value: Any = None if spec.kind in (snap.ANALYST, FORMULA) else spec.text
-        number_format = None
-        if figure is not None:
-            value = figure.value
-            number_format = figure.number_format
-            if spec.block == FINANCIALS:
-                number_format = _bracketed(number_format)
+        else:
+            figure = item.figure if item is not None else None
+        empty = spec.kind in (snap.ANALYST, FORMULA)
+        value: Any = figure.value if figure is not None else None if empty else spec.text
         first = self.ws.cell(row=row, column=col)
-        self._style(row, col, span, spec, isinstance(value, int | float))
+        self._paint(row, col, span, spec, isinstance(value, int | float))
         first.value = value
         if isinstance(value, str) and value.startswith("="):
             first.data_type = "s"  # copied text is never a formula
-        if number_format is not None:
-            first.number_format = number_format
-        if span > 1:
-            self.ws.merge_cells(
-                start_row=row, start_column=col, end_row=row, end_column=col + span - 1
-            )
+        if figure is not None:
+            fmt = figure.number_format
+            first.number_format = _bracketed(fmt) if spec.block == FINANCIALS else fmt
         self._height(row, "" if spec.kind == FORMULA else spec.text, span)
         if item is not None and item.written is not None:
             self.book.add_written(item)
@@ -306,7 +299,11 @@ class _Page:
 
     def blank(self, row: int, col: int, span: int, look: str) -> None:
         """A styled cell with nothing in it and no Sources row (a header corner)."""
-        self._style(row, col, span, _Put("", "", "", LABEL, "", look), False)
+        self._paint(row, col, span, _Put("", "", "", LABEL, "", look), False)
+
+    def _paint(self, row: int, col: int, span: int, spec: _Put, number: bool) -> None:
+        """Style the `span` cells from (row, col), then merge them when more than one."""
+        self._style(row, col, span, spec, number)
         if span > 1:
             self.ws.merge_cells(
                 start_row=row, start_column=col, end_row=row, end_column=col + span - 1

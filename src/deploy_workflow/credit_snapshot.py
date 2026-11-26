@@ -76,6 +76,7 @@ COPIED, GAP, COMPUTED, ENTERED, ANALYST, BLANK = (
     "blank",
 )
 NOT_IN_HANDOFF = "not in handoff"
+BREACHED = "breached"  # a limit outcome, and the word the Matrix counts
 CONTROL_CHARACTER = "text holds a control character"
 # The characters a workbook cell cannot hold: the workbook writer's library's
 # `ILLEGAL_CHARACTERS_RE`, copied because this module imports none (a test holds them equal).
@@ -605,12 +606,18 @@ class _Run:
             ]
             used: set[str] = set()
             for at, view in enumerate(views):
+                if ILLEGAL.search(view.name):  # a name a cell cannot hold: the documented gap text
+                    _LOG.warning(
+                        "credit snapshot: reference %s: its name holds a control character",
+                        view.key,
+                    )
+                    view = replace(view, name=CONTROL_CHARACTER)
                 name, count = view.name, 1
                 while name in used:  # formula cells are keyed by name: each view needs its own
                     count += 1
                     name = f"{view.name} ({count})"
                 used.add(name)
-                views[at] = view if name == view.name else replace(view, name=name)
+                views[at] = replace(view, name=name)
             self._views = tuple(views)
         return self._views
 
@@ -869,12 +876,8 @@ def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     ) or any(row.unreadable and _rv_loan(row) for _, row in matched)
     for row, day, kind in zip(table.rows, days, kinds, strict=True):
         same = [(s, r) for s, r in matched if day is not None and r.maturity == day]
-        joined = (
-            same[0]
-            if not unread and len(same) == 1 and days.count(day) == 1 and kind == "loan"
-            and _rv_loan(same[0][1]) and _present(same[0][1])
-            else None
-        )  # fmt: skip
+        one = not unread and kind == "loan" and len(same) == 1 and days.count(day) == 1
+        joined = same[0] if one and _rv_loan(same[0][1]) and _present(same[0][1]) else None
         cells += _identifier_cells(mk, row.cells[table.index("Instrument")], joined)
     return cells
 
@@ -1159,22 +1162,19 @@ def _register_rows(run: _Run) -> list[_Pick]:
     fixed = {_fold(m.name): m.name for m in METRICS}
     free = {_fold(label) for label in _FREE["T4.9"]}
     units = {"Unit": _optional(table, "Unit"), "Currency": _optional(table, "Currency")}
-    picks: list[_Pick] = []
-    seen: set[str] = set()
     by_label: dict[str, list[_Row]] = {}
     for row in table.rows:
         by_label.setdefault(_fold(row.cells[name]), []).append(row)
+    picks: list[_Pick] = []
     for row in table.rows:
         key = _fold(row.cells[name])
         if key not in fixed and key not in free:
             continue
-        shown = fixed.get(key, row.cells[name])
-        free_row = key not in fixed
+        shown, free_row = fixed.get(key, row.cells[name]), key not in fixed
         picks.append(
             _Pick(shown, row.cells[period], row.cells[value], table, row.line, key, free_row)
         )
-        if key not in seen:  # a row label's Unit and Currency: its first occurrence
-            seen.add(key)
+        if row is by_label[key][0]:  # a row label's Unit and Currency: its first occurrence
             picks += [
                 _unit_pick(table, by_label[key], at, (shown, key, free_row), column)
                 for column, at in units.items()
@@ -1347,13 +1347,8 @@ def _bridge(run: _Run, mk: _Maker) -> list[SnapshotCell]:
 
 # --- The reference portfolios ---------------------------------------------------------------------
 
-_OUTCOME_WORDS = {
-    "breached": "breached",
-    "within": "within",
-    "not_read": "not read",
-    "does_not_apply": "does not apply",
-}
-_FILE_FIELD = {"discount_margin": "discount_margin", "margin": "margin", "spread": "margin"}
+_OUTCOME_WORDS = {"not_read": "not read", "does_not_apply": "does not apply"}  # the rest as is
+_FILE_FIELD = {"spread": "margin"}  # the other measures name their own file field
 _UNDER_FIVE = "under five names: no Valuation"
 
 
@@ -1426,7 +1421,7 @@ def _medians(portfolio: rp.Portfolio) -> tuple[Median, ...]:
     for asset, bucket in sorted(pairs, key=lambda pair: (pair[0], order.get(pair[1], len(order)))):
         probe = rec.Instrument("reference", asset, bucket, Decimal(0), Decimal(100))
         valued = rec.valuation(probe, portfolio)
-        columns = dict.fromkeys(headers.get(_FILE_FIELD[m], "") for m in valued.measures)
+        columns = dict.fromkeys(headers.get(_FILE_FIELD.get(m, m), "") for m in valued.measures)
         medians.append(
             Median(
                 asset,
@@ -1477,13 +1472,19 @@ def _limits(
         name = reading.limit.parameter
         if any(by_bucket[b][i].outcome != reading.outcome for b in rp.BUCKET_NAMES):
             rating.append(
-                (name, tuple((b, _OUTCOME_WORDS[by_bucket[b][i].outcome]) for b in rp.BUCKET_NAMES))
+                (
+                    name,
+                    tuple(
+                        (b, _OUTCOME_WORDS.get(by_bucket[b][i].outcome, by_bucket[b][i].outcome))
+                        for b in rp.BUCKET_NAMES
+                    ),
+                )
             )
         elif i in at_floor:
             floors.append((name, at_floor[i]))
         elif reading.outcome == "not_read":
             unread.append(name)
-    breached = tuple(r.limit.parameter for r in base if r.outcome == "breached")
+    breached = tuple(r.limit.parameter for r in base if r.outcome == BREACHED)
     return breached, tuple(unread), tuple(rating), tuple(floors)
 
 
@@ -1890,8 +1891,6 @@ def _filled(cells: Sequence[pe.Cell]) -> bool:
 
 def _capped(rows: Cells) -> Cells:
     """`rows`, or `ValueError` when more than `reference_portfolios.MAX_ROWS` have text."""
-    if not _has_rv_head(rows):
-        return []
     if sum(1 for _, cells in rows if _filled(cells)) > rp.MAX_ROWS:
         raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
     return rows
@@ -1981,9 +1980,7 @@ def _market_index(head: Sequence[pe.Cell]) -> dict[str, int] | None:
 def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
     """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
     ignoring case and spaces) or repeats one of them."""
-    start = next(
-        (i for i, (_, cells) in enumerate(rows) if any(c.text.strip() for c in cells)), None
-    )
+    start = next((i for i, (_, cells) in enumerate(rows) if _filled(cells)), None)
     if start is None:
         return None
     index = _market_index(rows[start][1])
@@ -1991,7 +1988,7 @@ def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
         return None
     body = []
     for number, cells in rows[start + 1 :]:
-        if not any(c.text.strip() for c in cells):
+        if not _filled(cells):
             continue
         held = {
             column: cells[index[column]]

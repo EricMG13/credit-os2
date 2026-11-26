@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
-import stat
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote
 
 from deploy_workflow import credit_snapshot, credit_snapshot_workbook, http_base, library_index
 from deploy_workflow import reference_portfolios as portfolios
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.run_start import reference_portfolio
 from deploy_workflow.run_start.submissions import Refused as NoRunStore
+
+from . import artifacts
 
 SNAPSHOT = re.compile(r"/connected/deliverables/([^/]+)/credit-snapshot\.xlsx")
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -32,10 +31,7 @@ def _stores(layout: Layout, folder: str) -> list[portfolios.Store]:
 
 def _plain_folder(path: Path) -> bool:
     """A real directory: a link is not followed, and a missing folder is not one."""
-    try:
-        return stat.S_ISDIR(os.lstat(path).st_mode)
-    except OSError:
-        return False
+    return path.is_dir() and not path.is_symlink()
 
 
 def reply(
@@ -44,12 +40,7 @@ def reply(
     folder_pattern: re.Pattern[str],
     snapshot: dict[str, Any] | None,
 ) -> http_base.Reply:
-    folder = unquote(match[1])
-    if folder in {".", ".."} or not folder_pattern.fullmatch(folder):
-        raise http_base.refuse(404, "unknown report")
-    records = snapshot["workspace"]["runs"].values() if snapshot else ()
-    if not any(item["folder"] == folder for item in records):
-        raise http_base.refuse(404, "unknown report")
+    folder, _ = artifacts.admitted(match[1], folder_pattern, snapshot)
     path = layout.engine / "runs" / folder
     if not _plain_folder(path):
         _LOG.warning(
