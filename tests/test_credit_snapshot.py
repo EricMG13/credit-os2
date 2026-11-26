@@ -1522,3 +1522,86 @@ def test_an_instrument_table_without_a_type_or_maturity_column_joins_nothing(tmp
     )
     assert {c.kind for c in where(snapshot, "Instruments", column="FIGI")} == {"analyst"}
     assert {c.kind for c in where(snapshot, "Instruments", column="Bloomberg ID")} == {"analyst"}
+
+
+# --- The CP-1 shape main introduced (EBITDA bridge Add-Back ID, T4.18 Asset type, pro forma table) --
+
+
+def new_shape_cp1(text: str) -> str:
+    """The key's CP-1 with the columns and the table the newer CP-1 handoff adds, built in code."""
+    lines = text.splitlines()
+    out: list[str] = []
+    section = ""
+    add_back = 0
+    for line in lines:
+        if line.startswith("### "):
+            section = line
+        if section.startswith("### Chart data: EBITDA bridge") and line.startswith("|"):
+            cells = line.split("|")[1:-1]
+            if cells[0].strip() == "Step":
+                cells.insert(2, " Add-Back ID ")
+            elif set(cells[0].strip()) == {"-"}:
+                cells.insert(2, "---")
+            else:
+                add_back += 1
+                cells.insert(2, f" AB-{add_back} ")
+            line = "|" + "|".join(cells) + "|"
+        elif section.startswith("### T4.18") and line.startswith("|"):
+            cells = line.split("|")[1:-1]
+            if cells[0].strip() == "Instrument":
+                cells.insert(2, " Asset type ")
+            elif set(cells[0].strip()) == {"-"}:
+                cells.insert(2, "---")
+            else:
+                cells.insert(2, " Loan ")
+            line = "|" + "|".join(cells) + "|"
+        out.append(line)
+    out += [
+        "",
+        "### Pro forma interest and cover",
+        "",
+        "| Measure | FY2025 | Reporting unit | Basis and limitation |",
+        "|---|---|---|---|",
+        "| Pro forma cash interest | 99999.9 | GBP millions | Invented figure the workbook must not show. |",
+        "| Pro forma cover | 8.8888 | times | Invented figure the workbook must not show. |",
+    ]
+    return "\n".join(out) + "\n"
+
+
+def test_a_cp1_handoff_in_the_new_shape_reads_the_same_and_the_new_table_adds_nothing():
+    new = new_shape_cp1(FIXTURE["CP-1"])
+    assert "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |" in new
+    assert "| Instrument | Type | Asset type | Carrying Value |" in new
+    old_snapshot = snap.gather(run_of(full()))
+    new_snapshot = snap.gather(run_of(full(**{"CP-1": new})))
+    # The bridge steps and amounts, and every T4.18 column the workbook shows, read as before.
+    steps = ("Reported EBITDA", "Restructuring costs", "Run-rate synergies", "Adjusted EBITDA")
+    for step, amount in zip(steps, ("312.4", "20.0", "12.5", "351.2"), strict=True):
+        assert one(new_snapshot, "EBITDA bridge", step, "Amount").text == amount
+    assert one(new_snapshot, "Capital structure", "Term Loan B", "Principal").text == "600.0"
+    assert not where(new_snapshot, "Capital structure", column="Asset type")
+    # Nothing else moved, and the pro forma table (and its invented figures) is not shown.
+    assert new_snapshot.cells() == old_snapshot.cells()
+    shown = {c.text for c in new_snapshot.cells()}
+    assert not {"99999.9", "8.8888", "Pro forma cash interest", "Pro forma cover"} & shown
+
+
+@pytest.mark.parametrize("shape", ["old", "new"])
+def test_the_join_type_rule_is_the_same_for_the_new_cp1_shape(tmp_path, shape):
+    """With a Type column the instruments join; without one (Asset type does not stand in) none do."""
+    base = FIXTURE["CP-1"] if shape == "old" else new_shape_cp1(FIXTURE["CP-1"])
+    for name, text, kind in (
+        ("typed", base, "copied"),
+        ("untyped", base.replace("| Instrument | Type |", "| Instrument | Kind |"), "analyst"),
+    ):
+        directory = tmp_path / name
+        directory.mkdir()
+        moved = directory / "CP-1.md"
+        moved.write_text(text, "utf-8")
+        (directory / "w").mkdir()
+        snapshot, _ = gathered_with(
+            directory / "w",
+            rv_file(directory, [rv_row("SYN1", "ABCDEFGHIJK1")]),
+            handoffs={"CP-1": moved},
+        )
+        assert {c.kind for c in where(snapshot, "Instruments", LOAN_B, "FIGI")} == {kind}
