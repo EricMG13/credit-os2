@@ -235,7 +235,7 @@ def open_db(folder: Path) -> sqlite3.Connection:
     return db
 
 
-def _utc_text(at: datetime) -> str:
+def utc_text(at: datetime) -> str:
     if at.tzinfo is None or at.utcoffset() is None:
         raise StoreError("time must be timezone-aware")
     return at.astimezone(UTC).isoformat()
@@ -305,7 +305,7 @@ def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per 
     now: datetime,
 ) -> Account:
     """Get or create the reader account for an identity, in one write transaction."""
-    created = _utc_text(now)
+    created = utc_text(now)
     for label, value in (("tenant id", tenant_id), ("object id", object_id), ("email", email)):
         if not value.strip():
             raise StoreError(f"the account has no {label}")
@@ -323,9 +323,11 @@ def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per 
             " VALUES (?, ?, ?, ?, ?, ?, 'reader', ?, 0)",
             (tenant_id, object_id, display, email, given_name, family_name, created),
         )
-        account = account_by_id(db, int(cursor.lastrowid or 0))
-    if account is None:  # the row was inserted in this transaction
-        raise StoreError("the new account could not be read back")
+        if cursor.lastrowid is None:
+            raise StoreError("the new account has no row id")
+        account = account_by_id(db, cursor.lastrowid)
+        if account is None:  # raised inside the transaction, so nothing stays committed
+            raise StoreError("the new account could not be read back")
     return account
 
 

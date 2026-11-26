@@ -155,7 +155,7 @@ def test_concurrent_first_open(tmp_path: Path) -> None:
             errors: list[BaseException] = errors,
         ) -> None:
             try:
-                barrier.wait()
+                barrier.wait(timeout=60)
                 db = open_db(folder)
                 results.append(_meta(db, "schema_version"))
                 db.close()
@@ -221,6 +221,14 @@ def test_name_cleaning(db: sqlite3.Connection) -> None:
     with pytest.raises(StoreError):
         _reg(db, object_id="o-9", name="\u200b \t", email="z@example.org")
     assert _count(db) == 1
+    assert db.in_transaction is False
+    other = open_db(Path(db.execute("PRAGMA database_list").fetchone()[2]).parent)
+    try:
+        other.execute("PRAGMA busy_timeout=0")
+        other.execute("BEGIN IMMEDIATE")
+        other.execute("ROLLBACK")
+    finally:
+        other.close()
 
 
 def test_validation(db: sqlite3.Connection) -> None:
@@ -261,8 +269,9 @@ def test_set_profile_type(db: sqlite3.Connection) -> None:
         set_profile_type(db, 1, kind)
         acc = account_by_id(db, 1)
         assert acc is not None and acc.profile_type == kind
-    with pytest.raises(StoreError):
+    with pytest.raises(StoreError) as err:
         set_profile_type(db, 1, "owner")
+    assert str(err.value) == "invalid profile type 'owner'; expected one of reader, analyst, admin"
     acc = account_by_id(db, 1)
     assert acc is not None and acc.profile_type == "reader"
     with pytest.raises(Missing, match="no account 999"):
@@ -277,14 +286,17 @@ def _race(tmp_path: Path, trial: int, calls: list[dict[str, str]]):
     errors: list[BaseException] = []
 
     def work(kw: dict[str, str]) -> None:
-        conn = open_db(folder)
+        conn = None
         try:
-            barrier.wait()
+            conn = open_db(folder)
+            barrier.wait(timeout=60)
             out.append(register_reader(conn, given_name=None, family_name=None, now=T0, **kw))
         except BaseException as exc:  # noqa: BLE001 - collected and asserted empty by the caller
             errors.append(exc)
+            barrier.abort()  # release the other waiter now instead of after the timeout
         finally:
-            conn.close()
+            if conn is not None:
+                conn.close()
 
     threads = [threading.Thread(target=work, args=(kw,)) for kw in calls]
     for t in threads:

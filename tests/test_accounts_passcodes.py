@@ -6,8 +6,9 @@ import hashlib
 import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -258,7 +259,7 @@ def test_22_concurrent_failures(tmp_path: Path, trial: int) -> None:
     def worker() -> str:
         conn = open_db(folder)
         try:
-            barrier.wait()
+            barrier.wait(timeout=60)
             return try_passcode(conn, "o-1", W, T(9, 0))
         finally:
             conn.close()
@@ -275,3 +276,90 @@ def test_22_concurrent_failures(tmp_path: Path, trial: int) -> None:
         assert row["locked_until"] == "2026-11-26T10:00:00+00:00"
     finally:
         check.close()
+
+
+def test_m1_concurrent_sets_cannot_match(tmp_path: Path) -> None:
+    for trial in range(3):
+        folder = tmp_path / f"m1-{trial}"
+        open_db(folder).close()
+        barrier = threading.Barrier(2)
+
+        def worker(kind: str, folder: Path = folder, barrier: threading.Barrier = barrier) -> str:
+            conn = open_db(folder)
+            try:
+                barrier.wait(timeout=60)
+                set_passcode(conn, kind, AN, T(9, 0))
+                return "ok"
+            except StoreError as exc:
+                return str(exc)
+            finally:
+                conn.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = [f.result() for f in [pool.submit(worker, k) for k in ("analyst", "admin")]]
+        assert sorted(outcomes) == sorted(["ok", "the analyst and admin passcodes must differ"])
+        check = open_db(folder)
+        try:
+            assert _count(check) == 1
+        finally:
+            check.close()
+
+
+LONDON = ZoneInfo("Europe/London")
+
+
+def test_lock_is_real_hour_across_fall_back(db_an: sqlite3.Connection) -> None:
+    start = datetime(2026, 10, 25, 1, 30, tzinfo=LONDON, fold=0)
+    for _ in range(5):
+        assert try_passcode(db_an, "o-1", W, start) == "wrong passcode"
+    row = _attempt_row(db_an)
+    assert row is not None
+    assert row["locked_until"] == "2026-10-25T01:30:00+00:00"
+    # wall-clock `+` on a zoned datetime would skip the repeated hour; add to the UTC instant
+    late = start.astimezone(UTC) + timedelta(minutes=59, seconds=59)
+    assert try_passcode(db_an, "o-1", AN, late) == "locked"
+
+
+def test_lock_is_real_hour_across_spring_gap(db_an: sqlite3.Connection) -> None:
+    start = datetime(2026, 3, 29, 1, 30, tzinfo=LONDON)
+    for _ in range(5):
+        assert try_passcode(db_an, "o-1", W, start) == "wrong passcode"
+    row = _attempt_row(db_an)
+    assert row is not None
+    assert row["locked_until"] == "2026-03-29T02:30:00+00:00"
+    assert try_passcode(db_an, "o-1", AN, start) == "locked"
+
+
+def test_nothing_hashed_while_locked(
+    db_an: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _five_failures(db_an)
+
+    def refuse(*_args: object, **_kw: object) -> bytes:
+        raise AssertionError("hashed while locked")
+
+    monkeypatch.setattr("deploy_workflow.accounts.passcodes._hash", refuse)
+    assert try_passcode(db_an, "o-1", AN, T(9, 5)) == "locked"
+
+
+BAD_TEXT = "Kestrel\udcffQuarry-X"
+
+
+def test_invalid_text_is_a_counted_wrong_attempt(db_an: sqlite3.Connection) -> None:
+    assert try_passcode(db_an, "o-1", BAD_TEXT, T(9, 0)) == "wrong passcode"
+    row = _attempt_row(db_an)
+    assert row is not None
+    assert row["failed_count"] == 1
+
+
+def test_invalid_text_locks(db_an: sqlite3.Connection) -> None:
+    for minute in range(5):
+        assert try_passcode(db_an, "o-1", BAD_TEXT, T(9, minute)) == "wrong passcode"
+    assert try_passcode(db_an, "o-1", AN, T(9, 5)) == "locked"
+
+
+def test_invalid_text_cannot_be_set(db: sqlite3.Connection) -> None:
+    with pytest.raises(StoreError) as err:
+        set_passcode(db, "analyst", BAD_TEXT, T(9, 0))
+    assert str(err.value) == "a passcode must be valid text"
+    assert _count(db) == 0
