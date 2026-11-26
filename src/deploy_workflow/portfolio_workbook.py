@@ -30,8 +30,11 @@ from deploy_vii.preparation import xlsx_content
 # The pathways whose run start page asks for the workbook (owner, 2026-11-15: "yes, wire in the
 # portfolio workbook."). Elsewhere a workbook is an ordinary source and nothing here applies. The
 # deep credit assessment runs CP-0, CP-3 and CP-6 as the full one does, so it asks too (ruling
-# 2026-11-15-pathway-tiers-and-caps).
-PATHWAYS = frozenset({"credit_snapshot", "deep_credit_assessment", "portfolio_decision"})
+# 2026-11-15-pathway-tiers-and-caps). A custom run is sent each module's request as Deep sends it,
+# so CP-0, CP-3 and CP-6 are told of the workbook there too (owner, 2026-11-26).
+# A custom run sends each module its Deep request, so CP-0, CP-3 and CP-6 are told of the workbook
+# there too (owner, 2026-11-26).
+PATHWAYS = frozenset({"credit_snapshot", "deep_credit_assessment", "portfolio_decision", "custom"})
 TOLD = ("CP-0", "CP-3", "CP-6")
 # A source is a portfolio workbook when at least two of the template's required sheets are named in
 # it, so one misnamed sheet is still found (and reported by the checks).

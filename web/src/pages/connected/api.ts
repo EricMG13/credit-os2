@@ -520,6 +520,12 @@ export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[
     label: "Portfolio Decision",
     modules: ["CP-0", "CP-1", "CP-MODEL", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"],
   },
+  custom: {
+    label: "Custom selection",
+    // Owner, 2026-11-26: the modules a run names are the analyst's list; the preset is the least
+    // the contract holds (CP-0 and CP-1). The launcher completes the list.
+    modules: ["CP-0", "CP-1"],
+  },
   credit_screening: {
     label: "Credit screening",
     // A screen, not an assessment (owner, 2026-11-25; PR 6): CP-L10 names where a full one is needed.

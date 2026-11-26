@@ -468,6 +468,7 @@ const PATHWAY_TITLES = {
   credit_snapshot: 'Full credit assessment',
   lite_credit_assessment: 'Lite credit assessment',
   deep_credit_assessment: 'Deep credit assessment',
+  custom: 'Custom selection',
   short_snapshot: 'Short credit snapshot',
 };
 function pathwayTitle(id) {

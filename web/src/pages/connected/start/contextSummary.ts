@@ -156,7 +156,7 @@ export function fileRoles(view: Pick<IntakeView, "earnings" | "level" | "run">):
       advanced ||
       pathway === "portfolio_decision" ||
       (key === "portfolio_workbook" &&
-        ["credit_snapshot", "deep_credit_assessment"].includes(pathway)),
+        ["credit_snapshot", "deep_credit_assessment", "custom"].includes(pathway)),
   );
   return [...(view.earnings || advanced ? (["management_bridge"] as const) : []), ...others];
 }

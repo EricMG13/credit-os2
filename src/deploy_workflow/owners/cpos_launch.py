@@ -305,6 +305,7 @@ __all__ = [
 ROOT = Path(__file__).resolve().parents[3]
 LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
 CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
+CUSTOM_CAP_RULING = "docs/rulings/2026-11-26-custom-routing.md"
 HTML_SUFFIXES = frozenset({".htm", ".html"})
 # Converted to text pages, pinned as ``<name>.jsonl``: HTML filings and Word documents.
 CONVERTED_SUFFIXES = HTML_SUFFIXES | {".docx"}
@@ -1156,8 +1157,10 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     raw_context = context_path.read_bytes()
     settings = load_context(raw_context)
     chosen = tuple(modules) if modules else tuple(PATHWAY_MODULES[settings.run.pathway])
-    # CP-MODEL means "publish the forecast" (owner, 2026-11-11); it makes no model call.
-    model_wanted = "CP-MODEL" in chosen
+    # CP-MODEL means "publish the forecast" (owner, 2026-11-11); it makes no model call. A custom
+    # run always plans it (owner, 2026-11-26), so CP-1 gets Deep's period block and the forecast is
+    # published whether or not the request names it.
+    model_wanted = "CP-MODEL" in chosen or settings.run.pathway == "custom"
     requested = tuple(m for m in (modules or pathway_modules(settings)) if m != "CP-MODEL")
     if "CP-8" in requested:
         raise LaunchRefused(
@@ -1717,7 +1720,9 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
     if asked is None:
         return ceiling
     if asked > ceiling:
-        ruling = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
+        ruling = {"credit_screening": CREDIT_SCREENING_CAP_RULING, "custom": CUSTOM_CAP_RULING}.get(
+            pathway, LAYER_1_RULING
+        )
         raise LaunchRefused(
             f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); "
             "a lower cap is allowed"

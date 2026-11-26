@@ -14,12 +14,15 @@ import {
 import { SYNTHETIC_LIMITS, type IntakeView, shownCapText } from "./intake";
 import { PATHWAY_QUESTIONS } from "./pathways";
 
-const PATHWAY_CARDS = Object.entries(PATHWAYS).map(([id, pathway]) => ({
-  id,
-  title: pathway.label,
-  description: PATHWAY_QUESTIONS[id] ?? "",
-  modules: `${String(drawnModules(pathway.modules).length)} base modules`,
-}));
+// A custom selection is no Purpose card: the Advanced option offers it (owner, 2026-11-26).
+const PATHWAY_CARDS = Object.entries(PATHWAYS)
+  .filter(([id]) => id !== "custom")
+  .map(([id, pathway]) => ({
+    id,
+    title: pathway.label,
+    description: PATHWAY_QUESTIONS[id] ?? "",
+    modules: `${String(drawnModules(pathway.modules).length)} base modules`,
+  }));
 
 export function PurposeFields({ view }: { view: IntakeView }) {
   return (
