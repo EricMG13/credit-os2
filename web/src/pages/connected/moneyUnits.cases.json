@@ -1,5 +1,5 @@
 {
-  "note": "Answer key written by the coordinating session, not by the implementer. Every expected value is a literal. Do not edit, reorder or delete a case; cases may only be added by a reviewer. Owner ruling 2026-11-26 (display only): a money unit shows the currency's symbol ($m, £m, €m, CA$m, ¥m) and a currency with no symbol its code (CHFm, CHF 300m); the coordinating session changed the US$/GBP/EUR expectations on that ruling and added the CAD, JPY and SEK cases. Task B fix round 1 (2026-11-26): the coordinating session added `writtenUnit`, a figure kept exactly as written (no regrouping) with its money unit drawn as the symbol before a bare number, else after the text.",
+  "note": "Answer key written by the coordinating session, not by the implementer. Every expected value is a literal. Do not edit, reorder or delete a case; cases may only be added by a reviewer. Owner ruling 2026-11-26 (display only): a money unit shows the currency's symbol ($m, £m, €m, CA$m, ¥m) and a currency with no symbol its code (CHFm, CHF 300m); the coordinating session changed the US$/GBP/EUR expectations on that ruling and added the CAD, JPY and SEK cases. Task B fix round 1 (2026-11-26): the coordinating session added `writtenUnit`, a figure kept exactly as written (no regrouping) with its money unit drawn as the symbol before a bare number, else after the text. Pre-merge fix (2026-11-26): the coordinating session added singular `<code> million` cases, a money unit in a retained live handoff; `thousand(s)` stays as written.",
   "withUnit": [
     ["2222", "USD millions", "$2,222m"],
     ["2222", "US$m", "$2,222m"],
@@ -28,7 +28,10 @@
     ["1250", "CAD millions", "CA$1,250m"],
     ["75", "JPY millions", "¥75m"],
     ["40", "SEKm", "SEK 40m"],
-    ["-40", "SEK millions", "-SEK 40m"]
+    ["-40", "SEK millions", "-SEK 40m"],
+    ["5", "USD million", "$5m"],
+    ["1250", "GBP million", "£1,250m"],
+    ["5", "USD thousand", "5 USD thousand"]
   ],
   "unitLabel": [
     ["USD millions", "$m"],
@@ -42,7 +45,10 @@
     ["%", "%"],
     ["CAD millions", "CA$m"],
     ["SEKm", "SEKm"],
-    ["JPY millions", "¥m"]
+    ["JPY millions", "¥m"],
+    ["USD million", "$m"],
+    ["GBP million", "£m"],
+    ["USD thousand", "USD thousand"]
   ],
   "writtenUnit": [
     ["1250", "USD millions", "$1250m"],
@@ -61,6 +67,8 @@
     ["35", "bp", "35 bp"],
     ["5", "USD thousands", "5 USD thousands"],
     ["2222", "", "2222"],
-    ["2222", null, "2222"]
+    ["2222", null, "2222"],
+    ["200", "USD million", "$200m"],
+    ["n.m.", "EUR million", "n.m. €m"]
   ]
 }

@@ -7,6 +7,19 @@ export function unitName(unit: string): string {
 }
 
 /**
+ * `unitName` for a view whose `units` the page tells apart: two stored units that draw as one
+ * label ("US$m", "USD millions") are each drawn as stored, so the page never calls a unit different
+ * from one that reads the same.
+ */
+export function unitNamer(units: Iterable<string>): (unit: string) => string {
+  const stored = new Set(units);
+  return (unit) => {
+    const clash = [...stored].some((other) => other !== unit && unitLabel(other) === unitLabel(unit));
+    return clash && unit !== "" ? unit : unitName(unit);
+  };
+}
+
+/**
  * The reporting unit a numeric bound compares at a period. Each issuer's newest run counts once,
  * under the unit of its one figure for the period (none when it states no figure, a gap or the
  * period twice). The unit most issuers state is taken; the empty unit never wins a tie. Two or

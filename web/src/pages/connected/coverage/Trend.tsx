@@ -23,6 +23,7 @@ import {
 import { Chip } from "@/components/kit/Chip";
 import { card } from "../layout";
 import { unitLabel } from "../moneyUnits";
+import { unitNamer } from "./boundUnit";
 import { prose } from "./shared";
 import { layoutTrend, type Box, type Metrics, type Placed, type Point } from "./trendLayout";
 
@@ -48,8 +49,11 @@ const isStated = (fact: Fact | null | undefined): fact is Stated =>
 /** The module's own reason for a stated gap, when it can be drawn on a working page. */
 const gapReason = (fact: Fact): string => prose(fact.text) ?? IN_EVIDENCE;
 
-const unitsOf = (facts: readonly Fact[]): string =>
-  [...new Set(facts.map((fact) => fact.unit ? unitLabel(fact.unit) : "no unit stated"))].join(", ");
+const unitsOf = (facts: readonly Fact[], unit: string): string => {
+  const stated = facts.map((fact) => fact.unit ?? "");
+  const name = unitNamer([...stated, unit]);
+  return [...new Set(stated.map(name))].join(", ");
+};
 
 /** What is true of a period the run's panel draws no point for. */
 function missingAt(facts: readonly Fact[], period: string, unit: string): Missing {
@@ -71,7 +75,7 @@ function missingAt(facts: readonly Fact[], period: string, unit: string): Missin
   }
   const other = here.filter((fact) => fact.at !== null);
   if (other.length > 0) {
-    const units = unitsOf(other);
+    const units = unitsOf(other, unit);
     return { long: `stated in another unit (${units}), not drawn here`, short: `In ${units} only` };
   }
   return { long: "no figure stated for this period", short: "No figure" };
@@ -80,7 +84,7 @@ function missingAt(facts: readonly Fact[], period: string, unit: string): Missin
 /** Why an issuer's newest run gives no panel in this unit: another unit first, then its stated gap. */
 function absentReason(facts: readonly Fact[], unit: string): string {
   const other = facts.filter((fact) => fact.at !== null && (fact.unit ?? "") !== unit);
-  if (other.length > 0) return `stated only in another unit (${unitsOf(other)}), not drawn here`;
+  if (other.length > 0) return `stated only in another unit (${unitsOf(other, unit)}), not drawn here`;
   const gaps = facts.filter((fact) => fact.at === null);
   if (gaps.length > 0) return [...new Set(gaps.map(gapReason))].join("; ");
   if (facts.length > 0) return "states figures in this unit without a period, so none is drawn";
@@ -610,7 +614,7 @@ export function TrendView({
                 setPicked(item);
               }}
             >
-              {unitLabel(item) || "No unit stated"}
+              {item === "" ? "No unit stated" : unitNamer(units)(item)}
             </Chip>
           ))}
         </div>

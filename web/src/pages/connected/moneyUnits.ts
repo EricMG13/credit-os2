@@ -1,4 +1,4 @@
-const moneyUnitSource = "(USD|US\\$|[A-Z]{3})(?: millions|m)";
+const moneyUnitSource = "(USD|US\\$|[A-Z]{3})(?: millions?|m)";
 const moneyUnit = new RegExp(`^${moneyUnitSource}$`);
 const endsInMoneyUnit = new RegExp(`^(.+) (${moneyUnitSource})$`);
 

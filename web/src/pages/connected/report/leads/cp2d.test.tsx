@@ -212,7 +212,7 @@ it("keeps each row's own basis in the table view, and lists no detached basis un
     within(row)
       .getAllByRole("cell")
       .map((item) => item.textContent),
-  ).toEqual(["120", "US$m", "Moody's-adjusted.", expect.any(String)]);
+  ).toEqual(["120", "$m", "Moody's-adjusted.", expect.any(String)]);
   expect(within(tile).getByRole("row", { name: /^Debt repayment/ })).toHaveTextContent(
     "Synthetic.",
   );

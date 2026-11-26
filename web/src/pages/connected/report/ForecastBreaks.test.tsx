@@ -503,9 +503,7 @@ it("draws the refinancing module's stated zero as 0 and no bare dash as its hori
   breaks([refinancing]);
   const part = within(screen.getByRole("region", { name: "Funding gap" }));
   // The horizon is the one year the Horizon row states under Years, not the dash under Amount.
-  expect(
-    part.getByText("Refinancing & LME: Funding gap · Years: 1 · USD million"),
-  ).toBeInTheDocument();
+  expect(part.getByText("Refinancing & LME: Funding gap · Years: 1 · $m")).toBeInTheDocument();
   expect(part.queryByText(/ · — · /)).toBeNull();
   const amount = part.getByText("Amount").closest("div");
   expect(amount).toHaveTextContent("Amount0");
