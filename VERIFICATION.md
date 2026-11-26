@@ -4,6 +4,40 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 6, run preparation and submission by profile
+
+- Slice 6 is stacked on draft #133 at `ee4f5e9b`. With sign-in on, a Reader opens Start a run
+  read-only and gets a fixed 403 on the 12 preparation and submission method/path pairs before any
+  body, file or scheduler work. An Analyst or Admin prepares and submits.
+- The analyst name comes from the account (given name and family initial, `Eric G`) or an Admin
+  override (`POST /auth/accounts/{id}/analyst-name`, `accounts analyst-name`), never from the
+  request. A name that cannot be derived refuses summary and Submit with `an Admin must set your
+  analyst name`. Account-store migration 2 adds the override; migration 1 is unchanged.
+- A signed-in summary binds the account and name into the issued approval, checked under the
+  submission lock before sealing and again when the record is built. The accepted record stores
+  `account_id`, which the activity script, connected projections and Teams cards leave out.
+  Sign-in-off behaviour, the approval digest and the caps are unchanged.
+- macOS runs on `c4dcc67c`: 1,260 Python tests (auth, accounts, run start, inbox, repo rules),
+  4,958 connected web tests, the quality gate with zero findings, four import contracts, web lint,
+  format, typecheck, unused code, duplication and build, all exit 0. Three legacy off-mode stress
+  tests start six to eight threads and stay unedited (owner).
+- On a local merge with `main` at `f3e13da2` (no conflicts), a signed Analyst's Custom CP-4 +
+  CP-4D request was accepted at USD 9 with the CP-4B dependency and `Eric G`, and 376 run-start
+  and Custom tests passed.
+- Desktop fidelity used the built app, a real account store outside `--root` and the pinned MSAL
+  loopback provider, in Chromium at 1024, 1280 and 1440 px. Reader saw guidance only and made no
+  intake request. The Analyst had no name field, reviewed as `Eric G` and queued one run with that
+  name and account. The unnameable Writer was refused, then queued as `Eric MG` after a real Admin
+  override. No layout, console or HTTP findings; 399 requests, all loopback; no credential value in
+  421 app log lines. The harness peaked at 11 threads against a bound of 16 for this browser proof
+  only (owner, 2026-11-26).
+- Reviews: task and ordering reviews with fixes (Codex session); confidence review; rewrite
+  tournament kept `issued_approval` and the `StartRun` view; changed-update sweep found no defect
+  and sends two structural rows (`StartRun.tsx`, `submissions.py` length) to the next phase sweep;
+  `mx-adversary` passed with 1 Low and 4 Info; the pre-merge adversarial review passed on Opus 5.5
+  (Fable limited) with 3 Low and 3 Info. Lows and Infos are parked for the batch after this slice.
+- Not verified: draft CI, native Windows, real Entra and work-PC deployment.
+
 ## 2026-11-26 — Sign-in slice 5, browser Admin actions
 
 - Slice 5 is stacked on draft #131 at `7fd98c58`. The new routes cover source approval and pause,
@@ -940,56 +974,3 @@ then 5; the narrow layout and the controls listed below.
 - Checks run on the final tree: 1,874 connected-page tests, TypeScript, lint and format on the changed files; 247 targeted Python tests across the parallel, budget, handoff-loop and web-search files, 14 selected launcher tests with one historical case skipped, and the changed-code gate with zero findings. One connected-page test failed once in five runs while the Python tests ran alongside; it was not identified and did not repeat. The full suites were not run.
 - Review. Two spec reviews and two adversarial reviews, each followed by repairs. The first fix to the turn event let a stop arriving during the event write through to dispatch; the look was restored to last and the test that covered it was restored. The adversarial reviews mutated the source in scratch copies: 18 of 19 web and 5 of 6 Python mutations were caught. The confidence-review and rewrite-tournament skills were not available in this session; the adversarial passes stood in for them. No browser was used; pages were rendered in jsdom.
 - Known limitations, left as low. An `other` grid drawn as its own statement can show the no-common-period sentence beside a drawn comparison. One case that publishes a period twice gets a left-out sentence at the statement although both columns are drawn, and the trends section drops that period without a notice when no cash proxy row exists. A third case disjoint from two that share periods is drawn as "Not published" with no notice. The statement header applies reader text to a name where the cards do not. A `not_sent` reply whose release then fails leaves a `turn` with no `turn_not_sent`. A halt and a ledger stop met together now raise the ledger stop. At a width of three or more the run page may still name a bystander at a checker stop; not confirmed.
-## 2026-11-24 — Coverage page (`/coverage`), first build
-
-- New top-level page of the connected app and one read-only reply, `/connected/coverage`, under
-  `docs/rulings/2026-11-24-coverage-page.md`. It reads the admitted publication only: fourteen
-  fixed module columns, five cell states by the Library's existing rules, and fields from the
-  Reader summary and typed `Chart data:` tables. It adds no parser, score, average or difference.
-- Retained evidence, module level only: three TransDigm CP-1 handoffs of the 2026-11-15 live runs
-  (as of 2024-09-30), each as its own publication. Leverage, net leverage and debt maturities kept
-  the text, period, unit and Basis read by hand from each Markdown file, and each figure's line is
-  its own table row. One issuer and one module: not a TDG pathway and not a cross-issuer case.
-- Everything across issuers is synthetic: figures keep text, period, unit and Basis; a stated gap
-  is listed apart, never ranked or shown as zero; a rank reads one reader-chosen period and keeps
-  reporting units apart; the page draws no module code, hash, file name or run folder.
-- Presentation fidelity, Chromium at 1500 px on a five-issuer synthetic publication: Modules, Rank,
-  Find and Trend drew with no console error. Edge, mobile widths and keyboard use were not checked.
-  The Evidence link's address follows `resolveEvidenceLocation` by reading; it was not clicked
-  through to a published report.
-- Review fixes, same day: text now comes from the current Findings sections (the synthetic
-  current-format CP-2 gives its bottom line, three findings and three limitations); module text
-  and Basis pass the reader's reference rule; adjusted headings join their reported measure;
-  gaps count `## Gaps` entries and `Not supplied:` cells (the retained TDG CP-1 is no longer plain
-  "Delivered"); absent modules are read against the run's recorded `requested_modules`, a new
-  field of the published run; period order reuses the reader's `periodOrder`.
-- Browser check repeated after the review fixes, Chromium at 1500 px, same five-issuer synthetic
-  publication with recorded plans: Modules (gaps and "Not asked for in this run" drawn), Rank,
-  Find by issuer name, Trend and an unavailable sector from the link drew with no console error.
-- Not done: confidence-review and rewrite-tournament (their definitions are not in this
-  repository or session), the full web and Python suites, and a check against the design system's component rules; the page uses native selects,
-  checkboxes and tables as the Library list does.
-
-## 2026-11-24 — Parallel CP-OS review fixes for PR #71
-
-- Offline fake-provider runs reproduced a reserved call reaching dispatch after an unknown charge
-  or overrun. The final check now uses the shared ledger and releases the unsent hold at zero.
-  The original failure remains the recorded reason for the stop.
-- At a USD 15 cap, widths 1 and 2 now both accept CP-0, CP-1 and CP-1A and settle USD 8.20.
-  Funded workers still overlap. Admission checks the reloaded ledger, configured turns and
-  attempts, hosted search fees, and exact pricing. An unavailable bound defers to serial calls.
-- Tested interrupts before native startup and before Python bootstrap completed on CPython 3.13.
-  Cleanup joins started workers and preserves the original interrupt. The library admission test
-  now uses pytest's provider fixture and verifies a default-width launch.
-- Scope covers synthetic handoffs, scheduler runs and library admission. The concurrency review
-  and rewrite tournament retained the locked-ledger admission and the startup cleanup paths.
-- Targeted offline pytest passed 1,315 tests, with one historical retained-run test skipped.
-  The parallel scheduler file passed 70 tests. The changed-code gate reported zero findings.
-
-## 2026-11-24 — Performance fixes on main `13b7d43b`
-
-- Recovered staged code from the earlier integration and applied it to current main. The two overlaps shared route parsing between preloading and rendering, and retained the run-chart memo boundary. Astra reproduced a same-grid Forecast crash when `Upside` and `Upside case` got different names in the chart and table. Both now share the resolved name. The new same-grid test failed before the fix and passed after it, alongside the existing split-grid test. Astra cleared that fix and both overlaps in patch `b1a24422`.
-- Confidence review checked read-only routes, one-use preload data, report chart output, exact Evidence links, and distinct scenario values and dates. The Chrome and Edge synthetic workflow exercised desktop and mobile Forecast, cash and debt figures, and keyboard source traces in `run-YRqxgd`. Its scope was the synthetic workspace.
-- Passed 1,882 connected and route tests, 3,468 offline web tests, 581 targeted Python tests, and 76 Node script checks. Build, ESLint, formatting, the changed-code Python gate and 126 offline route probes passed. The Python rerun used a short temporary directory to stay within the app's 80-character workspace limit.
-- Fallow found zero dead-code issues or duplicate groups. The six structural complexity findings also appear on main with the same scores.
-- In the earlier integration on `2e488751`, six pages of the retained Caesars preview matched at 1440 × 900. Forecast preserved all 118 controls and showed the four recorded FY2029E date spans. The earlier scanner benchmark over the same 9,537 tokens took 41–43 ms versus 84–85 ms at `1112176d`. Other prototype results were 326 to 1.4 ms for the 25-run library index, 323 to 151 ms for a repeated identical report response, and 770 to 693 ms for cold Chrome Overview rendering.
