@@ -2257,8 +2257,8 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
 # without its repeats, and the value was recomputed again. 2026-11-26 (CP-1 instruction PR): the
 # every-module sentence gained "Treat its interest cover the same way, ..." (owner's item 3), so
-# every module's instructions changed on purpose; recomputed (d3c2d13b...). The constant keeps
-# its name.
+# every module's instructions changed on purpose; the value pinned then (d3c2d13b...) was
+# recomputed (edc64bfc...). The constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
     "edc64bfc9891947aaf66ee5acaa86dc84f8ce77fac2497e7431cea9c0baeee80"
 )
@@ -11093,3 +11093,95 @@ def test_a_near_none_pro_forma_as_of_is_told_the_exact_text():
     assert cpos_launch_tables._near_none_issues(spec, spec.heading, "not stated.") == [expected]
     assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Not stated") == []
     assert cpos_launch_tables._near_none_issues(spec, spec.heading, "2024-11-05") == []
+
+
+PRO_FORMA_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 500 | 4.55 | US$m | Reported EBITDA; the notes issue. |"
+)
+PRO_FORMA_ADJUSTED_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 550 | 5.00 | US$m | Adjusted EBITDA; the notes issue. |"
+)
+
+
+def _pro_forma_issues_of(tmp_path, *rows):
+    home = tmp_path / f"case{len(list(tmp_path.iterdir()))}"
+    home.mkdir()
+    prepared, task, context = good_task(home, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    header, separator, _none = PRO_FORMA_NONE.splitlines()
+    table = "\n".join([header, separator, *rows])
+    changed = raw.replace(PRO_FORMA_NONE, table)
+    assert changed != raw
+    return _checked_handoff(task, changed.encode(), checker(prepared.layout))
+
+
+def test_pro_forma_rows_with_a_stated_cover_only_beside_stated_figures_are_accepted(tmp_path):
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW) == ()
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+    gap = (
+        "| 2024-11-05 | Not supplied: x | cash interest | 500 | Not supplied: x | US$m "
+        "| Reported EBITDA; s. |"
+    )
+    assert _pro_forma_issues_of(tmp_path, gap) == ()
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | 500 | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | 110 | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+    ],
+)
+def test_a_pro_forma_cover_beside_a_stated_gap_is_refused_naming_the_row(tmp_path, row):
+    issues = _pro_forma_issues_of(tmp_path, row)
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and "Not supplied" in i
+        for i in issues
+    ), issues
+
+
+@pytest.mark.parametrize("cover", ["4.545", "5", "4.5", "1,004.55"])
+def test_a_pro_forma_cover_not_to_exactly_two_decimals_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any("Pro forma interest cover" in i and "two decimal" in i for i in issues), issues
+
+
+@pytest.mark.parametrize(
+    ("rows", "words"),
+    [
+        (
+            [PRO_FORMA_ROW.replace("Reported EBITDA", "Core earnings")],
+            "Reported EBITDA` or `Adjusted EBITDA",
+        ),
+        ([PRO_FORMA_ROW, PRO_FORMA_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ROW], "first"),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW.replace("5.00", "5.01")],
+            "at most two",
+        ),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW.replace("cash interest", "interest expense")],
+            "one Interest measure",
+        ),
+    ],
+)
+def test_pro_forma_rows_name_one_ebitda_basis_each_and_one_interest_measure(tmp_path, rows, words):
+    issues = _pro_forma_issues_of(tmp_path, *rows)
+    assert any("Pro forma interest and cover" in i and words in i for i in issues), issues
+
+
+def test_a_pro_forma_shape_refusal_is_not_reported_twice(tmp_path):
+    bad = PRO_FORMA_ROW.replace("cash interest", "interest paid")
+    issues = [i for i in _pro_forma_issues_of(tmp_path, bad) if "Pro forma interest" in i]
+    assert len(issues) == 1, issues

@@ -99,7 +99,7 @@ class OwnerTable:
     events: bool = False  # A dated-event table: no unit or basis columns; dates by precision.
     edges: bool = False  # A node/edge map table: no unit or basis columns; an edge type's words.
     none_text: str = (
-        ""  # The words of an Event cell that states none: the one row `_states_none` takes.
+        ""  # The words of the first cell that states none: the one row `_states_none` takes.
     )
     scored: bool = False  # The confidence inputs table: its rows are `confidence`'s, not columns.
     money_table: bool = False  # `chart_unit` is the handoff's resolved money unit (`MONEY` was it).
@@ -277,24 +277,75 @@ PRO_FORMA = OwnerTable(
     in_unit=("Pro forma interest", "EBITDA"),
     dates=("As of",),
     choices=(("Interest measure", ("cash interest", "interest expense")),),
-    noun="EBITDA",
+    noun="EBITDA basis",
     none_text="Not stated",
     none_when="no source states a pro forma interest",
     none_case="pro forma interest",
     rules=(
         "Pro forma interest is the annual interest a source states after the balance-sheet "
         "date's events, never worked out; Interest measure is exactly `cash interest` or "
-        "`interest expense`, as the source states, never mixed. EBITDA is that of T4.9's "
+        "`interest expense`, as stated, never mixed. EBITDA is that of T4.9's "
         "`EBITDA / cash interest` row for the latest period; where T4.9 states `Adjusted EBITDA "
         "/ cash interest`, a second row uses its EBITDA. Basis and limitation opens with "
         "`Reported EBITDA` or `Adjusted EBITDA` and names the interest's source. The cover is "
-        "EBITDA over Pro forma interest, worked with `calculate` from those two, to two "
+        "EBITDA over Pro forma interest, worked with `calculate` from those two only, to two "
         "decimals, as times, no `x`, listed in `## Calculations`. As of is the date the "
         "source states it at, YYYY-MM-DD or `Not supplied: the source states <what it gives> "
         "only`. A figure no source states, and the cover beside it, is `Not supplied: "
         "<reason>`; never estimate one. Add no pro forma row to a chart table."
     ),
 )
+
+
+PRO_FORMA_LABELS = ("Reported EBITDA", "Adjusted EBITDA")
+COVER_FORM = re.compile(r"-?\d+\.\d{2}")
+
+
+def _pro_forma_issues(text: str) -> tuple[str, ...]:
+    """CP-1's `Pro forma interest and cover` rows beyond the shared shape check (run only when that
+    passed): a figure no source states leaves the cover beside it `Not supplied`; a stated cover is
+    a plain number to exactly two decimals; each row's Basis and limitation opens with its EBITDA
+    label, at most the two labels, each once, `Reported EBITDA` first; one Interest measure. The
+    none row (`Not stated`) states no figure and is exempt."""
+    heading = f"### {PRO_FORMA.heading}"
+    if heading not in text.splitlines():
+        return ()
+    rows = _stated_rows(text, heading)
+    body, _ = _first_table(heading, rows[2:])
+    stated = [r for r in body if len(r) == len(rows[0]) and r[0] != PRO_FORMA.none_text]
+    issues, labels = [], []
+    for at, (as_of, interest, measure, ebitda, cover, _unit, basis) in enumerate(stated, 1):
+        row = f"`{heading}` {as_of} (row {at})"
+        if (_stated_gap(interest) or _stated_gap(ebitda)) and not _stated_gap(cover):
+            issues.append(
+                f"{row}: Pro forma interest cover {cover} sits beside a figure no source states; "
+                "write the cover as `Not supplied: <reason>`, as the interest or EBITDA is."
+            )
+        elif not _stated_gap(cover) and not COVER_FORM.fullmatch(cover):
+            issues.append(
+                f"{row}: Pro forma interest cover {cover} must be a plain number with exactly "
+                "two decimal places (`4.55`), or `Not supplied: <reason>`."
+            )
+        label = next((x for x in PRO_FORMA_LABELS if basis.startswith(x)), None)
+        if label is None:
+            issues.append(
+                f"{row}: Basis and limitation must open with `Reported EBITDA` or "
+                f"`Adjusted EBITDA`, the EBITDA the row uses."
+            )
+        labels.append(label)
+    table = f"`{heading}`"
+    named = [x for x in labels if x]
+    if len(stated) > 2:
+        issues.append(f"{table}: at most two rows, one on Reported and one on Adjusted EBITDA.")
+    if len(set(named)) < len(named):
+        issues.append(f"{table}: each EBITDA basis is stated once; one row names it once.")
+    if named[:2] == list(PRO_FORMA_LABELS[::-1]):
+        issues.append(
+            f"{table}: the Reported EBITDA row comes first, the Adjusted EBITDA after it."
+        )
+    if len({r[2] for r in stated}) > 1:
+        issues.append(f"{table}: one Interest measure across the rows, never mixed.")
+    return tuple(issues)
 
 
 def _owner_tables(

@@ -201,6 +201,7 @@ from deploy_workflow.owners.cpos_launch_tables import (
     _chart_route,
     _net_debt_issues,
     _owner_tables,
+    _pro_forma_issues,
     chart_issues,
 )
 from deploy_workflow.owners.cpos_reader import without_notes
@@ -271,9 +272,9 @@ __all__ = [
     "POSTURES",
     "POSTURE_HEADING",
     "POST_BS",
-    "PRO_FORMA",
     "PRESENCE_RULE",
     "PROSE_PASSAGES",
+    "PRO_FORMA",
     "READER_PERSONA",
     "REGISTER_SCOPE",
     "REGISTER_SCOPE_MODULES",
@@ -294,6 +295,7 @@ __all__ = [
     "_none_rule",
     "_owner_tables",
     "_print_review",
+    "_pro_forma_issues",
     "_review_lines",
     "_selector",
     "chart_issues",
@@ -1386,11 +1388,12 @@ def _owned_issues(
     any other module's is `cp1` (its CP-1 handoff; none means no money unit, `NO_MONEY`)."""
     source = text if module == "CP-1" else cp1.decode("utf-8") if cp1 is not None else None
     money = money_unit(source) if source is not None else None
-    issues = [
-        i
-        for owned in _owner_tables(module, routes, pathway)
-        for i in chart_issues(text, owned, money=money)
-    ]
+    issues: list[str] = []
+    for owned in _owner_tables(module, routes, pathway):
+        found = chart_issues(text, owned, money=money)
+        issues += found
+        if owned is PRO_FORMA and not found:  # CP-1's own rows check, after the shape check
+            issues += _pro_forma_issues(text)
     return [*issues, *_net_debt_issues(text), *_cp1_issues(text)] if module == "CP-1" else issues
 
 
