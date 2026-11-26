@@ -65,11 +65,14 @@ LESS_THAN_LOOKALIKES = "<≮﹤＜\u02c2\u2039\u1438\u276e\u3008\u2329\ufe3f\u16
 # Detection-only folds that are not in ``LESS_THAN_LOOKALIKES`` (``prompts.compose`` builds a JSON
 # escape from that set, which is wrong above U+FFFF and has no meaning for a double or triple
 # chevron): single confusables from UTS #39 outside the BMP or in the BMP, and the characters that
-# show two (U+27EA, U+300A, U+226A) or three (U+22D8, U+2AF7) chevrons.
+# show two (U+27EA, U+226A) or three (U+22D8, U+2AF7) chevrons. U+300A 《 (and U+FE3D ︽, which NFKD
+# maps to it) is deliberately NOT folded: it is Chinese book-title punctuation, and folding it
+# refused legitimate text such as ``《〈论语〉研究》``. Known pre-existing gap (same at 030805f): a
+# forgery written with 《 or ︽ as its only chevrons (``《<END>>>``) is not detected.
 _DETECTION_FOLDS = {
     **dict.fromkeys(LESS_THAN_LOOKALIKES, "<"),
     **dict.fromkeys("\u2d66\U0001d236\U00016aec\U0001032d", "<"),
-    **dict.fromkeys("\u27ea\u300a\u226a", "<<"),
+    **dict.fromkeys("\u27ea\u226a", "<<"),
     **dict.fromkeys("\u22d8\u2af7", "<<<"),
 }
 _FOLD_TO_LESS_THAN = str.maketrans(_DETECTION_FOLDS)
