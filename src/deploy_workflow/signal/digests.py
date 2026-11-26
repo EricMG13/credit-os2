@@ -12,17 +12,18 @@ cap is what bounds the digests, their runs and the due pass whatever names are t
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
 of the covered topics and issuers, and the stories shared in the covered groups (a thread started
-from a story) in the period, by share time. A digest keeps a mark, the highest story id its last
-run considered (``story_mark``). A run reads the highest story id then stored, and takes the
-stories above the mark up to it that were published after the period's start less one look-back,
-the longer of the period and the schedule's own period; there is no upper bound on the published
-time. So a story the feed stamped before a run but ingest stored after it is in the next run, once,
-and a new source's old archive is not. A run that ends the period moves the mark to that id and
-never lowers it; a failed write leaves both. Only stories of the four feed kinds are in
-scope, whatever the digest covers: no filing and no market post (``SCOPE_CONDITION``).
-With none in scope it stores an issue saying nothing material happened and makes no model call.
-With some in scope it needs a ``Writer`` (the AI pass's, ``ai_digest``, given only while the pass
-is on); without one no issue is written and the run is recorded as skipped, with the reason.
+from a story) in the period (by share time), and those a topic posted into a covered group (by the
+mark, as the topics' are). A digest keeps a mark, the highest story id its last run considered
+(``story_mark``). A run reads the highest story id then stored, and takes the stories above the mark
+up to it that were published after the period's start less one look-back, the longer of the period
+and the schedule's own period; there is no upper bound on the published time. So a story the feed
+stamped before a run but ingest stored after it is in the next run, once, and a new source's old
+archive is not. A run that ends the period moves the mark to that id and never lowers it; a failed
+write leaves both. Only stories of the four feed kinds are in scope, whatever the digest covers: no
+filing and no market post (``SCOPE_CONDITION``). With none in scope it stores an issue saying
+nothing material happened and makes no model call. With some in scope it needs a ``Writer`` (the AI
+pass's, ``ai_digest``, given only while the pass is on); without one no issue is written and the run
+is recorded as skipped, with the reason.
 
 A run with a writer makes its model call outside every transaction: a first write transaction reads
 the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no other
@@ -53,14 +54,18 @@ issue: it never says that nothing material happened.
 
 Runs are due when ``next_run_at`` has passed. A digest whose time passed while the service was down
 runs once at the next start: the run covers the whole gap and the next run is the first slot after
-now. A run that fails because the database is busy or locked (SQLITE_BUSY, SQLITE_LOCKED), or
-whose model call the adapter did not send, is left due, so the next tick retries it, and the pass
-says how many it left (``Ran.left_due``); a run left for the writer's limits or a refusal is
-``Ran.waiting``; any other failure, a lasting database fault included, is recorded as skipped and
-the digest moves to its next slot. A run that needs a call the writer cannot make now (it has
-stopped, or the owner's name has made its calls for the day) is left exactly as it was, and the
-pass goes on: runs with nothing in scope, and other names' runs, are never held up behind it.
-Every write is one write transaction.
+now. A run that fails because the database is busy or locked (SQLITE_BUSY, SQLITE_LOCKED) before its
+model call was reserved or sent (``ai_call.BusyBeforeSend``), or whose call the adapter did not
+send, is left due as it was, so the next tick retries it, and the pass says how many it left
+(``Ran.left_due``). A busy or locked database after the call may have been paid (in it, or storing
+its issue) is never made due again, which would pay twice for the period: the claim is held for
+``recover_claims`` and the digest is listed in ``Ran.held`` (``ai_run.digest_pass`` raises for
+both); the next scheduled slot covers the period, which did not move. A run left for the writer's
+limits or a refusal is ``Ran.waiting``; any other failure, a lasting database fault included, is
+recorded as skipped and the digest moves to its next slot. A run that needs a call the writer cannot
+make now (it has stopped, or the owner's name has made its calls for the day) is left exactly as it
+was, and the pass goes on: runs with nothing in scope, and other names' runs, are never held up
+behind it. Every write is one write transaction.
 """
 
 from __future__ import annotations
@@ -74,7 +79,6 @@ from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
 from deploy_workflow.signal import ai_ledger, groups, schedule
-from deploy_workflow.signal.texts import day, utc
 from deploy_workflow.signal.store import (
     KINDS,
     Conflict,
@@ -86,6 +90,7 @@ from deploy_workflow.signal.store import (
     kind_condition,
     plain_text,
 )
+from deploy_workflow.signal.texts import day, utc
 
 log = logging.getLogger(__name__)
 
@@ -226,18 +231,20 @@ class _RetryLater(Exception):
 class _ClaimHeld(Exception):
     """A busy or locked database after a run's claim, and the digest is not due again: its claim
     could not be released, is not this run's any more, or its paid call must not be repeated. The
-    claim is left for ``recover_claims``; the digest is not in ``left_due``."""
+    claim is left for ``recover_claims``; the digest is in ``Ran.held``, not ``left_due``."""
 
 
 class Ran(list[tuple[int, "Run"]]):
     """The runs a pass made; the digests it left due for the next tick by a fault (`left_due`: a
-    busy database, a call not sent) and those left waiting because the writer stopped for a limit
-    or a refusal (`waiting`)."""
+    busy database before anything was sent, a call not sent), those left waiting because the writer
+    stopped for a limit or a refusal (`waiting`), and those whose claim is held (`held`: a busy
+    database after a paid call may have been made; not due again, see ``_ClaimHeld``)."""
 
     def __init__(self) -> None:
         super().__init__()
         self.left_due: list[int] = []
         self.waiting: list[int] = []
+        self.held: list[int] = []
 
 
 class Writer(Protocol):
@@ -864,31 +871,21 @@ def _unchanged(db: sqlite3.Connection, scope: Scope) -> bool:
     )
 
 
-def _release(db: sqlite3.Connection, scope: Scope) -> None:
-    """Make the digest due again (``_due_again``). _ClaimHeld when that is not done: the claim is
-    no longer this run's, or the restoring write met the same busy or locked database (logged; the
-    claim is left for ``recover_claims`` at the next start)."""
+def _release(db: sqlite3.Connection, scope: Scope) -> bool:
+    """Make the digest due again (``_due_again``); False when the digest changed meanwhile (its
+    claim is cleared and its own schedule stands: nothing is left due). _ClaimHeld when that is not
+    done: the claim is no longer this run's, or the restoring write met the same busy or locked
+    database (logged; the claim is left for ``recover_claims`` at the next start)."""
     try:
         restored = _due_again(db, scope)
     except sqlite3.OperationalError as error:
-        if not _passing(error):
+        if not ai_ledger.is_busy(error):
             raise
         log.exception("digest %s: its claim could not be released", scope.digest.id)
         raise _ClaimHeld(str(error)) from error
-    if not restored:
+    if restored is False:
         raise _ClaimHeld("the claim is no longer this run's")
-
-
-@contextmanager
-def _releasing(db: sqlite3.Connection, scope: Scope) -> Iterator[None]:
-    """A busy or locked database in the write after a run's claim: the digest is made due again as
-    it was, so the next tick retries it (the error goes on to say so), or _ClaimHeld."""
-    try:
-        yield
-    except sqlite3.OperationalError as error:
-        if _passing(error):
-            _release(db, scope)
-        raise
+    return restored is True
 
 
 @contextmanager
@@ -926,18 +923,21 @@ def _write(
     now: datetime,
 ) -> Run | None:
     """Draft the issue outside any transaction, then store it in one; None when the digest changed
-    meanwhile (nothing is stored then). _RetryLater when the writer made no paid call: the digest
-    is made due again as it was, with its period and its place in the queue."""
+    meanwhile (nothing is stored then). _RetryLater when the writer made no paid call (a busy store
+    before the reservation included): the digest is made due again as it was, with its period and
+    its place in the queue. A busy store after the paid draft (the store write) holds the claim
+    (``_holding``): the call is never repeated for the period; the next scheduled slot covers it."""
     count = len(scope.stories)
     try:
         with _holding(scope):  # busy inside the call: whether it was paid is not known
             draft = writer.draft(scope)
     except WriterFailed as failed:
         if failed.again:
-            _release(db, scope)
+            if not _release(db, scope):
+                return None  # the digest changed: its claim is cleared, nothing is left due
             raise _RetryLater(str(failed), fault=failed.fault, stories=count) from None
         return _record_failed_write(db, scope, failed, trigger, now)
-    with _releasing(db, scope), _write_transaction(db):
+    with _holding(scope), _write_transaction(db):
         if not _unchanged(db, scope):
             log.warning("digest %s changed while its issue was written; dropped", scope.digest.id)
             _unclaim(db, scope.digest.id)
@@ -947,10 +947,11 @@ def _write(
     return run
 
 
-def _due_again(db: sqlite3.Connection, scope: Scope) -> bool:
+def _due_again(db: sqlite3.Connection, scope: Scope) -> bool | None:
     """Undo a run's claim: its scheduled time and the time its run was asked for are put back as
     they were, so it keeps its place among the due digests (longest due first). False, nothing
-    touched, when the digest's claim is no longer this run's (another runner holds it, or none)."""
+    touched, when the digest's claim is no longer this run's (another runner holds it, or none).
+    None when the digest changed meanwhile: the claim is cleared, its own schedule is left."""
     digest = scope.digest
     asked = None if digest.requested_at is None else _utc_text(digest.requested_at)
     with _write_transaction(db):
@@ -958,11 +959,12 @@ def _due_again(db: sqlite3.Connection, scope: Scope) -> bool:
         if row is None or row["claimed_at"] != scope.claim:
             return False
         _unclaim(db, digest.id)
-        if _unchanged(db, scope):
-            db.execute(
-                "UPDATE digests SET next_run_at=?, run_requested_at=? WHERE id=?",
-                (_utc_text(digest.next_run_at), asked, digest.id),
-            )
+        if not _unchanged(db, scope):
+            return None
+        db.execute(
+            "UPDATE digests SET next_run_at=?, run_requested_at=? WHERE id=?",
+            (_utc_text(digest.next_run_at), asked, digest.id),
+        )
     return True
 
 
@@ -1033,7 +1035,9 @@ def request_run(db: sqlite3.Connection, owner: str, digest_id: int, now: datetim
     AI is on, so no model call is made in a request handler. Refused as ``run_now`` is; asking
     again while a run is asked for keeps its first time, and so its place among the due digests.
     Refused too while a run's claim is live (its model call in flight, no run recorded yet; a
-    claim older than ``ai_ledger.CALL_BOUND`` is not)."""
+    claim older than ``ai_ledger.CALL_BOUND`` is not: it is recorded as a run first, so the request
+    is refused until the next slot)."""
+    _settle_stale_claims(db, now)
     with _write_transaction(db):
         _may_run_now(db, owned(db, owner, digest_id), now)
         live = _utc_text(now - ai_ledger.CALL_BOUND)  # an older claim is left for recovery
@@ -1077,7 +1081,12 @@ def _run_scheduled(
 INTERRUPTED = f"{NOT_WRITTEN}the service stopped while its model call was in flight"
 
 
-def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> int:
+UNRECORDED = f"{NOT_WRITTEN}its result was not recorded within the time a model call can take"
+
+
+def recover_claims(
+    db: sqlite3.Connection, before: datetime, now: datetime, reason: str = INTERRUPTED
+) -> int:
     """At start-up: every run claimed before `before` (its model call in flight then, so cut
     short by a crash or a stop) that left no result is recorded as one whose paid call wrote no
     issue (``INTERRUPTED``): its period stays, and it waits for its next scheduled time like any
@@ -1091,8 +1100,18 @@ def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> i
             digest = _digest(db, row)
             claimed = datetime.fromisoformat(row["claimed_at"])
             scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
-            _close(db, scope, Run("skipped", None, 0, INTERRUPTED), row["claimed_by"], now)
+            _close(db, scope, Run("skipped", None, 0, reason), row["claimed_by"], now)
     return len(rows)
+
+
+def _settle_stale_claims(db: sqlite3.Connection, now: datetime) -> None:
+    """In a running process: a claim older than ``ai_ledger.CALL_BOUND`` (no call lasts so long) is
+    a paid attempt whose result was never recorded (a busy store held it). It is recorded as a run
+    that wrote no issue (``UNRECORDED``), so "Run once now" waits for the next slot like after any
+    paid attempt (one paid attempt per period). Written only when such a claim exists."""
+    before = _utc_text(now - ai_ledger.CALL_BOUND)
+    if db.execute("SELECT 1 FROM digests WHERE claimed_at < ?", (before,)).fetchone():
+        recover_claims(db, now - ai_ledger.CALL_BOUND, now, UNRECORDED)
 
 
 def _record_failure(
@@ -1130,13 +1149,9 @@ def _fail(
     return True
 
 
-_RETRIED = (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
-
-
 def _passing(error: sqlite3.OperationalError) -> bool:
     """Whether the fault may pass: the database was busy or locked (extended codes included)."""
-    code = getattr(error, "sqlite_errorcode", None)
-    return isinstance(code, int) and code & 0xFF in _RETRIED
+    return ai_ledger.is_busy(error)
 
 
 def _run_one(
@@ -1153,6 +1168,7 @@ def _run_one(
         return
     except _ClaimHeld as held:
         log.error("digest %s: not left due, its claim stays for recovery (%s)", digest_id, held)
+        results.held.append(digest_id)
         return
     except sqlite3.OperationalError as error:
         if _passing(error):
@@ -1178,15 +1194,17 @@ def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None)
     scheduled time, or the time its run was asked for if earlier), at most DUE_PER_PASS runs; the
     others stay due for the next pass.
 
-    A digest whose run raises is logged and recorded as skipped, its digest moved to its next
-    slot, unless the fault may pass (the database was busy or locked, or the writer's call was not
-    sent): that one is left due for the next tick and listed in ``left_due``. Either way the pass
-    goes on to the others, even when recording a failure fails too. A run that needs a call the
-    writer cannot make now (``Writer.blocked``: the writer stopped, at a refused call, a call not
-    sent or its limits for this pass, or the owner's name has made its calls for the day) is left
-    due exactly as it was, changing nothing, and listed in ``waiting`` (in ``left_due`` when the
-    stop was a call not sent); it does not count among the pass's runs, and the pass goes on, so
+    A digest whose run raises is logged and recorded as skipped, its digest moved to its next slot,
+    unless the fault may pass (the database was busy or locked before the call was reserved or sent,
+    or the writer's call was not sent): that one is left due for the next tick and listed in
+    ``left_due``; a busy database after a call may have been paid holds its claim (``held``). Either
+    way the pass goes on to the others, even when recording a failure fails too. A run that needs a
+    call the writer cannot make now (``Writer.blocked``: the writer stopped, at a refused call, a
+    call not sent or its limits for this pass, or the owner's name has made its calls for the day)
+    is left due exactly as it was, changing nothing, and listed in ``waiting`` (in ``left_due`` when
+    the stop was a call not sent); it does not count among the pass's runs, and the pass goes on, so
     the runs that need no call (nothing in scope) and other names' runs are never held up."""
+    _settle_stale_claims(db, now)
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
         " ORDER BY min(next_run_at, coalesce(run_requested_at, next_run_at)), id LIMIT ?",

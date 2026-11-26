@@ -77,6 +77,13 @@ _STORE_ID = re.compile(r"[0-9a-f]{16}", re.ASCII)
 Purpose = Literal["stories", "digest"]
 
 
+def is_busy(error: sqlite3.OperationalError) -> bool:
+    """Whether the fault is the database being busy or locked (SQLITE_BUSY, SQLITE_LOCKED, their
+    extended codes included): a fault that may pass."""
+    code = getattr(error, "sqlite_errorcode", None)
+    return isinstance(code, int) and code & 0xFF in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+
+
 class Refused(Exception):
     """No call is made: no cap is set, the pass is switched off, or the call would pass the cap."""
 

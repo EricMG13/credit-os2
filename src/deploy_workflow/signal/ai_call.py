@@ -96,6 +96,14 @@ class Guard:
     homes: list[Path] = field(default_factory=list)  # exchange homes this job's calls made
 
 
+class BusyBeforeSend(sqlite3.OperationalError):
+    """The store was busy or locked before the call was reserved (the gate's reads, the store id,
+    the hold): nothing was reserved, sent or paid. Raised only from that part of ``call``, so a busy
+    fault anywhere later (the model call, its settling) is not this error. It is the busy
+    ``sqlite3.OperationalError`` itself (same ``sqlite_errorcode``), so a caller that handles a busy
+    store (the story pass's callers, the command line) still does."""
+
+
 @dataclass(frozen=True)
 class Answer:
     """What came back: the reply's text (None when there is no usable reply) and the outcome."""
@@ -254,12 +262,20 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
 ) -> Answer:
     """Check the gate, reserve, make one call, settle. ai_ledger.Refused when no call may be made
     (nothing is held then); a digest call names its digest's `owner` (the per-name limit). A
+    store busy or locked before the hold is ``BusyBeforeSend`` (nothing reserved or sent). A
     call that raises is settled as unknown (it may have been sent), which switches the pass off;
     the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
-    store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
     homes = Path.cwd() / HOMES  # where the adapter makes this exchange's home
-    call_id = _reserve(db, guard, purpose, model.config_id, usd, owner)
+    try:
+        store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
+        call_id = _reserve(db, guard, purpose, model.config_id, usd, owner)
+    except sqlite3.OperationalError as error:
+        if not ai_ledger.is_busy(error):
+            raise
+        busy = BusyBeforeSend(str(error))  # no hold was made: nothing can be paid
+        busy.sqlite_errorcode = error.sqlite_errorcode  # is_busy held, so it has one
+        raise busy from error
     tag = f"{store_id}-{call_id}"  # never the same in another store
     digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
     home = homes / digest / reservation

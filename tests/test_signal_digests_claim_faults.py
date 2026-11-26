@@ -1,5 +1,6 @@
 """Digest runs and their claims under faults: a busy write after the claim leaves the digest due
-(C5-F1), "Run once now" asked while a claim is live is refused (C5-F3), and a failed run never moves
+only when no call was paid (a call not sent), and holds the claim after a paid call (C5-F1, C5-R1,
+C5-R2), "Run once now" asked while a claim is live is refused (C5-F3), and a failed run never moves
 the story mark past what its scope read (C5-F16). A real store; the writer is a test double for the
 model call only. Expected values are written by hand from the calendar."""
 
@@ -66,13 +67,21 @@ def _row(db: sqlite3.Connection, ident: int) -> sqlite3.Row:
     ).fetchone()
 
 
-def test_a_busy_write_after_the_claim_leaves_a_scheduled_digest_really_due(db):
+class NotSentBusy(RecordingWriter):
+    """The call was not sent (nothing paid): the writer says so as ai_digest.Writer does."""
+
+    def draft(self, scope: digests.Scope) -> object:
+        self.scopes.append(scope)
+        raise digests.WriterFailed("busy before the call", again=True, fault=True)
+
+
+def test_a_call_not_sent_leaves_a_scheduled_digest_really_due(db):
     wire = source(db)
     story(db, wire, "Plant closure", at("2026-11-26 09:00"))
     ident = make(db)
     before = tuple(_row(db, ident))
-    ran = digests.run_due(db, DUE, BusyOnStore())
-    assert list(ran) == [] and ran.left_due == [ident]
+    ran = digests.run_due(db, DUE, NotSentBusy())
+    assert list(ran) == [] and ran.left_due == [ident] and ran.held == []
     assert tuple(_row(db, ident)) == before
     assert (before[0], before[2], before[3]) == ("2026-11-27T07:00:00+00:00", None, None)
     again = RecordingWriter()
@@ -80,16 +89,62 @@ def test_a_busy_write_after_the_claim_leaves_a_scheduled_digest_really_due(db):
     assert [(one, run.outcome) for one, run in second] == [(ident, "written")]
 
 
-def test_a_busy_write_after_the_claim_keeps_a_manual_request(db):
+def test_a_call_not_sent_keeps_a_manual_request(db):
     wire = source(db)
     story(db, wire, "Plant closure", at("2026-11-26 09:00"))
     ident = make(db)
     digests.request_run(db, "Mara L", ident, NOW)
     before = tuple(_row(db, ident))
     assert before[1] == "2026-11-24T12:00:00+00:00"
-    ran = digests.run_due(db, NOW + timedelta(minutes=5), BusyOnStore())
+    ran = digests.run_due(db, NOW + timedelta(minutes=5), NotSentBusy())
     assert ran.left_due == [ident]
     assert tuple(_row(db, ident)) == before
+
+
+def test_c5_r1_a_busy_store_after_a_paid_draft_holds_the_claim_and_never_drafts_again(db):
+    wire = source(db)
+    story(db, wire, "Plant closure", at("2026-11-26 09:00"))
+    ident = make(db)
+    writer = BusyOnStore()
+    ran = digests.run_due(db, DUE, writer)
+    assert list(ran) == [] and ran.left_due == [] and ran.held == [ident]
+    row = _row(db, ident)
+    assert (row["next_run_at"], row["claimed_by"], row["claimed_at"] is not None) == (
+        "2026-12-04T07:00:00+00:00",
+        "schedule",
+        True,
+    )
+    for minutes in (1, 2, 3):
+        digests.run_due(db, DUE + timedelta(minutes=minutes), writer)
+    assert len(writer.scopes) == 1  # one paid attempt for the period
+
+
+def test_c5_r1_a_manual_request_is_not_run_again_after_a_busy_store(db):
+    wire = source(db)
+    story(db, wire, "Plant closure", at("2026-11-26 09:00"))
+    ident = make(db)
+    digests.request_run(db, "Mara L", ident, NOW)
+    writer = BusyOnStore()
+    ran = digests.run_due(db, NOW + timedelta(minutes=5), writer)
+    assert ran.left_due == [] and ran.held == [ident]
+    digests.run_due(db, NOW + timedelta(minutes=6), writer)
+    assert len(writer.scopes) == 1 and _row(db, ident)["run_requested_at"] is None
+
+
+def test_c5_a_digest_edited_during_an_unsent_call_is_not_listed_as_left_due(db):
+    wire = source(db)
+    story(db, wire, "Plant closure", at("2026-11-26 09:00"))
+    ident = make(db)
+
+    class Edited(NotSentBusy):
+        def draft(self, scope: digests.Scope) -> object:
+            db.execute("UPDATE digests SET name='Renamed' WHERE id=?", (ident,))
+            db.commit()
+            return super().draft(scope)
+
+    ran = digests.run_due(db, DUE, Edited())
+    assert list(ran) == [] and ran.left_due == [] and ran.held == []
+    assert _row(db, ident)["claimed_at"] is None
 
 
 def test_a_request_while_a_claim_is_live_is_refused_and_no_second_run_follows(db):
@@ -185,28 +240,33 @@ def test_m1_a_busy_release_does_not_say_the_digest_is_due(db, monkeypatch):
         raise _busy()
 
     monkeypatch.setattr(digests, "_due_again", busy_release)
-    assert digests.run_due(db, DUE, BusyOnStore()).left_due == []
 
     class NotSent(RecordingWriter):
         def draft(self, scope: digests.Scope) -> object:
             raise digests.WriterFailed("not sent", again=True, fault=True)
 
-    assert digests.run_due(db, DUE, NotSent()).left_due == []
+    ran = digests.run_due(db, DUE, NotSent())
+    assert ran.left_due == [] and ran.held == [ident]
     assert _row(db, ident)["claimed_at"] is not None
 
 
-def test_m2_a_claim_older_than_a_call_can_last_does_not_refuse_a_request(db):
+def test_m2_a_claim_older_than_a_call_can_last_is_a_run_that_wrote_no_issue(db):
+    """It is recorded as a paid attempt, so a request waits for the next slot (one paid attempt per
+    period) rather than being let through to pay twice."""
     ident = _ready(db)
     db.execute(
-        "UPDATE digests SET claimed_by='schedule', claimed_at='2026-11-27T07:00:00+00:00'"
-        " WHERE id=?",
+        "UPDATE digests SET claimed_by='schedule', claimed_at='2026-11-27T07:00:00+00:00',"
+        " next_run_at='2026-12-04T07:00:00+00:00' WHERE id=?",
         (ident,),
     )
     db.commit()
-    with pytest.raises(Conflict):
+    with pytest.raises(Conflict):  # live: its call may be in flight
         digests.request_run(db, "Mara L", ident, DUE + timedelta(seconds=30))
-    digests.request_run(db, "Mara L", ident, DUE + timedelta(hours=1))
-    assert _row(db, ident)["run_requested_at"] == "2026-11-27T08:00:00+00:00"
+    with pytest.raises(Conflict, match="ran at 09:00 UTC"):  # recorded when first met
+        digests.request_run(db, "Mara L", ident, DUE + timedelta(hours=2))
+    with pytest.raises(Conflict, match="wrote no issue, so it runs again at"):
+        digests.request_run(db, "Mara L", ident, DUE + timedelta(hours=3))
+    assert _row(db, ident)["claimed_at"] is None and _row(db, ident)["run_requested_at"] is None
 
 
 def test_m4_a_busy_record_of_a_paid_failure_does_not_pay_again(db, monkeypatch):

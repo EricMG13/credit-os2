@@ -193,6 +193,8 @@ class Writer:
             raise digests.WriterFailed(str(refused), again=True) from None
         except ai_ledger.Refused as refused:
             raise self._stop(str(refused), fault=False) from None
+        except ai_call.BusyBeforeSend as busy:  # nothing was reserved or sent: not paid
+            raise self._stop(f"the store was busy before the call: {busy}", fault=True) from None
         self.calls += 1
         if self.calls >= self.per_pass:
             self.stopped = f"this pass made its {self.per_pass} digest calls; the others wait"
