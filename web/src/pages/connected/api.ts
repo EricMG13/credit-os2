@@ -72,9 +72,31 @@ export type ReadinessItem = {
   counted?: boolean;
   inherited_from?: string[];
 };
+/**
+ * A custom run's estimate as the service computes it (`run_start.submissions._custom_estimate`):
+ * each module's figure to the cent, the sum, the hold and the cap the run launches at.
+ */
+export type CustomEstimate = {
+  rows: {
+    module: string;
+    name: string;
+    usd: string;
+    measured: boolean;
+    /** Why the launcher added the module; null for one the analyst chose. */
+    added: string | null;
+    modules_page_only: boolean;
+  }[];
+  sum: string;
+  hold: string;
+  cap: string;
+  label: string;
+};
 export type Summary = Reading & {
   digest: string;
+  /** A preset's table cap; a custom run's is the launcher's own, equal to `estimate.cap`. */
   cap: string;
+  /** Present for a custom run only. */
+  estimate?: CustomEstimate;
   modules: string[];
   items: ReadinessItem[];
   omitted: string[];

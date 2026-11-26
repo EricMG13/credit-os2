@@ -7,11 +7,8 @@ afterEach(() => {
   cleanup();
 });
 
-// A custom selection is no Purpose card (PR 7a: the Advanced option offers it), as PurposeStep draws.
-const OFFERED = Object.entries(PATHWAYS).filter(([id]) => id !== "custom");
-
 const cards = (cap: (id: string) => string | undefined) =>
-  OFFERED.map(([id, p]) => ({
+  Object.entries(PATHWAYS).map(([id, p]) => ({
     id,
     title: p.label,
     description: PATHWAY_QUESTIONS[id] ?? "",
@@ -31,9 +28,9 @@ describe("pathway cards", () => {
     const radios = within(screen.getByRole("radiogroup", { name: "Pathway" })).getAllByRole(
       "radio",
     );
-    expect(radios.map((r) => r.getAttribute("value"))).toEqual(OFFERED.map(([id]) => id));
-    expect(Object.keys(PATHWAY_QUESTIONS)).toEqual(OFFERED.map(([id]) => id));
-    for (const [id, p] of OFFERED) {
+    expect(radios.map((r) => r.getAttribute("value"))).toEqual(Object.keys(PATHWAYS));
+    expect(Object.keys(PATHWAY_QUESTIONS)).toEqual(Object.keys(PATHWAYS));
+    for (const [id, p] of Object.entries(PATHWAYS)) {
       const radio = screen.getByRole("radio", { name: p.label });
       expect(radio.closest("label")).toHaveTextContent(PATHWAY_QUESTIONS[id] ?? "?");
     }

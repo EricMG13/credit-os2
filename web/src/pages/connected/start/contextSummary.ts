@@ -3,6 +3,7 @@
  * holds, in plain words, computed from the form alone.
  */
 import { drawnModules, moduleName } from "../api";
+import { CUSTOM, CUSTOM_EFFORTS } from "./customSelection";
 import { ASSUMPTIONS_TITLE, PINS, type AssumptionsForm } from "./assumptions";
 import type { FieldKey } from "./fields";
 import type { Attachment, IntakeView } from "./intake";
@@ -273,14 +274,21 @@ export function assumptionsSummary(form: AssumptionsForm, modules: readonly stri
   return pinned.length ? `${String(pinned.length)} pinned: ${pinned.join(", ")}` : "None pinned";
 }
 
-type ModelView = Pick<IntakeView, "copilotModels" | "model" | "effort">;
+type ModelView = Pick<IntakeView, "copilotModels" | "model" | "effort"> &
+  Partial<Pick<IntakeView, "run">>;
 
 /** The models and efforts offered for the seat, and the effort the picker shows. */
 export function modelChoices(view: ModelView) {
-  const efforts = copilotEfforts(view.copilotModels, view.model);
-  const models: Record<string, string> = copilotPairVerified(view.copilotModels, "luna", "xhigh")
-    ? MODELS
-    : { gpt: MODELS.gpt, claude: MODELS.claude };
+  // A custom selection is estimated from GPT runs at the three efforts they were measured at.
+  const custom = view.run?.pathway === CUSTOM;
+  const efforts = copilotEfforts(view.copilotModels, view.model).filter(
+    (key) => !custom || CUSTOM_EFFORTS.some((allowed) => allowed === key),
+  );
+  const models: Record<string, string> = custom
+    ? { gpt: MODELS.gpt }
+    : copilotPairVerified(view.copilotModels, "luna", "xhigh")
+      ? MODELS
+      : { gpt: MODELS.gpt, claude: MODELS.claude };
   const effortChoices: Record<string, string> = Object.fromEntries(
     Object.entries(EFFORTS).filter(([key]) => efforts.includes(key)),
   );
@@ -294,7 +302,11 @@ export function modelSummary(
 ) {
   const { effortChoices, effort } = modelChoices(view);
   const drawn = drawnModules(view.requested);
-  const on = drawn.filter((code) => !view.modules.length || view.modules.includes(code)).length;
+  // A custom run runs all of the modules it lists: the chosen ones and those the rules added.
+  const on =
+    view.run?.pathway === CUSTOM
+      ? drawn.length
+      : drawn.filter((code) => !view.modules.length || view.modules.includes(code)).length;
   const total = String(drawn.length);
   return line([
     choiceLabel(MODELS, view.model) ?? view.model,

@@ -22,6 +22,8 @@ import {
   type FileRole,
   type SectionKey,
 } from "./contextSummary";
+import { CustomPicker } from "./CustomPicker";
+import { CUSTOM } from "./customSelection";
 import { ModuleOptionsFields } from "./ModuleOptionsFields";
 import { RowEditor } from "./RowEditor";
 import { ROW_SPECS, type RowKind } from "./rows";
@@ -80,12 +82,15 @@ type SectionOf = (key: SectionKey, summary: string) => SectionProps;
 
 /**
  * The step opens with the section holding the field with a problem, else Dates and periods for an
- * Earnings Update (its periods are required), else none. It is opened once, when the step is
+ * Earnings Update (its periods are required), else Model and modules for a Custom selection (its
+ * modules are chosen there), else none. It is opened once, when the step is
  * drawn: from then on the analyst's own opening and closing is never overridden.
  */
 function useSections(view: IntakeView): SectionOf {
   const [first] = useState(
-    () => sectionOfField(view.problem?.field) ?? (view.earnings ? "dates" : undefined),
+    () =>
+      sectionOfField(view.problem?.field) ??
+      (view.earnings ? "dates" : view.run.pathway === CUSTOM ? "model" : undefined),
   );
   return (key, summary) => ({ title: SECTION_TITLES[key], summary, open: key === first });
 }
@@ -425,11 +430,20 @@ function AdvancedSections({ view, section }: { view: IntakeView; section: Sectio
   );
 }
 
+/** Why a custom selection offers one model: its figures were measured on GPT runs. */
+const CUSTOM_MODEL_REASON = "A custom selection is estimated from GPT runs only.";
+
 function ModelFields({ view }: { view: IntakeView }) {
   const { efforts, models, effortChoices, effort } = modelChoices(view);
   return (
     <>
-      <SelectField title="Model" value={view.model} choices={models} onChange={view.changeModel} />
+      <SelectField
+        title="Model"
+        value={view.model}
+        choices={models}
+        help={view.run.pathway === CUSTOM ? CUSTOM_MODEL_REASON : undefined}
+        onChange={view.changeModel}
+      />
       <SelectField
         title="Reasoning effort"
         value={effort}
@@ -456,24 +470,30 @@ function ModelFields({ view }: { view: IntakeView }) {
         </label>
         <FieldMessage problem={view.problem} field="turns" />
       </div>
-      <fieldset className="min-w-0 lg:col-span-2">
-        <legend className="mb-2 text-small font-medium text-text-primary">Requested modules</legend>
-        <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-          {drawnModules(view.requested).map((code) => (
-            <label key={code} className={cx(CHECK, "font-normal")}>
-              <input
-                type="checkbox"
-                checked={!view.modules.length || view.modules.includes(code)}
-                disabled={drawnModules(view.modules).length === 1 && view.modules.includes(code)}
-                onChange={(event) => {
-                  view.toggleModule(code, event.target.checked);
-                }}
-              />{" "}
-              {moduleName(code, view.run.pathway)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {view.run.pathway === CUSTOM ? (
+        <CustomPicker view={view} />
+      ) : (
+        <fieldset className="min-w-0 lg:col-span-2">
+          <legend className="mb-2 text-small font-medium text-text-primary">
+            Requested modules
+          </legend>
+          <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {drawnModules(view.requested).map((code) => (
+              <label key={code} className={cx(CHECK, "font-normal")}>
+                <input
+                  type="checkbox"
+                  checked={!view.modules.length || view.modules.includes(code)}
+                  disabled={drawnModules(view.modules).length === 1 && view.modules.includes(code)}
+                  onChange={(event) => {
+                    view.toggleModule(code, event.target.checked);
+                  }}
+                />{" "}
+                {moduleName(code, view.run.pathway)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
     </>
   );
 }

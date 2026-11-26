@@ -1,0 +1,288 @@
+{
+  "hold": "7.17",
+  "always": ["CP-0", "CP-1"],
+  "balanced_high": ["CP-1A", "CP-1D", "CP-2", "CP-2A", "CP-3", "CP-3C", "CP-4", "CP-4C", "CP-6"],
+  "not_cp5_fan_in": ["CP-5", "CP-6", "CP-8"],
+  "not_cp8_fan_in": ["CP-8"],
+  "reasons": {
+    "source": "Every run needs the source register and the financial base.",
+    "cp8": "Compares this run with the earlier run named in this summary."
+  },
+  "presets": [
+    {
+      "id": "governance",
+      "name": "Governance and ESG",
+      "modules": ["CP-1A", "CP-2E"]
+    },
+    {
+      "id": "covenant",
+      "name": "Covenant Capacity",
+      "modules": ["CP-4"]
+    },
+    {
+      "id": "portfolio",
+      "name": "Portfolio Fit",
+      "modules": ["CP-6"]
+    }
+  ],
+  "modules": [
+    {
+      "id": "CP-0",
+      "offered": true,
+      "required": [],
+      "optional": [],
+      "answers": "Inventories and reads the source pack, adaptively parses what needs restructuring, freezes one effective source set, and establishes readiness plus the exact source-to-module map.",
+      "modules_page_only": true,
+      "medium": "0.29",
+      "high": "0.43",
+      "measured": true
+    },
+    {
+      "id": "CP-1",
+      "offered": true,
+      "required": ["CP-0"],
+      "optional": [],
+      "answers": "Builds the canonical financial data and KPI foundation used by downstream analysis.",
+      "modules_page_only": false,
+      "medium": "0.42",
+      "high": "0.63",
+      "measured": true
+    },
+    {
+      "id": "CP-1A",
+      "offered": true,
+      "required": ["CP-0"],
+      "optional": [],
+      "answers": "Establishes the business and transaction fact pack: what the issuer does and what deal is in front of you.",
+      "modules_page_only": false,
+      "medium": "0.55",
+      "high": "0.66",
+      "measured": true
+    },
+    {
+      "id": "CP-1B",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": [],
+      "answers": "Quantifies the earnings delta between reporting periods and explains what moved.",
+      "modules_page_only": false,
+      "medium": "0.52",
+      "high": "0.69",
+      "measured": true
+    },
+    {
+      "id": "CP-DR",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": [],
+      "answers": "Resolve material evidence gaps for named consumers, or answer a standalone issuer/sector research question.",
+      "modules_page_only": true,
+      "medium": "0.28",
+      "high": "0.44",
+      "measured": true
+    },
+    {
+      "id": "CP-1C",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": ["CP-DR"],
+      "answers": "Benchmarks the issuer against a defined peer universe and flags outliers.",
+      "modules_page_only": false,
+      "medium": "0.35",
+      "high": "0.46",
+      "measured": true
+    },
+    {
+      "id": "CP-1D",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": ["CP-1B"],
+      "answers": "Challenges the adjusted-EBITDA bridge: tests each add-back for achievability and recurrence against evidence, reconciles adjusted EBITDA to cash, and restates leverage on the earnings the evidence supports.",
+      "modules_page_only": false,
+      "medium": "0.53",
+      "high": "0.94",
+      "measured": true
+    },
+    {
+      "id": "CP-2",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-1A"],
+      "optional": ["CP-1B", "CP-1C", "CP-1D", "CP-DR"],
+      "answers": "Synthesises the fundamental credit view from the canonical data and supporting registers.",
+      "modules_page_only": false,
+      "medium": "0.44",
+      "high": "0.61",
+      "measured": true
+    },
+    {
+      "id": "CP-2A",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": ["CP-1B", "CP-2"],
+      "answers": "Builds the downside and stress pathway: what breaks first and how far it falls.",
+      "modules_page_only": false,
+      "medium": "0.62",
+      "high": "0.80",
+      "measured": true
+    },
+    {
+      "id": "CP-2E",
+      "offered": true,
+      "required": ["CP-0"],
+      "optional": ["CP-1", "CP-1A", "CP-2"],
+      "answers": "Assesses macro, FX and hedging sensitivity of the credit.",
+      "modules_page_only": true,
+      "medium": "0.66",
+      "high": "0.80",
+      "measured": true
+    },
+    {
+      "id": "CP-2G",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2A"],
+      "optional": ["CP-1D", "CP-2D"],
+      "answers": "Builds the forward credit model: deleveraging path and forecast cases.",
+      "modules_page_only": false,
+      "medium": "0.41",
+      "high": "0.77",
+      "measured": true
+    },
+    {
+      "id": "CP-2H",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2G"],
+      "optional": ["CP-1D"],
+      "answers": "Maps rating migration risk, trigger headroom and agency divergence.",
+      "modules_page_only": false,
+      "medium": "0.51",
+      "high": "0.67",
+      "measured": false
+    },
+    {
+      "id": "CP-3",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2"],
+      "optional": [
+        "CP-1C",
+        "CP-2H",
+        "CP-2G",
+        "CP-1A",
+        "CP-1D",
+        "CP-4",
+        "CP-3D",
+        "CP-3C",
+        "CP-4C",
+        "CP-2D"
+      ],
+      "answers": "Determines relative value and security selection across the capital structure.",
+      "modules_page_only": false,
+      "medium": "0.80",
+      "high": "0.97",
+      "measured": true
+    },
+    {
+      "id": "CP-4",
+      "offered": true,
+      "required": ["CP-0", "CP-1"],
+      "optional": ["CP-1D", "CP-1A"],
+      "answers": "Interprets the legal and covenant package and what it actually permits.",
+      "modules_page_only": false,
+      "medium": "0.37",
+      "high": "0.37",
+      "measured": true
+    },
+    {
+      "id": "CP-4C",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2G", "CP-4", "CP-2A"],
+      "optional": ["CP-3C", "CP-1C"],
+      "answers": "Models the restructuring scenario, fulcrum security and plan recovery.",
+      "modules_page_only": false,
+      "medium": "0.51",
+      "high": "0.67",
+      "measured": false
+    },
+    {
+      "id": "CP-5",
+      "offered": true,
+      "required": ["CP-0"],
+      "optional": [
+        "CP-1",
+        "CP-1A",
+        "CP-1B",
+        "CP-1C",
+        "CP-2",
+        "CP-2A",
+        "CP-2G",
+        "CP-2E",
+        "CP-2H",
+        "CP-3",
+        "CP-4C",
+        "CP-4",
+        "CP-2D",
+        "CP-3C",
+        "CP-3D"
+      ],
+      "answers": "Validates the evidence trace behind every material claim in the run.",
+      "modules_page_only": true,
+      "medium": "2.26",
+      "high": "2.80",
+      "measured": true
+    },
+    {
+      "id": "CP-6",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2", "CP-3", "CP-5"],
+      "optional": ["CP-2A", "CP-1A", "CP-2E", "CP-2D", "CP-3C", "CP-3D", "CP-1B", "CP-1C", "CP-4"],
+      "answers": "Runs the investment-committee debate and challenge, producing an action bias.",
+      "modules_page_only": false,
+      "medium": "0.73",
+      "high": "0.99",
+      "measured": true
+    },
+    {
+      "id": "CP-8",
+      "offered": false,
+      "required": ["CP-0"],
+      "optional": ["CP-6"],
+      "answers": "Explains what has changed since the earlier run of the same issuer and pathway, in the issuer's business and credit profile and in the modules' findings, from a Python-computed comparison pack; runs last and calculates nothing.",
+      "modules_page_only": false,
+      "medium": "0.79",
+      "high": "1.08",
+      "measured": true
+    },
+    {
+      "id": "CP-2D",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2"],
+      "optional": [],
+      "answers": "Builds the near-term liquidity bridge and cash runway.",
+      "modules_page_only": false,
+      "medium": "0.51",
+      "high": "0.67",
+      "measured": false
+    },
+    {
+      "id": "CP-3D",
+      "offered": true,
+      "required": ["CP-0"],
+      "optional": ["CP-2H"],
+      "answers": "Assesses market-implied credit risk and trading technicals.",
+      "modules_page_only": false,
+      "medium": "0.51",
+      "high": "0.67",
+      "measured": false
+    },
+    {
+      "id": "CP-3C",
+      "offered": true,
+      "required": ["CP-0", "CP-1", "CP-2D"],
+      "optional": ["CP-1A", "CP-2A", "CP-4", "CP-3D"],
+      "answers": "Assesses refinancing and liability-management risk before or during distress.",
+      "modules_page_only": false,
+      "medium": "0.51",
+      "high": "0.67",
+      "measured": false
+    }
+  ]
+}

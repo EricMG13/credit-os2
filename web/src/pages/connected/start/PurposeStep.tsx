@@ -13,16 +13,19 @@ import {
 } from "./plain";
 import { SYNTHETIC_LIMITS, type IntakeView, shownCapText } from "./intake";
 import { PATHWAY_QUESTIONS } from "./pathways";
+import { CUSTOM } from "./customSelection";
 
-// A custom selection is no Purpose card: the Advanced option offers it (owner, 2026-11-26).
-const PATHWAY_CARDS = Object.entries(PATHWAYS)
-  .filter(([id]) => id !== "custom")
-  .map(([id, pathway]) => ({
-    id,
-    title: pathway.label,
-    description: PATHWAY_QUESTIONS[id] ?? "",
-    modules: `${String(drawnModules(pathway.modules).length)} base modules`,
-  }));
+// A custom selection joins the cards at the Advanced level only (owner, 2026-11-26): its modules
+// are the analyst's own, so its card counts none.
+const PATHWAY_CARDS = Object.entries(PATHWAYS).map(([id, pathway]) => ({
+  id,
+  title: pathway.label,
+  description: PATHWAY_QUESTIONS[id] ?? "",
+  modules:
+    id === CUSTOM
+      ? "Your own modules"
+      : `${String(drawnModules(pathway.modules).length)} base modules`,
+}));
 
 export function PurposeFields({ view }: { view: IntakeView }) {
   return (
@@ -32,10 +35,14 @@ export function PurposeFields({ view }: { view: IntakeView }) {
           className="@[44rem]:grid-cols-2"
           label={PATHWAY_LABEL}
           value={view.run.pathway}
-          purposes={PATHWAY_CARDS.map((pathway) => {
+          purposes={PATHWAY_CARDS.filter(
+            (pathway) => pathway.id !== CUSTOM || view.level === "advanced",
+          ).map((pathway) => {
             const cap = view.caps[pathway.id];
             const capText = cap && shownCapText(Number(cap));
-            return { ...pathway, cap: capText ? `Cap ${capText}` : "Cap unavailable" };
+            // A custom run's cap is computed from its modules: the table's figure is its ceiling.
+            const word = pathway.id === CUSTOM ? "Cap up to" : "Cap";
+            return { ...pathway, cap: capText ? `${word} ${capText}` : "Cap unavailable" };
           })}
           onChange={view.changePathway}
         />
