@@ -528,6 +528,15 @@ _DEEP_BLOCKS: tuple[str, ...] = (
     "what-changed",
 )
 
+
+def _preset_modules(pathway_id: PathwayId) -> tuple[str, ...]:
+    """The modules a run of ``pathway_id`` is read against to tell "not requested" from "not in this
+    Pathway". A custom run has no preset of its own: its modules are the analyst's list, so a
+    module it left out was not requested, as in Deep, whose preset holds every module (owner,
+    2026-11-26)."""
+    return PATHWAY_MODULES["deep_credit_assessment" if pathway_id == "custom" else pathway_id]
+
+
 # Decision 0009. Titles and questions are the cards of ``design/reference/rbot-report.dc.html``;
 # block ids follow each Front Page's outline (``rbot-fp-0N-*.dc.html``), "The call" excluded
 # because the call band is ``ReportView.call``. Ids that existing bindings name
@@ -718,7 +727,7 @@ def pathways() -> tuple[Pathway, ...]:
             id=pathway_id,
             title=title,
             question=question,
-            requested_modules=PATHWAY_MODULES[pathway_id],
+            requested_modules=_preset_modules(pathway_id),
             blocks=blocks,
         )
         for pathway_id, title, question, blocks in _PRESETS
@@ -1011,10 +1020,7 @@ def module_display(view: View) -> Callable[[ModuleView], tuple[str, str]]:
     left out was not requested: it reads "Not run". Only a module outside the preset keeps
     "Not in this Pathway".
     """
-    # A custom run has no preset of its own: its modules are the analyst's list, so a module it
-    # left out was not requested, as in Deep, whose preset holds every module (owner, 2026-11-26).
-    pathway = "deep_credit_assessment" if view.run.pathway == "custom" else view.run.pathway
-    preset = dependencies(PATHWAY_MODULES[pathway])
+    preset = dependencies(_preset_modules(view.run.pathway))
 
     def display(module: ModuleView) -> tuple[str, str]:
         not_requested = module.status == "not_in_pathway" and module.module_id in preset

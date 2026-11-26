@@ -164,3 +164,50 @@ def test_a_module_a_custom_run_left_out_reads_not_run_not_outside_the_pathway() 
     assert display(by_id["CP-2"])[1] == "Not run"  # left out by the analyst
     assert display(by_id["CP-2E"])[1] == "Not run"  # in the run, not yet run
     assert by_id["CP-2"].status == "not_in_pathway"
+
+
+def test_a_custom_run_without_cp6_withholds_the_call_as_not_requested() -> None:
+    # Reviewer's probe T1-call-band-custom: the call band and the honest state read a custom run's
+    # preset as Deep's, as the module row does.
+    run = Run(
+        run_id="custom-y",
+        issuer_id="x",
+        issuer_name="Synthetic Issuer",
+        as_of=date(2026, 9, 30),
+        case_kind="synthetic",
+        pathway="custom",
+        requested_modules=("CP-0", "CP-1", "CP-1A", "CP-2E"),
+    )
+    statuses = registry.idle_statuses(run)
+    by_id = {
+        m.module_id: ModuleView(
+            module_id=m.module_id, title=m.title, aliases=m.aliases, status=statuses[m.module_id]
+        )
+        for m in registry.modules()
+    }
+    custom = next(p for p in pathways() if p.id == "custom")
+    deep = next(p for p in pathways() if p.id == DEEP)
+    assert report_view._call(by_id, custom)[1] == "not_requested"
+    assert report_view._call(by_id, custom)[1] == report_view._call(by_id, deep)[1]
+    spec = next(
+        report_view._spec_of(b)
+        for b in custom.blocks
+        if "CP-2" in report_view._spec_of(b).producers
+    )
+    state = report_view._honest_state(spec, statuses, custom)
+    assert state[0] == report_view._honest_state(spec, statuses, deep)[0] == "not_run"
+
+
+def test_a_custom_layout_meets_the_layout_conditions_the_delivery_sites_check(
+    tmp_path: Path,
+) -> None:
+    # The conditions at owners/cpos.py (cpos_layout) and markdown_delivery.py (markdown_layout),
+    # written out here; the two sites themselves are not called (each needs a whole delivery
+    # request).
+    custom = _prepared(tmp_path, "custom", SELECTIONS["portfolio-fit"])
+    layout = custom.layout
+    preset = next(p for p in pathways() if p.id == "custom")
+    assert len(set(layout.blocks)) == len(layout.blocks)
+    assert set(layout.blocks) <= set(preset.blocks)
+    assert {r.module_id for r in layout.routes} <= set(custom.ordered)
+    assert {r.block_id for r in layout.routes} == set(layout.blocks)
