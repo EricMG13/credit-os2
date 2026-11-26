@@ -1464,6 +1464,18 @@ def owner_tables(unit: str) -> str:
                 ["Event", "Date", "Amount", "Pro forma net debt", "Pro forma net leverage", *tail],
                 [["None found in the sources read", *["—"] * 4, unit, BASIS]],
             ),
+            table(
+                "Pro forma interest and cover",
+                [
+                    "As of",
+                    "Pro forma interest",
+                    "Interest measure",
+                    "EBITDA",
+                    "Pro forma interest cover",
+                    *tail,
+                ],
+                [["Not stated", *["—"] * 4, unit, BASIS]],
+            ),
         ]
     )
 

@@ -104,6 +104,12 @@ The synthetic issuer shows one observed item.
 | --- | --- | --- | --- | --- | --- | --- |
 | None found in the sources read | — | — | — | — | US$m | Synthetic; the annual report and its notes were read. |
 
+### Pro forma interest and cover
+
+| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- | --- | --- |
+| Not stated | — | — | — | — | US$m | Synthetic; the annual report and its notes were read. |
+
 ### Base operands
 
 | Base | FY2025 |

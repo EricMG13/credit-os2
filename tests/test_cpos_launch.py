@@ -249,6 +249,13 @@ POST_BS_NONE = (
     + "| None found in the sources read | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
     "| Synthetic; the annual report and its notes were read. |"
 )
+PRO_FORMA_NONE = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| Not stated | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
+    "| Synthetic; the annual report and its notes were read. |"
+)
 POST_BS_EVENT = (
     POST_BS_HEADER
     + "\n| --- | --- | --- | --- | --- | --- | --- |\n"
@@ -757,6 +764,7 @@ def answer(context: dict, plan_routes: list) -> str:
         lines += ["### Net debt data", "", NET_DEBT_TABLE, ""]
         lines += [part for h, t in CP1_CHECKED.items() for part in (f"### {h}", "", t, "")]
         lines += ["### Post-balance-sheet adjustments", "", POST_BS_NONE, ""]
+        lines += ["### Pro forma interest and cover", "", PRO_FORMA_NONE, ""]
     for heading, table in OWNER_TABLES.get(context["module_id"], {}).items():
         lines += [f"### {heading}", "", table, ""]
     lines += OWNED_SECTIONS.get(context["module_id"], [])
@@ -2247,9 +2255,12 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
 # words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed
 # (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
-# without its repeats, and the value was recomputed again. The constant keeps its name.
+# without its repeats, and the value was recomputed again. 2026-11-26 (CP-1 instruction PR): the
+# every-module sentence gained "Treat its interest cover the same way, ..." (owner's item 3), so
+# every module's instructions changed on purpose; recomputed (d3c2d13b...). The constant keeps
+# its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "d3c2d13b8612b80519353aaee84b74504e29de1206190710e6f30fffe925306a"
+    "edc64bfc9891947aaf66ee5acaa86dc84f8ce77fac2497e7431cea9c0baeee80"
 )
 
 
@@ -11003,3 +11014,63 @@ def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothin
     )
     handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
     assert cpos_launch._forecast_issues(task, handoff) == ()
+
+
+# --- the none row of a row table names its own first column and case (CP-1 instruction PR) ------
+# Expected text hand-copied from the request as sent before the pro forma table was added.
+POST_BS_NONE_SENTENCE = (
+    " If no such event is stated, write one row whose Event is exactly `None found in the "
+    "sources read` (no other punctuation or wording), whose Date, Amount, Pro forma net debt "
+    "and Pro forma net leverage are each `—`, with Reporting unit and Basis and limitation "
+    "stated (say which sources were read)."
+)
+POST_BS_NEAR_NONE = (
+    "`Post-balance-sheet adjustments`: to state that there is no event, write the Event exactly "
+    "`None found in the sources read` and the other cells as asked; any other Event names an "
+    "event."
+)
+
+
+def test_the_post_balance_sheet_none_sentence_and_near_none_issue_are_unchanged():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.POST_BS
+    assert cpos_launch_prompts._none_rule(spec) == POST_BS_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(POST_BS_NONE_SENTENCE)
+    assert cpos_launch_tables._near_none_issues(
+        spec, spec.heading, "None found in the sources read."
+    ) == [POST_BS_NEAR_NONE]
+    none_text = "None found in the sources read"
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, none_text) == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Notes issued") == []
+
+
+PRO_FORMA_NONE_SENTENCE = (
+    " If no source states a pro forma interest, write one row whose As of is exactly "
+    "`Not stated` (no other punctuation or wording), whose Pro forma interest, Interest measure, "
+    "EBITDA and Pro forma interest cover are each `\u2014`, with Reporting unit and Basis and "
+    "limitation stated (say which sources were read)."
+)
+
+
+def test_the_pro_forma_table_is_sent_the_none_sentence_naming_its_own_first_column():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    assert cpos_launch_prompts._none_rule(spec) == PRO_FORMA_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(PRO_FORMA_NONE_SENTENCE)
+    assert "If no such event" not in cpos_launch_prompts._selector(spec)
+
+
+def test_a_near_none_pro_forma_as_of_is_told_the_exact_text():
+    from deploy_workflow.owners import cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    expected = (
+        "`Pro forma interest and cover`: to state that there is no pro forma interest, write "
+        "the As of exactly `Not stated` and the other cells as asked; any other As of names "
+        "a pro forma interest."
+    )
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "not stated.") == [expected]
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Not stated") == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "2024-11-05") == []

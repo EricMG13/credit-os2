@@ -104,6 +104,8 @@ class OwnerTable:
     scored: bool = False  # The confidence inputs table: its rows are `confidence`'s, not columns.
     money_table: bool = False  # `chart_unit` is the handoff's resolved money unit (`MONEY` was it).
     id_column: str = ""  # A bridge's id column, after the value columns (CP-1's `Add-Back ID`).
+    none_when: str = "no such event is stated"  # The case the none row states, as the request says.
+    none_case: str = "event"  # What the none row states there is none of (`_near_none_issues`).
 
     @property
     def bare(self) -> bool:
@@ -260,6 +262,41 @@ POST_BS = OwnerTable(
 )
 
 
+PRO_FORMA = OwnerTable(
+    "Pro forma interest and cover",
+    (),
+    MONEY,
+    columns=(
+        "As of",
+        "Pro forma interest",
+        "Interest measure",
+        "EBITDA",
+        "Pro forma interest cover",
+    ),
+    numbers=("Pro forma interest", "EBITDA", "Pro forma interest cover"),
+    in_unit=("Pro forma interest", "EBITDA"),
+    dates=("As of",),
+    choices=(("Interest measure", ("cash interest", "interest expense")),),
+    noun="EBITDA",
+    none_text="Not stated",
+    none_when="no source states a pro forma interest",
+    none_case="pro forma interest",
+    rules=(
+        "Pro forma interest is the annual interest a source states after the balance-sheet "
+        "date's events, never worked out; Interest measure is exactly `cash interest` or "
+        "`interest expense`, as the source states, never mixed. EBITDA is that of T4.9's "
+        "`EBITDA / cash interest` row for the latest period; where T4.9 states `Adjusted EBITDA "
+        "/ cash interest`, a second row uses its EBITDA. Basis and limitation opens with "
+        "`Reported EBITDA` or `Adjusted EBITDA` and names the interest's source. The cover is "
+        "EBITDA over Pro forma interest, worked with `calculate` from those two, to two "
+        "decimals, as times, no `x`, listed in `## Calculations`. As of is the date the "
+        "source states it at, YYYY-MM-DD or `Not supplied: the source states <what it gives> "
+        "only`. A figure no source states, and the cover beside it, is `Not supplied: "
+        "<reason>`; never estimate one. Add no pro forma row to a chart table."
+    ),
+)
+
+
 def _owner_tables(
     module: str, routes: Sequence[MarkdownRoute], pathway: str | None = None
 ) -> tuple[OwnerTable, ...]:
@@ -279,7 +316,7 @@ def _owner_tables(
     chart = tuple(
         OwnerTable(h, cols, unit) for h, cols, unit in CHART_TABLES.values() if h not in routed
     )
-    return (*chart, NET_DEBT, DEBT_RECON, POST_BS, *tables)
+    return (*chart, NET_DEBT, DEBT_RECON, POST_BS, PRO_FORMA, *tables)
 
 
 DIRECTIONS = ("Passes below", "Passes at or below", "Passes above", "Passes at or above")
@@ -1178,15 +1215,21 @@ def _states_none(spec: OwnerTable, header: list[str], rows: list[list[str]]) -> 
     )
 
 
-def _near_none_issues(spec: OwnerTable, heading: str, event: str) -> list[str]:
-    """An Event that is the none text with other case or punctuation is not the none row: it
-    would pass as an event with gaps, so the module is told the exact text."""
-    if not spec.none_text or event == spec.none_text:
+def _near_none_issues(spec: OwnerTable, heading: str, first: str) -> list[str]:
+    """A first cell that is the none text with other case or punctuation is not the none row: it
+    would pass as a row with gaps, so the module is told the exact text."""
+    if not spec.none_text or first == spec.none_text:
         return []
-    if event.casefold().strip(" .") != spec.none_text.casefold():
+    if first.casefold().strip(" .") != spec.none_text.casefold():
         return []
-    advice = f"`{spec.none_text}` and the other cells as asked; any other Event names an event."
-    return [f"`{heading}`: to state that there is no event, write the Event exactly {advice}"]
+    column = spec.columns[0]
+    article = "an" if spec.none_case[0] in "aeiou" else "a"
+    advice = (
+        f"`{spec.none_text}` and the other cells as asked; any other {column} names "
+        f"{article} {spec.none_case}."
+    )
+    stated = f"to state that there is no {spec.none_case}, write the {column} exactly {advice}"
+    return [f"`{heading}`: {stated}"]
 
 
 SEPARATOR_CELL = re.compile(r":?-{3,}:?")
