@@ -35,6 +35,18 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
 
+## 2026-11-26 — Copilot GPT Sol and GPT-6 Luna sessions at 1M context (branch `claude/copilot-1m-context-795226`)
+
+- Scope: offline only, base `ef005f64`. No seat, provider or paid call; every result below comes from fake clients, the installed SDK 1.0.28 source and hand-computed answer keys. No session has been seen on the long tier.
+- Owner (2026-11-26): "Full 1M" for GPT Sol and Luna; Claude Opus stays on its default tier; CP-3/5/6 compact limits raised; source reads "Read up to the hold"; one PR (over the 800-line cap).
+- Built: in a run (`live_adapter_for` only; Signal stays on the default tier) copilot-sol-* and copilot-luna-xhigh sessions open with `context_tier="long_context"` when the seat lists a long budget of at most 1,050,000 tokens and long-tier prices no dearer than the hold's rates; the tier is confirmed after creation (10 s bound) and a session the runtime leaves on the default tier falls back to its limits and is guarded again. The hold counts 3 bytes per token for these configs (was 2): hold amounts unchanged, requests up to 3,137,712 bytes held. CP-3/5/6 stop where the hold would. Source reads go to the smaller of the hold and the seat's budget less 991,808 bytes (2,145,904 at a budget of 814,991 tokens or more), never below 1,100,000. A call holding two model requests settles at the sum of their readable charges (was: hold kept as unknown). The 272K first-prompt advisory is removed.
+- Reviews: `/advisor` twice (Opus 5.5 xhigh, Fable exhausted); task review (`mx-precise`) pass; `mx-adversary` 1 Medium (two-request settle) fixed and re-reviewed pass; confidence review, rewrite tournament (one helper) and sweep discover; pre-merge `mx-architect` (Opus 5.5 xhigh) 1 Medium (read cap), fixed, then 1 Medium (read cap vs the seat's budget), fixed by a third round planned by `mx-autonomous`, re-review pass. Lows batched and fixed.
+- Gates on the final tree: `tools/quality_gate.py` 0 findings; `ruff check` and `ruff format --check` on the changed files; `lint-imports` 3 kept; affected Python tests (adapter, pricing, budget, handoff loop/transport/read cap, Signal, reader run, launcher subsets) pass.
+- First paid run's check: `session.usage_info.tokenLimit` in `live/raw/*.json` shows the long figure, not 272000; `calls.jsonl` charges for calls above 272K tokens.
+- `/ship` review (high): 4 findings, applied on the owner's instruction (2026-11-26, "Apply these 4 code-review findings") as a fourth fix round, beyond the two-plus-one rule. CP-3/5/6 seeds keep the 100,000 / 160,000 limits until the tier is confirmed long; on the default tier reads stop at half of what the session's guard admits (271,286 bytes for gpt-6.1-sol at 272,000 tokens); the seat's default-tier prices are checked before pinning and logged when dear on an unpinned session; the COPILOT.md scope line. Gates rerun: quality gate 0 findings, ruff, format, mypy, `lint-imports` exit 0; 442 and 94 tests pass. The fix round had no review of its own.
+- For the owner (predating or out of scope): the 3.85 bytes-per-token estimate understates Opus prompts; the reader run never compares a charge with its hold; whether a hold should cover two model requests in one call.
+- Not verified: what a seat lists (long budget, prices, price unit, `billing.multiplier`); that runtime 1.0.105 honours `contextTier`, reports it truthfully and enforces the budget on real tokens; Copilot's long-tier billing; how often the runtime makes two model requests in one send; latency and cost of ~557K-token requests; mutation testing (`mutmut` not installed); the full suite and the web gates.
+
 ## 2026-11-26 — Offline replay: open items from the entry below resolved (branch `claude/replay-open-items`)
 
 - Scope: branch cut from `main` at `5e4f9aee` (PR 97 merged). Same real TDG Deep replay `20261125-162721-01` (USD 0, no provider call), viewed from the same copy of its root. No paid run; the build ran no provider.
@@ -981,16 +993,3 @@ then 5; the narrow layout and the controls listed below.
 - All 49 limitations across 12 modules matched the previous preview in order, prose and trace labels. Chart index focused Run charts 16 px from the top, including on reload. The Evidence model register appeared for Forward credit model and was absent under Legal.
 - Chrome and Edge passed the desktop-only synthetic proof (run-DQdHfb), including both intake cost labels, the qualification immediately preceding case figures, the scope disclosure and scenario comparison. An earlier Edge run timed out loading intake. The complete rerun passed on both browsers.
 - 314 focused frontend and 94 backend tests passed, as did build, lint and formatting. The Python gate reported 3,008 findings in the untracked predecessor copy and zero on the changed project code. Post-edit review retained grouped rows and per-history-entry scroll offsets.
-
-## 2026-11-18 — Forecast adversarial review
-
-- Exact recorded scope limits open their input trace. Generated notes link to Evidence Record. Assumption links require matching ordered headers and a unique full row. Jumps target available Forecast sections.
-- Retained Caesars Chrome fidelity check preserved four interest basis rows, the original input wording in the trace, and all 17 register rows and source links. Driver scrolling stayed within a 390 px viewport.
-- The combined local checkout passed 1,457 connected frontend tests and 170 focused Python tests. The isolated Forecast patch passed all 1,456 C1–C5 tests, build, lint, formatting, and the Python import gate. Chrome and Edge passed the full synthetic flow on the isolated patch.
-- Confidence review checked split excerpts, missing inputs, ambiguous row identity and section availability. Rewrite comparison kept the exact-row index and exact-text membership check.
-
-## 2026-11-17 — Caesars Forecast desktop
-
-- Retained test preview, 1440 × 900 Chrome. The base-case qualification immediately precedes the four FY2029E cash proxies (US$m 496.85, 131.38, 684.03, 326.97). The first value is visible in the opening viewport.
-- The Interest and Interest coverage basis rows in both tables matched the retained limitation exactly. The trace included the original scope limit. Evidence reproduced all 17 register rows cell for cell, with 17 matched source-row links. Forecast omitted the register identifiers and production categories.
-- At desktop widths the driver table has a named keyboard scroll region and pinned driver names. Focused tests passed (183), as did TypeScript, changed-file ESLint, formatting and the connected build. The unfiltered Python gate reported 3,008 findings in the existing untracked predecessor copy; excluding only that copy produced zero findings. Scope is presentation fidelity for this run.

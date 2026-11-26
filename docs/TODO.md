@@ -86,6 +86,16 @@ Left by ericmg13/credit-os2#114 (H3 CP-3C currency, H6 stated basis points; merg
 | 18 | CP-3C: a currency code in lower or mixed case on a due T3D.2 row (`eur`) is unread by `currency_of`, so it counts as foreign and `Maturities due` is not checked while `Funding gap` agrees. Decide whether `currency_of` should read such codes | Owner decision, then this repository | Decision needed |
 | 19 | Small test and code tidy-ups from PR 114: the earnings-delta render test asserts with `toContain` rather than exact text; `digits.replaceAll(",", "")` is repeated four times in the `AMOUNT` branch | This repository | Not started |
 
+## Copilot context, after the 1M change
+
+Left by the reviews of branch `claude/copilot-1m-context-795226` (2026-11-26). All predate that
+change or fall outside it.
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 20 | Opus prompt estimate: the adapter's 3.85 bytes per token is calibrated on GPT Sol; the pilot measured Opus at 2.39–2.55 (`cases/pilot-fixes/limits.json`), so Opus prompts are understated by about 1.6x and the guard can pass one the runtime then refuses after sending | This repository | Not started |
+| 21 | Reader run: it adds each charge but never compares it with the call's hold (`owners/cpos_reader_run.py:136`), so an overrun is not stopped there | This repository | Not started |
+
 ## Open decisions
 
 - Where the HTTPS certificate is held: a path in the launching environment (needs a ruling) or
@@ -93,7 +103,11 @@ Left by ericmg13/credit-os2#114 (H3 CP-3C currency, H6 stated basis points; merg
 - Whether a sign-in with no client secret is allowed for a network address under the
   organisation's Entra settings. To be confirmed on the work PC.
 
-- Passcode rotation and the limit on wrong attempts: the sign-in spec proposes five wrong
-  attempts an hour and that a new passcode does not change existing accounts. Owner to confirm.
+- Passcode rotation and the limit on wrong attempts (left open by the passcode ruling): the sign-in
+  spec proposes five wrong attempts an hour and that a new passcode does not change existing
+  accounts. Owner to confirm.
 - The account store's folder (`CREDIT_OS_ACCOUNTS_DIR`): a folder on the machine's own disk,
   not the shared folder. Owner to name it on the work PC.
+- Whether a Copilot hold should cover two model requests in one call. Today one call that the
+  runtime turns into two can settle above its hold; the ledger now records the real sum and the run
+  stops, but the cap can be passed by that one call.
