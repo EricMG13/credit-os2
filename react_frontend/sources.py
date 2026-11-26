@@ -5,11 +5,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import re
+import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import ParseError
 from urllib.parse import SplitResult, parse_qs, quote, unquote
 from zipfile import BadZipFile
 
@@ -20,6 +23,7 @@ from deploy_workflow import http_base
 from deploy_workflow.library_index import Refused, read_inside
 from deploy_workflow.model.handoff import _pages
 
+_LOG = logging.getLogger(__name__)
 PREFIX = "/connected/sources/"
 ADDRESS = re.compile(r"/connected/sources/([^/]+)/([0-9a-f]{64})/([^/]+)")
 DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -103,8 +107,13 @@ def _source(root: Path, folder: str, name: str, digest: str, *, pages: bool = Tr
             IndexError,
             BadZipFile,
             PyPdfError,
+            ParseError,  # a workbook part that is not well-formed XML
+            zlib.error,  # a corrupt compressed stream
         ) as error:
             problem = f"source pages unavailable: {type(error).__name__}"
+            _LOG.warning(
+                "source pages unavailable for %s: %s: %s", name, type(error).__name__, error
+            )
     return Source(name, digest, raw, page_map, problem)
 
 
