@@ -431,12 +431,24 @@ def listed_issues[T](
     return tuple(clipped(render(item)) for item in shown)
 
 
+def is_bounded_result(issues: Sequence[str]) -> bool:
+    return (
+        len(issues) == MAX_ISSUES + 1
+        and all(len(line) <= MAX_ISSUE_CHARS for line in issues[:MAX_ISSUES])
+        and re.fullmatch(r"\d+ further issues not listed", issues[-1]) is not None
+    )
+
+
 def bounded_issues(issues: Sequence[str]) -> tuple[str, ...]:
     """At most 20 lines of at most 600 characters, then a count of the lines left out.
 
     Issue text can quote caller content (a citation locator, a field name), so no issue
-    list reaches a snapshot unbounded.
+    list reaches a snapshot unbounded. A list that is already a bounded result (`MAX_ISSUES`
+    short lines then an "N further issues not listed" line) is returned as it is, so bounding
+    twice keeps the count of lines left out.
     """
+    if is_bounded_result(issues):
+        return tuple(issues)
     shown = tuple(shortened(line) for line in issues[:MAX_ISSUES])
     rest = len(issues) - MAX_ISSUES
     return (*shown, f"{rest} further issues not listed") if rest > 0 else shown
