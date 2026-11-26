@@ -209,7 +209,8 @@ class ReferenceView:
     is then the gap sentence. Limit outcomes are read through `recommendation.read_limits` once with
     no bucket and no price (`breached`, `not_read`), once per rating bucket and once at a price
     floor's own value: `rating_limits` is (parameter, ((bucket, outcome words), ...)) and
-    `price_floors` (parameter, floor)."""
+    `price_floors` (parameter, floor). `kind` is the reference's kind and `eligible` the asset
+    types an issuer's instruments can be read in against it (methodology section 7)."""
 
     key: str
     name: str
@@ -223,6 +224,8 @@ class ReferenceView:
     not_read: tuple[str, ...]
     rating_limits: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
     price_floors: tuple[tuple[str, Decimal], ...]
+    kind: str
+    eligible: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -1155,6 +1158,7 @@ def _view(
     empty = ReferenceView(
         *(reference.key, reference.name, "not stored", NO_REFERENCE, None, (), None, NOT_HELD),
         *((), (), (), ()),
+        *(reference.kind, _eligible(reference)),
     )
     if found is None:
         return empty
@@ -1185,7 +1189,19 @@ def _stored_view(
         not_read,
         rating,
         floors,
+        portfolio_of.kind,
+        _eligible(portfolio_of, portfolio),
     )
+
+
+def _eligible(reference: rp.Reference, portfolio: rp.Portfolio | None = None) -> tuple[str, ...]:
+    """The asset types `recommendation.eligible_types` gives for the reference: loans for a CLO or
+    the loan index, bonds for the high-yield index, a custom portfolio's declared type or both."""
+    if portfolio is not None:
+        return rec.eligible_types(portfolio, reference.asset_type)
+    if reference.kind == "custom":
+        return (reference.asset_type,) if reference.asset_type else ("loan", "bond")
+    return rec.ELIGIBLE[reference.kind]
 
 
 def _medians(portfolio: rp.Portfolio) -> tuple[Median, ...]:

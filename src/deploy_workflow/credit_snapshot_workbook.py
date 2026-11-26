@@ -1,14 +1,17 @@
 """The Credit Snapshot workbook writer: the repository's one `.xlsx` writer.
 
 `workbook_bytes(snapshot)` turns the `Snapshot` that `credit_snapshot.gather` builds into one file
-with four sheets, `Snapshot`, `Inputs`, `Matrix` and `Sources`. It holds values and layout only (no
-formulas yet); the recommendation formulas, dropdowns and the recalculation test come after it.
+with four sheets, `Snapshot`, `Inputs`, `Matrix` and `Sources`. The values and layout are its own;
+the methodology's constants, the Excel formulas that derive each proposal from them and the
+dropdowns come from `credit_snapshot_formulas`, which names cells by (sheet, block, row, column)
+and leaves it to this module, which knows where each landed, to turn those names into addresses.
 
 Every cell a block holds is written where `SnapshotCell.sheet` says, once, and is listed once on
 `Sources` (`Sheet | Cell | Kind | Block | Row | Column | Module | Section | Line | Handoff text |
 Handoff sha256 | Run | As of`). A cell is one of the five kinds of `credit_snapshot` (copied, gap,
-computed, entered at run start, analyst) or one of two layout kinds the writer adds: `label` (a
-title, header, row name or rubric text, never a number) and `formula`. Module ids, file names,
+computed, entered at run start, analyst) or one of three the writer adds: `label` (a title,
+header, row name or rubric text, never a number), `formula` (its text is the formula as written)
+and `rule` (a methodology constant, a plain number or name). Module ids, file names,
 hashes and run codes appear on `Sources` only. A `Basis:` line is kept on `Sources` beside its
 paragraph and is never a cell of the other three sheets; a scorecard row's own Basis cell is the
 comment on its level cell.
@@ -16,8 +19,10 @@ comment on its level cell.
 A figure is stored as a number only when `credit_snapshot.figure` says so (the plain-decimal rule),
 with the number format it returns, so the cell shows the handoff's digits; everything else is text.
 Analyst cells are blank, pale yellow, and the only cells filled yellow: no conditional format uses
-yellow. The function is pure in the sense that cell values, styles and `Sources` rows are a function
-of the snapshot; the zip and document timestamps are not promised identical.
+yellow. A formula cell holds no cached value (openpyxl stores none), so a program that does not
+calculate shows it empty; the plain values the app computed (Credit Score, medians) stay beside.
+The function is pure in the sense that cell values, styles and `Sources` rows are a function of the
+snapshot; the zip and document timestamps are not promised identical.
 
 openpyxl ships no type information and the repository allows neither a stub dependency nor a
 type-check suppression, so its modules are loaded with `importlib` and used as untyped objects.
@@ -35,17 +40,20 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from deploy_workflow import credit_snapshot as snap
+from deploy_workflow import credit_snapshot_formulas as fx
 from deploy_workflow.cp2_scorecard import level_text
+from deploy_workflow.recommendation import RECOMMENDATION_NAMES
 
 _xl = importlib.import_module("openpyxl")
 _styles = importlib.import_module("openpyxl.styles")
 _comments = importlib.import_module("openpyxl.comments")
 _rules = importlib.import_module("openpyxl.formatting.rule")
 _props = importlib.import_module("openpyxl.worksheet.properties")
+_validation = importlib.import_module("openpyxl.worksheet.datavalidation")
 _utils = importlib.import_module("openpyxl.utils")
 
 SNAPSHOT, INPUTS, MATRIX, SOURCES = "Snapshot", "Inputs", "Matrix", "Sources"
-LABEL = "label"
+LABEL, FORMULA, RULE = "label", fx.FORMULA, fx.RULE
 SOURCES_HEADER = (
     *("Sheet", "Cell", "Kind", "Block", "Row", "Column", "Module", "Section", "Line"),
     *("Handoff text", "Handoff sha256", "Run", "As of"),
@@ -82,8 +90,9 @@ GLYPHS = (("Strength", "▲", "Strengths"), ("Weakness", "▼", "Weaknesses"))
 Band = tuple[tuple[str, int], ...]
 
 # What may not appear on Snapshot, Inputs or Matrix (also in a cell comment): a module id, a file
-# name (a token ending in a dot and a 2-5 letter extension) or a hash. The run id is checked beside.
-_LEAKS = re.compile(r"CP-\w+|\w\.[A-Za-z]{2,5}\b|\b[0-9a-f]{64}\b")
+# name (a token ending in a dot and a 2-7 letter extension) or a hash, in any case. The run id is
+# checked beside.
+_LEAKS = re.compile(r"CP-\w+|\w\.[A-Za-z]{2,7}\b|\b[0-9a-f]{64}\b", re.IGNORECASE)
 
 
 def _leaks(text: str, run_id: str) -> bool:
@@ -109,6 +118,7 @@ LAYOUTS = (
         "Yellow cells are for the analyst. Every cell is listed on the Sources sheet.",
         (
             ((HEADER_BLOCK, 5), ("Corporate ratings", 6), ("Equity value", 6)),
+            ((fx.KEY_FIGURES, 7), (fx.RECOMMENDATION, 10)),
             (("Business description", 9), ("Investment thesis", 8)),
             (("Operating model", 17),),
             (("Shareholders", 17),),
@@ -117,6 +127,8 @@ LAYOUTS = (
             ((NEW_ISSUE, 17),),
             (("Capital structure", 17),),
             (("Capital structure totals", 17),),
+            ((fx.RV_LOANS, 17),),
+            ((fx.RV_BONDS, 17),),
             (("EBITDA bridge", 9), ("EBITDA measures", 8)),
             (("Near-term events", 9), ("Monitoring triggers", 8)),
             ((STRENGTHS, 17),),
@@ -132,7 +144,7 @@ LAYOUTS = (
         "Inputs",
         "Yellow cells are for the analyst. Values the app computed are shown for reference.",
         (
-            (("Credit Score", 4), (CONFIRMATION, 4), (REFERENCE_UNIT, 4)),
+            (("Credit Score", 3), (fx.CREDIT_SCORE, 3), (CONFIRMATION, 3), (REFERENCE_UNIT, 3)),
             ((INSTRUMENTS, 12),),
             (("Quotes as entered", 12),),
             (("Reference medians", 12),),
@@ -151,6 +163,12 @@ LAYOUTS = (
             (("Rating limits", 12),),
             (("Price floors", 6),),
             ((RUBRIC, 12),),
+            ((fx.REC_TABLE, 6), (fx.SCALES, 6)),
+            ((fx.BANDS, 4), (fx.CS_RULES, 4), (fx.ELIG_TYPES, 4)),
+            ((fx.PORTFOLIO, 4),),
+            ((fx.ELIGIBLE, 6), (fx.MEDIAN_BP, 6)),
+            ((fx.DIFFERENCE, 6), (fx.VALUATION, 6)),
+            ((fx.BREACH, 6), (fx.RESULT, 6)),
         ),
     ),
 )
@@ -192,7 +210,12 @@ _LOOKS = {
     snap.COMPUTED: _Look(_font(BLUE_DARK), _fill(None), _BOX),
     snap.GAP: _Look(_font(GAP_INK, italic=True), _fill(None), _GAP_BOX),
     snap.ANALYST: _Look(_font(), _fill(ANALYST_FILL), _BOX),
+    FORMULA: _Look(_font(BLUE_DARK, bold=True), _fill(None), _BOX),
+    RULE: _Look(_font(), _fill(None), _BOX),
 }
+# The colour of a recommendation chip by the name it shows, strongest overweight first: blue for
+# overweight, neutral for market weight, orange for underweight; none of them yellow.
+CHIP_COLOURS = ("93C5FD", "DBEAFE", "F4F4F5", "FED7AA", "FDBA74")
 _LEFT = _styles.Alignment(horizontal="left", vertical="top", wrap_text=True)
 _RIGHT = _styles.Alignment(horizontal="right", vertical="top", wrap_text=True)
 _CENTRE = _styles.Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -241,7 +264,9 @@ class _Page:
         """Write `spec` at (row, col), merged over `span` grid columns; return its address."""
         item = spec.item
         figure = item.figure if item is not None else None
-        value: Any = None if spec.kind == snap.ANALYST else spec.text
+        if spec.kind == RULE:
+            figure = snap.figure(spec.text)  # a constant is a number where it is one
+        value: Any = None if spec.kind in (snap.ANALYST, FORMULA) else spec.text
         number_format = None
         if figure is not None:
             value = figure.value
@@ -259,7 +284,7 @@ class _Page:
             self.ws.merge_cells(
                 start_row=row, start_column=col, end_row=row, end_column=col + span - 1
             )
-        self._height(row, spec.text, span)
+        self._height(row, "" if spec.kind == FORMULA else spec.text, span)
         if item is not None and item.basis:
             self.book.add_basis(item)
             if not _leaks(item.basis, self.book.snapshot.run_id):
@@ -277,7 +302,8 @@ class _Page:
 
     def _style(self, row: int, col: int, span: int, spec: _Put, number: bool) -> None:
         look = _LOOKS[spec.look]
-        align = _RIGHT if number else _CENTRE if spec.look in ("header", "banner") else _LEFT
+        centred = ("header", "banner", FORMULA)
+        align = _RIGHT if number else _CENTRE if spec.look in centred else _LEFT
         for offset in range(span):
             cell = self.ws.cell(row=row, column=col + offset)
             cell.font, cell.fill, cell.border, cell.alignment = (
@@ -356,6 +382,8 @@ def _joins(have: list[str], columns: list[str]) -> bool:
     """A row joins the table above when its columns (units aside) lie within the table's or
     the table's lie within the row's; otherwise it starts a table with its own header."""
     a, b = _main(have), _main(columns)
+    if not a and not b:
+        return bool(columns) and set(have) == set(columns)  # rows that are only a unit
     return bool(a) and bool(b) and (a <= b or b <= a)
 
 
@@ -407,6 +435,8 @@ def _names_itself(row: Aligned) -> bool:
     """The row's name is already its first cell (a table whose first column is the row name)."""
     label, cells = row
     first = cells[0] if cells else None
+    if first is not None and first.kind == FORMULA and first.column == "Instrument":
+        return True  # a relative-value row names itself by formula, and only when it applies
     return first is not None and first.text == label and first.kind != snap.ANALYST
 
 
@@ -697,6 +727,8 @@ class _Book:
         self.sources: list[tuple[str, str, _Put]] = []
         self.bases: list[snap.SnapshotCell] = []
         self.workbook = _xl.Workbook()
+        self.plan = fx.Plan({}, (), (), ())
+        self.formula_text: dict[tuple[str, str], str] = {}
 
     def add_source(self, sheet: str, cell: str, spec: _Put) -> None:
         self.sources.append((sheet, cell, spec))
@@ -705,18 +737,73 @@ class _Book:
         self.bases.append(item)
 
     def build(self) -> bytes:
-        found = _blocks(self.snapshot)
+        self.plan = fx.extend(self.snapshot, _blocks(self.snapshot))
         first = True
         for layout in LAYOUTS:
             ws = self.workbook.active if first else self.workbook.create_sheet()
             first = False
             ws.title = layout.sheet
-            self._sheet(_Page(self, ws, layout), found)
+            self._sheet(_Page(self, ws, layout), self.plan.found)
+        self._finish()
         self._sources(self.workbook.create_sheet(SOURCES))
         self.workbook.properties.creator = "Credit Snapshot"
         buffer = io.BytesIO()
         self.workbook.save(buffer)
         return buffer.getvalue()
+
+    def _finish(self) -> None:
+        """Every cell is placed: write the formulas with their names turned into addresses, then
+        the dropdowns and the chip colours."""
+        where = {
+            (sheet, spec.block, spec.row, spec.column): address
+            for sheet, address, spec in self.sources
+        }
+        for sheet, address, spec in self.sources:
+            if spec.kind != FORMULA:
+                continue
+            formula = self.plan.formulas[int(spec.text.removeprefix(fx.HANDLE))]
+            cell = self.workbook[sheet][address]
+            cell.value = self.formula_text[sheet, address] = fx.resolve(formula, where)
+            if formula.mirror is not None:
+                source, there = fx.place(formula.mirror, where)
+                cell.number_format = self.workbook[source][there].number_format
+            elif formula.number_format is not None:
+                cell.number_format = formula.number_format
+        for dropdown in self.plan.dropdowns:
+            self._dropdown(dropdown, where)
+        for sheet, block, column in self.plan.chips:
+            where_chips = [
+                a
+                for s, a, p in self.sources
+                if (s, p.block, p.column, p.kind) == (sheet, block, column, FORMULA)
+            ]
+            self._chips(sheet, where_chips)
+
+    def _dropdown(self, dropdown: fx.Dropdown, where: dict[tuple[str, str, str, str], str]) -> None:
+        cells = [
+            address
+            for sheet, address, spec in self.sources
+            if (sheet, spec.block, spec.column) == (dropdown.sheet, dropdown.block, dropdown.column)
+            and spec.kind in (snap.ANALYST, FORMULA)
+        ]
+        if not cells:
+            return
+        rule = _validation.DataValidation(
+            type="list",
+            formula1=fx.list_text(dropdown.items, where),
+            allow_blank=True,
+            showErrorMessage=True,
+        )
+        ws = self.workbook[dropdown.sheet]
+        ws.add_data_validation(rule)
+        for address in cells:
+            rule.add(address)
+
+    def _chips(self, sheet: str, addresses: list[str]) -> None:
+        ws = self.workbook[sheet]
+        for name, colour in zip(RECOMMENDATION_NAMES, CHIP_COLOURS, strict=True):
+            rule = _rules.CellIsRule(operator="equal", formula=[f'"{name}"'], fill=_fill(colour))
+            ws.conditional_formatting.add(" ".join(addresses), rule)
 
     def _sheet(self, page: _Page, found: dict[tuple[str, str], snap.Block]) -> None:
         layout, ws = page.layout, page.ws
@@ -770,6 +857,8 @@ class _Book:
         item = spec.item
         module = item.module if item is not None else None
         text = None if spec.kind == snap.ANALYST else spec.text
+        if spec.kind == FORMULA:
+            text = self.formula_text[sheet, address]
         return [
             *(sheet, address, spec.kind, spec.block, spec.row, spec.column),
             module,

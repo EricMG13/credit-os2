@@ -94,14 +94,19 @@ def test_the_heat_strip_is_one_cell_per_factor_with_a_three_colour_scale_and_no_
     sheet = book["Snapshot"]
     levels = listed(book, "Scorecard", column="Level")
     assert [r["Row"] for r in levels] == list(FACTORS)
-    rules = [rule for item in sheet.conditional_formatting for rule in item.rules]
+    rules = [
+        rule
+        for item in sheet.conditional_formatting
+        for rule in item.rules
+        if rule.colorScale is not None
+    ]
     assert len(rules) == 1 and len(rules[0].colorScale.color) == 3
     colours = [c.rgb[-6:] for c in rules[0].colorScale.color]
     assert colours == list(writer.HEAT)
     for colour in colours:
         red, green, blue = (int(colour[k : k + 2], 16) for k in (0, 2, 4))
         assert not (red >= 0xF0 and green >= 0xE0 and blue <= min(red, green) - 0x10), colour
-    scale = next(item.sqref for item in sheet.conditional_formatting)
+    scale = next(item.sqref for item in sheet.conditional_formatting if item.rules[0].colorScale)
     strip = CellRange(str(scale))
     assert {(sheet[r["Cell"]].row, sheet[r["Cell"]].column) for r in levels} == set(strip.cells)
     # Each factor name is a label cell directly above its level.
