@@ -147,11 +147,9 @@ it("draws the rating register as written, with outlook as a word", () => {
 
 it("says why when the triggers are a stated gap or the tables are absent", () => {
   render(<RatingsLead {...leadProps(ratings({ gap: "no agency trigger stated" }))} />);
-  expect(
-    within(screen.getByRole("region", { name: "Rating triggers" })).getByText(
-      "No agency trigger stated",
-    ),
-  ).toBeVisible();
+  // A chart the module declared undrawn is stated once, with its reason, in the module's limitations
+  // (the frame; see cp2hReal.test.tsx): the lead does not state it again.
+  expect(screen.queryByRole("region", { name: "Rating triggers" })).toBeNull();
   const register = screen.getByRole("region", { name: "Rating register" });
   expect(within(register).getByText("This page could not read the rating history.")).toBeVisible();
   expect(register.textContent).not.toMatch(/Built from the module's contract/);

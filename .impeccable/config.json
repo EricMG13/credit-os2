@@ -20,6 +20,18 @@
         ],
         "createdAt": "2026-11-09T18:03:57.111Z",
         "reason": "Untitled UI Tag-with-avatar anatomy: the leading avatar tile sits 4px inside the chip border by design; text keeps 8px"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-26T01:07:14.009Z",
+        "reason": "owner confirmed 2026-11-26: Geist is the intended typeface"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-11-26T01:07:14.029Z",
+        "reason": "owner confirmed 2026-11-26: Geist is the intended typeface"
       }
     ]
   }

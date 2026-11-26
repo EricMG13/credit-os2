@@ -5,7 +5,13 @@ import { WatchBlock } from "@/pages/library/parts/WatchBlock";
 import type { AnswerState, Cell } from "@/pages/library/slice";
 import { TRACE_HOST, TraceControl } from "@/pages/library/parts/TraceControl";
 import { SECTION_HEADING, SUBSECTION_HEADING } from "@/pages/library/parts/heading";
-import { containsReference, displayColumns, readerText, type Table } from "../publishedReport";
+import {
+  containsReference,
+  displayColumns,
+  readerText,
+  withoutReferences,
+  type Table,
+} from "../publishedReport";
 import { plainText, richParts } from "../richText";
 
 /** A register code at the start of a heading (T4.18, T2B.7 -, TL10.2), with its dash. */
@@ -28,7 +34,9 @@ function visible(table: Table) {
 }
 
 function cellText(text: string | undefined) {
-  return text && containsReference(text) ? "In Evidence" : readerText(text ?? "");
+  if (!text || !containsReference(text)) return readerText(text ?? "");
+  // The cell's own words stay; a cell that only cites a source reads "In Evidence".
+  return readerText(withoutReferences(text)) || "In Evidence";
 }
 
 const LEDGER_ORDER = ["Closed", "Remaining", "New", "No longer stated"];

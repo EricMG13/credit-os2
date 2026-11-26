@@ -1,4 +1,5 @@
 import { forwardPath, pathGeometry, PATH } from "../overview/stressData";
+import { withOtherCases } from "./cp2g";
 import { FigureTile, GapTile, LeadFrame, Link } from "./kit/LeadFrame";
 import { BAR, GapSlot, Legend, LINE, Measured, NARROW, SIZE, textWidth, wrap } from "./kit/marks";
 import { safeText } from "./kit/reader";
@@ -326,7 +327,8 @@ function ForwardTile({ props, path }: { props: LeadProps; path: Path }) {
 
 function Content(props: LeadProps) {
   const [model] = props.view.models;
-  const path = model ? forwardPath(model) : null;
+  const base = model ? forwardPath(model) : null;
+  const path = base && model ? withOtherCases(base, model) : null;
   return (
     <>
       {path ? (

@@ -29,7 +29,7 @@ const selectedEntry = (view: ReportView, module: string) =>
   view.entries.find((entry) => entry.selected && entry.output.module === module);
 
 /** Why a blocked module has no figures, in its own words where they can be drawn here. */
-function blockedReason(entry: OutputEntry) {
+export function blockedReason(entry: OutputEntry) {
   const first = entry.sections
     .find((section) => section.heading === "Bottom line")
     ?.blocks.find((block) => block.type === "text");

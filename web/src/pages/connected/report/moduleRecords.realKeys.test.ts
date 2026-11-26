@@ -30,7 +30,10 @@ describe("machine-keyed registers of real handoffs", () => {
       entry("CP-2", [table("cp2.cp_model_strengths_weaknesses", 10), table("cpdr.adoptions", 20)]),
     );
     expect(tables).toEqual([]);
-    expect(evidence.map(({ title }) => title)).toEqual(["Model strengths weaknesses", "Adoptions"]);
+    expect(evidence.map(({ title }) => title)).toEqual([
+      "Fundamental credit model strengths weaknesses",
+      "Research questions adoptions",
+    ]);
   });
 
   it("holds the cp1_references register after the appendix heading (CP-2A)", () => {
@@ -46,11 +49,12 @@ describe("machine-keyed registers of real handoffs", () => {
       ]),
     );
     expect(tables).toEqual([]);
-    expect(evidence.map(({ title }) => title)).toEqual(["References"]);
+    expect(evidence.map(({ title }) => title)).toEqual(["Financial foundation references"]);
   });
 
   it("never reads a module code in a heading", () => {
     expect(readableTitle("cp2.cp_model_strengths_weaknesses")).not.toMatch(/cp2/i);
-    expect(readableTitle("cpdr.adoptions")).toBe("Adoptions");
+    expect(readableTitle("cpdr.adoptions")).toBe("Research questions adoptions");
+    expect(readableTitle("cp1_references")).toBe("Financial foundation references");
   });
 });

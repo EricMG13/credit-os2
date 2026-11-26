@@ -118,3 +118,18 @@ it("prints the covenant condition once, not under the bullet and again as a capt
     screen.getAllByText("exposure must exceed 40%; acquisition alternative not assumed"),
   ).toHaveLength(1);
 });
+
+// The whole replayed TDG CP-2 handoff (fixtures/cp2_tdg_replay.md): it writes a "Strengths and
+// weaknesses" passage, which the module frame draws under that title; the lead's ranked ledger of the
+// same drivers carries its own title, so the page does not show the heading twice.
+it("does not title the ranked ledger like the module's own written passage", async () => {
+  const { fixtureEntry } = await import("./markdown.fixture");
+  const path = await import("node:path");
+  const read = fixtureEntry(
+    "CP-2",
+    path.resolve(import.meta.dirname, "fixtures", "cp2_tdg_replay.md"),
+  );
+  render(<CreditLead {...leadProps(read)} />);
+  expect(screen.queryByRole("region", { name: "Strengths and weaknesses" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Ranked strengths and weaknesses" })).toBeVisible();
+});

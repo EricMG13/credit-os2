@@ -34,11 +34,13 @@ import {
 import {
   caseYears,
   cellsOf,
+  COVER_ON_EBITDA,
   earningsBasis,
   forecastMeasure,
   maturitySchedule,
   modelCases,
   modelLimitations,
+  ON_EBITDA,
   readMeasure,
   absentText,
   type MeasureRead,
@@ -245,15 +247,13 @@ function tableTrace(folder: string, source: Ready | { state: "gap" }, name: stri
 const NET_LEVERAGE = /^Net leverage\b/u;
 const LIQUIDITY = /^Accessible liquidity\b/u;
 const CASH_PROXY_ROW = /^Cash proxy \(not issuer free cash flow\)$/u;
-const ON_ADJ_EBITDA = /net debt \/ Adj EBITDA/u;
 const COVER = /^Interest coverage\b/u;
-const COVER_ON_ADJ_EBITDA = /Adj EBITDA \/ (?:cash )?interest/u;
 
-/** The page's one reading of net leverage: the row on net debt over Adj EBITDA. */
+/** The page's one reading of net leverage: the row on net debt over EBITDA. */
 const readLeverage = (model: unknown) =>
   readMeasure(model, "net leverage", NET_LEVERAGE, {
-    pattern: ON_ADJ_EBITDA,
-    basis: "net debt over Adj EBITDA",
+    pattern: ON_EBITDA,
+    basis: "net debt over EBITDA",
   });
 
 /**
@@ -327,8 +327,8 @@ function ModelTiles({
   const cashflow = record(model.cashflow);
   const leverage = readLeverage(model);
   const cover = readMeasure(model, "interest cover", COVER, {
-    pattern: COVER_ON_ADJ_EBITDA,
-    basis: "Adj EBITDA over interest",
+    pattern: COVER_ON_EBITDA,
+    basis: "EBITDA over interest",
   });
   const liquidity = readMeasure(model, "accessible liquidity", LIQUIDITY);
   const schedule = maturitySchedule(view);
@@ -504,6 +504,7 @@ export function Forecast({
               notice={caseOptions[0]?.comparisonNotice}
               shownQualifications={baseQualifications(model)}
               source={source}
+              handoff={handoff}
             />
           ) : undefined
         }

@@ -1,6 +1,6 @@
 import { cx } from "@/utils/cx";
 import { ticks, type SourceTable } from "../../visuals/visualData";
-import { basisNotes, readCell } from "../overview/figureData";
+import { basisNotes, blockedReason, readCell } from "../overview/figureData";
 import { Key } from "../overview/figureParts";
 import { Bento, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
@@ -343,11 +343,24 @@ function Implied({ entry, href }: { entry: LeadProps["entry"]; href: Href }) {
   );
 }
 
+/** The module's first whole sentence: its reason for not being assessable, in its own words. */
+const firstSentence = (text: string) => text.split(/(?<=[.!?])\s+(?=[A-Z])/u)[0] ?? text;
+
 /** CP-3D: where the market prices the issuer's debt, and what that implies. */
 export const MarketLead = withDraws(
   function MarketLead(props: LeadProps) {
     const { entry } = props;
-    if (drawsNothing(entry)) return null;
+    if (drawsNothing(entry))
+      return entry.output.parseError || chartOf(entry, TITLE).state === "absent" ? null : (
+        <Bento>
+          <LeadGap
+            span={12}
+            label={TITLE}
+            title={TITLE}
+            reason={`Not drawn. ${firstSentence(blockedReason(entry))}`}
+          />
+        </Bento>
+      );
     const href = leadHref(props);
     return (
       <Bento>

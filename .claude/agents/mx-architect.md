@@ -1,6 +1,6 @@
 ---
 name: mx-architect
-description: Fable 5.2 @ high (Fable cap). Greenfield architecture, multi-agent orchestration plans, security policy, whole-branch and end-of-phase reviews.
+description: Fable 5.2 @ high (Fable cap). Greenfield architecture, multi-agent orchestration plans, security policy, whole-branch and end-of-phase reviews. Fallback when Fable usage is exhausted: dispatch this same agent with model opus, effort xhigh (Opus 5.5).
 model: claude-fable-5-2
 effort: high
 tools: Read, Write, Bash, Glob, Grep
