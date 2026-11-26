@@ -23,7 +23,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import Callable, Container, Mapping, Sequence
+from collections.abc import Callable, Container, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime
 from html.parser import HTMLParser
@@ -222,14 +222,39 @@ def _clean_content_type(content_type: str | None) -> str:
     return media
 
 
+_BOMS = (
+    (codecs.BOM_UTF32_LE, "utf-32"),  # before UTF-16 LE: its BOM starts the same two bytes
+    (codecs.BOM_UTF32_BE, "utf-32"),
+    (codecs.BOM_UTF8, "utf-8-sig"),
+    (codecs.BOM_UTF16_LE, "utf-16"),
+    (codecs.BOM_UTF16_BE, "utf-16"),
+)
+_META_CHARSET = re.compile(
+    rb"<meta[^>]+?charset\s*=\s*[\"']?([A-Za-z0-9][A-Za-z0-9._:+-]*)", re.IGNORECASE
+)
+_META_WINDOW = 1024
+
+
+def _declared_charsets(body: bytes, content_type: str | None) -> list[str]:
+    """The charsets the bytes declare, strongest first: a byte-order mark, the Content-Type
+    charset, then for HTML a ``<meta>`` charset in the first kilobyte."""
+    names = [name for bom, name in _BOMS if body.startswith(bom)][:1]
+    header = _CHARSET.search(content_type or "")
+    names += [header.group(1)] if header else []
+    if _media_type(content_type) in ("text/html", "application/xhtml+xml"):
+        meta = _META_CHARSET.search(body[:_META_WINDOW])
+        names += [meta.group(1).decode("ascii")] if meta else []
+    return names
+
+
 def _decode(body: bytes, content_type: str | None) -> str:
-    match = _CHARSET.search(content_type or "")
-    if match:
+    for name in _declared_charsets(body, content_type):
         try:
-            return body.decode(match.group(1), errors="replace")
+            return body.decode(name, errors="replace")
         except (LookupError, UnicodeError):
             # An unknown name (LookupError) or a codec that is not a text decoder, such as
-            # ``undefined`` or ``idna`` (UnicodeError): fall back to UTF-8 as for an undeclared one.
+            # ``undefined`` or ``idna`` (UnicodeError): the next declaration is tried, and an
+            # undeclared body is read as UTF-8.
             pass
     return body.decode("utf-8", errors="replace")
 
@@ -416,10 +441,22 @@ def _body_name(sha256: str, content_type: str | None) -> str:
     return f"{sha256}.{_EXTENSIONS.get(_media_type(content_type), 'txt')}"
 
 
+def _fetch_key(url: str) -> str:
+    """The address as one fetch: ``webfetch.check_url``'s host (lower case) and path with query,
+    without the fragment, a trailing host dot or the default port. An address the check refuses is
+    its own key."""
+    try:
+        split = webfetch.check_url(url)
+    except webfetch.UrlRefused:
+        return url
+    return f"https://{split.host.rstrip('.')}{split.path_query}"
+
+
 def _spent_bytes(rows: list[dict[str, Any]]) -> int:
-    """The bytes retained: ``bytes`` summed over distinct ``url`` values (a re-dated row repeats
-    its url's row, so it is free; every other kept fetch has a new url and is charged)."""
-    return sum({row["url"]: int(row["bytes"]) for row in rows}.values())
+    """The bytes retained: ``bytes`` summed over distinct fetch keys of ``url`` (a re-dated row
+    repeats its url's row, so it is free; every other kept fetch has a new address and is
+    charged)."""
+    return sum({_fetch_key(row["url"]): int(row["bytes"]) for row in rows}.values())
 
 
 _LIST_URL = re.compile(r"https://data\.sec\.gov/submissions/CIK[0-9]{10}\.json")
@@ -631,9 +668,11 @@ class WebLookup:
         return host_allowed(host, self._domains, self._case_hosts)
 
     def _cached(self, rows: list[dict[str, Any]], url: str) -> Retained | None:
-        """The latest row for ``url`` (a page re-dated by a filing list has two)."""
+        """The latest row for ``url`` (a page re-dated by a filing list has two), whichever way the
+        address is spelled (see ``_fetch_key``); the row keeps the url its first fetch was given."""
+        key = _fetch_key(url)
         for row in reversed(rows):
-            if row.get("url") == url:
+            if _fetch_key(row.get("url")) == key:
                 try:
                     clean = _clean_content_type(row.get("content_type"))
                 except AttributeError:
@@ -664,8 +703,8 @@ class WebLookup:
         return _SEC_MESSAGE if is_sec_host(host) and self._sec_agent() is None else None
 
     def _budget_problem(self, rows: list[dict[str, Any]]) -> str | None:
-        """The budget counts distinct ``url`` values: one page and its bytes per address."""
-        if len({row["url"] for row in rows}) >= MAX_PAGES:
+        """The budget counts distinct fetch keys of ``url``: one page and its bytes per address."""
+        if len({_fetch_key(row["url"]) for row in rows}) >= MAX_PAGES:
             return f"the run's web budget of {MAX_PAGES} retained pages is spent"
         if _spent_bytes(rows) >= MAX_TOTAL_BYTES:
             return f"the run's web budget of {MAX_TOTAL_BYTES} retained bytes is spent"
@@ -1072,11 +1111,21 @@ def retained_rows(run_dir: Path) -> list[Retained]:
     return [_retained_row(row) for row in _read_index(run_dir / "web" / "index.jsonl")]
 
 
+def _latest_rows(items: Iterable[Retained]) -> list[Retained]:
+    """One row per fetched address (``_fetch_key``): its latest, in order of first retention. A
+    page re-dated by a filing list has an older row for the same address that no longer holds."""
+    latest: dict[str, Retained] = {}
+    for item in items:
+        latest[_fetch_key(item.url)] = item
+    return list(latest.values())
+
+
 def retained_pages(run_dir: Path) -> list[Retained]:
-    """Every page retained under ``run_dir/web``, once per ``source_id`` (its first row), in
-    retention order. Raises ``ResearchError`` like ``retained_rows``."""
+    """Every page retained under ``run_dir/web``, once per ``source_id`` (its first address, as of
+    that address's latest row), in retention order. Raises ``ResearchError`` like
+    ``retained_rows``."""
     found: dict[str, Retained] = {}
-    for item in retained_rows(run_dir):
+    for item in _latest_rows(retained_rows(run_dir)):
         found.setdefault(item.source_id, item)
     return list(found.values())
 
@@ -1147,14 +1196,14 @@ class KnownPages(dict[str, tuple[Retained, str]]):
 
 def known_pages(run_dir: Path) -> KnownPages:
     """The pages retained under ``run_dir/web`` as the handoff checks read them, built the way a
-    module's tools register them: each id once (its first row) with its extracted text, every row
-    kept. A page whose file cannot be read is logged and left out, so a quote cited to it is
-    rejected. A run that retained nothing has no index and gives no pages.
+    module's tools register them: each id once (its first address) with its extracted text, the
+    latest row of every address kept. A page whose file cannot be read is logged and left out, so
+    a quote cited to it is rejected. A run that retained nothing has no index and gives no pages.
 
     Raises ``ResearchError`` when the index is damaged and ``OSError`` when it cannot be read."""
     pages: dict[str, tuple[Retained, str]] = {}
     rows: list[Retained] = []
-    for item in retained_rows(run_dir):
+    for item in _latest_rows(retained_rows(run_dir)):
         if item.source_id not in pages:
             try:
                 text = "".join(_page_text(run_dir / "web", item))
@@ -1285,7 +1334,7 @@ class _Handoff:
     lines: list[str]
     known: Mapping[str, tuple[Retained, str]]
     addresses: dict[str, str]
-    status: dict[str, str]  # the strictest status among the index rows of one id
+    status: dict[str, str]  # the strictest status among the latest rows of the addresses of one id
     cells: dict[int, list[str]]  # line number -> its cells, for every table row
     headers: dict[int, list[str]]  # line number -> the cells of its table's first row
     direct: dict[int, set[str]]  # line number -> the pages the row names
@@ -1294,9 +1343,10 @@ class _Handoff:
 
     @classmethod
     def read(cls, markdown: str, known: Mapping[str, tuple[Retained, str]]) -> "_Handoff":
-        items = [(sid, item) for sid, (item, _text) in known.items()]
+        listed = [item for item, _text in known.values()]
         if isinstance(known, KnownPages):
-            items += [(item.source_id, item) for item in known.rows]
+            listed += known.rows
+        items = [(item.source_id, item) for item in _latest_rows(listed)]
         addresses = {
             _norm_url(address): sid for sid, item in items for address in (item.url, item.final_url)
         }
