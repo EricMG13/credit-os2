@@ -18,8 +18,10 @@ from deploy_workflow import http_base
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox import teams
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
-from deploy_workflow.run_start import service
+from deploy_workflow import reference_fetch
+from deploy_workflow.run_start import service, standing_portfolios
 from deploy_workflow.accounts import store as account_store
+from deploy_workflow.signal import fetch as signal_fetch
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
 from . import (
@@ -529,6 +531,14 @@ def _accounts_folder(
     return folder
 
 
+def _offline_resolve(host: str) -> Iterator[str]:
+    """The ruled synthetic-mode behaviour (not a stand-in): a synthetic run fetches nothing, so no
+    lookup or connection is made. Each fetchable standing key records this refusal as its failure
+    in the run root, which stops later automatic fetches there, so the root must be throwaway
+    (``proof/serve.py`` enforces an empty one)."""
+    raise signal_fetch.FetchRefused("a synthetic run fetches nothing")
+
+
 @contextmanager
 def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     root: Path,
@@ -585,6 +595,9 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     try:
         with Server(("127.0.0.1", port), handler) as server:
             server.scheduler, server.signal = scheduler, hosted
+            server.standing = standing_portfolios.Desk(
+                reference_fetch.Wiring(resolve=_offline_resolve) if synthetic else None
+            )
             yield server
     finally:
         scheduler.close()
