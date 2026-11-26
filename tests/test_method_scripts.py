@@ -449,6 +449,38 @@ def test_cp3c_two_currencies_are_refused_by_the_script():
     assert outcomes[1].status == "agreed"  # liquidity is all in EUR
 
 
+def _due_in(currency):
+    # the two due rows in `currency`; Term Loan B stays beyond the horizon in EUR
+    return [(w[0], w[1], currency, *w[3:]) if w[0] != "Term Loan B" else w for w in WALL]
+
+
+def test_cp3c_a_wall_in_another_currency_than_the_funding_table_is_not_compared():
+    # Due rows all USD, funding table EUR: 750 USD is not 750 EUR, so no total is compared.
+    text = cp3c(wall=_due_in("USD"))
+    outcomes = ms.run("CP-3C", text)
+    assert statuses(outcomes)["Maturities due"] == "not checked"
+    assert outcomes[0].recomputed is None
+    assert "USD" in outcomes[0].reason and "EUR" in outcomes[0].reason
+    assert "convert at a disclosed rate before totalling" in outcomes[0].reason
+    assert not any("Maturities due" in issue for issue in ms.issues("CP-3C", text))
+    assert [o.status for o in outcomes[1:]] == ["agreed", "not checked"]
+
+
+def test_cp3c_a_foreign_instrument_beyond_the_horizon_changes_nothing():
+    wall = [w if w[0] != "Term Loan B" else (w[0], w[1], "USD", *w[3:]) for w in WALL]
+    outcomes = ms.run("CP-3C", cp3c(wall=wall))
+    assert statuses(outcomes) == dict.fromkeys(LINES, "agreed")
+    assert [o.recomputed for o in outcomes] == [750.0, 470.0, 200.0]
+    assert ms.issues("CP-3C", cp3c(wall=wall)) == ()
+
+
+def test_cp3c_an_unread_currency_on_the_due_rows_is_not_compared():
+    outcomes = ms.run("CP-3C", cp3c(wall=_due_in("local")))
+    assert outcomes[0].status == "not checked" and outcomes[0].recomputed is None
+    assert "local" in outcomes[0].reason and "EUR" in outcomes[0].reason
+    assert "convert at a disclosed rate before totalling" in outcomes[0].reason
+
+
 def test_cp3c_an_absent_register_is_not_checked():
     no_table = ms.run("CP-3C", cp3c(heading="### Refinancing need"))
     assert {o.reason for o in no_table} == {"the handoff has no `### Funding gap` table"}
