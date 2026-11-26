@@ -1303,7 +1303,7 @@ def test_a_workbook_source_is_parsed_once_inside_the_markets_reading_scope(monke
     calls.clear()
     with pe.reading():
         snap._source_rows(raw)
-    assert (outside, len(calls)) == (5, 1)  # one parse per sheet and one for the sheet list
+    assert (outside, len(calls)) == (1, 1)  # the source's own scope: one parse per workbook
 
 
 def test_market_sheets_reads_the_whole_run_inside_one_reading_scope(tmp_path, monkeypatch):
@@ -1605,3 +1605,82 @@ def test_the_join_type_rule_is_the_same_for_the_new_cp1_shape(tmp_path, shape):
             handoffs={"CP-1": moved},
         )
         assert {c.kind for c in where(snapshot, "Instruments", LOAN_B, "FIGI")} == {kind}
+
+
+# --- Branch fix 1: a leading T4.18 column, same-name references, formula identifiers --------------
+
+
+def test_a_t418_with_a_column_before_instrument_downloads_and_labels_its_inputs_like_capital():
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    lines = FIXTURE["CP-1"].splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("### T4.18"))
+    out, seen = [], 0
+    for i, line in enumerate(lines):
+        if i > start and line.startswith("|"):
+            cell = "#" if seen == 0 else ("---" if seen == 1 else str(seen - 1))
+            line = f"| {cell} " + line
+            seen += 1
+        elif i > start and seen and not line.startswith("|"):
+            start = len(lines)
+        out.append(line)
+    snapshot = snap.gather(run_of(full(**{"CP-1": "\n".join(out) + "\n"})))
+    inputs = list(dict.fromkeys(c.row for c in snapshot.cells() if c.block == "Instruments"))
+    capital = list(dict.fromkeys(c.row for c in snapshot.cells() if c.block == "Capital structure"))
+    assert inputs and inputs == capital
+    assert wb.workbook_bytes(snapshot)
+
+
+def test_a_custom_portfolio_named_like_a_standing_one_gets_its_own_matrix_and_snapshot_cells(
+    tmp_path,
+):
+    import io
+
+    from openpyxl import load_workbook
+
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    own = replace(cs.lvln_portfolio(), key="custom", name="CLO portfolio", kind="custom")
+    built.stores.run.save(own)
+    snapshot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    book = load_workbook(io.BytesIO(wb.workbook_bytes(snapshot)))
+    rows = list(book["Sources"].iter_rows(min_row=2, values_only=True))
+
+    def formulas(sheet, block, column):
+        return [
+            book[r[0]][r[1]].value
+            for r in rows
+            if (r[0], r[3], r[5]) == (sheet, block, column)
+            and r[4] in ("CLO portfolio", "CLO portfolio (2)")
+        ]
+
+    proposed = formulas("Snapshot", "Recommendation", "Proposed")
+    results = formulas("Matrix", "Portfolio result", "Result")
+    assert len(proposed) == len(results) == 2
+    assert proposed[0] != proposed[1] and results[0] != results[1]
+
+
+def test_a_formula_in_an_rv_workbook_is_its_stored_value_or_an_absent_identifier(tmp_path, caplog):
+    import io
+
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    sheet.title = "RV"
+    sheet.append(list(snap.MARKET_COLUMNS))
+    sheet.append(
+        ["Northbridge Holdings plc", "Northbridge Holdings plc", '=BDP("NBG TL","ID_BB_UNIQUE")',
+         "", "Term Loan", "Senior secured", "600", "375", "2031-03-31"]
+    )  # fmt: skip
+    buffer = io.BytesIO()
+    book.save(buffer)
+    raw = buffer.getvalue()
+    digest = cs.sha256(raw)
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / digest).write_bytes(raw)
+    found = snap._market_sheets(tmp_path, {"rv.xlsx": {"path": "rv.xlsx", "sha256": digest}})
+    row = found[0].rows[0]
+    assert "Formula" not in row.cells["Bloomberg ID"] and "=" not in row.cells["Bloomberg ID"]
+    assert not any("=" in v or "Formula" in v for v in snap._present(row).values())

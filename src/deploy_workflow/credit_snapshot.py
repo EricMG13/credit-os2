@@ -599,10 +599,19 @@ class _Run:
     def views(self) -> tuple[ReferenceView, ...]:
         if self._views is None:
             sector = self.sector()
-            self._views = tuple(
+            views = [
                 _view(reference, found, self.run.issuer, sector)
                 for reference, found in self.run.references
-            )
+            ]
+            used: set[str] = set()
+            for at, view in enumerate(views):
+                name, count = view.name, 1
+                while name in used:  # formula cells are keyed by name: each view needs its own
+                    count += 1
+                    name = f"{view.name} ({count})"
+                used.add(name)
+                views[at] = view if name == view.name else replace(view, name=name)
+            self._views = tuple(views)
         return self._views
 
     def _scorecard(self) -> _Score:
@@ -866,7 +875,7 @@ def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
             and _rv_loan(same[0][1]) and _present(same[0][1])
             else None
         )  # fmt: skip
-        cells += _identifier_cells(mk, row.cells[0], joined)
+        cells += _identifier_cells(mk, row.cells[table.index("Instrument")], joined)
     return cells
 
 
@@ -1899,7 +1908,8 @@ def _source_rows(raw: bytes) -> list[Cells]:
     CSV whose first non-empty row lacks the RV headers gives no sheet, read no further; a sheet of
     more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
     if raw.startswith(b"PK\x03\x04"):
-        sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
+        with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
+            sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
         # The cap applies to a sheet with the RV headers only: another tab never hides one.
         return [_capped(rows) for rows in sheets if rows is not None and _has_rv_head(rows)]
     try:
