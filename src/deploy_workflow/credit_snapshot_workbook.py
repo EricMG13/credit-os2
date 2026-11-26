@@ -28,6 +28,7 @@ from __future__ import annotations
 import importlib
 import io
 import math
+import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
@@ -79,6 +80,14 @@ NEW_ISSUE_INPUTS = ("Guidance", "OID", "Expected ratings", "Commit date", "Coven
 GLYPHS = (("Strength", "▲", "Strengths"), ("Weakness", "▼", "Weaknesses"))
 
 Band = tuple[tuple[str, int], ...]
+
+# What may not appear on Snapshot, Inputs or Matrix (also in a cell comment): a module id, a file
+# name (a token ending in a dot and a 2-5 letter extension) or a hash. The run id is checked beside.
+_LEAKS = re.compile(r"CP-\w+|\w\.[A-Za-z]{2,5}\b|\b[0-9a-f]{64}\b")
+
+
+def _leaks(text: str, run_id: str) -> bool:
+    return _LEAKS.search(text) is not None or run_id in text
 
 
 @dataclass(frozen=True)
@@ -252,7 +261,9 @@ class _Page:
             )
         self._height(row, spec.text, span)
         if item is not None and item.basis:
-            self._comment(first, item.basis)
+            self.book.add_basis(item)
+            if not _leaks(item.basis, self.book.snapshot.run_id):
+                self._comment(first, item.basis)
         self.book.add_source(self.layout.sheet, first.coordinate, spec)
         return str(first.coordinate)
 
@@ -410,8 +421,7 @@ def _title(page: _Page, frame: _Frame, name: str) -> int:
 
 
 def _gap_line(page: _Page, frame: _Frame, cell: snap.SnapshotCell) -> int:
-    spec = _Put(cell.block, cell.row, cell.column, cell.kind, cell.text, cell.kind, cell)
-    page.put(frame.top, frame.left, frame.width, spec)
+    page.put(frame.top, frame.left, frame.width, _as_put(cell))
     return frame.top + 1
 
 
@@ -543,7 +553,7 @@ def _sides(rows: list[Row]) -> tuple[list[Row], list[Row]] | None:
     """Strength rows and weakness rows, or None when the block is not that shape."""
     strengths = [r for r in rows if r[0].startswith(GLYPHS[0][0])]
     weaknesses = [r for r in rows if r[0].startswith(GLYPHS[1][0])]
-    if not strengths or len(strengths) + len(weaknesses) != len(rows):
+    if not rows or len(strengths) + len(weaknesses) != len(rows):
         return None
     return strengths, weaknesses
 
@@ -573,7 +583,7 @@ def _side(page: _Page, frame: _Frame, rows: list[Row], glyph: str) -> None:
         row, col = frame.top + k, frame.left
         page.put(row, col, 1, _Put(STRENGTHS, label, "Glyph", LABEL, glyph, LABEL))
         col += 1
-        for cell, span in zip(cells, spans, strict=False):
+        for cell, span in zip(cells, spans, strict=True):
             page.put(row, col, span, _as_put(cell))
             col += span
 
@@ -685,10 +695,14 @@ class _Book:
     def __init__(self, snapshot: snap.Snapshot) -> None:
         self.snapshot = snapshot
         self.sources: list[tuple[str, str, _Put]] = []
+        self.bases: list[snap.SnapshotCell] = []
         self.workbook = _xl.Workbook()
 
     def add_source(self, sheet: str, cell: str, spec: _Put) -> None:
         self.sources.append((sheet, cell, spec))
+
+    def add_basis(self, item: snap.SnapshotCell) -> None:
+        self.bases.append(item)
 
     def build(self) -> bytes:
         found = _blocks(self.snapshot)
@@ -742,6 +756,8 @@ class _Book:
             ws.append(self._source_row(sheet, address, spec))
         for line in self.snapshot.basis_lines:
             ws.append(self._basis_row(ws.max_row + 1, line))
+        for item in self.bases:
+            ws.append(self._row_basis(ws.max_row + 1, item))
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.font = _font()
@@ -760,6 +776,18 @@ class _Book:
             item.section if item is not None else None,
             item.line if item is not None else None,
             text,
+            self.snapshot.handoff_sha256.get(module) if module is not None else None,
+            self.snapshot.run_id,
+            self.snapshot.as_of,
+        ]
+
+    def _row_basis(self, number: int, item: snap.SnapshotCell) -> list[Any]:
+        """A scorecard or assessment row's own Basis cell, exactly (the comment, when it is clean,
+        repeats it): on Sources only, traced to its row's handoff line."""
+        module = item.module
+        return [
+            *(SOURCES, f"{_utils.get_column_letter(TEXT_COLUMN)}{number}", snap.COPIED),
+            *(item.block, item.row, "Row basis", module, item.section, item.line, item.basis),
             self.snapshot.handoff_sha256.get(module) if module is not None else None,
             self.snapshot.run_id,
             self.snapshot.as_of,

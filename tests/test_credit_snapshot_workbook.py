@@ -394,3 +394,75 @@ def test_a_table_wider_than_its_card_is_cut_into_slices_and_loses_nothing(full):
     assert book["Snapshot"].max_column <= 17
     one = cell_of(book, block="Financials", row="Revenue", column="P30")
     assert (one.value, one.number_format) == (1.5, "0.0;(0.0)")
+
+
+# --- Fix round 1: leaky Basis, one-sided strengths ------------------------------------------------
+
+
+def with_basis(snapshot, basis):
+    blocks = tuple(
+        replace(b, cells=tuple(replace(c, basis=basis) if c.basis else c for c in b.cells))
+        for b in snapshot.blocks
+    )
+    return replace(snapshot, blocks=blocks)
+
+
+@pytest.mark.parametrize(
+    "leaky",
+    [
+        "CP-1 T4.9; NBG_report_2026.pdf p.3",
+        "See CP-2A for the band",
+        "from the annual report.htm table",
+        "ledger.jsonl line 4",
+        "notes.md",
+        "model.xlsx",
+        "hash " + "a" * 64,
+    ],
+)
+def test_a_basis_naming_a_module_file_or_hash_has_no_comment_but_a_sources_row(full, leaky):
+    _, snapshot = full
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(with_basis(snapshot, leaky))))
+    for block in ("Scorecard", "Assessments"):
+        assert all(
+            book["Snapshot"][r["Cell"]].comment is None for r in listed(book, block, kind="copied")
+        )
+    kept = [r for r in sources(book) if r["Column"] == "Row basis"]
+    assert len(kept) == 21  # 17 factors and 4 assessments
+    assert {r["Handoff text"] for r in kept} == {leaky}
+    assert all(r["Sheet"] == "Sources" and r["Module"] == "CP-2" and r["Line"] for r in kept)
+
+
+def test_a_run_id_in_a_basis_has_no_comment(full):
+    _, snapshot = full
+    book = load_workbook(
+        io.BytesIO(writer.workbook_bytes(with_basis(snapshot, f"run {snapshot.run_id} says")))
+    )
+    assert (
+        book["Snapshot"][listed(book, "Scorecard", row="Scale", column="Level")[0]["Cell"]].comment
+        is None
+    )
+
+
+def test_a_clean_basis_keeps_its_comment_and_has_a_sources_row(book):
+    comment = cell_of(book, block="Scorecard", row="Scale", column="Level").comment
+    assert comment is not None
+    rows = [r for r in sources(book) if r["Column"] == "Row basis" and r["Row"] == "Scale"]
+    assert [r["Handoff text"] for r in rows] == [comment.text]
+
+
+@pytest.mark.parametrize(
+    ("keep", "drop", "glyph"), [("Weakness", "Strength", "▼"), ("Strength", "Weakness", "▲")]
+)
+def test_a_one_sided_strengths_block_keeps_the_facing_columns_and_glyphs(full, keep, drop, glyph):
+    _, snapshot = full
+    blocks = tuple(
+        replace(b, cells=tuple(c for c in b.cells if not c.row.startswith(drop)))
+        if b.name == writer.STRENGTHS
+        else b
+        for b in snapshot.blocks
+    )
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(replace(snapshot, blocks=blocks))))
+    glyphs = listed(book, writer.STRENGTHS, column="Glyph")
+    assert {book["Snapshot"][r["Cell"]].value for r in glyphs} == {glyph}
+    headings = {r["Handoff text"] for r in listed(book, writer.STRENGTHS, column="Heading")}
+    assert headings == {"Strengths", "Weaknesses"}
