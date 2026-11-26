@@ -18,7 +18,7 @@ from deploy_workflow.accounts.store import (
 )
 
 SESSION_LENGTH = timedelta(hours=12)
-_TOKEN = re.compile(r"[A-Za-z0-9_-]{43}", re.ASCII)  # 32 random bytes, URL-safe base64
+TOKEN = re.compile(r"[A-Za-z0-9_-]{43}", re.ASCII)  # 32 random bytes, URL-safe base64
 
 
 def _hash(token: str) -> str:
@@ -49,7 +49,7 @@ def mint_session(db: sqlite3.Connection, account_id: int, *, now: datetime) -> s
 def session_account(db: sqlite3.Connection, token: str, *, now: datetime) -> Account | None:
     """The enabled account a live token belongs to, else None. Writes nothing."""
     utc_text(now)  # rejects a naive time
-    if not _TOKEN.fullmatch(token):
+    if not TOKEN.fullmatch(token):
         return None
     row = db.execute(
         "SELECT account_id, expires_at FROM sessions WHERE token_hash=?", (_hash(token),)
@@ -64,7 +64,7 @@ def session_account(db: sqlite3.Connection, token: str, *, now: datetime) -> Acc
 
 def end_session(db: sqlite3.Connection, token: str) -> None:
     """Delete the token's session, if there is one."""
-    if not _TOKEN.fullmatch(token):
+    if not TOKEN.fullmatch(token):
         return
     with write_transaction(db):
         db.execute("DELETE FROM sessions WHERE token_hash=?", (_hash(token),))
