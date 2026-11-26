@@ -18,7 +18,9 @@ REPO = Path(__file__).resolve().parents[1]
 # Modules allowed to write a workbook: the Credit Snapshot deliverable only
 # (docs/rulings/2026-11-25-deliverables-and-recommendations.md). The coordinator
 # adds its path in the brief of the PR that builds it.
-WORKBOOK_WRITERS_ALLOWED: frozenset[str] = frozenset()
+WORKBOOK_WRITERS_ALLOWED: frozenset[str] = frozenset(
+    {"src/deploy_workflow/credit_snapshot_workbook.py"}
+)
 
 _WRITE_MODES = frozenset({"w", "a", "x"})
 _CREDENTIAL_SUFFIXES = (".pem", ".key", ".p12")

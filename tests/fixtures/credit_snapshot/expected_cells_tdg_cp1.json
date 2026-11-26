@@ -1,0 +1,2547 @@
+{
+ "scope": "retained real CP-1 handoff, TransDigm, as of 2024-09-30, CP-1 blocks only",
+ "case": "tdg_cp1",
+ "scope_blocks": [
+  "Capital structure",
+  "Capital structure totals",
+  "EBITDA bridge",
+  "EBITDA measures",
+  "Financials",
+  "Instruments"
+ ],
+ "entries": [
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche I",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Term loan",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: full priority terms not established",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 2.75%",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "275",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2028-08-24",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche I",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1871",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche I",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche I",
+   "module": "CP-1",
+   "line": 224
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche J",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Term loan",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: full priority terms not established",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 2.50%",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "250",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2031-02-28",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche J",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "3632",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche J",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche J",
+   "module": "CP-1",
+   "line": 225
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche K",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Term loan",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: full priority terms not established",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 2.75%",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "275",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2030-03-22",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche K",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1699",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche K",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche K",
+   "module": "CP-1",
+   "line": 226
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche L",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Term loan",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: full priority terms not established",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 2.50%",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "250",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2032-01-19",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Tranche L",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1500",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche L",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Tranche L",
+   "module": "CP-1",
+   "line": 227
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Revolving facility",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Revolver",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: full priority terms not established",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 2.25%; unused fee 0.50%",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "225",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2029-02-27",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving facility",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "Not supplied: no drawn principal printed separately",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Revolving facility",
+   "module": "CP-1",
+   "line": 228
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2027 subordinated notes",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior subordinated",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "5.50%",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2027-11-15",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2027 subordinated notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "2650",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2027 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2027 subordinated notes",
+   "module": "CP-1",
+   "line": 229
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2028 secured notes",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.75%",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2028-08-15",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2028 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "2100",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2028 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2028 secured notes",
+   "module": "CP-1",
+   "line": 230
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "January 2029 subordinated notes",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior subordinated",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "4.625%",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2029-01-15",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "January 2029 subordinated notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1200",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "January 2029 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "January 2029 subordinated notes",
+   "module": "CP-1",
+   "line": 231
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2029 secured notes",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Equal payment rank with senior indebtedness",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.375%",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2029-03-01",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2029 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "2750",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2029 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2029 secured notes",
+   "module": "CP-1",
+   "line": 232
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "May 2029 subordinated notes",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior subordinated",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "4.875%",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2029-05-01",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "May 2029 subordinated notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "750",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "May 2029 subordinated notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "May 2029 subordinated notes",
+   "module": "CP-1",
+   "line": 233
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2030 secured notes",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior, relative lien priority not established",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.875%",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2030-12-15",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2030 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1450",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2030 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2030 secured notes",
+   "module": "CP-1",
+   "line": 234
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2031 secured notes",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Equal payment rank with senior indebtedness",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "7.125%",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2031-12-01",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2031 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1000",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2031 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2031 secured notes",
+   "module": "CP-1",
+   "line": 235
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2032 secured notes",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Equal payment rank with senior indebtedness",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.625%",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2032-03-01",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2032 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "2200",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2032 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2032 secured notes",
+   "module": "CP-1",
+   "line": 236
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2033 secured notes",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior, relative lien priority not established",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.00%",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2033-01-15",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "2033 secured notes",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "1500",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2033 secured notes",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "2033 secured notes",
+   "module": "CP-1",
+   "line": 237
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Trade receivable securitization",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Receivables facility",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: cross-instrument legal rank not established",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 1.45%",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "145",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2025-07-11",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Trade receivable securitization",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "487",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Trade receivable securitization",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Trade receivable securitization",
+   "module": "CP-1",
+   "line": 238
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Government refundable advances",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Contingent repayment advance",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: rank not stated",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD reporting currency",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "Not supplied: coupon not stated",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not supplied: rate not stated",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "Not supplied: repayment depends on product revenue growth",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Government refundable advances",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "17",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Government refundable advances",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Government refundable advances",
+   "module": "CP-1",
+   "line": 239
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Finance leases",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Lease obligations",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not supplied: cross-instrument rank not stated",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD reporting currency",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "7.0% weighted-average discount rate, not contractual coupon",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not supplied: contractual spread not stated",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "Not supplied: multiple lease expiries",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Finance leases",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "262",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Finance leases",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Finance leases",
+   "module": "CP-1",
+   "line": 240
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Financing cost adjustment",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Aggregate contra-debt, not an instrument",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Not applicable: contra-debt",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "Not applicable: contra-debt",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: contra-debt",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "Not applicable: contra-debt",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Financing cost adjustment",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "Not applicable: contra-debt",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Financing cost adjustment",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Financing cost adjustment",
+   "module": "CP-1",
+   "line": 241
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "6.53",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "6.53",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.88",
+   "module": "CP-1",
+   "line": 254
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.88",
+   "module": "CP-1",
+   "line": 254
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.29",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.29",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "5.96",
+   "module": "CP-1",
+   "line": 256
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "5.96",
+   "module": "CP-1",
+   "line": 256
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.46",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.46",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.60",
+   "module": "CP-1",
+   "line": 258
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.60",
+   "module": "CP-1",
+   "line": 258
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "6.27",
+   "module": "CP-1",
+   "line": 259
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "6.27",
+   "module": "CP-1",
+   "line": 259
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "5.17",
+   "module": "CP-1",
+   "line": 260
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "5.17",
+   "module": "CP-1",
+   "line": 260
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "2.71",
+   "module": "CP-1",
+   "line": 261
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "2.71",
+   "module": "CP-1",
+   "line": 261
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "5.82",
+   "module": "CP-1",
+   "line": 262
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "5.82",
+   "module": "CP-1",
+   "line": 262
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "4.79",
+   "module": "CP-1",
+   "line": 263
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "4.79",
+   "module": "CP-1",
+   "line": 263
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "2.93",
+   "module": "CP-1",
+   "line": 264
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "2.93",
+   "module": "CP-1",
+   "line": 264
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Gross debt",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "19750",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross debt",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "19750",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Cash",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "16278",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "16278",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Gross debt",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "24880",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross debt",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "24880",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Cash",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "18619",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "18619",
+   "module": "CP-1",
+   "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Senior debt",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Unsecured debt",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Senior leverage",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Pro forma interest",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Pro forma interest cover",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3813",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3148",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3813",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3148",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "4173",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3395",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "4173",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3395",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "2045",
+   "module": "CP-1",
+   "line": 143
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "1375",
+   "module": "CP-1",
+   "line": 143
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "-2441",
+   "module": "CP-1",
+   "line": 151
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "-900",
+   "module": "CP-1",
+   "line": 151
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3171",
+   "module": "CP-1",
+   "line": 163
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "-16",
+   "module": "CP-1",
+   "line": 163
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "2789",
+   "module": "CP-1",
+   "line": 165
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "471",
+   "module": "CP-1",
+   "line": 165
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 166
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3001",
+   "module": "CP-1",
+   "line": 166
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 167
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 167
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "1158",
+   "module": "CP-1",
+   "line": 168
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "1160",
+   "module": "CP-1",
+   "line": 168
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 178
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 178
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "24880",
+   "module": "CP-1",
+   "line": 206
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "19750",
+   "module": "CP-1",
+   "line": 206
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Reported)",
+   "column": "Step",
+   "kind": "copied",
+   "value": "EBITDA (Reported)",
+   "module": "CP-1",
+   "line": 424
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Reported)",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "3813",
+   "module": "CP-1",
+   "line": 424
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Reported)",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 424
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Reported)",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Acquisition transaction and integration-related expenses",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Acquisition transaction and integration-related expenses",
+   "module": "CP-1",
+   "line": 425
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Acquisition transaction and integration-related expenses",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "70",
+   "module": "CP-1",
+   "line": 425
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Acquisition transaction and integration-related expenses",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 425
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Acquisition transaction and integration-related expenses",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Non-cash stock and deferred compensation expense",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Non-cash stock and deferred compensation expense",
+   "module": "CP-1",
+   "line": 426
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Non-cash stock and deferred compensation expense",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "217",
+   "module": "CP-1",
+   "line": 426
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Non-cash stock and deferred compensation expense",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 426
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Non-cash stock and deferred compensation expense",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Refinancing costs",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Refinancing costs",
+   "module": "CP-1",
+   "line": 427
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Refinancing costs",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "58",
+   "module": "CP-1",
+   "line": 427
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Refinancing costs",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 427
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Refinancing costs",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other, net",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Other, net",
+   "module": "CP-1",
+   "line": 428
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other, net",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "15",
+   "module": "CP-1",
+   "line": 428
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other, net",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 428
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other, net",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Adjusted)",
+   "column": "Step",
+   "kind": "copied",
+   "value": "EBITDA (Adjusted)",
+   "module": "CP-1",
+   "line": 429
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Adjusted)",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "4173",
+   "module": "CP-1",
+   "line": 429
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Adjusted)",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 429
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "EBITDA (Adjusted)",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Structuring EBITDA",
+   "column": "Value",
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "House EBITDA",
+   "column": "Value",
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
+  }
+ ],
+ "absent_blocks": [],
+ "absent_values": [
+  "NET SALES",
+  "GROSS PROFIT",
+  "Revenue growth",
+  "Gross margin fraction"
+ ],
+ "basis_lines": [],
+ "cross_check": {}
+}

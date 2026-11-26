@@ -1,0 +1,2982 @@
+{
+ "scope": "synthetic regression (invented issuer Northbridge; every value hand-derived from the committed handoff text and docs/methodology/portfolio-recommendation.md; proves function, not the shape of real handoffs)",
+ "case": "full",
+ "scope_blocks": null,
+ "entries": [
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Term Loan B",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Term loan",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior secured",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SOFR + 3.75%",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "375",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2031-03-31",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "600.0",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Term Loan B",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Term Loan B",
+   "module": "CP-1",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Revolving Credit Facility",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Revolver",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior secured",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "GBP",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SONIA + 2.50%",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "250",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2029-06-30",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "Not supplied: no drawn principal printed",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving Credit Facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Revolving Credit Facility",
+   "module": "CP-1",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "4.50% Senior Notes 2030",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior unsecured",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "GBP",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "4.50%",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2030-06-15",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "350.0",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "4.50% Senior Notes 2030",
+   "module": "CP-1",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "6.25% Senior Notes 2032",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Notes",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Senior unsecured",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "EUR",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "6.25%",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "Not applicable: fixed",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2032-09-01",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "500.0",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "6.25% Senior Notes 2032",
+   "module": "CP-1",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Receivables facility",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Type",
+   "kind": "copied",
+   "value": "Receivables facility",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "Secured",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "GBP",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Coupon or Margin",
+   "kind": "copied",
+   "value": "SONIA + 1.75%",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Spread (bps)",
+   "kind": "copied",
+   "value": "175",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "2027-12-31",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Principal or Drawn",
+   "kind": "copied",
+   "value": "80.0",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Receivables facility",
+   "column": "Instrument",
+   "kind": "copied",
+   "value": "Receivables facility",
+   "module": "CP-1",
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.64",
+   "module": "CP-1",
+   "line": 56
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.64",
+   "module": "CP-1",
+   "line": 56
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.08",
+   "module": "CP-1",
+   "line": 57
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.08",
+   "module": "CP-1",
+   "line": 57
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "5.10",
+   "module": "CP-1",
+   "line": 58
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "5.10",
+   "module": "CP-1",
+   "line": 58
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.13",
+   "module": "CP-1",
+   "line": 59
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "4.13",
+   "module": "CP-1",
+   "line": 59
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "3.63",
+   "module": "CP-1",
+   "line": 60
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "3.63",
+   "module": "CP-1",
+   "line": 60
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "5.74",
+   "module": "CP-1",
+   "line": 61
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "5.74",
+   "module": "CP-1",
+   "line": 61
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.63",
+   "module": "CP-1",
+   "line": 62
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.63",
+   "module": "CP-1",
+   "line": 62
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.13",
+   "module": "CP-1",
+   "line": 63
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.13",
+   "module": "CP-1",
+   "line": 63
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "Not calculable: no FY2024 cash interest",
+   "module": "CP-1",
+   "line": 64
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "Not calculable: no FY2024 cash interest",
+   "module": "CP-1",
+   "line": 64
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.18",
+   "module": "CP-1",
+   "line": 65
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "4.18",
+   "module": "CP-1",
+   "line": 65
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "3.73x",
+   "module": "CP-1",
+   "line": 66
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "3.73x",
+   "module": "CP-1",
+   "line": 66
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "Not calculable: no FY2024 cash interest",
+   "module": "CP-1",
+   "line": 67
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "Not calculable: no FY2024 cash interest",
+   "module": "CP-1",
+   "line": 67
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Gross debt",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "1,450.0",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross debt",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "1,450.0",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Cash",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "174.3",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "174.3",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "1,275.7",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt",
+   "column": "FY2025 / 2025-12-31",
+   "kind": "copied",
+   "value": "1,275.7",
+   "module": "CP-1",
+   "line": 74
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Gross debt",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "1,380.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross debt",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "1,380.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Cash",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "150.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "150.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "1,230.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt",
+   "column": "FY2024 / 2024-12-31",
+   "kind": "copied",
+   "value": "1,230.0",
+   "module": "CP-1",
+   "line": 75
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Senior debt",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Unsecured debt",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Senior leverage",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Pro forma interest",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Pro forma interest cover",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Revenue",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "1,234.5",
+   "module": "CP-1",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Revenue",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "1,180.0",
+   "module": "CP-1",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross profit",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "676.0",
+   "module": "CP-1",
+   "line": 13
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross profit",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "–",
+   "module": "CP-1",
+   "line": 13
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "312.4",
+   "module": "CP-1",
+   "line": 15
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "298.12345678901234567",
+   "module": "CP-1",
+   "line": 15
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "312.4",
+   "module": "CP-1",
+   "line": 15
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "298.12345678901234567",
+   "module": "CP-1",
+   "line": 15
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "351.2",
+   "module": "CP-1",
+   "line": 16
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "330.0",
+   "module": "CP-1",
+   "line": 16
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "351.2",
+   "module": "CP-1",
+   "line": 16
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "330.0",
+   "module": "CP-1",
+   "line": 16
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FFO",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "280.0",
+   "module": "CP-1",
+   "line": 22
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FFO",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "250.5",
+   "module": "CP-1",
+   "line": 22
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "212.0m",
+   "module": "CP-1",
+   "line": 23
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "198.4",
+   "module": "CP-1",
+   "line": 23
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "-85.2",
+   "module": "CP-1",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "-70.4",
+   "module": "CP-1",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "-102.5",
+   "module": "CP-1",
+   "line": 26
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "(40.0)",
+   "module": "CP-1",
+   "line": 26
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "24.3",
+   "module": "CP-1",
+   "line": 27
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "88.0",
+   "module": "CP-1",
+   "line": 27
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "150.0",
+   "module": "CP-1",
+   "line": 28
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "62.0",
+   "module": "CP-1",
+   "line": 28
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "174.3",
+   "module": "CP-1",
+   "line": 29
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "150.0",
+   "module": "CP-1",
+   "line": 29
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "61.2",
+   "module": "CP-1",
+   "line": 30
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "–",
+   "module": "CP-1",
+   "line": 30
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "174.3",
+   "module": "CP-1",
+   "line": 36
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "150.0",
+   "module": "CP-1",
+   "line": 36
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "1,450.0",
+   "module": "CP-1",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "1,380.0",
+   "module": "CP-1",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Reported EBITDA",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Reported EBITDA",
+   "module": "CP-1",
+   "line": 81
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Reported EBITDA",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "312.4",
+   "module": "CP-1",
+   "line": 81
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Reported EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 81
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Reported EBITDA",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Restructuring costs",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Restructuring costs",
+   "module": "CP-1",
+   "line": 82
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Restructuring costs",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "20.0",
+   "module": "CP-1",
+   "line": 82
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Restructuring costs",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 82
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Restructuring costs",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "realised"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Run-rate synergies",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Run-rate synergies",
+   "module": "CP-1",
+   "line": 83
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Run-rate synergies",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "12.5",
+   "module": "CP-1",
+   "line": 83
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Run-rate synergies",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 83
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Run-rate synergies",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unrealised"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Pro forma acquisition EBITDA",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Pro forma acquisition EBITDA",
+   "module": "CP-1",
+   "line": 84
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Pro forma acquisition EBITDA",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "8.3",
+   "module": "CP-1",
+   "line": 84
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Pro forma acquisition EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 84
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Pro forma acquisition EBITDA",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other adjustments",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Other adjustments",
+   "module": "CP-1",
+   "line": 85
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other adjustments",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "-2.0",
+   "module": "CP-1",
+   "line": 85
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other adjustments",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 85
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Other adjustments",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Adjusted EBITDA",
+   "column": "Step",
+   "kind": "copied",
+   "value": "Adjusted EBITDA",
+   "module": "CP-1",
+   "line": 86
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Adjusted EBITDA",
+   "column": "Amount",
+   "kind": "copied",
+   "value": "351.2",
+   "module": "CP-1",
+   "line": 86
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Adjusted EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 86
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Adjusted EBITDA",
+   "column": "Classification",
+   "kind": "computed",
+   "value": "unclassified"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Structuring EBITDA",
+   "column": "Value",
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "House EBITDA",
+   "column": "Value",
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Issuer",
+   "column": "Value",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "CP-1A",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Sector",
+   "column": "Value",
+   "kind": "copied",
+   "value": "Capital Goods",
+   "module": "CP-1A",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Country",
+   "column": "Value",
+   "kind": "copied",
+   "value": "United Kingdom",
+   "module": "CP-1A",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Run date",
+   "column": "Value",
+   "kind": "entered at run start",
+   "value": "2026-03-31"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Pathway",
+   "column": "Value",
+   "kind": "entered at run start",
+   "value": "Full credit assessment"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Business description",
+   "row": "Description",
+   "column": "Value",
+   "kind": "copied",
+   "value": "Northbridge designs and makes flow-control equipment for industrial customers in Europe and North America.",
+   "module": "CP-1A",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Order backlog",
+   "column": "Operating driver",
+   "kind": "copied",
+   "value": "Order backlog",
+   "module": "CP-1A",
+   "line": 24
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Order backlog",
+   "column": "Measure",
+   "kind": "copied",
+   "value": "GBP 640.0m",
+   "module": "CP-1A",
+   "line": 24
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Order backlog",
+   "column": "Period",
+   "kind": "copied",
+   "value": "FY2025",
+   "module": "CP-1A",
+   "line": 24
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Order backlog",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Reported",
+   "module": "CP-1A",
+   "line": 24
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Order backlog",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Gives visibility on near-term revenue.",
+   "module": "CP-1A",
+   "line": 24
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Aftermarket share of sales",
+   "column": "Operating driver",
+   "kind": "copied",
+   "value": "Aftermarket share of sales",
+   "module": "CP-1A",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Aftermarket share of sales",
+   "column": "Measure",
+   "kind": "copied",
+   "value": "38%",
+   "module": "CP-1A",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Aftermarket share of sales",
+   "column": "Period",
+   "kind": "copied",
+   "value": "FY2025",
+   "module": "CP-1A",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Aftermarket share of sales",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Estimated",
+   "module": "CP-1A",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Operating model",
+   "row": "Aftermarket share of sales",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Aftermarket sales are steadier than new equipment.",
+   "module": "CP-1A",
+   "line": 25
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Northbridge Capital LP (sponsor)",
+   "column": "Owner / class",
+   "kind": "copied",
+   "value": "Northbridge Capital LP (sponsor)",
+   "module": "CP-1A",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Northbridge Capital LP (sponsor)",
+   "column": "Control",
+   "kind": "copied",
+   "value": "Majority",
+   "module": "CP-1A",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Northbridge Capital LP (sponsor)",
+   "column": "Economic interest",
+   "kind": "copied",
+   "value": "62.4%",
+   "module": "CP-1A",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Northbridge Capital LP (sponsor)",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "The sponsor can direct financial policy.",
+   "module": "CP-1A",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Public shareholders",
+   "column": "Owner / class",
+   "kind": "copied",
+   "value": "Public shareholders",
+   "module": "CP-1A",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Public shareholders",
+   "column": "Control",
+   "kind": "copied",
+   "value": "None",
+   "module": "CP-1A",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Public shareholders",
+   "column": "Economic interest",
+   "kind": "copied",
+   "value": "37.6%",
+   "module": "CP-1A",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Shareholders",
+   "row": "Public shareholders",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "The free float limits the sponsor's room to add debt.",
+   "module": "CP-1A",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Refinancing of the 2027 term loan",
+   "column": "Transaction",
+   "kind": "copied",
+   "value": "Refinancing of the 2027 term loan",
+   "module": "CP-1A",
+   "line": 31
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Refinancing of the 2027 term loan",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Proposed",
+   "module": "CP-1A",
+   "line": 31
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Refinancing of the 2027 term loan",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Extends the maturity wall to 2031.",
+   "module": "CP-1A",
+   "line": 31
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Bolt-on acquisition of Cedar Valves",
+   "column": "Transaction",
+   "kind": "copied",
+   "value": "Bolt-on acquisition of Cedar Valves",
+   "module": "CP-1A",
+   "line": 32
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Bolt-on acquisition of Cedar Valves",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Signed",
+   "module": "CP-1A",
+   "line": 32
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Transaction summary",
+   "row": "Bolt-on acquisition of Cedar Valves",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Adds EBITDA but is funded with debt.",
+   "module": "CP-1A",
+   "line": 32
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-Q2",
+   "column": "Date / window",
+   "kind": "copied",
+   "value": "2026-Q2",
+   "module": "CP-1A",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-Q2",
+   "column": "Event",
+   "kind": "copied",
+   "value": "Launch of the term loan refinancing",
+   "module": "CP-1A",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-Q2",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Removes the 2027 maturity.",
+   "module": "CP-1A",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-Q2",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Expected",
+   "module": "CP-1A",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-H2",
+   "column": "Date / window",
+   "kind": "copied",
+   "value": "2026-H2",
+   "module": "CP-1A",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-H2",
+   "column": "Event",
+   "kind": "copied",
+   "value": "Completion of the Cedar Valves acquisition",
+   "module": "CP-1A",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-H2",
+   "column": "Credit relevance",
+   "kind": "copied",
+   "value": "Raises leverage by about 0.2x until integrated.",
+   "module": "CP-1A",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Near-term events",
+   "row": "2026-H2",
+   "column": "Status",
+   "kind": "copied",
+   "value": "Pending",
+   "module": "CP-1A",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Historical performance",
+   "row": "Bottom line 1",
+   "column": "Text",
+   "kind": "copied",
+   "value": "Northbridge grew revenue and EBITDA in FY2025 while leverage stayed near 4.6x, so the earnings trend supports the current credit view.",
+   "module": "CP-1B",
+   "line": 8
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Historical performance",
+   "row": "Bottom line 2",
+   "column": "Text",
+   "kind": "copied",
+   "value": "Cash generation improved but is still thin after interest and capital spending.",
+   "module": "CP-1B",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Historical performance",
+   "row": "Key findings 1",
+   "column": "Text",
+   "kind": "copied",
+   "value": "Revenue rose 4.6% on aftermarket growth, with new equipment sales flat.",
+   "module": "CP-1B",
+   "line": 15
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Historical performance",
+   "row": "Key findings 2",
+   "column": "Text",
+   "kind": "copied",
+   "value": "Reported EBITDA rose 4.8%, and the issuer's add-backs widened the adjusted figure by 38.8.",
+   "module": "CP-1B",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Historical performance",
+   "row": "Key findings 3",
+   "column": "Text",
+   "kind": "copied",
+   "value": "Cash interest paid was 61.2 in FY2025; the FY2024 figure was not extracted.",
+   "module": "CP-1B",
+   "line": 21
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Peers",
+   "row": "Peer 1",
+   "column": "Peer issuer",
+   "kind": "copied",
+   "value": "Alder Valves plc",
+   "module": "CP-1C",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Peers",
+   "row": "Peer 2",
+   "column": "Peer issuer",
+   "kind": "copied",
+   "value": "Birch Pumps Inc.",
+   "module": "CP-1C",
+   "line": 12
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Peers",
+   "row": "Peer 3",
+   "column": "Peer issuer",
+   "kind": "copied",
+   "value": "Cedar Controls AG",
+   "module": "CP-1C",
+   "line": 13
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Peers",
+   "row": "Peer 4",
+   "column": "Peer issuer",
+   "kind": "copied",
+   "value": "Dune Hydraulics Ltd",
+   "module": "CP-DR",
+   "line": 11
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Peers",
+   "row": "Peer 5",
+   "column": "Peer issuer",
+   "kind": "copied",
+   "value": "Elm Fluid Systems",
+   "module": "CP-DR",
+   "line": 12
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Investment thesis",
+   "row": "Thesis",
+   "column": "Value",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Equity value",
+   "row": "Equity value",
+   "column": "Value",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Equity value",
+   "row": "EV multiple",
+   "column": "Value",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Scale",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 24,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Market position",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 25,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Regulatory exposure",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 26,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Technology",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 27,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Barriers to entry",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 28,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Leverage",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 29,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Free cash flow",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 30,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Liquidity",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 31,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Rating trend",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 32,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Geographic diversification",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 33,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Product diversification",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 34,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Market share",
+   "column": "Level",
+   "kind": "copied",
+   "value": "Not scored",
+   "module": "CP-2",
+   "line": 35
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Customer concentration",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 36,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Market access",
+   "column": "Level",
+   "kind": "copied",
+   "value": "2",
+   "module": "CP-2",
+   "line": 37,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Maturity profile",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 38,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Interest cover",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 39,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Scorecard",
+   "row": "Financial policy",
+   "column": "Level",
+   "kind": "copied",
+   "value": "3",
+   "module": "CP-2",
+   "line": 40,
+   "number": true
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Assessments",
+   "row": "Management",
+   "column": "View",
+   "kind": "copied",
+   "value": "Positive",
+   "module": "CP-2",
+   "line": 46
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Assessments",
+   "row": "Sector Outlook",
+   "column": "View",
+   "kind": "copied",
+   "value": "Neutral",
+   "module": "CP-2",
+   "line": 47
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Assessments",
+   "row": "Sponsor Quality",
+   "column": "View",
+   "kind": "copied",
+   "value": "Not assessed",
+   "module": "CP-2",
+   "line": 48
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Assessments",
+   "row": "Credit Direction",
+   "column": "View",
+   "kind": "copied",
+   "value": "Stable",
+   "module": "CP-2",
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Net leverage above 5.0x",
+   "column": "Trigger",
+   "kind": "copied",
+   "value": "Net leverage above 5.0x",
+   "module": "CP-2",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Net leverage above 5.0x",
+   "column": "Threshold / Signal",
+   "kind": "copied",
+   "value": "Two consecutive quarters",
+   "module": "CP-2",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Net leverage above 5.0x",
+   "column": "Why It Matters",
+   "kind": "copied",
+   "value": "Signals a debt-funded step up in borrowing.",
+   "module": "CP-2",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Net leverage above 5.0x",
+   "column": "Credit Impact",
+   "kind": "copied",
+   "value": "Negative",
+   "module": "CP-2",
+   "line": 17
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Refinancing not launched by 2026-09-30",
+   "column": "Trigger",
+   "kind": "copied",
+   "value": "Refinancing not launched by 2026-09-30",
+   "module": "CP-2",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Refinancing not launched by 2026-09-30",
+   "column": "Threshold / Signal",
+   "kind": "copied",
+   "value": "Launch date passes",
+   "module": "CP-2",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Refinancing not launched by 2026-09-30",
+   "column": "Why It Matters",
+   "kind": "copied",
+   "value": "Leaves the 2027 term loan unrefinanced.",
+   "module": "CP-2",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Monitoring triggers",
+   "row": "Refinancing not launched by 2026-09-30",
+   "column": "Credit Impact",
+   "kind": "copied",
+   "value": "Negative",
+   "module": "CP-2",
+   "line": 18
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Strength 1",
+   "column": "Label",
+   "kind": "copied",
+   "value": "Aftermarket annuity",
+   "module": "CP-2",
+   "line": 55
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Strength 1",
+   "column": "Mechanism",
+   "kind": "copied",
+   "value": "Aftermarket is 38% of sales and recurs, so cash flow is steadier and supports debt service.",
+   "module": "CP-2",
+   "line": 55
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Strength 2",
+   "column": "Label",
+   "kind": "copied",
+   "value": "Diversified end markets",
+   "module": "CP-2",
+   "line": 56
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Strength 2",
+   "column": "Mechanism",
+   "kind": "copied",
+   "value": "No customer is above 5% of sales, so a single loss cannot break cover.",
+   "module": "CP-2",
+   "line": 56
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Weakness 1",
+   "column": "Label",
+   "kind": "copied",
+   "value": "Sponsor-led financial policy",
+   "module": "CP-2",
+   "line": 57
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Weakness 1",
+   "column": "Mechanism",
+   "kind": "copied",
+   "value": "The sponsor can fund distributions with debt, which raises leverage.",
+   "module": "CP-2",
+   "line": 57
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Weakness 2",
+   "column": "Label",
+   "kind": "copied",
+   "value": "Floating-rate term debt",
+   "module": "CP-2",
+   "line": 58
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Strengths and weaknesses",
+   "row": "Weakness 2",
+   "column": "Mechanism",
+   "kind": "copied",
+   "value": "About half of debt floats, so higher rates cut cash after interest.",
+   "module": "CP-2",
+   "line": 58
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Credit Score",
+   "row": "Credit Score",
+   "column": "Value",
+   "kind": "computed",
+   "value": "3"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "Moody's",
+   "column": "Rating",
+   "kind": "entered at run start",
+   "value": "B2"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "Moody's",
+   "column": "Outlook",
+   "kind": "entered at run start",
+   "value": "Stable"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "Moody's",
+   "column": "As of",
+   "kind": "entered at run start",
+   "value": "2026-03-10"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "S&P",
+   "column": "Rating",
+   "kind": "entered at run start",
+   "value": "B"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "S&P",
+   "column": "Outlook",
+   "kind": "entered at run start",
+   "value": "Negative"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Corporate ratings",
+   "row": "S&P",
+   "column": "As of",
+   "kind": "entered at run start",
+   "value": "2026-03-12"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Instrument",
+   "kind": "entered at run start",
+   "value": "Term Loan B 2031"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Currency",
+   "kind": "entered at run start",
+   "value": "USD"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Size (m)",
+   "kind": "entered at run start",
+   "value": "600"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Maturity",
+   "kind": "entered at run start",
+   "value": "2033-03-31"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Use of proceeds",
+   "kind": "entered at run start",
+   "value": "Refinance the 2027 term loan and pay fees."
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Talk spread low (bps)",
+   "kind": "entered at run start",
+   "value": "350"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Term Loan B 2031",
+   "column": "Talk spread high (bps)",
+   "kind": "entered at run start",
+   "value": "375"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Instrument",
+   "kind": "entered at run start",
+   "value": "Senior Notes 2032"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Currency",
+   "kind": "entered at run start",
+   "value": "EUR"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Size (m)",
+   "kind": "entered at run start",
+   "value": "400"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Maturity",
+   "kind": "entered at run start",
+   "value": "2032-09-01"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Use of proceeds",
+   "kind": "entered at run start",
+   "value": "Fund the Cedar Valves acquisition."
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Talk spread low (bps)",
+   "kind": "entered at run start",
+   "value": "425"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "New issue",
+   "row": "Senior Notes 2032",
+   "column": "Talk spread high (bps)",
+   "kind": "entered at run start",
+   "value": "450"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Kind",
+   "kind": "entered at run start",
+   "value": "observed"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "As of",
+   "kind": "entered at run start",
+   "value": "2026-03-27"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Kind",
+   "kind": "entered at run start",
+   "value": "indicative_talk"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "As of",
+   "kind": "entered at run start",
+   "value": "2026-03-28"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference status",
+   "row": "CLO portfolio",
+   "column": "As of",
+   "kind": "computed",
+   "value": "20 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference status",
+   "row": "Loan index fund (LVLN)",
+   "column": "As of",
+   "kind": "computed",
+   "value": "19 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference status",
+   "row": "High-yield bond fund (JNK)",
+   "column": "Status",
+   "kind": "gap",
+   "value": "no reference stored"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "Median",
+   "kind": "computed",
+   "value": "300"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "Median",
+   "kind": "computed",
+   "value": "300"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "Names",
+   "kind": "computed",
+   "value": "5"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "Measure",
+   "kind": "computed",
+   "value": "discount margin"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "As of",
+   "kind": "computed",
+   "value": "20 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / BB",
+   "column": "File column",
+   "kind": "computed",
+   "value": "Mid 3Y DM"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "Median",
+   "kind": "computed",
+   "value": "450"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "Median",
+   "kind": "computed",
+   "value": "450"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "Names",
+   "kind": "computed",
+   "value": "6"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "Measure",
+   "kind": "computed",
+   "value": "discount margin"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "As of",
+   "kind": "computed",
+   "value": "20 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / B",
+   "column": "File column",
+   "kind": "computed",
+   "value": "Mid 3Y DM"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "Median",
+   "kind": "computed",
+   "value": "900"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "Median",
+   "kind": "computed",
+   "value": "900"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "Names",
+   "kind": "computed",
+   "value": "3"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "Measure",
+   "kind": "computed",
+   "value": "discount margin"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "As of",
+   "kind": "computed",
+   "value": "20 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "File column",
+   "kind": "computed",
+   "value": "Mid 3Y DM"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "CLO portfolio / loan / CCC",
+   "column": "Note",
+   "kind": "computed",
+   "value": "under five names: no Valuation"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "Median",
+   "kind": "computed",
+   "value": "3.00"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "Median",
+   "kind": "computed",
+   "value": "3.00"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "Names",
+   "kind": "computed",
+   "value": "5"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "Measure",
+   "kind": "computed",
+   "value": "margin"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "As of",
+   "kind": "computed",
+   "value": "19 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / BB",
+   "column": "File column",
+   "kind": "computed",
+   "value": "Spread (%)"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "Median",
+   "kind": "computed",
+   "value": "3.875"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "Median",
+   "kind": "computed",
+   "value": "3.875"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "Names",
+   "kind": "computed",
+   "value": "6"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "Measure",
+   "kind": "computed",
+   "value": "margin"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "As of",
+   "kind": "computed",
+   "value": "19 March 2026"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Reference medians",
+   "row": "Loan index fund (LVLN) / loan / B",
+   "column": "File column",
+   "kind": "computed",
+   "value": "Spread (%)"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Issuer weight",
+   "row": "CLO portfolio",
+   "column": "Weight (%)",
+   "kind": "computed",
+   "value": "3.25"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Issuer weight",
+   "row": "Loan index fund (LVLN)",
+   "column": "Weight (%)",
+   "kind": "gap",
+   "value": "not held / not matched"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Breached sector limits",
+   "row": "CLO portfolio",
+   "column": "Limit 1",
+   "kind": "computed",
+   "value": "Industrials max"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Limits not read",
+   "row": "CLO portfolio",
+   "column": "Count",
+   "kind": "computed",
+   "value": "1"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Limits not read",
+   "row": "CLO portfolio",
+   "column": "Names",
+   "kind": "computed",
+   "value": "Top 10 obligors"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Limits not read",
+   "row": "Loan index fund (LVLN)",
+   "column": "Count",
+   "kind": "computed",
+   "value": "0"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / CCC max",
+   "column": "IG",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / CCC max",
+   "column": "BB",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / CCC max",
+   "column": "B",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / CCC max",
+   "column": "CCC",
+   "kind": "computed",
+   "value": "breached"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / CCC max",
+   "column": "Unrated",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / B and below max",
+   "column": "IG",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / B and below max",
+   "column": "BB",
+   "kind": "computed",
+   "value": "does not apply"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / B and below max",
+   "column": "B",
+   "kind": "computed",
+   "value": "within"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / B and below max",
+   "column": "CCC",
+   "kind": "computed",
+   "value": "within"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Rating limits",
+   "row": "CLO portfolio / B and below max",
+   "column": "Unrated",
+   "kind": "computed",
+   "value": "not read"
+  },
+  {
+   "sheet": "Matrix",
+   "block": "Price floors",
+   "row": "CLO portfolio / Minimum price",
+   "column": "Floor",
+   "kind": "computed",
+   "value": "90"
+  }
+ ],
+ "absent_blocks": [],
+ "absent_values": [
+  "Revenues, net",
+  "Operating margin",
+  "Total Assets",
+  "Capital expenditures",
+  "Ba3"
+ ],
+ "basis_lines": [
+  {
+   "module": "CP-1B",
+   "line": 9,
+   "text": "Basis: NBG_annual_2025.pdf, pages 40–41; calculation C01"
+  },
+  {
+   "module": "CP-1B",
+   "line": 12,
+   "text": "Basis: NBG_annual_2025.pdf, page 55"
+  },
+  {
+   "module": "CP-1B",
+   "line": 16,
+   "text": "Basis: NBG_annual_2025.pdf, page 40"
+  },
+  {
+   "module": "CP-1B",
+   "line": 19,
+   "text": "Basis: NBG_annual_2025.pdf, page 41"
+  },
+  {
+   "module": "CP-1B",
+   "line": 22,
+   "text": "Basis: NBG_annual_2025.pdf, page 55"
+  }
+ ],
+ "cross_check": {
+  "sector": "Industrials",
+  "issuer": "Northbridge Holdings plc",
+  "references": [
+   {
+    "key": "clo",
+    "name": "CLO portfolio",
+    "rating_limits": [
+     "CCC max",
+     "B and below max"
+    ],
+    "price_floors": [
+     "Minimum price"
+    ],
+    "weight": "3.25"
+   },
+   {
+    "key": "lvln",
+    "name": "Loan index fund (LVLN)",
+    "rating_limits": [],
+    "price_floors": [],
+    "weight": null
+   }
+  ],
+  "buckets": [
+   "IG",
+   "BB",
+   "B",
+   "CCC",
+   "Unrated"
+  ]
+ }
+}
