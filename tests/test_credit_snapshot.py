@@ -1663,6 +1663,7 @@ def loan_b_kinds(snapshot) -> set[str]:
 
 
 def test_an_unreadable_loan_maturity_on_either_side_stops_every_join(tmp_path):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, ruled loan-wide refusal."""
     clean = rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")])
     snapshot, _ = gathered_with(tmp_path / "ok", clean)  # control: the same sheet joins
     assert loan_b_kinds(snapshot) == {"copied"}
@@ -1679,6 +1680,22 @@ def test_an_unreadable_loan_maturity_on_either_side_stops_every_join(tmp_path):
         rows = [rv_row("SYN1", "ABCDEFGHIJK1"), rv_row("SYN2", "ABCDEFGHIJK2", maturity=text)]
         snapshot, _ = gathered_with(directory, rv_file(directory, rows))
         assert loan_b_kinds(snapshot) == {"analyst"}, text
+
+
+@pytest.mark.parametrize("side", ["handoff", "rv"])
+def test_an_unreadable_nonloan_maturity_does_not_block_a_unique_loan(tmp_path, side):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, uniquely dated loan."""
+    rows = [rv_row("SYN1", "ABCDEFGHIJK1")]
+    handoffs = None
+    if side == "handoff":
+        cp1 = FIXTURE["CP-1"].replace("| 2030-06-15 |", "| 12/03/2031 |")
+        handoffs = moved_cp1(tmp_path, cp1)
+    else:
+        rows.append(rv_row("SYN2", "ABCDEFGHIJK2", maturity="12/03/2031", loan=""))
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, rows), handoffs=handoffs)
+    found = ids(snapshot, LOAN_B)
+    assert (found["FIGI"].kind, found["FIGI"].text) == ("copied", "ABCDEFGHIJK1")
+    assert (found["Bloomberg ID"].kind, found["Bloomberg ID"].text) == ("copied", "SYN1")
 
 
 def test_a_vendor_error_token_or_a_blank_maturity_does_not_stop_a_join(tmp_path):
@@ -1786,18 +1803,68 @@ def test_a_tab_over_the_row_cap_never_hides_a_valid_rv_tab(monkeypatch):
     big = [(n, [pe.Cell("v")]) for n in range(1, 6)]
     monkeypatch.setattr(rp, "MAX_ROWS", 3)
     monkeypatch.setattr(pe, "workbook_sheets", lambda raw: ("RV", "Data"))
-    monkeypatch.setattr(pe, "sheet_rows", lambda raw, name: rv if name == "RV" else big)
-    assert snap._source_rows(b"PK\x03\x04") == [rv]
+    monkeypatch.setattr(
+        pe, "sheet_rows", lambda raw, name, *, exact=False: rv if name == "RV" else big
+    )
+    assert snap._source_rows(b"PK\x03\x04") == [("RV", rv)]
     monkeypatch.setattr(rp, "MAX_ROWS", 1)
     with pytest.raises(ValueError, match="more than 1 rows"):
         snap._source_rows(b"PK\x03\x04")
+
+
+@pytest.mark.parametrize(
+    "names", [("Too many rows", "Loan quotes"), ("Loan quotes", "Loan  quotes")]
+)
+def test_an_oversized_rv_tab_keeps_the_later_valid_rv_tab(tmp_path, caplog, monkeypatch, names):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, tiny cap and pinned fake worksheet bytes."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    headers = [pe.Cell(header) for header in RV_HEADER]
+    row = rv_row("SYN1", "ABCDEFGHIJK1")
+    values = [pe.Cell(row.get(header, "")) for header in RV_HEADER]
+    valid = [(1, headers), (2, values)]
+    oversized = [(1, headers)] + [(line, values) for line in range(2, 6)]
+    first, later = {}, {}
+    book = pe.Book({names[0]: first, names[1]: later})
+    monkeypatch.setattr(rp, "MAX_ROWS", 3)
+    monkeypatch.setattr(pe, "book", lambda raw: book)
+    monkeypatch.setattr(
+        pe, "_layout", lambda sheet, date1904, cached: (oversized if sheet is first else valid, 0)
+    )
+    raw = b"PK\x03\x04synthetic"
+    digest = cs.sha256(raw)
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / digest).write_bytes(raw)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        found = snap._market_sheets(tmp_path, {"rv": {"path": "rv.xlsx", "sha256": digest}})
+    [sheet] = found
+    [quote] = sheet.rows
+    assert (sheet.sha256, quote.line, quote.cells["FIGI"]) == (digest, 2, "ABCDEFGHIJK1")
+    assert names[0] in caplog.text and "more than 3 rows" in caplog.text
+    snapshot = snap.gather(replace(run_of(full()), market=found))
+    book = load_workbook(BytesIO(wb.workbook_bytes(snapshot)))
+    sources = [
+        raw
+        for raw in book["Sources"].values
+        if (raw[0], raw[3], raw[4]) == ("Inputs", "Instruments", "Term Loan B")
+        and raw[5] in {"FIGI", "Bloomberg ID"}
+    ]
+    assert {raw[5]: raw[9] for raw in sources} == {"FIGI": "ABCDEFGHIJK1", "Bloomberg ID": "SYN1"}
+    assert {(raw[7], raw[8], raw[10]) for raw in sources} == {
+        (f"rv.xlsx [worksheet {names[1]}]", 2, digest)
+    }
 
 
 def test_a_csv_without_the_rv_headers_is_not_read_past_its_first_row():
     junk = b"a,b,c\n" + b"x,y,z\n" * 10
     assert snap._source_rows(junk) == []
     head = ",".join(RV_HEADER)
-    (rows,) = snap._source_rows(f"\n{head}\nx\n".encode())
+    [(tab, rows)] = snap._source_rows(f"\n{head}\nx\n".encode())
+    assert tab is None
     assert [n for n, _ in rows] == [1, 2, 3]
 
 
@@ -1847,20 +1914,102 @@ def test_run_kind_joins_the_distinct_execution_words_in_the_libraries_order(exec
     assert (cell.kind, cell.text) == ("computed", kind)
 
 
-def test_the_illegal_character_pattern_is_the_workbook_writers():
+def test_the_illegal_character_pattern_covers_excel_controls_and_xml_exclusions():
     from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
-    assert snap.ILLEGAL.pattern == ILLEGAL_CHARACTERS_RE.pattern
+    controls = [chr(value) for value in range(32)]
+    assert [char for char in controls if snap.ILLEGAL.search(char)] == [
+        char for char in controls if ILLEGAL_CHARACTERS_RE.search(char)
+    ]
+    assert all(snap.ILLEGAL.search(char) for char in ("\ud800", "\udfff", "\ufffe", "\uffff"))
+    assert not snap.ILLEGAL.search("Crédit ¥ \ufffd \U0001f30d")
 
 
-def test_a_control_character_in_a_row_label_is_a_gap_and_the_workbook_still_writes():
+def test_a_matrix_rule_caption_can_change_without_changing_its_formula_reference(monkeypatch):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, only a rule caption is changed."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from deploy_workflow import credit_snapshot_formulas as fx
     from deploy_workflow import credit_snapshot_workbook as wb
 
-    text = FIXTURE["CP-1"].replace("| Term Loan B |", "| Term\x01 Loan B |")
-    assert text != FIXTURE["CP-1"]
+    caption = "Minimum factors for a score"
+    monkeypatch.setitem(fx.RULE_CAPTIONS, ("Credit Score rules", "minimum_scored_factors"), caption)
+    book = load_workbook(BytesIO(wb.workbook_bytes(snap.gather(run_of(full())))))
+    sources = list(book["Sources"].values)
+
+    def address(sheet, block, row, column):
+        [found] = [
+            entry[1]
+            for entry in sources
+            if (entry[0], entry[3], entry[4], entry[5]) == (sheet, block, row, column)
+        ]
+        return found
+
+    rule = book["Matrix"][address("Matrix", "Credit Score rules", caption, "Value")]
+    label = book["Matrix"][address("Matrix", "Credit Score rules", caption, "Row label")]
+    score = book["Inputs"][address("Inputs", "Credit Score from factors", "Credit Score", "Value")]
+    assert (rule.value, label.value) == (12, caption)
+    assert f"Matrix!${rule.column_letter}${rule.row}" in score.value
+
+
+@pytest.mark.parametrize(
+    ("control", "bad_loan"),
+    [
+        ("\x01", "\x01Term Loan B"),
+        ("\x1c", "\x1cTerm Loan B"),
+        ("\x0b", "\x0b"),
+        ("\x01", "Term\x01 Loan B (facility agreement, p. 3)"),
+        ("\ufffe", "Term\ufffe Loan B"),
+        ("\uffff", "Term\uffff Loan B"),
+    ],
+)
+def test_a_control_character_in_a_row_label_is_a_gap_and_the_workbook_still_writes(
+    control, bad_loan
+):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, two unreadable instrument names."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    text = (
+        FIXTURE["CP-1"]
+        .replace("| Term Loan B |", f"| {bad_loan} |")
+        .replace("| 4.50% Senior Notes 2030 |", f"| 4.50% Senior Notes 2030{control} |")
+        .replace("| Receivables facility |", "| Instrument 1 (name unavailable) |")
+    )
     snapshot = snap.gather(run_of(full(**{"CP-1": text})))
-    assert not any("\x01" in c.row + c.column + c.text for c in snapshot.cells())
-    assert wb.workbook_bytes(snapshot)[:2] == b"PK"
+    assert not any(control in c.row + c.column + c.text for c in snapshot.cells())
+    [loan_line, notes_line] = [i for i, line in enumerate(text.split("\n"), 1) if control in line]
+    bad = [
+        c
+        for c in where(snapshot, "Capital structure")
+        if c.column == "Instrument" and c.line in {loan_line, notes_line}
+    ]
+    assert len({c.row for c in bad}) == 2
+    assert all((c.kind, c.text) == ("gap", snap.CONTROL_CHARACTER) for c in bad)
+    assert all(c.row != "Instrument 1 (name unavailable)" for c in bad)
+    book = load_workbook(BytesIO(wb.workbook_bytes(snapshot)))
+    for sheet, block in (("Snapshot", "Capital structure"), ("Model", "Debt instruments")):
+        rows = set()
+        for written, line, amount in (("600.0", loan_line, 600), ("350.0", notes_line, 350)):
+            [source] = [
+                raw
+                for raw in book["Sources"].values
+                if (raw[0], raw[3], raw[5], raw[8]) == (sheet, block, "Principal", line)
+            ]
+            assert (source[2], source[9], source[10]) == (
+                "copied",
+                written,
+                cs.sha256(text.encode()),
+            )
+            cell = book[sheet][source[1]]
+            assert cell.value == amount
+            rows.add((source[4], cell.row))
+        assert len({label for label, _ in rows}) == len({row for _, row in rows}) == 2
 
 
 # --- Mutation testing of the figure path (PR 4, Task 6) ------------------------------------------
@@ -2356,6 +2505,7 @@ def pro_forma_cells(snapshot, label):
 
 
 def test_the_pro_forma_totals_rows_are_the_reported_ebitda_rows_figures_with_their_units():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, reported-basis rows."""
     snapshot = snap.gather(run_of(with_pro_forma(REPORTED, ADJUSTED)))
     interest = pro_forma_cells(snapshot, "Pro forma interest")
     assert (interest["Value"].kind, interest["Value"].text) == ("copied", "70.0")
@@ -2365,6 +2515,133 @@ def test_the_pro_forma_totals_rows_are_the_reported_ebitda_rows_figures_with_the
     assert (cover["Value"].kind, cover["Value"].text) == ("copied", "5.02")  # not Adjusted's 5.43
     assert (cover["Unit"].kind, cover["Unit"].text) == ("computed", "times")
     assert cover["Value"].figure is not None and cover["Value"].figure.value == 5.02
+    for cells in (interest, cover):
+        as_of = cells["As of"]
+        assert (as_of.kind, as_of.text) == ("copied", "2026-03-31")
+        assert (as_of.module, as_of.section, as_of.line) == (
+            "CP-1",
+            "Pro forma interest and cover",
+            cells["Value"].line,
+        )
+
+
+def test_the_source_date_gap_stays_with_stated_pro_forma_amounts():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, issuer states only the month."""
+    reason = "Not supplied: the source states March 2026 only"
+    snapshot = snap.gather(run_of(with_pro_forma(REPORTED.replace("2026-03-31", reason))))
+    for label, amount in (("Pro forma interest", "70.0"), ("Pro forma interest cover", "5.02")):
+        cells = pro_forma_cells(snapshot, label)
+        assert cells["Value"].text == amount
+        as_of = cells["As of"]
+        assert (as_of.kind, as_of.text, as_of.written) == ("gap", "date not in handoff", reason)
+        assert (as_of.module, as_of.line) == ("CP-1", cells["Value"].line)
+
+
+def test_ambiguous_pro_forma_date_does_not_erase_the_written_figures():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, two conflicting date headings."""
+    case = with_pro_forma(REPORTED)
+    before, section, table = case["CP-1"].partition("### Pro forma interest and cover")
+    table = (
+        table.replace("| As of |", "| As of | **As of** |", 1)
+        .replace("|---|---|---|---|---|---|---|", "|---|---|---|---|---|---|---|---|", 1)
+        .replace("| 2026-03-31 |", "| 2026-03-31 | 2025-12-31 |", 1)
+    )
+    snapshot = snap.gather(run_of({**case, "CP-1": before + section + table}))
+    for label, amount in (("Pro forma interest", "70.0"), ("Pro forma interest cover", "5.02")):
+        cells = pro_forma_cells(snapshot, label)
+        assert cells["Value"].text == amount
+        assert (cells["As of"].kind, cells["As of"].text) == ("gap", "date not in handoff")
+        assert cells["As of"].written and "ambiguous" in cells["As of"].written
+
+
+def test_saved_pro_forma_figures_keep_their_date_and_exact_sources_basis():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, one reported-basis qualification."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    basis = "Reported EBITDA; refinancing close only (source report, page 3)."
+    reported = REPORTED.replace("Reported EBITDA; the press release.", basis)
+    snapshot = snap.gather(run_of(with_pro_forma(reported)))
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot)))
+    sources = tuple(row for row in book["Sources"].values if row[3] == "Capital structure totals")
+    for label, expected in (("Pro forma interest", 70), ("Pro forma interest cover", 5.02)):
+        [value, as_of] = [
+            book["Snapshot"][row[1]]
+            for row in sources
+            if (row[0], row[4]) == ("Snapshot", label) and row[5] in {"Value", "As of"}
+        ]
+        assert (value.value, as_of.value, value.row) == (expected, "2026-03-31", as_of.row)
+        assert value.comment is None
+        [trace] = [
+            row for row in sources if (row[0], row[4], row[5]) == ("Sources", label, "Row basis")
+        ]
+        assert (trace[6], trace[7], trace[9]) == ("CP-1", "Pro forma interest and cover", basis)
+        assert trace[8] == pro_forma_cells(snapshot, label)["Value"].line
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_multiple_reported_pro_forma_rows_leave_both_figures_unavailable(reverse):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting reported rows."""
+    other = REPORTED.replace("2026-03-31 | 70.0", "2025-12-31 | 99.9").replace("5.02", "3.52")
+    rows = (other, REPORTED) if reverse else (REPORTED, other)
+    snapshot = snap.gather(run_of(with_pro_forma(*rows)))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        [gap] = where(snapshot, "Capital structure totals", label)
+        assert (gap.column, gap.kind, gap.text) == ("Value", "gap", "not in handoff")
+        assert gap.written and "repeats" in gap.written
+
+
+@pytest.mark.parametrize(
+    ("column", "first", "second"),
+    [
+        ("Basis and limitation", "Reported EBITDA; the press release.", "Adjusted EBITDA."),
+        ("Pro forma interest", "70.0", "99.9"),
+    ],
+)
+def test_conflicting_pro_forma_decision_headings_leave_both_values_unavailable(
+    column, first, second
+):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, repeated decision headings."""
+    case = with_pro_forma(REPORTED)
+    prefix, heading, table = case["CP-1"].partition("### Pro forma interest and cover")
+    table = (
+        table.replace(f"| {column} |", f"| {column} | **{column}** |", 1)
+        .replace("|---|---|---|---|---|---|---|", "|---|---|---|---|---|---|---|---|", 1)
+        .replace(f"| {first} |", f"| {first} | {second} |", 1)
+    )
+    snapshot = snap.gather(run_of({**case, "CP-1": prefix + heading + table}))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        [gap] = where(snapshot, "Capital structure totals", label)
+        assert (gap.column, gap.kind, gap.text) == ("Value", "gap", "not in handoff")
+        assert gap.written and f"ambiguous `{column}` columns" in gap.written
+
+
+def test_missing_net_debt_data_preserves_other_capital_totals():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, CP-1 without the Net debt chart."""
+    text = FIXTURE["CP-1"].replace(
+        "| Total Debt | 1,450.0 |",
+        "| Senior debt | 1,030.0 | 985.0 | GBP millions | Issuer states senior balances. "
+        "| NBG_annual_2025.pdf, page 38 |\n| Total Debt | 1,450.0 |",
+        1,
+    )
+    prefix, _, rest = text.partition("### Net debt data")
+    _, separator, bridge = rest.partition("### Chart data: EBITDA bridge")
+    snapshot = snap.gather(run_of(full(**{"CP-1": prefix + separator + bridge})))
+    block = "Capital structure totals"
+    for label, expected in (("Net debt / EBITDA", "4.08"), ("EBITDA / cash interest", "5.10")):
+        cell = one(snapshot, block, label, "FY2025 / 2025-12-31")
+        assert (cell.kind, cell.text, cell.module) == ("copied", expected, "CP-1")
+    for period, expected in (("FY2025", "1,030.0"), ("FY2024", "985.0")):
+        senior = one(snapshot, block, "Senior debt", period)
+        assert (senior.kind, senior.text, senior.section) == (
+            "copied",
+            expected,
+            "T4.6 Balance sheet",
+        )
+    assert one(snapshot, block, "Net debt data", "Text").kind == "gap"
 
 
 def test_the_reported_row_is_read_even_when_the_adjusted_row_comes_first():
@@ -2474,6 +2751,9 @@ REFERENCES = [
     "Net leverage ∅ G4 at FY2025; see ∅ [G31].",
     "pp. 3",
     "p. 3",
+    "p.\u00a03",
+    "Page:\u202f301",
+    "The change is as\u00a0pp.\u00a03 consecutive fiscal quarters after the report.",
     "pages 3",
     "p1000",
     "pp. 3 quarters after the summary give the covenant.",
@@ -2560,6 +2840,17 @@ REFERENCES = [
     "Copied from the Downside scenario S02 (moderate downturn)",
     "FY2024 reported EBITDA; CP-1C T4.10 EV/EBITDA supplies no Low implied EV",
 ]
+
+
+def test_the_no_question_peer_pack_fixture_has_all_three_empty_registers():
+    """Synthetic Northbridge Holdings plc, 2026-03-31, no peer research requested."""
+    text = FIXTURE["CP-DR-none"].encode()
+    document = snap._doc("CP-DR", text)
+    for section, key in (("TDR.4", "none"), ("TDR.5", "none.none"), ("TDR.6", "none.none")):
+        [only] = document.register(section).rows
+        assert only.cells == (key, *["no CP-1C question in the brief"] * (len(only.cells) - 1))
+
+
 ORDINARY = [
     "Gross debt at 2024 year end includes finance leases.",
     "Covenant headroom of 12.5x on a net basis.",
@@ -2596,6 +2887,7 @@ ORDINARY = [
     "Leverage (G1) = 3.2x.",
     "The margin rose seventy-three pp. 12 fiscal quarters running.",
     "Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn.",
+    "Coverage fell 2 pp.\u00a03 quarters in a row, so no trend is drawn.",
     "Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point.",
     "Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that.",
     "Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since.",
@@ -2631,6 +2923,7 @@ ORDINARY = [
 
 @pytest.mark.parametrize("text", REFERENCES)
 def test_contains_reference_matches_the_web_ports_reference_cases(text):
+    """Synthetic reference wording for Northbridge Holdings plc, 2026-03-31."""
     assert snap.contains_reference(text) is True
 
 

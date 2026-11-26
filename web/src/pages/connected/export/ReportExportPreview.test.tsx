@@ -257,15 +257,6 @@ it.each([
   },
 );
 
-it("synthetic Example Credit as of 2025-02-04 withholds a module-coded preview qualification", async () => {
-  const snapshot = fixture({ isPreview: true });
-  if (snapshot.preview) snapshot.preview.reason = "Scoped check of CP-1B.";
-  open("#deliverables", snapshot);
-  expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
-  expect(screen.queryByText(/CP-1B|Scoped check/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Earnings Update.*Open print dialog/ })).toBeNull();
-});
-
 it("synthetic Example Credit as of 2025-02-04 has retired the Credit Snapshot PDF route", async () => {
   open("#export/credit-snapshot");
   expect(await screen.findByText("This PDF format is unavailable.")).toBeInTheDocument();

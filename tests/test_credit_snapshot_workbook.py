@@ -1,7 +1,8 @@
 """The Credit Snapshot workbook writer: layout and presentation facts the fidelity test does not
 cover (`tests/test_credit_snapshot_fidelity.py` holds the content against the answer key).
 
-SYNTHETIC: the runs are the key's invented "Northbridge" cases (`tests/credit_snapshot_case.py`).
+The Northbridge Holdings plc cases are synthetic (2026-03-31). The TransDigm scope uses retained
+2024-09-30 CP-1 only.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import credit_snapshot_workbook as writer
 from deploy_workflow.cp2_scorecard import FACTORS, level_text
 
-THREE = ("Snapshot", "Model", "Inputs", "Matrix")
+READER_SHEETS = ("Snapshot", "Model", "Inputs", "Matrix")
 
 
 @pytest.fixture(scope="module")
@@ -1108,7 +1109,7 @@ def test_retained_tdg_wide_segment_schedule_preserves_periods_units_and_basis(
 
 
 def test_cards_are_bordered_ranges_that_do_not_overlap(book):
-    for name in THREE:
+    for name in READER_SHEETS:
         ranges = [CellRange(str(r)) for r in book[name].merged_cells.ranges]
         for i, one in enumerate(ranges):
             assert all(one.isdisjoint(other) for other in ranges[i + 1 :]), (name, one)
@@ -1118,7 +1119,7 @@ def test_cards_are_bordered_ranges_that_do_not_overlap(book):
 
 def test_nothing_is_written_beyond_the_grid(book, full):
     widths = {layout.sheet: layout.width for layout in writer.LAYOUTS}
-    for name in THREE:
+    for name in READER_SHEETS:
         assert book[name].max_column <= widths[name]
 
 
@@ -1234,7 +1235,7 @@ def test_figures_the_rule_refuses_stay_text(book, row, column, text):
 def test_every_number_has_the_format_the_number_rule_chose_and_never_general(book):
     seen = 0
     for row in sources(book):
-        if row["Sheet"] not in THREE or row["Kind"] not in (
+        if row["Sheet"] not in READER_SHEETS or row["Kind"] not in (
             "copied",
             "computed",
             "entered at run start",
@@ -1256,7 +1257,7 @@ def test_every_number_has_the_format_the_number_rule_chose_and_never_general(boo
 
 def test_only_financials_uses_the_bracket_format(book):
     for row in sources(book):
-        if row["Sheet"] in THREE and row["Block"] != "Financials":
+        if row["Sheet"] in READER_SHEETS and row["Block"] != "Financials":
             cell = book[row["Sheet"]][row["Cell"]]
             assert ";" not in cell.number_format, row
 
@@ -1577,7 +1578,11 @@ def test_a_control_character_on_any_path_is_written_as_the_gap_text(full, caplog
 def text_cells(book):
     """(Sources row, worksheet cell) of each copied, computed or entered cell of the sheets."""
     for row in sources(book):
-        if row["Sheet"] in THREE and row["Kind"] in ("copied", "computed", "entered at run start"):
+        if row["Sheet"] in READER_SHEETS and row["Kind"] in (
+            "copied",
+            "computed",
+            "entered at run start",
+        ):
             yield row, book[row["Sheet"]][row["Cell"]]
 
 
@@ -1601,7 +1606,7 @@ def test_a_number_is_right_aligned_a_title_or_header_centred_and_other_text_left
 def test_text_keeps_the_general_format_and_no_range_merges_a_single_cell(book):
     words = [c for row, c in text_cells(book) if snap.figure(row["Handoff text"] or "") is None]
     assert words and {c.number_format for c in words} == {"General"}
-    for name in THREE:
+    for name in READER_SHEETS:
         for merged in book[name].merged_cells.ranges:
             assert (merged.max_row, merged.max_col) != (merged.min_row, merged.min_col), (
                 name,
@@ -1610,6 +1615,8 @@ def test_text_keeps_the_general_format_and_no_range_merges_a_single_cell(book):
 
 
 def test_a_long_copied_text_makes_its_row_taller_than_a_single_line(book):
+    reference = cell_of(book, sheet="Inputs", block="Confirmation", row="Analyst", column="Value")
+    single_line = reference.parent.row_dimensions[reference.row].height
     tall = 0
     for row, cell in text_cells(book):
         text = row["Handoff text"] or ""
@@ -1621,7 +1628,7 @@ def test_a_long_copied_text_makes_its_row_taller_than_a_single_line(book):
         width = next(x.column_width for x in writer.LAYOUTS if x.sheet == row["Sheet"])
         if len(text) > span * width * 1.15 and "\n" not in text:
             tall += 1
-            assert sheet.row_dimensions[cell.row].height >= 27, row
+            assert sheet.row_dimensions[cell.row].height > single_line, row
     assert tall > 0
 
 
@@ -1691,7 +1698,7 @@ def test_a_module_code_in_copied_text_reads_as_the_modules_name_and_sources_keep
     )
     values = {
         cell.value
-        for name in THREE
+        for name in READER_SHEETS
         for row in shown[name].iter_rows()
         for cell in row
         if isinstance(cell.value, str)
@@ -1722,7 +1729,7 @@ def test_an_unreadable_table_is_a_reader_sentence_on_the_sheet_and_its_reason_is
     assert reason["Sheet"] == "Sources" and "`Entity Name` column" in reason["Handoff text"]
     shown = [
         c.value
-        for name in THREE
+        for name in READER_SHEETS
         for row in opened[name].iter_rows()
         for c in row
         if isinstance(c.value, str)
@@ -1750,7 +1757,7 @@ def test_a_file_name_or_page_locator_in_copied_text_is_not_drawn_and_sources_kee
         opened = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
         shown = {
             c.value
-            for sheet in THREE
+            for sheet in READER_SHEETS
             for row in opened[sheet].iter_rows()
             for c in row
             if isinstance(c.value, str)
@@ -1785,7 +1792,7 @@ def test_a_module_code_in_a_first_column_cell_adds_no_row_label_column(tmp_path)
         counts.append(len(listed(opened, "Monitoring triggers", column="Row label")))
         assert not [
             c.value
-            for sheet in THREE
+            for sheet in READER_SHEETS
             for row in opened[sheet].iter_rows()
             for c in row
             if isinstance(c.value, str) and "CP-" in c.value
@@ -1793,7 +1800,7 @@ def test_a_module_code_in_a_first_column_cell_adds_no_row_label_column(tmp_path)
     assert counts[1] == counts[0]
 
 
-def test_a_missing_pinned_context_puts_no_path_or_hash_on_the_three_sheets(tmp_path, caplog):
+def test_a_missing_pinned_context_puts_no_path_or_hash_on_the_reader_sheets(tmp_path, caplog):
     """S1 (ruling PM-l): the reader sentence is on the sheets; the path and hash are logged and on
     Sources."""
     built = cs.build_case(tmp_path, cs.CASES["full"])
@@ -1807,7 +1814,7 @@ def test_a_missing_pinned_context_puts_no_path_or_hash_on_the_three_sheets(tmp_p
     opened = load_workbook(io.BytesIO(writer.workbook_bytes(snap.gather(run))))
     shown = [
         c.value
-        for name in THREE
+        for name in READER_SHEETS
         for row in opened[name].iter_rows()
         for c in row
         if isinstance(c.value, str)
@@ -1857,3 +1864,104 @@ def test_every_as_written_row_is_the_text_of_the_handoff_line_it_names_and_a_rea
         assert r["Kind"] == "copied" and r["Handoff text"] in line, r
     reasons = [r for r in rows if r["Column"] == "Reason"]
     assert reasons and all(r["Kind"] == "computed" and r["Line"] is None for r in reasons)
+
+
+def model_debt_book(cp1):
+    run = snap.SnapshotRun(
+        cs.ISSUER_NAME,
+        cs.AS_OF,
+        "credit_snapshot",
+        "synthetic-debt",
+        {"CP-1": cp1.encode()},
+        None,
+        [],
+    )
+    return load_workbook(io.BytesIO(writer.workbook_bytes(snap.gather(run))))
+
+
+def test_dated_damaged_facility_names_keep_distinct_stable_rows_and_source_lines():
+    text = """# Northbridge
+### T4.14 Periods
+
+| period_id | fiscal_year | period_type | start_date | end_date |
+|---|---|---|---|---|
+| a | 2024 | FY | 2024-01-01 | 2024-12-31 |
+| b | 2025 | FY | 2025-01-01 | 2025-12-31 |
+
+### T4.18 Debt facilities
+
+| facility_id | facility_name | period_id | principal |
+|---|---|---|---|
+| first | Name\x01A | a | 111 |
+| second | Name\x01B | a | 222 |
+| second | Name\x01B | b | 220 |
+| first | Name\x01A | b | 110 |
+"""
+    book = model_debt_book(text)
+    records = [
+        r
+        for r in listed(book, "Debt instruments", sheet="Model", kind="copied")
+        if r["Column"] in ("FY2024", "FY2025") and r["Section"] == "T4.18 Debt facilities"
+    ]
+    cells = {book["Model"][r["Cell"]].value: (book["Model"][r["Cell"]].row, r) for r in records}
+    assert set(cells) == {111, 222, 220, 110}
+    assert cells[111][0] == cells[110][0] != cells[220][0] == cells[222][0]
+    for amount, (_, record) in cells.items():
+        assert text.splitlines()[record["Line"] - 1].endswith(f"| {amount} |")
+        assert record["Handoff sha256"] == cs.sha256(text.encode())
+        assert "name unavailable" in record["Row"]
+
+
+def test_unperioded_model_uses_named_instrument_column_and_preserves_leading_property():
+    text = """# Northbridge
+### T4.18 Debt facilities
+
+| Rank | Instrument | Principal |
+|---|---|---|
+| Senior | Alpha | 111 |
+| Senior | Beta | 222 |
+"""
+    book = model_debt_book(text)
+    for name, amount in (("Alpha", 111), ("Beta", 222)):
+        assert (
+            cell_of(
+                book, sheet="Model", block="Debt instruments", row=name, column="Principal"
+            ).value
+            == amount
+        )
+        assert (
+            cell_of(book, sheet="Model", block="Debt instruments", row=name, column="Rank").value
+            == "Senior"
+        )
+
+
+def test_generated_dated_names_reserve_authored_captions_and_prefer_a_readable_name():
+    text = """# Northbridge
+### T4.14 Periods
+
+| period_id | fiscal_year | period_type | start_date | end_date |
+|---|---|---|---|---|
+| a | 2024 | FY | 2024-01-01 | 2024-12-31 |
+| b | 2025 | FY | 2025-01-01 | 2025-12-31 |
+
+### T4.18 Debt facilities
+
+| facility_id | facility_name | period_id | principal |
+|---|---|---|---|
+| A | Alpha | a | 111 |
+| B | Alpha | a | 222 |
+| C | Alpha (A) | a | 333 |
+| D | Bad\x01 | a | 444 |
+| D | Delta | b | 440 |
+"""
+    book = model_debt_book(text)
+    records = [
+        r
+        for r in listed(book, "Debt instruments", sheet="Model", kind="copied")
+        if r["Section"] == "T4.18 Debt facilities"
+    ]
+    by_amount = {book["Model"][r["Cell"]].value: r for r in records}
+    assert set(by_amount) == {111, 222, 333, 444, 440}
+    assert by_amount[333]["Row"] == "Alpha (A)"
+    assert by_amount[444]["Row"] == by_amount[440]["Row"] == "Delta"
+    assert len({r["Row"] for r in records}) == 4

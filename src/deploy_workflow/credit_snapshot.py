@@ -87,9 +87,8 @@ COPIED, GAP, COMPUTED, ENTERED, ANALYST, BLANK = (
 NOT_IN_HANDOFF = "not in handoff"
 BREACHED = "breached"  # a limit outcome, and the word the Matrix counts
 CONTROL_CHARACTER = "text holds a control character"
-# The characters a workbook cell cannot hold: the workbook writer's library's
-# `ILLEGAL_CHARACTERS_RE`, copied because this module imports none (a test holds them equal).
-ILLEGAL = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
+# Excel's restricted controls plus code points excluded from XML 1.0 character data.
+ILLEGAL = re.compile(r"[\000-\010\013-\014\016-\037\ud800-\udfff\ufffe\uffff]")
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
 BRIDGE_SCOPE_UNKNOWN = "bridge opening and closing amounts do not establish an empty bridge"
 BRIDGE_RECONCILIATION_GAP = "bridge boundaries or signed amounts do not reconcile"
@@ -234,8 +233,8 @@ _NAMED_LABEL = re.compile(
 )
 _DEFINED_AFTER = re.compile(r"\s*(?:=|equals?\b)", _FLAGS)
 _DEFINED_BEFORE = re.compile(r"(?:^|[,;:=]|\b(?:is|equals?))\s*\d+(?:\.\d+)?x\s*$", _FLAGS)
-_PAGE = re.compile(r"(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b", _FLAGS)
-_PAGE_CUE = re.compile(r"\b(?:see|at|on|as)\s*$", _FLAGS)
+_PAGE = re.compile(r"(?<![\w&.-])(p|pg|pp|pages?)\.?(?u:\s*)(:(?u:\s*))?(\d+)\b", _FLAGS)
+_PAGE_CUE = re.compile(r"\b(?:see|at|on|as)(?u:\s*)$", _FLAGS)
 _PP_QUANTITY_AFTER = re.compile(
     rf"\s+(?:{_LETTER}+(?:-{_LETTER}+)*\s+)*(?:days?|weeks?|months?|quarters?|years?)\b",
     re.IGNORECASE,
@@ -392,11 +391,16 @@ class MarketRow:
 
 @dataclass(frozen=True)
 class MarketSheet:
-    """A supplied source read as an RV worksheet: its file name, sha256 and data rows."""
+    """A supplied RV source, with its pinned file, selected worksheet title and data rows."""
 
     file: str
     sha256: str
     rows: tuple[MarketRow, ...]
+    tab: str | None = None
+
+    @property
+    def section(self) -> str:
+        return self.file if self.tab is None else f"{self.file} [worksheet {self.tab}]"
 
 
 @dataclass(frozen=True)
@@ -603,7 +607,11 @@ class _Doc:
             len(self.lines),
         )
         label = self._label(self.lines[start], ident)
-        return self._table(label, [(i + 1, self.lines[i]) for i in range(start + 1, end)])
+        return self._table(
+            label,
+            [(i + 1, self.lines[i]) for i in range(start + 1, end)],
+            preserve_controls=ident == "T4.18",
+        )
 
     def heading_table(self, title: str) -> _Table:
         """The first table under the section headed exactly `title`."""
@@ -622,9 +630,11 @@ class _Doc:
         if self.error:
             raise _Unreadable(self.error, self.module)
 
-    def _table(self, label: str, rows: list[tuple[int, str]]) -> _Table:
+    def _table(
+        self, label: str, rows: list[tuple[int, str]], *, preserve_controls: bool = False
+    ) -> _Table:
         try:
-            headers, body = hd.table(rows)
+            headers, body = hd.table(rows, preserve_controls=preserve_controls)
         except ValueError as error:
             raise _Unreadable(f"{label}: {error}", self.module) from error
         found = tuple(_Row(line, tuple(cells)) for line, _, cells in body)
@@ -688,6 +698,8 @@ class _Maker:
         """The handoff's cell; a blank one is a gap (still located), never a blank copy. Text that
         names a module by its code is drawn with the module's name (ruling PM-b): the cell is then
         computed and `written` keeps the exact text for Sources."""
+        if ILLEGAL.search(text):
+            return replace(self._cell(row, column, COPIED, text, at), basis=basis)
         if not text.strip():
             return self._cell(row, column, GAP, NOT_IN_HANDOFF, at)
         shown = drawn_text(text, self.names)
@@ -930,15 +942,21 @@ def _copy_table(module: str, ident: str, columns: Sequence[str]) -> Builder:
     """Every row of the register, one cell per named column; a row's label is its first column."""
 
     def build(run: _Run, mk: _Maker) -> list[SnapshotCell]:
-        table = run.register(module, ident)
-        at = [table.index(column) for column in columns]
-        return [
-            mk.copied(table.at(row.line), row.cells[at[0]], column, row.cells[i])
-            for row in table.rows
-            for column, i in zip(columns, at, strict=True)
-        ]
+        return _copy_register_cells(run.register(module, ident), mk, columns)
 
     return build
+
+
+def _copy_register_cells(
+    table: _Table, mk: _Maker, columns: Sequence[str], labels: Sequence[str] | None = None
+) -> list[SnapshotCell]:
+    at = [table.index(column) for column in columns]
+    names = labels if labels is not None else [row.cells[at[0]] for row in table.rows]
+    return [
+        mk.copied(table.at(row.line), label, column, row.cells[i])
+        for row, label in zip(table.rows, names, strict=True)
+        for column, i in zip(columns, at, strict=True)
+    ]
 
 
 def _business(run: _Run, mk: _Maker) -> list[SnapshotCell]:
@@ -1083,7 +1101,7 @@ def _identifier_cells(
         return [mk.analyst(label, column) for column in IDENTIFIERS]
     sheet, row = found
     present = _present(row)
-    at = _At(RV_MODULE, sheet.file, row.line)
+    at = _At(RV_MODULE, sheet.section, row.line)
     return [
         mk.copied(at, label, column, present[column])
         if column in present
@@ -1092,16 +1110,34 @@ def _identifier_cells(
     ]
 
 
+def _instrument_labels(table: _Table, index: int) -> list[str]:
+    """Keep valid written names and give each unreadable name its own safe caption."""
+    stated = [row.cells[index] for row in table.rows]
+    occupied = set(stated)
+    labels = []
+    for number, name in enumerate(stated, 1):
+        if ILLEGAL.search(name):
+            name = f"Instrument {number} (name unavailable)"
+            suffix = 2
+            while name in occupied:
+                name = f"Instrument {number} (name unavailable {suffix})"
+                suffix += 1
+            occupied.add(name)
+        labels.append(name)
+    return labels
+
+
 def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """The T4.18 instruments, each with its FIGI and Bloomberg ID. An instrument is joined to a
     sheet row only when their maturities are the same date, that date is on exactly one of the
     issuer's sheet rows and exactly one instrument, both are loans, and the sheet row has an
     identifier; otherwise the two cells are the analyst's. No join is made while any loan row on
-    either side has a maturity that is stated but cannot be read (ruling T5-i): its date may be
-    the one being matched. Only the explicit Asset type supplies the instrument class."""
-    cells = _copy_table("CP-1", "T4.18", ("Instrument",))(run, mk)
+    either side has a stated unreadable maturity (ruling T5-i). An unreadable non-loan maturity
+    does not prevent a join. Only the explicit Asset type supplies the instrument class."""
     table = run.register("CP-1", "T4.18")
     instrument_at = table.index("Instrument")
+    labels = _instrument_labels(table, instrument_at)
+    cells = _copy_register_cells(table, mk, ("Instrument",), labels)
     type_columns = asset_type_columns(table.headers)
     date_columns = [
         at for at, header in enumerate(table.headers) if _fold(hd.plain(header)) == "maturity"
@@ -1121,11 +1157,11 @@ def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         kind == "loan" and _unreadable(text, day)
         for kind, text, day in zip(kinds, texts, days, strict=True)
     ) or any(row.unreadable and _rv_loan(row) for _, row in matched)
-    for row, day, kind in zip(table.rows, days, kinds, strict=True):
+    for label, day, kind in zip(labels, days, kinds, strict=True):
         same = [(s, r) for s, r in matched if day is not None and r.maturity == day]
         one = not unread and kind == "loan" and len(same) == 1 and days.count(day) == 1
         joined = same[0] if one and _rv_loan(same[0][1]) and _present(same[0][1]) else None
-        cells += _identifier_cells(mk, row.cells[instrument_at], joined)
+        cells += _identifier_cells(mk, label, joined)
     return cells
 
 
@@ -1140,7 +1176,7 @@ def _market(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         return [mk.gap("Gap", "Text", NO_MARKET_ROWS)]
     return [
         mk.copied(
-            _At(RV_MODULE, sheet.file, row.line), f"Row {row.line}", column, row.cells[column]
+            _At(RV_MODULE, sheet.section, row.line), f"Row {row.line}", column, row.cells[column]
         )
         for sheet, row in matched
         for column in MARKET_COLUMNS
@@ -1512,14 +1548,32 @@ def _stated_gap(text: str) -> bool:
     return _fold(text).startswith("not supplied") or _fold(text) == "not stated"
 
 
+def _pro_forma_date(mk: _Maker, table: _Table, row: _Row, label: str) -> SnapshotCell:
+    where = table.at(row.line)
+    reason = None
+    try:
+        index = _unique_optional_index(table, "As of")
+        date_text = row.cells[index] if index is not None else ""
+    except _Unreadable as error:
+        date_text, reason = "", str(error)
+    if date_text and not _stated_gap(date_text):
+        return mk.copied(where, label, "As of", date_text)
+    return replace(
+        mk.gap(label, "As of", "date not in handoff", reason or date_text or None),
+        module=where.module,
+        section=where.section,
+        line=where.line,
+    )
+
+
 def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
     """The two Totals rows `Pro forma interest` and `Pro forma interest cover`, from CP-1's `Pro
     forma interest and cover` table: the figures of its `Reported EBITDA` row (the one whose Basis
     and limitation opens with those words; no such row, no figures: the Totals rows name no EBITDA
     basis, so an Adjusted-basis cover is never shown under them), each by the reader's ordinary
-    copied path. A cell that states no figure is `not in handoff`; so is every row when the table,
-    the row or a column is missing. A table that is there but cannot be read, or is written twice,
-    is logged."""
+    copied path. As of comes from the same row. A cell that states no figure is `not in handoff`.
+    So is every row when the table, the row or a column is missing. A table that is present but
+    unreadable or written twice is logged."""
     labels = ("Pro forma interest", "Pro forma interest cover")
     doc = run.doc("CP-1")
     written = sum(1 for line in doc.lines if line.strip() == f"### {PRO_FORMA_TABLE}")
@@ -1533,22 +1587,32 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
         return {}
     try:
         table = run.heading("CP-1", PRO_FORMA_TABLE)
-        at = {n: table.index(n) for n in (*labels, "Reporting unit", "Basis and limitation")}
+        columns = (*labels, "Reporting unit", "Basis and limitation")
+        at = {
+            name: index
+            for name in columns
+            if (index := _unique_optional_index(table, name)) is not None
+        }
+        if len(at) != len(columns):
+            _LOG.warning("credit snapshot: Totals: %s lacks its required columns", PRO_FORMA_TABLE)
+            return {}
+        basis = at["Basis and limitation"]
+        reported = [r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS)]
+        if len(reported) > 1:
+            raise _Unreadable(f"{PRO_FORMA_TABLE} repeats the Reported EBITDA row", table.module)
     except _Unreadable as error:  # the section is there but its table cannot be read
         _LOG.warning("credit snapshot: Totals: %s could not be read: %s", PRO_FORMA_TABLE, error)
+        return {label: [mk.gap(label, "Value", NOT_IN_HANDOFF, str(error))] for label in labels}
+    if not reported:
         return {}
-    basis = at["Basis and limitation"]
-    reported = (r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS))
-    row = next(reported, None)
-    if row is None:
-        return {}
+    row = reported[0]
     where = table.at(row.line)
     found: dict[str, list[SnapshotCell]] = {}
     for label in labels:
         text = row.cells[at[label]]
         if _stated_gap(text):
             continue
-        cells = [mk.copied(where, label, "Value", text)]
+        cells = [mk.copied(where, label, "Value", text, basis=row.cells[basis])]
         if label == labels[1]:
             cells.append(mk.computed(label, "Unit", COVER_UNIT))
         else:
@@ -1558,20 +1622,20 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
                 if _stated_gap(unit)
                 else mk.copied(where, label, "Unit", unit)
             )
-        found[label] = cells
+        found[label] = [*cells, _pro_forma_date(mk, table, row, label)]
     return found
 
 
 def _totals(run: _Run, mk: _Maker) -> list[SnapshotCell]:
-    """T4.9's fixed rows and Net debt data. The senior and unsecured amounts and multiples and the
-    pro forma interest and cover have no fixed label: a gap, unless a free-label row of that name
-    (`Senior debt`, `Unsecured debt` in T4.6; `Senior leverage`, `Unsecured leverage` in T4.9,
-    case and spaces ignored) is in the handoff, which is copied with its Unit."""
+    """Independent calculation and debt totals, with the written pro forma interest and cover."""
     run.doc("CP-1")
     register = _register_rows(run)
     found = [*_balance_free_rows(run), *(p for p in register if p.free and p.table)]
-    picks = [p for p in register if not p.free] + _net_debt(run)
-    cells = [pick.cell(mk) for pick in picks]
+    cells = [pick.cell(mk) for pick in register if not pick.free]
+    try:
+        cells.extend(pick.cell(mk) for pick in _net_debt(run))
+    except ValueError as error:
+        cells.append(mk.unreadable("Net debt data", "Text", "Net debt data table", error))
     stated = _pro_forma(run, mk)
     for label in _TOTALS_GAPS:
         rows = [p for p in found if p.key == _fold(label)]
@@ -1597,7 +1661,10 @@ def _capital_structure(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         *("Instrument", "Type", "Ranking", "Currency", "Coupon or Margin", "Spread (bps)"),
         *("Maturity", "Principal", "Drawn"),
     )
-    return _copy_table("CP-1", "T4.18", columns)(run, mk)
+    table = run.register("CP-1", "T4.18")
+    return _copy_register_cells(
+        table, mk, columns, _instrument_labels(table, table.index("Instrument"))
+    )
 
 
 def _classify(run: _Run) -> dict[str, _BridgeClassification]:
@@ -2357,7 +2424,7 @@ def gather(run: SnapshotRun) -> Snapshot:
         references=state.views(),
         source_sha256=(
             (
-                {sheet.file: sheet.sha256 for sheet in run.market}
+                {sheet.section: sheet.sha256 for sheet in run.market}
                 if not isinstance(run.market, MarketGap)
                 else {}
             )
@@ -2557,8 +2624,8 @@ def _market_source(folder: Path, name: str, pin: object) -> MarketSheet | None:
     file = str(path)
     try:
         with pe.reading():  # this workbook is parsed once, then released before the next source
-            for rows in _source_rows(raw):
-                sheet = market_sheet(file, digest, rows)
+            for tab, rows in _source_rows(raw):
+                sheet = market_sheet(file, digest, rows, tab=tab)
                 if sheet is not None:
                     return sheet
     except (csv.Error, ValueError) as error:
@@ -2589,16 +2656,30 @@ def _has_rv_head(rows: Cells) -> bool:
     return first is not None and _market_index(first) is not None
 
 
-def _source_rows(raw: bytes) -> list[Cells]:
-    """The sheets of a source: each sheet of a workbook, or the CSV's rows (the record number is
-    the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them). A
-    CSV whose first non-empty row lacks the RV headers gives no sheet, read no further; a sheet of
-    more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
+def _rv_workbook_tabs(raw: bytes) -> list[tuple[str | None, Cells]]:
+    sheets: list[tuple[str | None, Cells]] = []
+    refused = None
+    with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
+        for name in pe.workbook_sheets(raw):
+            rows = pe.sheet_rows(raw, name, exact=True)
+            if rows is None or not _has_rv_head(rows):
+                continue
+            try:
+                sheets.append((name, _capped(rows)))
+            except ValueError as error:
+                refused = error
+                _LOG.warning("credit snapshot: RV tab %s is skipped: %s", name, error)
+    if not sheets and refused is not None:
+        raise refused
+    return sheets
+
+
+def _source_rows(raw: bytes) -> list[tuple[str | None, Cells]]:
+    """The exact workbook titles with their rows, or a CSV's rows with no title. CSV cells are as
+    entered and use the record number. A CSV whose first populated row lacks the RV headers gives
+    no sheet. An oversized RV tab is refused independently of other tabs."""
     if raw.startswith(b"PK\x03\x04"):
-        with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
-            sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
-        # The cap applies to a sheet with the RV headers only: another tab never hides one.
-        return [_capped(rows) for rows in sheets if rows is not None and _has_rv_head(rows)]
+        return _rv_workbook_tabs(raw)
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -2614,7 +2695,7 @@ def _source_rows(raw: bytes) -> list[Cells]:
             if filled > rp.MAX_ROWS:
                 raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
         rows.append((number, cells))
-    return [rows]
+    return [(None, rows)]
 
 
 _SLASH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -2665,7 +2746,9 @@ def _market_index(head: Sequence[pe.Cell]) -> dict[str, int] | None:
     return index
 
 
-def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
+def market_sheet(
+    file: str, sha256: str, rows: Cells, *, tab: str | None = None
+) -> MarketSheet | None:
     """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
     ignoring case and spaces) or repeats one of them."""
     start = next((i for i, (_, cells) in enumerate(rows) if _filled(cells)), None)
@@ -2690,7 +2773,7 @@ def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
         }
         day = _maturity(held["Maturity"])
         body.append(MarketRow(number, texts, day, _unreadable(texts["Maturity"], day)))
-    return MarketSheet(file, sha256, tuple(body))
+    return MarketSheet(file, sha256, tuple(body), tab=tab)
 
 
 def _shown(cell: pe.Cell) -> str:

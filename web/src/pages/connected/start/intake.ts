@@ -86,7 +86,7 @@ export const SOURCE_TYPES = /\.(?:pdf|htm|html|docx|txt|md|xlsx|csv|json|jsonl)$
 export const SOURCE_TYPE_HINT = "PDF, HTML, DOCX, TXT, Markdown, XLSX, CSV, JSON and JSONL";
 
 export const SYNTHETIC_LIMITS =
-  "A no-cost test can complete only a first Full credit assessment, with no earlier run to compare. Use northbridge-filing.txt and, optionally, northbridge-portfolio.xlsx and northbridge-credit-agreement.txt; no other files are accepted.";
+  "A no-cost test can complete a first Full credit assessment with northbridge-filing.txt, optionally with northbridge-portfolio.xlsx and northbridge-credit-agreement.txt. The Custom selection walkthrough covers only a first run of Structural priority within Legal & covenants for Northbridge Synthetic Group, 2025-03-31. Upload northbridge-filing.txt and northbridge-credit-agreement.txt for that custom run. Mark the agreement as executed. Only the listed files are accepted for each walkthrough.";
 
 export type Review = {
   id: string;
