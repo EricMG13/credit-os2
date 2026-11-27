@@ -267,7 +267,7 @@ it("draws each cash-interest basis in its own category colour, named in the lege
   expect(legend().map((item) => item.textContent)).toEqual([
     "Fall in EBITDA at the break, interest held",
   ]);
-  expect(legend()[0]).toHaveAttribute("data-legend", "dot");
+  expect(legend()[0]).toHaveAttribute("data-legend", "bar");
   expect(legend()[0]?.querySelector("[data-swatch]")).toHaveClass("fill-category-3");
   const bars = () => [...within(tile()).getByRole("img").querySelectorAll("[data-decline]")];
   expect(bars().every((bar) => bar.classList.contains("bg-category-3"))).toBe(true);
@@ -275,7 +275,7 @@ it("draws each cash-interest basis in its own category colour, named in the lege
   expect(legend().map((item) => item.textContent)).toEqual([
     "Fall in EBITDA at the break, cash-interest increase 5%",
   ]);
-  expect(legend()[0]).toHaveAttribute("data-legend", "square");
+  expect(legend()[0]).toHaveAttribute("data-legend", "bar");
   expect(legend()[0]?.querySelector("[data-swatch]")).toHaveClass("fill-category-4");
   expect(bars().every((bar) => bar.classList.contains("bg-category-4"))).toBe(true);
   expect(bars().some((bar) => bar.classList.contains("bg-chart-1"))).toBe(false);

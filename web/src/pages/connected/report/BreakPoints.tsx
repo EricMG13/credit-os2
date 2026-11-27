@@ -344,9 +344,7 @@ export function BreakPointsTile({
       label={TITLE}
       title={TITLE}
       basis={choice ? undefined : basis?.name}
-      legend={
-        chart && <Legend items={[{ kind: style.shape, tone: style.tone, text: legendText }]} />
-      }
+      legend={chart && <Legend items={[{ kind: "bar", tone: style.tone, text: legendText }]} />}
       trace={trace}
       controls={choice}
       figure={figure}
