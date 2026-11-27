@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 import logging
+import posixpath
 import re
 import threading
 import time
@@ -28,6 +29,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
+from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
 
 from pydantic import TypeAdapter
@@ -43,7 +45,7 @@ from deploy_vii.inputs.csv_text import decode_csv_text
 from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell
 from deploy_vii.model.metrics import _ratio
-from deploy_vii.preparation import pdf_page_text, xlsx_content
+from deploy_vii.preparation import NS, REL, pdf_page_text, xlsx_content, xml_part
 from deploy_vii.registry import modules, purpose
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, BudgetError, OverrunStop, exact_multiply, exact_sum
@@ -90,8 +92,8 @@ from deploy_workflow.research.weblookup import (
     RunScope,
     Runtime,
     WebLookup,
-    bare_host_problem,
     _fetch_key,
+    bare_host_problem,
     known_pages,
     names_web_source,
     neutralise,
@@ -482,6 +484,53 @@ def _cell_value(span: Span) -> str:
     return f"{address}={value}" + (f" format={span.number_format!r}" if shown else "")
 
 
+def _part_path(base: str, target: str) -> str:
+    """A relationship target resolved against the part that holds it, as a package path."""
+    if target.startswith("/"):
+        return posixpath.normpath(target.lstrip("/"))
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base), target))
+
+
+def _comment_sheets(raw: bytes) -> dict[str, str]:
+    """The sheet name of each comments part, read from the package's relationship parts.
+    A part whose sheet cannot be resolved is left out (its own name is shown instead)."""
+    found: dict[str, str] = {}
+    try:
+        with ZipFile(io.BytesIO(raw)) as archive:
+            names = set(archive.namelist())
+            book = xml_part(archive, "xl/workbook.xml")
+            targets = {
+                item.attrib["Id"]: item.attrib["Target"]
+                for item in xml_part(archive, "xl/_rels/workbook.xml.rels")
+            }
+            for sheet in book.findall("s:sheets/s:sheet", NS):
+                path = _part_path("xl/workbook.xml", targets[sheet.attrib[REL]])
+                rels = f"{posixpath.dirname(path)}/_rels/{posixpath.basename(path)}.rels"
+                if rels not in names:
+                    continue
+                for item in xml_part(archive, rels):
+                    if item.attrib.get("Type", "").endswith("/comments"):
+                        found[_part_path(path, item.attrib["Target"])] = sheet.attrib["name"]
+    except (KeyError, ValueError, BadZipFile, ET.ParseError) as exc:
+        log.warning("comment sheets could not be resolved, so comments show their part: %s", exc)
+    return found
+
+
+def _comment_lines(raw: bytes, spans: Sequence[Span]) -> list[str]:
+    """One line per cell comment, led by its sheet (else its comments part)."""
+    sheets = _comment_sheets(raw)
+    lines = []
+    for span in spans:
+        if not span.locator.startswith("part:") or not span.text:
+            continue
+        part, _, ref = span.locator.partition("!")
+        part = unquote(part.removeprefix("part:"))
+        lines.append(
+            f"{sheets.get(part, part)} {ref} by {span.note or 'unknown author'}: {span.text!r}"
+        )
+    return lines
+
+
 def _workbook_pages(raw: bytes) -> list[str]:
     """One page per sheet from the preparation reader's stored cells: exact lexemes, no
     recalculation, and work bounded by the cells actually stored, not the sheet's dimension."""
@@ -500,11 +549,7 @@ def _workbook_pages(raw: bytes) -> list[str]:
         + "\n".join(" | ".join(cells) for cells in rows[sheet].values())
         for sheet in sheets
     ]
-    comments = [
-        f"{span.locator.partition('!')[2]} by {span.note or 'unknown author'}: {span.text!r}"
-        for span in extraction.spans
-        if span.locator.startswith("part:") and span.text
-    ]
+    comments = _comment_lines(raw, extraction.spans)
     return [*pages, "Cell comments\n" + "\n".join(comments)] if comments else pages
 
 
@@ -743,9 +788,10 @@ class ModuleTools:
         unreadable, never raised: the row still counts and the caller moves on."""
         known = self.web.get(item.source_id)
         if known is not None and _fetch_key(known.url) == _fetch_key(item.url):
-            # The id's own address, fetched or re-dated again: the latest row is what the checker
-            # (weblookup._latest_rows) judges it by. The pages are not read again.
-            self.web[item.source_id] = self.sources[item.source_id]["web"] = item
+            # The id's own address, fetched or re-dated again: list_sources shows its latest row, as
+            # the checker (weblookup._latest_rows) judges it. self.web keeps the first row of an id
+            # (weblookup.known_pages does the same). The pages are not read again.
+            self.sources[item.source_id]["web"] = item
         if known is None:
             try:
                 pages = lookup.page_text(item)
