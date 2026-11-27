@@ -198,30 +198,34 @@ def _t410_multiple(
     return ev[0] / value, quotient_slack(ev[0], half(ev[1]), value, half_unit)
 
 
-def _without_bare_year(text: str) -> list[str]:
-    """The figures in ``text``; of two, a bare year (19xx/20xx, no currency or scale attached) is a
-    period when the other is not one, so it is set aside (`EBITDA 2024 USD 500m`)."""
+def _metric_figures(cell: str) -> list[re.Match[str]]:
+    """The metric's figures after removing marked periods and one bare year beside an amount.
+
+    Keep the matches so the amount's own currency and scale can be read at its position.
+    """
+    text = _YEAR.sub(" ", _plain(cell))
     hits = list(_FIGURE.finditer(text))
-    found = [h[0] for h in hits]
     if len(hits) != 2:
-        return found
-    bare = [
-        h[0]
-        for h in hits
-        if re.fullmatch(rf"\(?{_Y}\)?", h[0])
-        and not _BEFORE_CURRENCY.search(text[: h.start()])
-        and not _ATTACHED_SCALE.match(text[h.end() :])
+        return hits
+    bare_years = [
+        hit
+        for hit in hits
+        if re.fullmatch(rf"\(?{_Y}\)?", hit[0])
+        and not _BEFORE_CURRENCY.search(text[: hit.start()])
+        and not _ATTACHED_SCALE.match(text[hit.end() :])
     ]
-    return [f for f in found if f != bare[0]] if len(bare) == 1 else found
+    if len(bare_years) != 1:
+        return hits
+    return [hit for hit in hits if hit is not bare_years[0]]
 
 
 def borrower_metric(cell: str, tables: types.ModuleType) -> tuple[float, int]:
     """T4.10's borrower metric: the one figure in its cell once a period (`FY2024`, `LTM Dec-2025`
     year) is set aside; `_NotChecked` when it is not one figure."""
-    found = _without_bare_year(_YEAR.sub(" ", _plain(cell)))
+    found = _metric_figures(cell)
     if len(found) != 1:
         raise _NotChecked(f"the borrower metric `{cell}` is not one figure")
-    read = figure(found[0], tables)
+    read = figure(found[0][0], tables)
     if isinstance(read, str):
         raise _NotChecked(read)
     return read
@@ -230,12 +234,12 @@ def borrower_metric(cell: str, tables: types.ModuleType) -> tuple[float, int]:
 def metric_unit(cell: str) -> tuple[str | None, str | None]:
     """The currency and scale the borrower metric's own figure carries: a code or symbol directly
     before it, a scale word or letter directly after it; never other words in the cell."""
-    text = _YEAR.sub(" ", _plain(cell))
-    found = _FIGURE.search(text)
-    if found is None:
+    hits = _metric_figures(cell)
+    if len(hits) != 1:
         return None, None
-    before = _BEFORE_CURRENCY.search(text[: found.start()])
-    after = _ATTACHED_SCALE.match(text[found.end() :])
+    amount = hits[0]
+    before = _BEFORE_CURRENCY.search(amount.string[: amount.start()])
+    after = _ATTACHED_SCALE.match(amount.string[amount.end() :])
     return (
         currency_of(before[1]) if before else None,
         scale_of(after[1]) if after else None,
