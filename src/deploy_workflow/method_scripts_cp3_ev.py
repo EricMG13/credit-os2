@@ -32,11 +32,13 @@ from deploy_workflow.method_scripts import (
     _Where,
     blank,
     column,
+    currency_of,
     figure,
     half,
     quotient_slack,
     register_table,
     said_none,
+    scale_of,
 )
 
 PEER_STATISTICS = ARCHIVE + "skills/cp-1c-peer-benchmark/scripts/peer_statistics.py"
@@ -53,6 +55,24 @@ COPY_FORMULA = (
 )
 _COPY = re.compile(r"^cp 1c t4\.10\b\W*(ev/ebitda|ev/revenue|tv/ebitda|tv/revenue)?")
 _FIGURE = re.compile(r"\(?-?\d[\d,]*(?:\.\d+)?\)?")
+_Y = r"(?:19|20)\d{2}"
+_MONTH = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
+    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+# A year is a period only when marked as one: after FY/CY/LTM/NTM/fiscal/a half or quarter/a month
+# name, before E/A/F, or inside a date; a bare 2000 (or `2000m`) is an amount.
+_YEAR = re.compile(
+    rf"(?<![\d,.])(?:\b(?:fy|cy|ltm|ntm|fiscal(?:\s+year)?|h[12]|q[1-4]|{_MONTH})(?![a-z])[\s\-'/]*{_Y}"
+    rf"(?![\d,.])(?!\s?(?:bn|mn|m|k)\b)"
+    rf"|{_Y}[eaf]\b|\d{{1,2}}[/.\-]\d{{1,2}}[/.\-]{_Y}(?!\d)|{_Y}[/\-]\d{{1,2}}[/\-]\d{{1,2}})",
+    re.IGNORECASE,
+)
+_ATTACHED_SCALE = re.compile(
+    r"\s?(bn|mn|mm|m|k|millions?|billions?|thousands?)(?![\w&\-])", re.IGNORECASE
+)
+_BEFORE_CURRENCY = re.compile(r"(US\$|[$€£]|(?<![A-Za-z])[A-Za-z]{3})\s*$")
+_SCALE_FACTOR = {"k": 1e3, "m": 1e6, "bn": 1e9, "units": 1.0}
 _HEADING = "`### Recovery waterfall`"
 
 
@@ -123,16 +143,21 @@ def _t410_row(table: Table, method: str | None, case: str, tables: types.ModuleT
     if method is not None:
         rows = [r for r in table[1] if method in _label(r[0])]
     else:
-        rows = [r for r in table[1] if not blank(_t410_cell(table, r, case)[0], tables)]
+        cells = [(r, _t410_cell(table, r, case, tables)[0]) for r in table[1]]
+        rows = [r for r, cell in cells if not (blank(cell, tables) or said_none(cell))]
     if len(rows) != 1:
         named = f"`{method}` " if method else "with a figure for the case "
         raise _NotChecked(f"CP-1C's T4.10 has {len(rows) or 'no'} rows {named}")
     return rows[0]
 
 
-def _t410_cell(table: Table, row: list[str], case: str) -> tuple[str, str]:
+def _t410_cell(
+    table: Table, row: list[str], case: str, tables: types.ModuleType
+) -> tuple[str, str]:
     """T4.10's implied EV for the case in the row, from its own column (`Low`, `Median` or `Base`,
-    `High`) or the SKILL's combined `Implied EV/Low/Median/High` column."""
+    `High`) or the SKILL's combined `Implied EV/Low/Median/High` column. A combined cell with
+    fewer than three parts is returned only when it states no figure (blank, or says none); any
+    other is not read as every case's figure."""
     for name in T410_CASES[case]:
         try:
             index, header = column(table, name, "CP-1C's T4.10")
@@ -143,8 +168,12 @@ def _t410_cell(table: Table, row: list[str], case: str) -> tuple[str, str]:
     if len(found) != 1:
         raise _NotChecked(f"CP-1C's T4.10 has no `{T410_CASES[case][0]}` column")
     parts = [p.strip() for p in _plain(row[found[0]]).split("/")]
-    order = ("Low", "Base", "High").index(case)
-    return (parts[-3:][order] if len(parts) >= 3 else row[found[0]]), table[0][found[0]]
+    cell, header = row[found[0]], table[0][found[0]]
+    if len(parts) < 3:
+        if blank(cell, tables) or said_none(cell):
+            return cell, header
+        raise _NotChecked(f"CP-1C's T4.10 cell `{cell}` states no Low, Median and High")
+    return parts[-3:][("Low", "Base", "High").index(case)], header
 
 
 def _t410_multiple(
@@ -156,16 +185,62 @@ def _t410_multiple(
     if isinstance(table, str):
         raise _NotChecked(f"CP-1C's handoff: {table}")
     row = _t410_row(table, method, case, tables)
-    cell = _t410_cell(table, row, case)[0]
+    cell, header = _t410_cell(table, row, case, tables)
     if blank(cell, tables) or said_none(cell):
         raise _NotChecked(f"CP-1C's T4.10 states no figure for {case} (`{cell}`)")
-    metrics = _FIGURE.findall(_plain(row[column(table, "Borrower Metric", "CP-1C's T4.10")[0]]))
-    if len(metrics) != 1:
-        raise _NotChecked("CP-1C's T4.10 borrower metric is not one figure")
-    ev, metric = figure(core.bare(cell), tables), figure(metrics[0], tables)
-    if isinstance(ev, str) or isinstance(metric, str) or metric[0] <= 0:
+    metric_index, metric_header = column(table, "Borrower Metric", "CP-1C's T4.10")
+    metric_cell = row[metric_index]
+    ev, metric = figure(core.bare(cell), tables), borrower_metric(metric_cell, tables)
+    if isinstance(ev, str) or metric[0] <= 0:
         raise _NotChecked("CP-1C's T4.10 implied EV or borrower metric is not read")
-    return ev[0] / metric[0], quotient_slack(ev[0], half(ev[1]), metric[0], half(metric[1]))
+    factor = _scale_factor((cell, header), (metric_cell, metric_header))
+    value, half_unit = metric[0] * factor, half(metric[1]) * factor
+    return ev[0] / value, quotient_slack(ev[0], half(ev[1]), value, half_unit)
+
+
+def borrower_metric(cell: str, tables: types.ModuleType) -> tuple[float, int]:
+    """T4.10's borrower metric: the one figure in its cell once a period (`FY2024`, `LTM Dec-2025`
+    year) is set aside; `_NotChecked` when it is not one figure."""
+    found = _FIGURE.findall(_YEAR.sub(" ", _plain(cell)))
+    if len(found) != 1:
+        raise _NotChecked(f"the borrower metric `{cell}` is not one figure")
+    read = figure(found[0], tables)
+    if isinstance(read, str):
+        raise _NotChecked(read)
+    return read
+
+
+def metric_unit(cell: str) -> tuple[str | None, str | None]:
+    """The currency and scale the borrower metric's own figure carries: a code or symbol directly
+    before it, a scale word or letter directly after it; never other words in the cell."""
+    text = _YEAR.sub(" ", _plain(cell))
+    found = _FIGURE.search(text)
+    if found is None:
+        return None, None
+    before = _BEFORE_CURRENCY.search(text[: found.start()])
+    after = _ATTACHED_SCALE.match(text[found.end() :])
+    return (
+        currency_of(before[1]) if before else None,
+        scale_of(after[1]) if after else None,
+    )
+
+
+def _scale_factor(ev: tuple[str, str], metric: tuple[str, str]) -> float:
+    """What the borrower metric is multiplied by to be in the implied EV's scale. Each unit is its
+    cell's, else its column header's; two stated currencies that differ are `_NotChecked`; a scale
+    not stated on both sides leaves the metric as written (1)."""
+    metric_cell_currency, metric_cell_scale = metric_unit(metric[0])
+    ev_currency = currency_of(ev[0]) or currency_of(ev[1])
+    metric_currency = metric_cell_currency or currency_of(metric[1])
+    if ev_currency and metric_currency and ev_currency != metric_currency:
+        raise _NotChecked(
+            f"the implied EV is in {ev_currency} and the borrower metric in {metric_currency}"
+        )
+    ev_scale = scale_of(ev[0]) or scale_of(ev[1])
+    metric_scale = metric_cell_scale or scale_of(metric[1])
+    if not (ev_scale and metric_scale):
+        return 1.0
+    return _SCALE_FACTOR[metric_scale] / _SCALE_FACTOR[ev_scale]
 
 
 def ev_copy(case: Case, loaded: Loaded, upstream: Upstream) -> Outcome | None:
