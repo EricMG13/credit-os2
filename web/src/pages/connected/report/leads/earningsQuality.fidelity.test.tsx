@@ -88,7 +88,9 @@ describe("Earnings Quality handoff fidelity", () => {
   it("keeps the stated adjusted EBITDA and every step when an add-back equals the opening", () => {
     const bridge = readBridge(mismatchedBridge());
     if (bridge.state !== "gap") throw new Error("Expected the mismatch to prevent a waterfall");
-    expect(bridge.reason).toMatch(/260.*do not add up.*250/);
+    expect(bridge.reason).toBe(
+      "This page did not draw the bridge because the steps between Reported EBITDA (100) and Adjusted EBITDA (260) do not add up.",
+    );
     expect(bridge.stated).toEqual([
       { label: "Reported EBITDA", text: "100 USD millions" },
       { label: "First add-back", text: "+100 USD millions" },
@@ -103,12 +105,12 @@ describe("Earnings Quality handoff fidelity", () => {
       "Second add-back +$50m",
       "Adjusted EBITDA $260m",
       "do not add up",
-      "250",
     ]) {
       expect(
         tile.getByText(new RegExp(text.replaceAll("$", "\\$").replaceAll("+", "\\+"))),
       ).toBeVisible();
     }
+    expect(tile.queryByText(/250/)).toBeNull();
     expect(tile.queryByRole("img")).toBeNull();
   });
 
@@ -261,16 +263,28 @@ describe("Earnings Quality handoff fidelity", () => {
   });
 
   it("still checks the arithmetic for an explicitly signed named closing", () => {
-    const bridge = readBridge(
-      legacyBridge([
-        ["Reported EBITDA", "100"],
-        ["Add-back", "+50"],
-        ["Conditional adjusted EBITDA", "+151"],
-        ["Conditional downside", "-20"],
-      ]),
-    );
+    const source = legacyBridge([
+      ["Reported EBITDA", "100"],
+      ["Add-back", "+50"],
+      ["Conditional adjusted EBITDA", "+151"],
+      ["Conditional downside", "-20"],
+    ]);
+    const bridge = readBridge(source);
     if (bridge.state !== "gap") throw new Error("Expected the mismatch to prevent a waterfall");
-    expect(bridge.reason).toMatch(/\(151\).*do not add up.*to 150 in/);
+    const reason =
+      "This page did not draw the bridge because the steps between Reported EBITDA (100) and Conditional adjusted EBITDA (151) do not add up.";
+    expect(bridge.reason).toBe(reason);
+
+    render(<EarningsQualityLead {...leadProps(source)} />);
+    const tile = within(screen.getByRole("region", { name: "Earnings quality" }));
+    expect(
+      tile.getByText(
+        reason +
+          " Stated steps: Reported EBITDA $100m; Add-back +$50m; Conditional adjusted EBITDA +$151m; Conditional downside -$20m.",
+      ),
+    ).toBeVisible();
+    expect(tile.queryByText(/150/)).toBeNull();
+    expect(tile.queryByRole("img")).toBeNull();
   });
 
   it("does not turn a signed add-back before a downside into the closing", () => {

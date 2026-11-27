@@ -473,11 +473,7 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   const rebuilt = sum([opening.amount, ...rest.map((step) => step.amount)]);
   if (rebuilt === null || signOf(difference(closing.amount, rebuilt)) !== 0)
     return gapOf(
-      `This page did not draw the bridge because the steps between ${opening.label} (${group(opening.amount)}) and ${closing.label} (${group(closing.amount)}) do not add up.${
-        rebuilt === null
-          ? ""
-          : ` The bridge steps calculate to ${group(rebuilt)} in the stated reporting unit.`
-      }`,
+      `This page did not draw the bridge because the steps between ${opening.label} (${group(opening.amount)}) and ${closing.label} (${group(closing.amount)}) do not add up.`,
       stated,
       heading,
     );
