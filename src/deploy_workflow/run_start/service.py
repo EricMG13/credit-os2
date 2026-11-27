@@ -209,6 +209,8 @@ _UNKNOWN = "unknown submission"  # the text submissions raises for an id it does
 _UNKNOWN_RUN = "unknown run"  # the text prior raises for a run id with no record
 _SUBMISSION = re.compile(r"/api/submissions/([^/]+)/(files|reading|summary|submit|carry)")
 _REFERENCE = re.compile(r"/api/submissions/([^/]+)/reference-portfolio(/files)?")
+PREPARATION_DENIAL = "only an Analyst or Admin can prepare or submit a run"
+PREPARERS = frozenset({"analyst", "admin"})
 _STANDING = re.compile(r"/api/reference-portfolios(?:/([a-z0-9_-]{1,64})(/refresh|/files)?)?")
 _RUN_ID = r"[0-9A-Za-z._-]{1,80}"
 _RUN = re.compile(rf"/api/runs/({_RUN_ID})")
@@ -232,6 +234,32 @@ _DOWNLOADS = "/library/downloads/"
 SHOWN_CAP_HEADER = "X-Shown-Cap"  # the cap the page displays, sent with summary and submit
 
 
+def requires_preparer(method: str, path: str) -> bool:
+    """Whether this exact run-start method/path prepares, changes, or submits a draft."""
+    if method == "POST" and path == "/api/submissions":
+        return True
+    if found := _SUBMISSION.fullmatch(path):
+        action = found[2]
+        return (method, action) in {
+            ("GET", "reading"),
+            ("POST", "files"),
+            ("DELETE", "files"),
+            ("POST", "summary"),
+            ("POST", "submit"),
+            ("POST", "carry"),
+        }
+    if reference := _REFERENCE.fullmatch(path):
+        files = reference[2] == "/files"
+        return (method, files) in {
+            ("GET", False),
+            ("POST", False),
+            ("POST", True),
+            ("DELETE", False),
+            ("DELETE", True),
+        }
+    return False
+
+
 class _Server(http_base.Server):
     scheduler: Scheduler
     standing: standing_portfolios.Desk  # the standing portfolios' locks and fetch wiring
@@ -246,6 +274,10 @@ class Handler(http_base.Handler):
     logger = log
 
     # -- plumbing ---------------------------------------------------------------------------
+
+    def run_actor(self) -> submissions.RunActor | None:
+        """An authenticated app may supply an actor; the standalone service remains unbound."""
+        return None
 
     @property
     def _service(self) -> _Server:
@@ -306,7 +338,7 @@ class Handler(http_base.Handler):
                 else self._guarded(lambda: submissions.issued_cap(self._layout, sid))
             )
             if not cap_text:
-                raise refuse(400, "review the summary again; no summary was issued for this run")
+                raise refuse(400, submissions.NO_SUMMARY_ISSUED)
             cap = cap_text
         if cap is not None and self.headers.get_all(SHOWN_CAP_HEADER) != [str(cap)]:
             raise refuse(
@@ -473,7 +505,8 @@ class Handler(http_base.Handler):
         raise Reply(200, self._guarded(copy))
 
     def _summary(self, sid: str, answers: Any) -> dict[str, Any]:
-        result = submissions.summary(self._layout, sid, answers)
+        actor = self.run_actor()
+        result = self._service.scheduler.issue_summary(sid, answers, actor)
         if result.get("digest"):
             result["copilot_verified"] = self._service.scheduler.model_available(
                 result["model"], result["effort"]
@@ -483,11 +516,13 @@ class Handler(http_base.Handler):
     def _submit(self, sid: str, body: Any) -> None:
         if not isinstance(body, dict) or not isinstance(body.get("digest"), str):
             raise refuse(400, "the request needs the answers and the digest of the summary")
+        actor = self.run_actor()
         record = self._guarded(
             lambda: self._service.scheduler.submit(
                 sid,
                 cast(Answers, body.get("answers")),
                 body["digest"],  # checked by submit
+                actor=actor,
             )
         )
         raise Reply(200, {"run": record.id, "status": record.status})

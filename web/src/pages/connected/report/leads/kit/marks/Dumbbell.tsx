@@ -307,7 +307,7 @@ function Pair({ one, f, reason }: { one: Laid; f: Frame; reason: string }) {
           r={flat ? 4 : 6}
           className={
             row.tone === "worse"
-              ? "fill-warning-mark"
+              ? "fill-worse-mark"
               : row.series === "secondary"
                 ? "fill-chart-2"
                 : "fill-chart-1"
@@ -408,7 +408,7 @@ export function Dumbbell({
         { tone: "prior", text: periods.prior },
         { tone: "current", text: periods.current },
         ...(rows.some((row) => row.tone === "worse")
-          ? [{ tone: "worse" as const, text: `${periods.current}, worse` }]
+          ? [{ tone: "worse-mark" as const, text: `${periods.current}, worse` }]
           : []),
         ...(rows.some((row) => !known(row.prior) || !known(row.current))
           ? [{ tone: "gap" as const, text: "Not stated" }]

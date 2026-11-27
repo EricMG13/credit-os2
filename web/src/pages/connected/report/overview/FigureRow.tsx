@@ -162,7 +162,7 @@ function ToneChip({ reading, large }: { reading: Ready; large: boolean }) {
       )}
       {...(large && { style: { backgroundColor: look.fill } })}
     >
-      <Arrow aria-hidden="true" className="size-3" />
+      <Arrow aria-hidden="true" className={cx("size-3", look.text)} />
       {reading.tone === "worse" ? "Worse" : "Better"}
     </span>
   );

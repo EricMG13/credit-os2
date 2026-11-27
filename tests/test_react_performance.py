@@ -123,6 +123,16 @@ def test_scope_keeps_history_metadata_and_only_valid_comparison_content() -> Non
         },
         "record": {"steps": [{"module": "CP-2"}, {"module": "CP-1"}, {"module": "CP-3"}]},
         "methodChanges": ["CP-2: example method change"],
+        "evidence": {
+            "record": {
+                "calls": [
+                    {"started": "2026-11-26T12:06:41.374958Z", "attempt": 2},
+                    {"started": "2025-11-26T12:06:41", "attempt": 90},
+                    {"started": "invalid", "attempt": 80},
+                    {"started": "2026-11-26T13:06:41.374957+01:00", "attempt": 1},
+                ]
+            }
+        },
     }
     unrelated = {
         "folder": "other",
@@ -181,6 +191,7 @@ def test_scope_keeps_history_metadata_and_only_valid_comparison_content() -> Non
             "modules": ["CP-2", "CP-1"],
             "earlierFormat": False,
             "earlierMethods": True,
+            "firstModelCall": {"started": "2026-11-26T12:06:41.374957+00:00", "attempt": 1},
         },
     }
     assert set(scoped["workspace"]["outputs"]) == {"earlier/CP-1.md", "current/CP-1.md"}

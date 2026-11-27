@@ -148,6 +148,8 @@ type StatementRow = {
   periods: Period[];
   unit: string | null;
   line: number;
+  /** Set only when a supplemental financial metric supplied this row, for its trace target. */
+  source?: "financial-metrics";
 };
 
 function statementRow(read: Statement, row: Row): StatementRow {
@@ -569,13 +571,12 @@ const KPI_UNIT = /,\s*([^,]+)$/;
  * documented second source for a level the cash flow statement does not state. The row is found by
  * its Metric Name (one match), its unit is the name's trailing ", US$m", and the label drops it.
  */
-function kpiLevel(entry: OutputEntry, spec: LadderSpec): StatementRow | string {
-  const NONE = NOT_IN(`${spec.name} in the cash flow statement or the KPI dashboard`);
+function kpiLevel(entry: OutputEntry, spec: LadderSpec): StatementRow | string | null {
   const read = statement(entry, "T4.10 KPI dashboard");
   const nameAt = typeof read === "string" ? -1 : columnOf(read.table, "Metric Name");
-  if (typeof read === "string" || nameAt < 0) return NONE;
+  if (typeof read === "string" || nameAt < 0) return null;
   const row = rowStarting(read.table, [...spec.prefixes, ...(spec.kpi ?? [])], nameAt);
-  if (row === "none") return NONE;
+  if (row === "none") return null;
   if (row === "several")
     return BECAUSE(spec.name, "more than one row of the KPI dashboard matches it");
   const name = (row.cells[nameAt] ?? "").trim();
@@ -587,12 +588,64 @@ function kpiLevel(entry: OutputEntry, spec: LadderSpec): StatementRow | string {
   };
 }
 
-/** One ladder row: the cash flow statement first; a level it lacks may come from the KPI dashboard. */
+const FINANCIAL_METRICS: Partial<Record<LadderKey, string>> = {
+  fcf: "Cash flow after capital expenditure",
+  afterDistributions: "Discretionary cash flow after dividends and equivalents",
+};
+
+/** A stated cash-conversion level in the handoff's Financials and credit metrics table. */
+function financialMetricLevel(
+  entry: OutputEntry,
+  spec: LadderSpec,
+): (StatementRow & { source: "financial-metrics" }) | string | null {
+  const label = FINANCIAL_METRICS[spec.key];
+  if (!label) return null;
+  const tables = allTables(entry).filter(
+    ({ heading }) => heading === "Financials and credit metrics",
+  );
+  if (tables.length === 0) return null;
+  if (tables.length > 1)
+    return BECAUSE(spec.name, "the financials and credit metrics table appears more than once");
+  const [found] = tables;
+  if (!found) return null;
+  const labelColumns = found.table.headers.flatMap((header, at) =>
+    ["Measure", "Metric"].includes(header.trim()) ? [at] : [],
+  );
+  const [labelAt] = labelColumns;
+  if (labelColumns.length !== 1 || labelAt !== 0)
+    return BECAUSE(
+      spec.name,
+      "the financials and credit metrics table has no unique Measure or Metric column",
+    );
+  const matches = found.table.rows.filter(
+    (row) => (row.cells[labelAt] ?? "").trim().toLowerCase() === label.toLowerCase(),
+  );
+  if (matches.length === 0) return null;
+  if (matches.length > 1)
+    return BECAUSE(spec.name, "more than one row of financials and credit metrics matches it");
+  const read = statement(entry, "Financials and credit metrics");
+  if (typeof read === "string") return read;
+  const [row] = matches;
+  return row ? { ...statementRow(read, row), source: "financial-metrics" } : null;
+}
+
+/** The cash flow statement, then KPI dashboard, then one exact financial metric if stated. */
+function supplementalLevel(entry: OutputEntry, spec: LadderSpec): StatementRow | string {
+  const kpi = kpiLevel(entry, spec);
+  if (kpi !== null) return kpi;
+  const metric = financialMetricLevel(entry, spec);
+  if (metric !== null) return metric;
+  return NOT_IN(
+    `${spec.name} in the cash flow statement, KPI dashboard, or financials and credit metrics`,
+  );
+}
+
+/** One ladder row: the cash flow statement first; a missing level may come from its supplements. */
 function ladderRow(entry: OutputEntry, spec: LadderSpec, source: Statement | string) {
   if (typeof source === "string") return source;
   const row = rowStarting(source.table, spec.prefixes);
   if (row === "none" && spec.kind === "level" && spec.key !== "ebitda")
-    return kpiLevel(entry, spec);
+    return supplementalLevel(entry, spec);
   return findRow(source, spec.prefixes, spec.name);
 }
 
@@ -634,7 +687,18 @@ function readLadder(entry: OutputEntry): CashLadder | string {
     };
   });
   const comparison = comparisonOf(periods);
-  return { unit, periods, ordered, unplaced, comparison, steps, line: cash.table.line };
+  const sourceRow = usable.find(
+    ({ read }) => typeof read !== "string" && read.source === "financial-metrics",
+  )?.read;
+  return {
+    unit,
+    periods,
+    ordered,
+    unplaced,
+    comparison,
+    steps,
+    line: sourceRow && typeof sourceRow !== "string" ? sourceRow.line : cash.table.line,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

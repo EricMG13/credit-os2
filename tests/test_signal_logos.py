@@ -22,7 +22,6 @@ import pytest
 from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_fetch import PUBLIC, Reply, Wire, redirect
-from test_signal_issuer_api import cookie
 
 from deploy_workflow.signal import cli_logos, filings, ingest, logos, market, snapshot, store
 from deploy_workflow.signal.cli import main
@@ -361,15 +360,16 @@ def test_the_route_answers_the_icon_and_one_404_for_every_other_case(tmp_path):
     logos.fetch_one(db, _due_row(db, paused), NOW, Icons())
     store.set_source_state(db, paused, "paused")
     db.close()
-    svc = Live(tmp_path)
+    svc = Live(tmp_path, signed_in=True)
+    reader_cookie = f"credit_os_session={svc.create_account_session('Tobias O', 'reader')[1]}"
     try:
-        status, _, reply = svc.call("GET", f"/api/logos/{with_logo}", cookie=cookie("Tobias O"))
+        status, _, reply = svc.call("GET", f"/api/logos/{with_logo}", cookie=reader_cookie)
         assert (status, reply) == (
             200,
             {"type": "image/png", "data": base64.b64encode(png()).decode()},
         )
         missing = [
-            svc.call("GET", f"/api/logos/{n}", cookie=cookie("Tobias O"))
+            svc.call("GET", f"/api/logos/{n}", cookie=reader_cookie)
             for n in (without, paused, 999, 0)
         ]
         assert [(s, r) for s, _, r in missing] == [(404, {"error": "no logo for this source"})] * 4
@@ -377,7 +377,7 @@ def test_the_route_answers_the_icon_and_one_404_for_every_other_case(tmp_path):
         db = store.open_db(tmp_path)
         logos.set_enabled(db, False, NOW)
         db.close()
-        off = svc.call("GET", f"/api/logos/{with_logo}", cookie=cookie("Tobias O"))
+        off = svc.call("GET", f"/api/logos/{with_logo}", cookie=reader_cookie)
         assert (off[0], off[2]) == (404, {"error": "no logo for this source"})
     finally:
         svc.close()

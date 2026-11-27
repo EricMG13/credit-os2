@@ -31,7 +31,6 @@ from deploy_workflow.signal.service import Loop
 @pytest.fixture
 def db(tmp_path: Path) -> Any:
     held = store.open_db(tmp_path)
-    store.add_user(held, "Mara L", "writer")
     yield held
     held.close()
 
@@ -71,7 +70,6 @@ def test_a_busy_or_locked_database_leaves_the_digest_due_and_says_so(db, monkeyp
 
 def test_the_loop_shows_a_digest_left_due(tmp_path, monkeypatch):
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
     make(database)
     database.close()
     loop = Loop(tmp_path, ai=off_setup(tmp_path))

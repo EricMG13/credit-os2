@@ -5,7 +5,7 @@ import type * as ReactDomClient from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const drawn = vi.hoisted(() => ({
-  app: [] as { signal: boolean }[],
+  app: [] as { signal: boolean; signIn: boolean }[],
   preload: [] as boolean[],
   roots: [] as ReactDomClient.Root[],
 }));
@@ -24,8 +24,8 @@ vi.mock("react-dom/client", async (importOriginal) => {
 });
 
 vi.mock("./pages/connected/ConnectedApp", () => ({
-  ConnectedApp: ({ signal }: { signal: boolean }) => {
-    drawn.app.push({ signal });
+  ConnectedApp: ({ signal, signIn }: { signal: boolean; signIn: boolean }) => {
+    drawn.app.push({ signal, signIn });
     return <p>Application drawn</p>;
   },
   preloadPage: (_path: string, _readOnly: boolean, signal: boolean) => {
@@ -35,7 +35,9 @@ vi.mock("./pages/connected/ConnectedApp", () => ({
 }));
 
 /** Starts the entry on a page whose head holds `metas`, and gives back what it drew with. */
-async function start(metas: string): Promise<{ app: boolean[]; preload: boolean[] }> {
+async function start(
+  metas: string,
+): Promise<{ app: { signal: boolean; signIn: boolean }[]; preload: boolean[] }> {
   vi.resetModules();
   drawn.app.length = 0;
   drawn.preload.length = 0;
@@ -45,7 +47,7 @@ async function start(metas: string): Promise<{ app: boolean[]; preload: boolean[
   await vi.waitFor(() => {
     expect(document.getElementById("root")).toHaveTextContent("Application drawn");
   });
-  return { app: drawn.app.map(({ signal }) => signal), preload: drawn.preload };
+  return { app: [...drawn.app], preload: drawn.preload };
 }
 
 // The entry holds the loading state for a timer; it is faked so none outlives its test.
@@ -67,7 +69,7 @@ describe("the Signal switch the server writes into the page", () => {
   it("is on when the page carries the meta with content on", async () => {
     const got = await start('<meta name="credit-os-signal" content="on">');
     expect(got.preload).toEqual([true]);
-    expect(new Set(got.app)).toEqual(new Set([true]));
+    expect(new Set(got.app.map(({ signal }) => signal))).toEqual(new Set([true]));
   });
 
   it.each([
@@ -79,6 +81,20 @@ describe("the Signal switch the server writes into the page", () => {
   ])("is off with %s", async (_, metas) => {
     const got = await start(metas);
     expect(got.preload).toEqual([false]);
-    expect(new Set(got.app)).toEqual(new Set([false]));
+    expect(new Set(got.app.map(({ signal }) => signal))).toEqual(new Set([false]));
+  });
+
+  it("enables account controls only for the exact sign-in meta", async () => {
+    const enabled = await start('<meta name="credit-os-sign-in" content="on">');
+    expect(enabled.app.every(({ signIn }) => signIn)).toBe(true);
+
+    for (const metas of [
+      "",
+      '<meta name="credit-os-sign-in" content="off">',
+      '<meta name="credit-os-sign-in" content="ON">',
+    ]) {
+      const disabled = await start(metas);
+      expect(disabled.app.every(({ signIn }) => !signIn)).toBe(true);
+    }
   });
 });

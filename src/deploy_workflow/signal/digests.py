@@ -5,9 +5,9 @@ A digest has one owner, who alone sees it. It covers "All stories", or topics, g
 ``issuers`` ties them). Its schedule is a ``schedule.Schedule`` (UTC). Its brief has five
 parts: the subject (the form's brief text), the period (the schedule's own day, week or month), the
 number of points, what to list as upcoming and the look-ahead days. Its length is short or standard.
-A user has at most ``MAX_DIGESTS`` digests, and Signal at most ``MAX_ALL_DIGESTS``. Any named
-visitor may build one (spec 5.8, "each user builds": a reader keeps the screens), so the global
-cap is what bounds the digests, their runs and the due pass whatever names are typed.
+A user has at most ``MAX_DIGESTS`` digests, and Signal at most ``MAX_ALL_DIGESTS``. Any
+authenticated account may build one (spec 5.8, "each user builds": a Reader keeps the screens), so
+the global cap is what bounds the digests, their runs and the due pass.
 
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
@@ -39,7 +39,7 @@ leaves the run due exactly as it was, and the pass ends there (``Writer.stopped`
 "Run once now" (``run_now``, ``request_run``) is refused within ``RUN_AGAIN_AFTER`` (30 minutes) of
 the digest's last run of any outcome. That rule and "one paid attempt per period" are courtesy
 limits: a digest deleted and made again, or given a new schedule, is held by neither. What bounds
-what typed names can spend through digests is the ledger's, checked as each call is reserved:
+what accounts can spend through digests is the ledger's, checked as each call is reserved:
 ``ai_ledger.digests_per_name`` paid calls a UTC day for one name's digests,
 ``ai_ledger.digests_per_day`` for the whole service, ``ai_digest.CALLS_PER_PASS`` a pass, and the
 monthly cap.
@@ -73,7 +73,6 @@ from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
 from deploy_workflow.signal import groups, schedule
-from deploy_workflow.signal.texts import day, utc
 from deploy_workflow.signal.store import (
     KINDS,
     Conflict,
@@ -85,6 +84,7 @@ from deploy_workflow.signal.store import (
     kind_condition,
     plain_text,
 )
+from deploy_workflow.signal.texts import day, utc
 
 log = logging.getLogger(__name__)
 
@@ -569,7 +569,7 @@ def covers_phrase(db: sqlite3.Connection, digest: Digest) -> str:
 
 def cover_options(db: sqlite3.Connection, owner: str | None, *, issuers: bool = False) -> list[str]:
     """Every cover the owner may choose: all stories, the groups they can see, the topics, and
-    with `issuers` the issuers (by name, A to Z). With no owner (a viewer with no name) the
+    with `issuers` the issuers (by name, A to Z). With no owner (a viewer with no account) the
     groups are left out."""
     options = [COVER_ALL]
     if owner is not None:

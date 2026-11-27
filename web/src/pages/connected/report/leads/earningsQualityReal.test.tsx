@@ -143,6 +143,95 @@ function real() {
   );
 }
 
+function retained() {
+  const retainedRows = [
+    [
+      "Inherited FY2024 reported EBITDA",
+      "USD 3813m",
+      "Starting unadjusted non-GAAP subtotal, unchanged.",
+      "Supported as reported starting point",
+      "USD 3813m",
+      "E01",
+    ],
+    [
+      "A01 identifiable inventory step-up",
+      "+USD 21m",
+      "Noncash charge separate from total D&A in the operating cash statement; not added again in cash flow.",
+      "Supported",
+      "USD 3834m",
+      "E02, E11",
+    ],
+    [
+      "A01 remaining deal and integration costs",
+      "USD 49m not credited",
+      "Cash/noncash composition and eliminability not isolated; not all shown to be cash.",
+      "Unresolved [Insufficient Information]",
+      "USD 3834m",
+      "E11, E23",
+    ],
+    [
+      "A02 combined noncash compensation",
+      "USD 217m not credited",
+      "Actual expense, recurring economic compensation.",
+      "Challenged",
+      "USD 3834m",
+      "E03, E17",
+    ],
+    [
+      "A03 identifiable net write-offs",
+      "+USD 52m",
+      "Only dated Note 10 noncash write-offs, net of associated premium reversal.",
+      "Supported",
+      "USD 3886m",
+      "E04, E12",
+    ],
+    [
+      "A03 remainder",
+      "USD 6m not credited",
+      "No evidence for full cash/noncash allocation or agreement with any financing-cash subtotal.",
+      "Unresolved [Insufficient Information]",
+      "USD 3886m",
+      "E12, E24",
+    ],
+    [
+      "A04 other, net",
+      "USD 15m not credited",
+      "Net basket not supported for normalization; no extra adjustment for disposal gain without a mapping and a symmetric bridge.",
+      "Unresolved [Insufficient Information]",
+      "USD 3886m",
+      "E05, E22, E25",
+    ],
+    [
+      "Supported FY2024 analytical EBITDA",
+      "USD 3886m",
+      "USD 73m admitted; USD 217m challenged; USD 70m unresolved. USD 287m of the USD 360m issuer uplift is not credited.",
+      "Supported as bounded historical analysis, not projected, reported or covenant EBITDA",
+      "USD 3886m",
+      "E13",
+    ],
+  ];
+  return entry(
+    "CP-1D",
+    [],
+    [
+      {
+        heading: "Analytical appendix — complete canonical registers",
+        level: 3,
+        line: 80,
+        blocks: [
+          {
+            type: "text",
+            line: 82,
+            end: 82,
+            text: "All register monetary amounts are consolidated USD millions unless explicitly stated. FY2024 and FY2023 bridge amounts are inherited unchanged.",
+          },
+        ],
+      },
+      section("T1D.4 Quality-Adjusted EBITDA Bridge", 129, table(131, EBITDA_HEAD, retainedRows)),
+    ],
+  );
+}
+
 describe("CP-1D real handoff shape", () => {
   it("reads the EBITDA bridge by its own heading although the debt bridge is a second Step | Amount table", () => {
     const bridge = readBridge(real());
@@ -333,5 +422,107 @@ describe("CP-1D real handoff shape", () => {
     expect(tile.textContent).toContain("5.96x; denominator 4173");
     expect(tile.textContent).toContain("Adjusted EBITDA");
     expect(tile.textContent).toContain("+0.57x supported-only versus issuer-adjusted");
+  });
+});
+
+describe("retained CP-1D T1D.4 handoff shape", () => {
+  it("reads explicit USD-million adjustments and keeps every not-credited amount outside the bridge", () => {
+    const bridge = readBridge(retained());
+    if (bridge.state !== "ready") throw new Error(bridge.reason);
+    expect(bridge.unit).toBe("USD millions");
+    expect(bridge.opening).toMatchObject({ amount: "3813", value: 3813 });
+    expect(bridge.closing).toMatchObject({ amount: "3886", value: 3886 });
+    expect(bridge.changes.map(({ amount }) => amount)).toEqual(["21", "52"]);
+    expect(bridge.changes.map(({ sign }) => sign)).toEqual(["+", "+"]);
+    expect(
+      bridge.excluded.map(({ label, amount, treatment }) => [label, amount, treatment]),
+    ).toEqual([
+      ["A01 remaining deal and integration costs", "49", "Not credited"],
+      ["A02 combined noncash compensation", "217", "Not credited"],
+      ["A03 remainder", "6", "Not credited"],
+      ["A04 other, net", "15", "Not credited"],
+    ]);
+    expect(bridge.notes.join(" ")).toContain(
+      "USD 287m of the USD 360m issuer uplift is not credited.",
+    );
+  });
+
+  it("draws the retained accepted add-backs and exposes all excluded amounts and treatment", () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 640,
+    } as DOMRect);
+    render(<EarningsQualityLead {...leadProps(retained())} />);
+    const button = screen.getByRole("button", { name: "Table view: Earnings quality bridge" });
+    fireEvent.click(button);
+    const rows = screen.getAllByRole("row");
+    const excludedRow = rows.find((row) =>
+      row.textContent.includes("A01 remaining deal and integration costs"),
+    );
+    expect(excludedRow?.textContent).toContain("49$m");
+    expect(excludedRow?.textContent).toContain("Unresolved [Insufficient Information]");
+    expect(excludedRow?.textContent).toContain("Not credited");
+    expect(document.body.textContent).toContain(
+      "A02 combined noncash compensation: $217m, not credited.",
+    );
+    expect(document.body.textContent).toContain("A03 identifiable net write-offs");
+  });
+
+  it.each([
+    ["USD 49m not credited and USD 2m", "one explicit currency amount"],
+    ["EUR 49m not credited", "one currency and scale"],
+    ["USD 49 thousand not credited", "one explicit currency amount"],
+    ["", "one explicit currency amount"],
+  ])("fails closed on ambiguous or incompatible amount cells (%s)", (amount, reason) => {
+    const source = retained();
+    const section = source.sections.find((item) => item.heading.startsWith("T1D.4"));
+    const bridgeTable = section?.blocks.find((block) => block.type === "table");
+    if (bridgeTable?.type !== "table") throw new Error("bridge table missing");
+    const row = bridgeTable.rows[2];
+    if (!row) throw new Error("excluded amount row missing");
+    row.cells[1] = amount;
+    const bridge = readBridge(source);
+    expect(bridge.state).toBe("gap");
+    expect(bridge.state === "gap" && bridge.reason).toContain(reason);
+  });
+
+  it("preserves a stated zero exclusion and rejects duplicated columns or signed cumulative totals", () => {
+    const zero = retained();
+    const zeroSection = zero.sections.find((item) => item.heading.startsWith("T1D.4"));
+    const zeroTable = zeroSection?.blocks.find((block) => block.type === "table");
+    if (zeroTable?.type !== "table") throw new Error("bridge table missing");
+    const zeroRow = zeroTable.rows[2];
+    if (!zeroRow) throw new Error("excluded amount row missing");
+    zeroRow.cells[1] = "USD 0m not credited";
+    const zeroBridge = readBridge(zero);
+    expect(zeroBridge.state === "ready" && zeroBridge.excluded[0]?.amount).toBe("0");
+
+    const duplicated = retained();
+    const duplicateSection = duplicated.sections.find((item) => item.heading.startsWith("T1D.4"));
+    const duplicateTable = duplicateSection?.blocks.find((block) => block.type === "table");
+    if (duplicateTable?.type !== "table") throw new Error("bridge table missing");
+    duplicateTable.headers = [...duplicateTable.headers, "Amount"];
+    const duplicateBridge = readBridge(duplicated);
+    expect(duplicateBridge.state === "gap" && duplicateBridge.reason).toContain("unambiguous");
+
+    const signedCumulative = retained();
+    const cumulativeSection = signedCumulative.sections.find((item) =>
+      item.heading.startsWith("T1D.4"),
+    );
+    const cumulativeTable = cumulativeSection?.blocks.find((block) => block.type === "table");
+    if (cumulativeTable?.type !== "table") throw new Error("bridge table missing");
+    const cumulativeRow = cumulativeTable.rows[2];
+    if (!cumulativeRow) throw new Error("excluded amount row missing");
+    cumulativeRow.cells[4] = "+USD 3834m";
+    const cumulativeBridge = readBridge(signedCumulative);
+    expect(cumulativeBridge.state === "gap" && cumulativeBridge.reason).toContain(
+      "cumulative total",
+    );
   });
 });

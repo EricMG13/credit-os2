@@ -7,8 +7,8 @@ roles, visibility, limits and rules; a refusal is ``{"error": "<sentence>"}`` wi
 valid), 403 (not allowed), 404 (no such thing, or one in a group the user cannot see) or 409 (the
 state does not allow it). A success answers with the ids it made; the screens read the snapshot
 again for everything else. A thread write is given the clock, not a time: the domain module
-reads it once it holds the write lock. Moderation and clean-up (removing a thread or anyone's
-comment, deleting a group with its threads) are the owner's, on the command line only.
+reads it once it holds the write lock. Global moderation and deleting a group with its threads
+are Admin-only routes in ``api_admin``.
 """
 
 from __future__ import annotations

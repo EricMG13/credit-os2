@@ -8,6 +8,7 @@ type SignalViewer = {
   initials: string | null;
   role: "reader" | "writer";
   roleLabel: string;
+  profileType?: "reader" | "analyst" | "admin";
 };
 type SignalTopicChannel = {
   id: string;
@@ -772,7 +773,7 @@ const freshness: Reader<SignalFreshness> = (v, path) => {
     : got;
 };
 
-const viewerBase = shape<SignalViewer>({
+const viewerBase = shape<Omit<SignalViewer, "profileType">>({
   name: strOrNull,
   initials: strOrNull,
   role: oneOf(["reader", "writer"], "reader or writer"),
@@ -782,9 +783,19 @@ const viewerBase = shape<SignalViewer>({
 const viewer: Reader<SignalViewer> = (v, path) => {
   const got = viewerBase(v, path);
   if (!got.ok) return got;
-  return (got.value.name === null) === (got.value.initials === null)
-    ? got
-    : bad(`${path}.initials`, "initials when the viewer has a name, and null when there is none");
+  if ((got.value.name === null) !== (got.value.initials === null)) {
+    return bad(
+      `${path}.initials`,
+      "initials when the viewer has a name, and null when there is none",
+    );
+  }
+  const profileType = (v as Record<string, unknown>).profileType;
+  if (profileType === undefined) return got;
+  const profile = oneOf(["reader", "analyst", "admin"], '"reader", "analyst" or "admin"')(
+    profileType,
+    `${path}.profileType`,
+  );
+  return profile.ok ? good({ ...got.value, profileType: profile.value }) : profile;
 };
 /** A shared item holds a story, a note or both; a thread with neither has nothing to draw. */
 const thread: Reader<SignalThreadSummary> = (v, path) => {

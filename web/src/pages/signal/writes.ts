@@ -42,7 +42,6 @@ export const VISIBILITY = [
 export const writes = {
   save: (story: string, on: boolean) => held(on, `/stories/${part(story)}/save`),
   follow: (topic: string, on: boolean) => held(on, `/topics/${part(topic)}/follow`),
-  rename: (name: string): SignalWrite => ({ ...post("/me", { name }), fresh: true }),
   /** A story shared to a group, a note thread, or both: the note becomes the first comment. */
   thread: (group: string, story: string | null, note: string) =>
     post(`/groups/${part(group)}/threads`, {
@@ -85,6 +84,12 @@ export const writes = {
     post(id === null ? "/issuers" : `/issuers/${part(id)}/edit`, form),
   dropIssuer: (id: string) => remove(`/issuers/${part(id)}`),
   source: (name: string, kind: string, url: string) => post("/sources", { name, kind, url }),
+  approveSource: (source: string) => post(`/admin/sources/${part(source)}/approve`),
+  pauseSource: (source: string) => post(`/admin/sources/${part(source)}/pause`),
+  moderateThread: (thread: string) => remove(`/admin/threads/${part(thread)}`),
+  moderateComment: (comment: string) => remove(`/admin/comments/${part(comment)}`),
+  moderateGroup: (group: string) =>
+    post(`/admin/groups/${part(group)}/remove`, { with_threads: true }),
   /** `id` null adds a digest; `form` holds the strings the service delivered, as chosen. */
   digest: (id: string | null, form: Record<string, unknown>) =>
     post(id === null ? "/digests" : `/digests/${part(id)}/edit`, form),
