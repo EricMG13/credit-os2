@@ -243,4 +243,52 @@ describe("Refinancing synthetic reply", () => {
     );
     expect(within(alphaHeat).getByText("Open source runs (4)")).toBeInTheDocument();
   });
+
+  it("keeps equal maturity and resource values as separate neutral marks", () => {
+    const { data, issuers } = syntheticReply();
+    render(<Refinancing data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Period"), { target: { value: "FY2028" } });
+    const marks = screen.getByRole("img", {
+      name: "Alpha, FY2028: debt maturing and committed resources",
+    });
+    const debt = marks.querySelector('[data-mark="debt maturing"]');
+    const resources = marks.querySelector('[data-mark="committed resources"]');
+    expect(debt).toBeInTheDocument();
+    expect(resources).toBeInTheDocument();
+    expect(debt?.getAttribute("cx")).toBe(resources?.getAttribute("d")?.match(/^M([^ ]+)/)?.[1]);
+    expect(debt?.getAttribute("cy")).not.toBe("12");
+    expect(screen.queryByText(/%|ratio|share of/)).not.toBeInTheDocument();
+  });
+
+  it("draws both signed amounts in the maturity wall without netting them into one issuer", () => {
+    const { data, issuers } = syntheticReply();
+    render(<Refinancing data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const wall = screen.getByRole("img", { name: "Maturity wall, stacked by issuer" });
+    expect(wall.querySelectorAll(".recharts-bar-rectangle path").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
+      "-75 USD millions",
+    );
+  });
+
+  it("does not use issuer keys as Recharts data paths", () => {
+    const { data, issuers } = syntheticReply();
+    const keyed = issuers.map((issuer, index) => ({
+      ...issuer,
+      key: index === 0 ? "period" : index === 1 ? "debt.maturity" : issuer.key,
+    }));
+    render(
+      <Refinancing
+        data={{ ...data, issuers: keyed }}
+        issuers={keyed}
+        selected="period"
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("img", { name: "Maturity wall, stacked by issuer" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
+      "9007199254740993.1 USD millions",
+    );
+  });
 });
