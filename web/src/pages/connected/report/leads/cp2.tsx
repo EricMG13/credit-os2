@@ -420,7 +420,7 @@ function HeadroomStat({ props }: { props: LeadProps }) {
       trace={<Trace href={evidencePath(props.run.folder, source.entry, line)} name={name} />}
     >
       <Caption>{COVENANTS}</Caption>
-      <Bullets label={name} tests={[first]} />
+      <Bullets label={name} tests={[first]} tone="neutral" />
       {/* The bullet already prints the first test's own condition; the caption is for a shared basis. */}
       {basis && basis !== first.condition && <Caption>{basis}</Caption>}
     </Stat>

@@ -117,6 +117,14 @@ it("groups the trigger bullets by agency with each value as written, and gives a
   expect(within(tile).getAllByRole("cell", { name: "Passes at or above" })[0]).toBeVisible();
 });
 
+// Colour-signal-build ruling R1: CP-2H's bullets stay blue (its file is not part of that build).
+it("keeps the trigger bars in the primary blue", () => {
+  const { container } = render(<RatingsLead {...leadProps(ratings({ triggers: TRIGGER_ROWS }))} />);
+  const bars = container.querySelectorAll("[data-threshold]");
+  expect(bars.length).toBeGreaterThan(0);
+  for (const bar of bars) expect(bar.previousElementSibling).toHaveClass("bg-chart-1");
+});
+
 it("gives the reason, not a bar or a zero, for a trigger the module did not supply", () => {
   render(<RatingsLead {...leadProps(ratings({ triggers: TRIGGER_ROWS }))} />);
   const groupA = within(screen.getByRole("region", { name: "Rating triggers" })).getByRole(
