@@ -176,6 +176,7 @@ class _FailedLoop:
     ai_error: str | None = None
     digest_error: str | None = None
     market_error: str | None = None
+    logo_error: str | None = None
 
     def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
         raise AssertionError("/api/status shows the held status")
