@@ -547,3 +547,57 @@ describe("SegmentsTile sparkline: stated words, skipped years, a drawn period th
     expect(within(tile).queryByRole("img", { name: /^Power & Control Net sales, FY/ })).toBeNull();
   });
 });
+
+// Mutation (not a real handoff): Power & Control sales stated for FY2008, FY2009, FY2010 and FY2022
+// (invented) beside the schedule's FY2023 and FY2024. The twelve-year fill does not apply (16 years),
+// so a line would bridge FY2010 to FY2022 across eleven unstated years: none is drawn (ruling C5).
+describe("SegmentsTile sparkline: years that are not consecutive and cannot be filled (mutation)", () => {
+  it("draws no sparkline and reads the figure without a series", () => {
+    const row = (period: string, sales: string) => [
+      "Power & Control",
+      period,
+      sales,
+      "1000",
+      "USD millions",
+      "-",
+      "-",
+    ];
+    const entry = [
+      ["FY2022", "2900"],
+      ["FY2010", "2100"],
+      ["FY2009", "2000"],
+      ["FY2008", "1900"],
+    ].reduce(
+      (one, [period = "", sales = ""]) => addRow(one, SCHEDULE, row(period, sales)),
+      cp1Entry(),
+    );
+    const tile = draw(entry);
+    expect(within(tile).queryByRole("img", { name: /^Power & Control Net sales, FY/ })).toBeNull();
+    const said =
+      within(tile)
+        .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+        .getAttribute("aria-label") ?? "";
+    expect(said).not.toContain("Net sales: FY");
+  });
+});
+
+// Mutation (not a real handoff): Power & Control FY2024 net sales is a 400-digit run (invented).
+describe("SegmentsTile: a figure too large to be a number (mutation)", () => {
+  it("renders the tile, shows that row as words, and tints the other bars as before", () => {
+    const huge = "9".repeat(400);
+    const tile = draw(setCell(cp1Entry(), SCHEDULE, 0, "Net sales", huge));
+    expect(bar(tile, "Power & Control sales")).toBeNull();
+    // The row is the words state: the cell as written, no bar, no value.
+    const row = byData(tile, "measure", "Power & Control sales");
+    expect(row?.querySelector('[data-part="reason"]')?.textContent).toContain("9999");
+    expect(row?.querySelector('[data-part="value"]')).toBeNull();
+    // Largest drawn bar is now Airframe sales 3809: Airframe 3809/3809 = 1 -> 5; P&C EBITDA 2236/3809 = 0.587 -> 3;
+    // Airframe EBITDA 1962/3809 = 0.515 -> 3; Non-aviation sales 190/3809 = 0.05 -> 1.
+    const tone = (name: string, step: number) =>
+      expect(bar(tile, name)).toHaveClass(`fill-scale-amount-${String(step)}`);
+    tone("Airframe sales", 5);
+    tone("Power & Control ebitda", 3);
+    tone("Airframe ebitda", 3);
+    tone("Non-aviation sales", 1);
+  });
+});

@@ -93,6 +93,8 @@ function salesSeries(
   );
   // A year of the form that the schedule does not state is a slot of its own (the line breaks there).
   const slots = withUnstated(upTo.slice(0, upTo.findIndex((p) => p.label === periods.drawn) + 1));
+  // The fill does not happen across a span over twelve years: no line over years that skip.
+  if (slots.some((slot, at) => at > 0 && slot.year !== (slots[at - 1]?.year ?? 0) + 1)) return null;
   const labels = slots.map((period) => period.label);
   const cells = labels.map((label) => segment.sales.find((value) => value.label === label)?.cell);
   // The drawn period's own figure ends the line: a drawn period that is not a number draws none.
