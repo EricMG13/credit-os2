@@ -71,7 +71,7 @@ export function Dumbbell({
         />
         <span
           data-earlier=""
-          className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-ds-full bg-border-control"
+          className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-ds-full bg-text-secondary"
           style={{ left: `${String(from)}%` }}
         />
         <span

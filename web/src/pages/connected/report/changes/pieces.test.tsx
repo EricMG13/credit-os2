@@ -69,6 +69,18 @@ describe("Dumbbell", () => {
     ).toBeInTheDocument();
   });
 
+  it("tells the earlier marker from the zero tick by colour, in a tinted row too (colour-signal-build ruling H3)", () => {
+    const { container } = render(
+      <Dumbbell before={2} after={4} tone="worse" reading="Cover, 2x to 4x" />,
+    );
+    const earlier = container.querySelector("[data-earlier]");
+    const zero = container.querySelector("[data-axis-zero]");
+    expect(earlier).toHaveClass("bg-text-secondary");
+    expect(zero).toHaveClass("bg-border-control");
+    expect(earlier).not.toHaveClass("bg-border-control");
+    expect(earlier).not.toHaveClass("bg-chart-3");
+  });
+
   it("marks zero inside the axis when a figure is negative", () => {
     const { container } = render(
       <Dumbbell before={-1} after={3} tone={null} reading="Net cash, -1 to 3" />,
