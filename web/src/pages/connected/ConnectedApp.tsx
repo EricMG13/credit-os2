@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { Button } from "@/components/base/buttons/button";
+import { AccountControl } from "./AccountControl";
 import { Skeleton } from "@/components/gap/Skeleton";
 import { PageHeader } from "../../shell/PageHeader";
 import { Shell, type Area } from "../../shell/Shell";
@@ -179,12 +180,16 @@ function CurrentPage({
   mode,
   readOnly,
   navigate,
+  signalProfileRevision,
+  signIn,
 }: {
   route: Route;
   prior: string | null;
   mode: Mode;
   readOnly: boolean;
   navigate: (path: string) => void;
+  signalProfileRevision: number;
+  signIn: boolean;
 }) {
   if (route.kind === "library") return <ReportLibrary readOnly={readOnly} />;
   if (route.kind === "coverage") return <Coverage readOnly={readOnly} />;
@@ -192,11 +197,20 @@ function CurrentPage({
   if (readOnly && route.kind === "run") return <RunReadOnly title="Run progress" />;
   if (readOnly && route.kind === "start") return <RunReadOnly title="Start run" />;
   if (route.kind === "start")
-    return <StartRun key={prior} mode={mode} navigate={navigate} from={prior ?? undefined} />;
+    return (
+      <StartRun
+        key={prior}
+        mode={mode}
+        navigate={navigate}
+        from={prior ?? undefined}
+        signIn={signIn}
+        profileRevision={signalProfileRevision}
+      />
+    );
   if (route.kind === "run-list") return <RunActivity mode={mode} />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
-  if (route.kind === "signal") return <SignalLive />;
+  if (route.kind === "signal") return <SignalLive profileRevision={signalProfileRevision} />;
   return (
     <>
       <PageHeader
@@ -225,6 +239,7 @@ export function ConnectedApp({
   mode,
   readOnly = false,
   signal = false,
+  signIn = false,
   navigate = assign,
 }: {
   path: string;
@@ -233,6 +248,8 @@ export function ConnectedApp({
   readOnly?: boolean;
   /** The server hosts Signal for this app: the page carries the hosted-Signal meta. */
   signal?: boolean;
+  /** The server sets this only for a connected app backed by the configured sign-in runtime. */
+  signIn?: boolean;
   navigate?: (path: string) => void;
 }) {
   const route = routeOf(path, signal && !readOnly);
@@ -240,6 +257,7 @@ export function ConnectedApp({
   const title = routeTitle(route);
   // A page showing a retained test preview says so; the bar's action follows the pages' condition.
   const [preview, setPreview] = useState(false);
+  const [signalProfileRevision, setSignalProfileRevision] = useState(0);
   useEffect(() => {
     document.title = `${title} — Credit OS`;
   }, [title]);
@@ -251,6 +269,15 @@ export function ConnectedApp({
       bleed={bleed}
       sections={sectionsFor(readOnly, signal)}
       symbol="/symbol.svg"
+      account={
+        signIn && mode === "live" && !readOnly ? (
+          <AccountControl
+            onProfileUpdated={() => {
+              setSignalProfileRevision((value) => value + 1);
+            }}
+          />
+        ) : undefined
+      }
       // Screen map, "On every screen": Start run is the bar's primary action, except on itself.
       action={route.kind === "start" || !canStartRun(readOnly, preview) ? undefined : START_ACTION}
     >
@@ -262,6 +289,8 @@ export function ConnectedApp({
             mode={mode}
             readOnly={readOnly}
             navigate={navigate}
+            signalProfileRevision={signalProfileRevision}
+            signIn={signIn}
           />
         </Suspense>
       </PreviewReport>

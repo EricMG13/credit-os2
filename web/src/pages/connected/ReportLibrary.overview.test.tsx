@@ -1,6 +1,6 @@
 // S1 redesign: the report header (breadcrumb, name, sector, fact chips, section control), the
 // Overview assembled from its tile rows in the mockup's order, and History reached from the header.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ReportReader } from "./ReportLibrary";
 import type { Block, Section, Snapshot } from "./publishedReport";
@@ -281,4 +281,42 @@ it("marks a test preview in the header and offers no Run progress for it", async
   expect(within(header).getByText("Test preview")).toBeVisible();
   expect(within(header).queryByText("Synthetic test")).toBeNull();
   expect(within(header).queryByRole("link", { name: "Run progress" })).toBeNull();
+});
+
+it("shows a retained CP-2 view with trace only in an unverified test preview", async () => {
+  const preview = snapshot({ preview: true });
+  const run = preview.workspace.runs.acmeKey;
+  if (!run) throw new Error("Expected the preview run");
+  run.publicationVerified = false;
+  run.lead = null;
+  open("#overview", preview, "live");
+  const call = await screen.findByRole("region", { name: "The call" });
+  expect(
+    within(call).getByText("Retained fundamental credit assessment · Unverified test preview."),
+  ).toBeVisible();
+  expect(within(call).getByText(LEAD)).toBeVisible();
+  expect(within(call).getByText("Cover is thin at 2.1x.")).toBeVisible();
+  fireEvent.click(within(call).getByRole("button", { name: "Show sources for key finding 1" }));
+  const trace = await screen.findByRole("dialog");
+  expect(within(trace).getByRole("link", { name: "Open in Evidence" })).toHaveAttribute(
+    "href",
+    `/report/acme#evidence/acme%2Fcp2~${SHA2}-7`,
+  );
+  expect(screen.getAllByText(LEAD)).toHaveLength(1);
+  expect(screen.queryByText(/A verified credit view is unavailable/)).toBeNull();
+  expect(screen.queryByText("The secured layer is watched.")).toBeNull();
+  expect(screen.queryByText(/Watchlist|clearance granted/i)).toBeNull();
+});
+
+it("explains an empty Deliverables list and retains preview export gates", async () => {
+  open("#deliverables", snapshot({ preview: true }), "live");
+  expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeVisible();
+  expect(screen.getByRole("note")).toHaveTextContent("Test preview");
+  expect(screen.getByText("A test preview.")).toBeVisible();
+  expect(screen.getByText("No deliverables are available for this run.")).toBeVisible();
+  expect(
+    screen.getByText("A verified report for this run is required to export a PDF."),
+  ).toBeVisible();
+  expect(screen.queryByRole("link", { name: /Credit Snapshot/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Open print dialog/ })).toBeNull();
 });

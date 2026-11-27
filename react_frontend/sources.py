@@ -10,6 +10,7 @@ import re
 import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import SplitResult, parse_qs, quote, unquote
@@ -156,6 +157,37 @@ def _earlier_handoff_format(sections: list[dict[str, Any]]) -> bool:
     return True
 
 
+def _call_start(receipt: object) -> tuple[datetime, int | None] | None:
+    if not isinstance(receipt, dict) or not isinstance(receipt.get("started"), str):
+        return None
+    try:
+        started = datetime.fromisoformat(receipt["started"])
+        if started.tzinfo is None:
+            return None
+        attempt = receipt.get("attempt")
+        return started.astimezone(UTC), attempt if type(attempt) is int else None
+    except (OverflowError, ValueError):
+        return None
+
+
+def _first_model_call(run: dict[str, Any]) -> dict[str, str | int | None] | None:
+    """An issuer history summary carries only the first receipt's time and attempt."""
+    evidence = run.get("evidence")
+    record = evidence.get("record") if isinstance(evidence, dict) else None
+    calls = record.get("calls") if isinstance(record, dict) else None
+    if not isinstance(calls, list):
+        return None
+    earliest = min(
+        (start for raw in calls if (start := _call_start(raw)) is not None),
+        key=lambda start: start[0],
+        default=None,
+    )
+    if earliest is None:
+        return None
+    started, attempt = earliest
+    return {"started": started.isoformat(), "attempt": attempt}
+
+
 def _history_details(
     workspace: dict[str, Any], run_key: str, run: dict[str, Any]
 ) -> dict[str, Any]:
@@ -171,10 +203,12 @@ def _history_details(
         and output.get("module") == code
         and (not output.get("run") or output["run"] == run_key)
     )
+    first_call = _first_model_call(run)
     return {
         "modules": [code for code in order if modules.get(code, {}).get("outputs")],
         "earlierFormat": earlier_format,
         "earlierMethods": bool(run.get("methodChanges")),
+        **({"firstModelCall": first_call} if first_call is not None else {}),
     }
 
 

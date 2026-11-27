@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
-import type { OutputEntry, PublishedRun } from "../publishedReport";
-import type { buildReportView } from "../reportView";
+import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
+import { buildReportView } from "../reportView";
 import { Forecast } from "./Forecast";
 
 type View = ReturnType<typeof buildReportView>;
@@ -58,6 +58,69 @@ function chartRow(title: string) {
   if (!row) throw new Error(`No chart row for ${title}`);
   return row;
 }
+
+it("confines a replay to the unpublished preview and its two selected handoff digests", () => {
+  const financial = entry("CP-1", "foundation");
+  const forward = entry("CP-2G", "forecast");
+  const foundation = financial.output;
+  const forecast = { ...forward.output, sha256: "f".repeat(64) };
+  const retained: PublishedRun = {
+    ...run,
+    modules: {
+      "CP-1": { default: foundation.id, outputs: [foundation.id] },
+      "CP-2G": { default: forecast.id, outputs: [forecast.id] },
+    },
+    forecastReplay: {
+      foundationDigest: foundation.sha256,
+      forecastDigest: forecast.sha256,
+      cashflow: {},
+      reconciliation: "Retained handoff 4.17x. Deterministic replay 4.19x.",
+      calculationLine: 286,
+    },
+  };
+  const snapshot: Snapshot = {
+    preview: { reason: "Partial historical test" },
+    catalogue: { real: [] },
+    workspace: {
+      runs: { current: retained },
+      outputs: { [foundation.id]: foundation, [forecast.id]: forecast },
+      handoffs: { [foundation.sha256]: financial.sections, [forecast.sha256]: forward.sections },
+      models: [],
+    },
+    chips: {},
+  };
+  const view = buildReportView(snapshot, "current", retained);
+  expect(view.previewForecast?.handoff.output).toBe(forecast);
+  expect(view.models).toEqual([]);
+  expect(
+    buildReportView({ ...snapshot, preview: undefined }, "current", retained).previewForecast,
+  ).toBeUndefined();
+  expect(
+    buildReportView(snapshot, "current", { ...retained, publicationVerified: true })
+      .previewForecast,
+  ).toBeUndefined();
+  const wrong = {
+    ...snapshot,
+    workspace: {
+      ...snapshot.workspace,
+      outputs: {
+        [foundation.id]: { ...foundation, sha256: "e".repeat(64) },
+        [forecast.id]: forecast,
+      },
+    },
+  };
+  expect(buildReportView(wrong, "current", retained).previewForecast).toBeUndefined();
+
+  render(<Forecast view={view} run={retained} preview />);
+  expect(screen.getByRole("region", { name: "Forecast calculation replay" })).toHaveTextContent(
+    "Retained handoff 4.17x. Deterministic replay 4.19x.",
+  );
+  expect(screen.getByRole("link", { name: "Forecast handoff calculation" })).toHaveAttribute(
+    "href",
+    `/report/current#evidence/forecast~${forecast.sha256}-286`,
+  );
+  expect(screen.queryByRole("region", { name: "Published model" })).toBeNull();
+});
 
 it("draws the designated run figure with a same-output trace even when no model was published", () => {
   const alternative = entry("CP-1", "Retained maturity schedule", { selected: false, value: "75" });

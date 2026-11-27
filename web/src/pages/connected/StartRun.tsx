@@ -10,6 +10,7 @@ import {
   removeDocument,
   createSubmission,
   getContext,
+  issuerContext,
   getReading,
   getSummary,
   issuerSlug,
@@ -18,6 +19,7 @@ import {
   upload,
   type Answers,
   type Context,
+  type RunAccess,
   type PriorInputs,
   type Reading,
   type Mode,
@@ -234,28 +236,45 @@ export function StartRun({
   mode,
   navigate,
   from,
+  signIn = false,
+  profileRevision = 0,
 }: {
   mode: Mode;
   navigate: (path: string) => void;
   from?: string;
+  signIn?: boolean;
+  profileRevision?: number;
 }) {
   useEffect(() => {
     document.title = "Start a run — Credit OS";
   }, []);
   const load = useCallback(
     async (signal: AbortSignal) => {
-      const runOptions = await getContext(signal);
-      if (!from || signal.aborted) return runOptions;
+      const runOptions = await getContext(signal, signIn);
+      if (signal.aborted) return { ...runOptions, profileRevision };
+      if (signIn && runOptions.runAccess?.can_prepare === false)
+        return { ...runOptions, profileRevision };
+      if (!from) return { ...runOptions, profileRevision };
       try {
         const prior = await getPriorInputs(from);
-        return { ...runOptions, initial: { run: from, prior } };
+        return { ...runOptions, initial: { run: from, prior }, profileRevision };
       } catch (failure) {
-        return { ...runOptions, warning: errorText(failure) };
+        return { ...runOptions, warning: errorText(failure), profileRevision };
       }
     },
-    [from],
+    [from, profileRevision, signIn],
   );
   const { value, error, unreachable, retry } = useResource(load);
+  const current = value?.profileRevision === profileRevision ? value : undefined;
+  const writerOptions =
+    current && (!signIn || current.runAccess?.can_prepare === true)
+      ? current
+      : signIn && value?.runAccess?.can_prepare === true
+        ? value
+        : undefined;
+  const accessRefreshing =
+    writerOptions !== undefined && writerOptions.profileRevision !== profileRevision;
+  const runAccess = current?.runAccess;
 
   return (
     <>
@@ -265,8 +284,50 @@ export function StartRun({
         // The same name for the mode as the stepper and the review: "No-cost test".
         badges={mode === "synthetic" ? <Badge color="brand">No-cost test</Badge> : undefined}
       />
-      {value ? (
-        <IntakeForm mode={mode} navigate={navigate} {...value} />
+      {writerOptions ? (
+        <>
+          <div hidden={accessRefreshing}>
+            <IntakeForm
+              mode={mode}
+              navigate={navigate}
+              signIn={signIn}
+              runAccess={writerOptions.runAccess}
+              {...writerOptions}
+            />
+          </div>
+          {accessRefreshing && error ? (
+            <div className="mt-6">
+              <Alert
+                tone="error"
+                title={
+                  unreachable
+                    ? "The service cannot be reached"
+                    : "Run access could not be refreshed"
+                }
+                action={
+                  <Button size="sm" color="secondary" onPress={retry}>
+                    Try again
+                  </Button>
+                }
+              >
+                {unreachable
+                  ? "Check that the Credit OS service is running, then try again."
+                  : "Try again before preparing or submitting this run."}
+              </Alert>
+            </div>
+          ) : accessRefreshing ? (
+            <p role="status" className="mt-6 text-small text-text-secondary">
+              Refreshing run access…
+            </p>
+          ) : null}
+        </>
+      ) : current && signIn && runAccess?.can_prepare === false ? (
+        <div className="mt-6 max-w-3xl rounded-ds-lg border border-border-subtle bg-surface-card p-6">
+          <p className="text-body text-text-secondary">
+            Your Reader profile can view run setup, but only an Analyst or Admin can prepare or
+            submit a run.
+          </p>
+        </div>
       ) : error ? (
         <div className="mt-6">
           <Alert
@@ -387,6 +448,8 @@ function IntakeForm({
   warning,
   navigate,
   mode,
+  signIn,
+  runAccess,
 }: {
   template: Context;
   copilotModels?: Record<string, string[]>;
@@ -395,6 +458,8 @@ function IntakeForm({
   warning?: string;
   navigate: (path: string) => void;
   mode: Mode;
+  signIn: boolean;
+  runAccess?: RunAccess;
 }) {
   const identityState = useIntakeIdentityState(template, initial, warning);
   const documentState = useIntakeDocumentsState(initial);
@@ -513,6 +578,7 @@ function IntakeForm({
     clearProblem("reference_portfolio");
   });
   const standing = useStandingPortfolios();
+  const effectiveSubmittedBy = signIn ? (runAccess?.analyst_name ?? "") : submittedBy.trim();
 
   function clearProblem(...fields: FieldKey[]) {
     setFieldError((previous) => previous?.without(fields));
@@ -863,29 +929,30 @@ function IntakeForm({
       level === "advanced"
         ? { max_turns: Number(turns), model, effort }
         : { max_turns: 32, model: "gpt", effort: "balanced" };
+    const answerContext: Context = {
+      ...context,
+      ...details,
+      run: { ...run, cutoff: run.cutoff || run.as_of },
+      identity: { ...identity, issuer_name: identity.issuer_name.trim(), issuer_id: id },
+      ...(context.attachments
+        ? {
+            attachments: {
+              legal_documents: legal,
+              management_bridge: chosen("management_bridge"),
+              portfolio_workbook: chosen("portfolio_workbook"),
+              prior_case: chosen("prior_case"),
+            },
+          }
+        : {}),
+    };
     return {
-      context: {
-        ...context,
-        ...details,
-        run: { ...run, cutoff: run.cutoff || run.as_of },
-        identity: { ...identity, issuer_name: identity.issuer_name.trim(), issuer_id: id },
-        ...(context.attachments
-          ? {
-              attachments: {
-                legal_documents: legal,
-                management_bridge: chosen("management_bridge"),
-                portfolio_workbook: chosen("portfolio_workbook"),
-                prior_case: chosen("prior_case"),
-              },
-            }
-          : {}),
-      },
+      context: issuerContext(answerContext),
       modules,
       max_turns: runSettings.max_turns,
       level,
       model: runSettings.model,
       effort: runSettings.effort,
-      submitted_by: submittedBy.trim(),
+      submitted_by: effectiveSubmittedBy,
       ...(newestOverride ? { newest_document_date: newestOverride } : {}),
     };
   }
@@ -897,7 +964,9 @@ function IntakeForm({
         "Enter an issuer name and an issuer ID using letters a–z, digits or hyphens.",
       );
     }
-    if (!isAnalystName(submittedBy.trim()))
+    if (signIn && !isAnalystName(effectiveSubmittedBy))
+      throw new Error("an Admin must set your analyst name");
+    if (!signIn && !isAnalystName(submittedBy.trim()))
       throw new FieldProblem("submitted_by", ANALYST_NAME_RULE);
     const details = reviewContextDetails();
     checkRunRequirements(details);
@@ -958,7 +1027,7 @@ function IntakeForm({
       throw new Error(
         "None of the selected documents could be read. Check the file list in Documents and add a readable file.",
       );
-    const answers = makeAnswers(result, details, await settleIssuerId());
+    let answers = makeAnswers(result, details, await settleIssuerId());
     const noteAt = noteIndex(details, analystNote);
     const shownCap = capForPathway(caps, answers.context.run.pathway);
     // The comparison portfolio is settled on the draft first, so the summary's digest covers it.
@@ -968,6 +1037,12 @@ function IntakeForm({
         throw (await idProblem(failure)) ?? refusedField(failure, requested, noteAt) ?? failure;
       },
     );
+    if (signIn) {
+      const authoritativeName = summary.submitted_by;
+      if (typeof authoritativeName !== "string" || !isAnalystName(authoritativeName))
+        throw new Error("The run summary did not include the authorized analyst name.");
+      answers = { ...answers, submitted_by: authoritativeName };
+    }
     const custom = answers.context.run.pathway === CUSTOM;
     requireSummaryCap(summary, shownCap, custom);
     if (comparison.files.length > 0 && !summary.reference_portfolio)
@@ -1028,7 +1103,7 @@ function IntakeForm({
       case "documents":
         if (!canRead) return;
         await withDraft("documents", async () => {
-          if (!isAnalystName(submittedBy.trim()))
+          if (!signIn && !isAnalystName(submittedBy.trim()))
             throw new FieldProblem("submitted_by", ANALYST_NAME_RULE);
           const { result } = await refreshDocuments();
           if (!result.documents.length)
@@ -1279,7 +1354,12 @@ function IntakeForm({
     // A review is made by Review run and not kept once left, and a step past Documents needs
     // documents that were read: Forward to either is passed over.
     if (target === "review" || (target !== "documents" && reading === undefined)) return false;
-    if (step === "documents" && target !== "documents" && !isAnalystName(submittedBy.trim())) {
+    if (
+      !signIn &&
+      step === "documents" &&
+      target !== "documents" &&
+      !isAnalystName(submittedBy.trim())
+    ) {
       setFieldError(new FieldProblem("submitted_by", ANALYST_NAME_RULE));
       return false;
     }
@@ -1316,7 +1396,8 @@ function IntakeForm({
     copilotModels,
     identity,
     issuerId,
-    submittedBy,
+    submittedBy: effectiveSubmittedBy,
+    signedIn: signIn,
     run,
     documentRows,
     inspected,
@@ -1452,7 +1533,7 @@ function IntakeForm({
     ignoredCopies.length > 0,
     purposeChosen,
     review !== undefined,
-    submittedBy.trim() !== "",
+    effectiveSubmittedBy !== "",
     analystNote.trim() !== "",
     run.as_of !== "",
     issuerFieldsEdited(identity, customSlug, copy?.prior, template.identity),

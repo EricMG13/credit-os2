@@ -26,6 +26,26 @@ CP-OS publishes completed runs to `_engine/library/data.js` and checked handoff 
 
 Excel workbooks are analysis inputs only; they are not deliverables.
 
+## Sign-in and accounts
+
+The connected application's ordinary loopback launch reports that sign-in is off when neither
+`CREDIT_OS_ENTRA_TENANT` nor `CREDIT_OS_ENTRA_CLIENT` is set. Set the two identifiers together
+for an Entra deployment. The current HTTP launcher refuses configured sign-in before startup.
+Browser cookies share a hostname across ports, so deployment needs a dedicated HTTPS hostname.
+Real Entra activation belongs to the work-PC rollout.
+
+An account store uses `CREDIT_OS_ACCOUNTS_DIR`, an absolute private directory outside the shared
+`--root`. The owner can set the Analyst or Admin passcode with the accounts command. The command
+reads the passcode at a terminal prompt.
+
+```sh
+uv run --locked python -m deploy_workflow.accounts --accounts-dir /path/to/private-accounts passcode set admin
+```
+
+The offline sign-in checks run the actual application, MSAL and a loopback identity provider.
+They use an explicit constructor dependency. The ordinary launcher has no flag or environment
+setting for that test provider.
+
 ## Signal
 
 Signal is a shared feed of external research: stories, groups and topics, an issuer watchlist and digests. It starts with the application: the one command above serves the Signal screens, which appear in the application's navigation, and fetches the sources the owner approved in the background. There is no second command and no second port. Signal is available in live mode only; the read-only preview and synthetic mode show no Signal screen.

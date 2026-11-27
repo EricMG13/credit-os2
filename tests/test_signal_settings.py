@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 import socket
-import urllib.parse
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -26,27 +25,32 @@ from deploy_workflow.signal.identity import User
 WRITER = "Mara L"
 READER = "Tobias O"
 OWNER = "Ida Owner"
+COOKIES: dict[str, str] = {}
 
 
 def cookie(name: str) -> str:
-    return f"signal_name={urllib.parse.quote(name)}"
+    return f"credit_os_session={COOKIES[name]}"
 
 
 @pytest.fixture
 def root(tmp_path: Path) -> Iterator[Path]:
     db = store.open_db(tmp_path)
-    store.add_user(db, WRITER, "writer")
-    store.add_user(db, READER, "reader")
-    store.add_user(db, OWNER, "owner")
     db.close()
     yield tmp_path
 
 
 @pytest.fixture
 def svc(root: Path) -> Iterator[Live]:
-    live = Live(root)
-    yield live
-    live.close()
+    live = Live(root, signed_in=True)
+    COOKIES.clear()
+    COOKIES[WRITER] = live.create_account_session(WRITER, "analyst")[1]
+    COOKIES[READER] = live.create_account_session(READER, "reader")[1]
+    COOKIES[OWNER] = live.create_account_session(OWNER, "admin")[1]
+    try:
+        yield live
+    finally:
+        live.close()
+        COOKIES.clear()
 
 
 def rows(root: Path, sql: str, *params: Any) -> list[tuple[Any, ...]]:
@@ -117,7 +121,7 @@ IDS = [f"{method} {path}" for method, path, _ in WRITES]
 @pytest.mark.parametrize(("method", "path", "body"), WRITES, ids=IDS)
 def test_every_write_needs_a_display_name(svc, method, path, body):
     status, _, reply = svc.call(method, path, body=body)
-    assert status == 401 and reply == {"error": "choose a display name first"}
+    assert status == 401 and reply == {"error": "sign in first"}
 
 
 @pytest.mark.parametrize(("method", "path", "body"), WRITES, ids=IDS)
@@ -767,7 +771,8 @@ def test_a_failing_digest_job_is_shown_by_status_but_is_not_an_ingest_failure(ro
     from deploy_workflow.signal import digests, service
 
     loop = service.Loop(root, ai=off_setup(root))
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    COOKIES[WRITER] = live.create_account_session(WRITER, "analyst")[1]
     try:
 
         def boom(*args: object, **kwargs: object) -> None:
@@ -775,16 +780,17 @@ def test_a_failing_digest_job_is_shown_by_status_but_is_not_an_ingest_failure(ro
 
         monkeypatch.setattr(digests, "run_due", boom)
         loop.run_once(datetime.now(UTC))
-        status, _, body = live.call("GET", "/api/status")
+        status, _, body = live.call("GET", "/api/status", cookie=cookie(WRITER))
         assert status == 200
         assert body["loop_error"] == "the last digest pass failed (RuntimeError); see the log"
         fresh = snapshot_of(live, WRITER)["feed"]["freshness"]
         assert fresh["error"] is None  # the freshness line speaks of the ingest only
         monkeypatch.undo()
         loop.run_once(datetime.now(UTC))
-        assert live.call("GET", "/api/status")[2]["loop_error"] is None
+        assert live.call("GET", "/api/status", cookie=cookie(WRITER))[2]["loop_error"] is None
     finally:
         live.close()
+        COOKIES.clear()
 
 
 def _tokens(text: str) -> list[str]:

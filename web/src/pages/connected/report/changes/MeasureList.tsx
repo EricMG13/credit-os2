@@ -7,8 +7,8 @@ import { Dumbbell } from "./Dumbbell";
 import { UNRESOLVED, type Cause, type MeasureChange } from "./model";
 
 const TONE = {
-  better: "text-success-text",
-  worse: "text-warning-text",
+  better: "text-better-mark",
+  worse: "text-worse-mark",
   flat: "text-text-secondary",
 } as const;
 

@@ -40,7 +40,7 @@ it("draws the year comparator, with the tone as a visible word and a shape on a 
   expect(change.textContent.split("worse").length).toBe(2);
   expect(change.querySelector(".sr-only")).toBeNull();
   expect(change.querySelector('[data-shape="diamond"]')).not.toBeNull();
-  expect(change.className).toContain("text-error-text");
+  expect(change.className).toContain("text-worse-mark");
   const plain = screen.getByText(/\+\$5m vs FY2023/);
   expect(plain.textContent).not.toMatch(/better|worse|unchanged/);
   expect(plain.querySelector("[data-shape]")).toBeNull();

@@ -63,6 +63,48 @@ const QUIET = `${chip} border-border-container font-normal text-text-secondary`;
 /** A statement of what the row does not show: words, not a chip, so it does not read as a fact. */
 const NOT_SHOWN = "text-caption text-gap-text";
 
+type ModelCallStart = { started: string; time: number; instant: bigint; attempt: number | null };
+
+const modelCallStart = (started: string | null, attempt: number | null): ModelCallStart | null => {
+  if (
+    !started ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(started)
+  )
+    return null;
+  const time = Date.parse(started);
+  if (!Number.isFinite(time)) return null;
+  const fraction = /\.(\d+)/u.exec(started)?.[1] ?? "";
+  const subMillisecond = BigInt(fraction.slice(3, 9).padEnd(6, "0"));
+  return { started, time, instant: BigInt(time) * 1_000_000n + subMillisecond, attempt };
+};
+
+/** The earliest retained model-call receipt, not the run or module start time. */
+function firstModelCallStart(record: {
+  history?: PublishedRun["history"];
+  evidence?: { record?: { calls?: PublishedRun["evidence"]["record"]["calls"] } };
+}): ModelCallStart | null {
+  const calls = record.evidence?.record?.calls ?? [];
+  let earliest: ModelCallStart | null = null;
+  for (const { started, attempt } of calls) {
+    const candidate = modelCallStart(started, attempt);
+    if (candidate && (!earliest || candidate.instant < earliest.instant)) earliest = candidate;
+  }
+  if (earliest) return earliest;
+  const projected = record.history?.firstModelCall;
+  return projected ? modelCallStart(projected.started, projected.attempt) : null;
+}
+
+function modelCallLabel(start: ModelCallStart) {
+  const attempt = start.attempt === null ? "" : ` · attempt ${String(start.attempt)}`;
+  const utc = new Date(start.time).toISOString();
+  const fraction = /\.(\d+)/u.exec(start.started)?.[1];
+  const exact = fraction
+    ? utc.replace(/\.\d{3}Z$/u, `.${fraction}Z`)
+    : utc.replace(/\.\d{3}Z$/u, "Z");
+  const time = exact.replace("T", " ").replace(/Z$/u, " UTC");
+  return `First model call${attempt} · ${time}`;
+}
+
 /**
  * The page holds a run's handoffs only for the opened run and its compared earlier run; every
  * other run arrives as a summary with no modules, whose stance the page cannot know.
@@ -107,14 +149,16 @@ function RunRow({
   decisions,
   current,
   tie,
+  callStart,
   catalogue,
   details,
 }: {
   record: PublishedRun;
   decisions: Action[] | null;
   current: boolean;
-  /** Another run has the same as-of date: their order is not known. */
+  /** Another run has the same as-of date. */
   tie: boolean;
+  callStart: ModelCallStart | null;
   catalogue: CatalogueRun | undefined;
   details: Details;
 }) {
@@ -143,6 +187,9 @@ function RunRow({
         </span>
         {scope !== STANDARD_SCOPE && <span className={QUIET}>{scope}</span>}
         {tie && <span className={QUIET}>Same as-of date</span>}
+        <span className={callStart ? QUIET : NOT_SHOWN}>
+          {callStart ? modelCallLabel(callStart) : "First model-call time unavailable"}
+        </span>
         {details?.labels.map((label) => (
           <span key={label} className={QUIET}>
             {label}
@@ -183,16 +230,25 @@ export function RunHistory({
   run: PublishedRun;
   issuer: string;
 }) {
-  const records = Object.entries(snapshot.workspace.runs)
-    .filter(
-      ([key, record]) =>
-        publishedRunForFolder(snapshot.workspace.runs, record.folder)?.[0] === key &&
-        (record === run || Boolean(run.issuerKey && record.issuerKey === run.issuerKey)),
-    )
-    .sort(
-      ([, a], [, b]) =>
-        (b.asOf ?? "").localeCompare(a.asOf ?? "") || b.folder.localeCompare(a.folder),
-    );
+  const records = Object.entries(snapshot.workspace.runs).filter(
+    ([key, record]) =>
+      publishedRunForFolder(snapshot.workspace.runs, record.folder)?.[0] === key &&
+      (record === run || Boolean(run.issuerKey && record.issuerKey === run.issuerKey)),
+  );
+  const callStarts = new Map(records.map(([key, record]) => [key, firstModelCallStart(record)]));
+  records.sort(([aKey, a], [bKey, b]) => {
+    const date = (b.asOf ?? "").localeCompare(a.asOf ?? "");
+    if (date) return date;
+    const aStart = callStarts.get(aKey);
+    const bStart = callStarts.get(bKey);
+    if (aStart && bStart) {
+      const time = aStart.instant === bStart.instant ? 0 : aStart.instant > bStart.instant ? -1 : 1;
+      return time || b.folder.localeCompare(a.folder);
+    }
+    if (aStart) return -1;
+    if (bStart) return 1;
+    return b.folder.localeCompare(a.folder);
+  });
   const byFolder = new Map(snapshot.catalogue.real.map((item) => [item.id, item]));
   const dates = new Map<string, number>();
   for (const [, record] of records)
@@ -201,8 +257,9 @@ export function RunHistory({
     <Bento>
       <Tile span={12} as="h2" label={`Runs of ${issuer}`} title={`Runs of ${issuer}`}>
         <p className="text-caption text-text-tertiary">
-          Finished runs, newest first. A run’s scope is the standard pathway scope unless its row
-          says otherwise.
+          Finished runs, newest first. As-of dates descend. Runs with the same as-of date use the
+          first model-call start when recorded; rows without one follow deterministically. A run’s
+          scope is the standard pathway scope unless its row says otherwise.
         </p>
         <p className="text-caption text-gap-text">
           Who started each run is not published with the report.
@@ -218,6 +275,7 @@ export function RunHistory({
               decisions={runDecisions(snapshot, key, record)}
               current={record === run}
               tie={Boolean(record.asOf) && (dates.get(record.asOf ?? "") ?? 0) > 1}
+              callStart={callStarts.get(key) ?? null}
               catalogue={byFolder.get(record.folder)}
               details={runDetails(snapshot, key, record)}
             />

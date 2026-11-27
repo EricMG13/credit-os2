@@ -29,8 +29,8 @@ export function figureName(key: string, name: string, figure: Figure | undefined
   return stated && stated !== name ? stated : name;
 }
 
-/** Better is the accent with its word, worse the signal colour with its word; never colour alone. */
-const TONE_TEXT = { better: "text-success-text", worse: "text-warning-text", flat: "" } as const;
+/** Better and worse are drawn in the better and worse marks, each with its word; never colour alone. */
+const TONE_TEXT = { better: "text-better-mark", worse: "text-worse-mark", flat: "" } as const;
 
 /**
  * One headline figure of a library row: the value in mono with its period, and the change from the

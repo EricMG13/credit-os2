@@ -18,7 +18,6 @@ from deploy_workflow.signal import digests, groups, store, threads, topics
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
     yield database
     database.close()
 

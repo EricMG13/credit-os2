@@ -26,6 +26,7 @@ export function Shell({
   sections,
   symbol = "./symbol.svg",
   action,
+  account,
   children,
 }: {
   current: Area | null;
@@ -34,6 +35,8 @@ export function Shell({
   symbol?: string;
   /** The bar's one primary action, at its end; it is a link, never an area, so never current. */
   action?: { href: string; label: string };
+  /** Optional account control reserved for the explicitly configured sign-in runtime. */
+  account?: ReactNode;
   children: ReactNode;
 }) {
   const items =
@@ -97,11 +100,14 @@ export function Shell({
               })}
             </ul>
           </nav>
-          {action && (
-            <div className="flex min-h-14 shrink-0 items-center">
-              <Button href={action.href} size="sm">
-                {action.label}
-              </Button>
+          {(action || account) && (
+            <div className="flex min-h-14 shrink-0 items-center gap-2">
+              {action && (
+                <Button href={action.href} size="sm">
+                  {action.label}
+                </Button>
+              )}
+              {account}
             </div>
           )}
         </div>

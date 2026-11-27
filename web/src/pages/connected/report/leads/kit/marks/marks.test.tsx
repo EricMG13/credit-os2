@@ -341,7 +341,7 @@ describe("Dumbbell", () => {
     expect(zero.k).toBeGreaterThan(0);
     expect(
       container.querySelector('circle[data-current="24880"]')?.getAttribute("class"),
-    ).toContain("fill-warning-mark");
+    ).toContain("fill-worse-mark");
     expect(container.textContent).toContain("up, worse");
   });
 

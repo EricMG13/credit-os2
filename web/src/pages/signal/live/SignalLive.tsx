@@ -1,7 +1,7 @@
 // Signal in the connected app: the Signal screens on the service's snapshot. The page sits at the
 // path /signal, edge to edge in the shell, and moves between its screens on the URL hash. Only the
 // connected app mounts it; the design-reference app has no service and never asks for one.
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { useHashRoute } from "../../../route";
 import { PageHeader } from "../../../shell/PageHeader";
@@ -89,12 +89,18 @@ function useLogos(): LiveLogos {
   return logos;
 }
 
-export function SignalLive() {
+export function SignalLive({ profileRevision = 0 }: { profileRevision?: number }) {
   const route = useHashRoute();
   useTopOnRoute(route);
   const logos = useLogos();
   const place = useMemo(() => placeOf(route), [route]);
   const { source, failure, actions, asOf } = useLiveSignal(place.at, route);
+  const lastProfileRevision = useRef(profileRevision);
+  useEffect(() => {
+    if (lastProfileRevision.current === profileRevision) return;
+    lastProfileRevision.current = profileRevision;
+    actions.refresh();
+  }, [actions, profileRevision]);
   if (place.matched === null) return <NotFound />;
   if (source === null) {
     return failure === null ? <Loading /> : <Unread failure={failure} onRetry={actions.refresh} />;

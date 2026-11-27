@@ -128,6 +128,46 @@ forecast + colours." Of the three candidates (A · Brief, B · Signal, C · Desk
   strips, stepper tables, mono numerals.
 - A is not used.
 
+## Colour as signal in charts, tables and visuals (owner, 2026-11-26)
+
+Owner, verbatim: "you may use colours other blue, white and black for charts, tables and visuals.
+because colour is a signal and consider spark lines, heatmaps etc for the relevant parts on the
+mock up. this applies across the app."
+
+This lifts, for charts, tables and visuals across the app, the lines below that say no green or
+teal is left, that orange is the only signal colour, and that there is one blue everywhere. The
+interface chrome (shell, controls, links, focus) stays blue on zinc. What follows is the
+recording session's proposal (the better/worse table below has the owner's approval; the share
+of a limit used scale is defined but not built, because a share is outside Coverage's ruled
+arithmetic), first drawn in `docs/design/mockups/coverage-analytics.html`; the
+token tables and `docs/design/design-system.md` are unchanged until a build adopts it, because
+tests parse them.
+
+- **One scale per meaning, never reused.** Position in a cohort: sequential blue. Signed
+  difference: diverging, blue for a decrease through white to orange for an increase. Amount:
+  sequential amber. Share of a limit used: sequential green through amber to red.
+- **Categories** (sector, issuer, seniority): blue `#1D4ED8`, orange `#EA580C`, teal `#0F766E`,
+  purple `#7E22CE`, amber `#B45309`, rose `#BE123C`, green `#15803D`, slate `#475569`.
+- Colour is never the only signal: a glyph, word, shape or direct label carries it too. Text on a
+  tint holds 4.5:1.
+- Sparklines belong in any table cell that has a period series; heat tints in any grid of one
+  measure across two dimensions.
+- **Better and worse** (owner, 2026-11-26: asked "May colour say better or worse where a
+  measure's direction is clear?", answered "Yes, allow it"). Where the table below gives a
+  direction, a difference or a position is coloured green `#15803D` for better and red-orange
+  `#C2410C` for worse, with the word in the legend. Where it gives none, the mark is grey with its
+  up or down glyph. The table is the recording session's wording; the owner approved it on 2026-11-26
+  ("approved otherwise"). In data visuals this replaces "better is blue"; red for failures and invalid input stays `#DC2626`.
+
+| Measure | Better when |
+|---|---|
+| Total debt / EBITDA, net debt / EBITDA (positive multiples only) | lower |
+| EBITDA / cash interest | higher |
+| Undrawn committed facilities, committed resources | higher |
+| Revenue, adjusted EBITDA | higher |
+| Covenant and trigger headroom | higher |
+| Cash (owner, 2026-11-27, answering the colour session's question card: "Keep cash neutral", holding the 2026-11-16 rule that cash carries no judgement); debt maturing; yield; any measure not listed; a negative multiple | no direction: never coloured better or worse |
+
 ## Tokens
 
 Light theme only. Implemented in `web/src/styles/theme.css` under the existing token names, so

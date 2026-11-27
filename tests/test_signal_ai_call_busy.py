@@ -27,7 +27,6 @@ REPLY = json.dumps({"points": [{"lead": "L", "body": "B.", "stories": ["1"]}]})
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
     database.execute("PRAGMA busy_timeout=400")
     yield database
     database.close()

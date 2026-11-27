@@ -290,13 +290,183 @@ describe("reader data fidelity", () => {
       {
         label: "Net debt",
         value: "3",
-        note: "C14 · 5 − 2 · calculation C11",
-        children: [{ label: "Debt", value: "5", note: "C11 · 2 + 3 · filing.txt, page 1" }],
+        note: "C14 · Inputs: 5 − 2 · Source: calculation C11",
+        children: [
+          { label: "Debt", value: "5", note: "C11 · Inputs: 2 + 3 · Source: filing.txt, page 1" },
+        ],
       },
     ]);
     expect(calculationNodes(foundation([calculations, calculations]), "calculation C14")).toEqual(
       [],
     );
+  });
+
+  it("reads calculation tables with variable headers and preserves each calculation field", () => {
+    const forward = table(
+      "Calculations",
+      [
+        "ID",
+        "Period, perimeter and unit",
+        "Exact operands and calculation",
+        "Result and limits",
+        "Source",
+      ],
+      [
+        [
+          "C07",
+          "FY2025–FY2027 case ratios, group USD million over USD million",
+          "Gross = C06 closing debt divided by case EBITDA. Net = (closing debt less closing cash) divided by EBITDA.",
+          "T2H.6 uses the same denominators. Missing dated usable cash or runway denominator is not converted to zero.",
+          "TDG_2024-09-30_10-K.jsonl, page 71; calculation C06",
+        ],
+        [
+          "C06",
+          "FY2025 balance continuity",
+          "Debt closing = opening debt − C03 repayment",
+          "Debt closes at 24,306",
+          "TDG_2024-09-30_10-K.jsonl, page 63",
+        ],
+      ],
+      50,
+    );
+    const forwardEntry = foundation([forward]);
+    forwardEntry.output.module = "CP-2G";
+    expect(calculationNodes(forwardEntry, "calculation C07")).toMatchObject([
+      {
+        label: "C07",
+        value:
+          "T2H.6 uses the same denominators. Missing dated usable cash or runway denominator is not converted to zero.",
+        note: "C07 · Period, perimeter and unit: FY2025–FY2027 case ratios, group USD million over USD million · Exact operands and calculation: Gross = C06 closing debt divided by case EBITDA. Net = (closing debt less closing cash) divided by EBITDA. · Source: TDG_2024-09-30_10-K.jsonl, page 71; calculation C06",
+        children: [
+          {
+            label: "C06",
+            value: "Debt closes at 24,306",
+            note: "C06 · Period, perimeter and unit: FY2025 balance continuity · Exact operands and calculation: Debt closing = opening debt − C03 repayment · Source: TDG_2024-09-30_10-K.jsonl, page 63",
+          },
+        ],
+      },
+    ]);
+
+    const payout = table(
+      "Calculations",
+      [
+        "ID",
+        "Period, quantity and unit",
+        "Operation and exact operands",
+        "Result and boundary",
+        "Source",
+      ],
+      [
+        [
+          "C03",
+          "2024-10-18 payout only, USD million",
+          "4216 + 132 = 4348; 4348 − 3000",
+          "Payout in excess of issuance: USD 1,348m. No later purchases added.",
+          "TDG_2024-09-30_10-K.jsonl, pages 54–56",
+        ],
+      ],
+      70,
+    );
+    expect(calculationNodes(foundation([payout]), "calculation C03")).toMatchObject([
+      {
+        label: "C03",
+        value: "Payout in excess of issuance: USD 1,348m. No later purchases added.",
+        note: "C03 · Period, quantity and unit: 2024-10-18 payout only, USD million · Operation and exact operands: 4216 + 132 = 4348; 4348 − 3000 · Source: TDG_2024-09-30_10-K.jsonl, pages 54–56",
+      },
+    ]);
+
+    const peer = table(
+      "Calculations",
+      [
+        "ID",
+        "Period, perimeter and quantity",
+        "Exact operands and operation",
+        "Result",
+        "Source",
+        "Limitation",
+      ],
+      [
+        [
+          "C04",
+          "2024-09-30 retrospective valuation, USD million over USD million to points",
+          "Fair value / face × 100; term aggregate 8694/8702",
+          "Aggregate 99.91 points",
+          "TDG_2024-09-30_10-K.jsonl, page 145",
+          "Rounded disclosure inputs; not clean prices, yields, or evidence for a price-target curve.",
+        ],
+      ],
+      90,
+    );
+    expect(calculationNodes(foundation([peer]), "calculation C04")).toMatchObject([
+      {
+        label: "C04",
+        value: "Aggregate 99.91 points",
+        note: "C04 · Period, perimeter and quantity: 2024-09-30 retrospective valuation, USD million over USD million to points · Exact operands and operation: Fair value / face × 100; term aggregate 8694/8702 · Source: TDG_2024-09-30_10-K.jsonl, page 145 · Limitation: Rounded disclosure inputs; not clean prices, yields, or evidence for a price-target curve.",
+      },
+    ]);
+  });
+
+  it("rejects calculation tables with an ambiguous ID or without explicit calculation operands", () => {
+    const ambiguous = table(
+      "Calculations",
+      ["ID", "ID", "Calculation", "Inputs", "Result", "Source"],
+      [["C06", "C06", "Debt", "2 + 3", "5", "filing.txt, page 1"]],
+      50,
+    );
+    const unrelated = table(
+      "Calculations",
+      ["ID", "Period", "Result", "Source"],
+      [["C06", "FY2025", "5", "filing.txt, page 1"]],
+      60,
+    );
+    const labelOnly = table(
+      "Calculations",
+      ["ID", "Calculation", "Result", "Source"],
+      [["C06", "Debt", "5", "filing.txt, page 1"]],
+      65,
+    );
+    const ambiguousOperation = table(
+      "Calculations",
+      ["ID", "Calculation", "Inputs", "Operation", "Result", "Source"],
+      [["C07", "Debt", "2 + 3", "2 + 3", "5", "filing.txt, page 1"]],
+      70,
+    );
+    const legacy = table(
+      "Calculations",
+      ["ID", "Calculation", "Inputs", "Result", "Source"],
+      [["C08", "Debt", "2 + 3", "5", "filing.txt, page 1"]],
+      80,
+    );
+    const revised = table(
+      "Calculations",
+      ["ID", "Period and unit", "Operation and operands", "Result", "Source"],
+      [["C08", "FY2025, USD million", "", "5", "filing.txt, page 1"]],
+      90,
+    );
+    expect(
+      calculationNodes(
+        foundation([ambiguous, unrelated, labelOnly, ambiguousOperation, legacy, revised]),
+        "calculation C06; calculation C07; calculation C08; calculation C09",
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps a stated zero result distinct from a missing calculation ID", () => {
+    const zero = table(
+      "Calculations",
+      ["ID", "Period and quantity", "Operation and operands", "Result", "Source"],
+      [["C10", "FY2025, USD million", "2 − 2", "0", "filing.txt, page 1"]],
+      50,
+    );
+    const entry = foundation([zero]);
+    expect(calculationNodes(entry, "calculation C10")).toMatchObject([
+      {
+        label: "C10",
+        value: "0",
+        note: "C10 · Period and quantity: FY2025, USD million · Operation and operands: 2 − 2 · Source: filing.txt, page 1",
+      },
+    ]);
+    expect(calculationNodes(entry, "calculation C11")).toEqual([]);
   });
 
   it("keeps driver-only downside, missing and zero distinct on forecast paths", () => {

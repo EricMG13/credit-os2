@@ -219,13 +219,13 @@ def _member_name(raw: object) -> str:
     if not isinstance(raw, str):
         raise GroupError("a member name must be text")
     try:
-        return identity.clean_name(raw)  # the same name the person's own cookie would hold
+        return identity.clean_name(raw)  # the same display-name cleaning used for accounts
     except identity.IdentityError:
         raise GroupError("a member name must not be empty") from None
 
 
 def add_member(db: sqlite3.Connection, actor: User, group_id: int, name: object) -> str:
-    """Add a member by display name (any name: an unknown one is a reader); returns it cleaned."""
+    """Add a group member by their account display name and return its cleaned form."""
     require_manager(actor)
     member = _member_name(name)
     with _write_transaction(db):

@@ -60,7 +60,11 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   handoff content remains an explicit gap or a targeted repair request. One exception
   (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`): a proposed recommendation
   derived by ruled arithmetic from module-written scores through the owner-approved table,
-  always labelled proposed until the analyst confirms. Drawing a money unit as its currency
+  always labelled proposed until the analyst confirms. A second exception
+  (`docs/rulings/2026-11-26-coverage-analytics.md`): the Coverage page may draw five kinds of
+  ruled arithmetic on module-written figures (difference, cohort statistics, distance from the
+  cohort median, sum, selection), each labelled computed and shown with the figures it used.
+  Drawing a money unit as its currency
   symbol (`$m` for `USD millions`, `docs/rulings/2026-11-26-money-unit-symbols.md`) changes its
   notation, not the unit.
 - Completion requires the issuer library's Overview, Changes, Modules, Forecast and Evidence

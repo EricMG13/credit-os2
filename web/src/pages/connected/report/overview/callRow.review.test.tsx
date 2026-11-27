@@ -119,8 +119,10 @@ it("draws the confidence band in its own word, neutral, whatever the band", () =
     );
     const tile = screen.getByRole("region", { name: "Confidence" });
     const word = within(tile).getByText(band);
-    expect(word.className).not.toMatch(/warning|success|error/);
-    expect(tile.querySelector(".fill-warning-mark")).toBeNull();
+    expect(word.className).not.toMatch(
+      /warning|success|error|better-mark|worse-mark|scale-better|scale-worse/,
+    );
+    expect(tile.querySelector(".fill-warning-mark, .fill-worse-mark")).toBeNull();
     unmount();
   }
 });

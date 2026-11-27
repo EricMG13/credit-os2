@@ -3,6 +3,7 @@ import { Bento } from "../overview/Tile";
 import {
   InstrumentTable,
   PeerLevels,
+  hasRelativeValueNarrative,
   peerLevels,
   quotedInstruments,
   recommendationInstruments,
@@ -27,6 +28,7 @@ export const SecurityLead = withDraws(
       (data && quotedInstruments(data, runMoneyUnit(view.catalogue))) ??
       recommendationInstruments(entry);
     const peers = peerLevels(entry);
+    const relativeValueNarrative = hasRelativeValueNarrative(entry);
     return (
       <Bento>
         {instruments ? (
@@ -46,7 +48,11 @@ export const SecurityLead = withDraws(
             span={12}
             label="Relative value against peers"
             title="Relative value against peers"
-            reason="This page could not read peer levels."
+            reason={
+              relativeValueNarrative
+                ? "No separate peer-level table is included; the module reports comparisons in its relative-value findings."
+                : "No peer-level table or relative-value findings are included in this module."
+            }
           />
         )}
         {data?.outcomes && <ValueMatrix table={data.outcomes} href={href} />}

@@ -11,6 +11,32 @@ import {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("connected pathway caps", () => {
+  it("extracts signed run access without adding it to the issuer context", async () => {
+    const template = {
+      run: { as_of: "", pathway: "credit_snapshot", case_kind: "synthetic" },
+      identity: { issuer_name: "", issuer_id: "" },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          ...template,
+          run_access: { can_prepare: true, analyst_name: "Eric G" },
+          role: "analyst",
+          account: { id: 7, display_name: "Eric G" },
+          account_id: 7,
+          profile_type: "analyst",
+          submission_caps_usd: { credit_snapshot: "30" },
+        }),
+      ),
+    );
+
+    const result = await getContext(new AbortController().signal, true);
+
+    expect(result.template).toEqual(template);
+    expect(result).toHaveProperty("runAccess", { can_prepare: true, analyst_name: "Eric G" });
+  });
+
   it("keeps only known pathway ids with finite positive decimal string values", async () => {
     const template = {
       run: {

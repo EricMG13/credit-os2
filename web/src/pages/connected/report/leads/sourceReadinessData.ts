@@ -55,6 +55,15 @@ export type ReadinessRow = {
 export type SourceReadiness =
   | { kind: "absent" }
   | {
+      kind: "overall";
+      line: number;
+      word: string;
+      mark: ReadinessMark;
+      context: string;
+      headers: string[];
+      cells: string[];
+    }
+  | {
       kind: "ready";
       line: number;
       /** The handoff's own name for the free-text column. */
@@ -65,6 +74,46 @@ export type SourceReadiness =
     };
 
 const readable = (text: string, fallback: string) => safeText(text) || fallback;
+
+const OBJECTIVE = "Objective and profile";
+const OVERALL_HEADERS = ["Gate field", "Readiness boundary"];
+const OVERALL_STATE =
+  /^\s*`?(READY_WITH_LIMITATIONS|READY_WITH_LIMITATION|NOT_READY|CONDITIONAL|BLOCKED|READY)`?(?:\s+|$)(.*)$/i;
+
+/** The objective-level verdict in CP-0's gate; other readiness tables retain their own scope. */
+function overallReadiness(entry: OutputEntry) {
+  const found = allTables(entry).filter(
+    ({ heading, table }) =>
+      heading.trim() === "T1 Input gate" &&
+      OVERALL_HEADERS.every((header) => table.headers.includes(header)),
+  );
+  const [one] = found;
+  if (found.length !== 1 || !one) return null;
+  const field = columnOf(one.table, "Gate field");
+  const input = columnOf(one.table, "Resolved input");
+  const boundary = columnOf(one.table, "Readiness boundary");
+  if (field < 0 || boundary < 0) return null;
+  const rows = one.table.rows.filter((row) => row.cells[field]?.trim() === OBJECTIVE);
+  const [row] = rows;
+  if (rows.length !== 1 || !row) return null;
+  const raw = row.cells[boundary] ?? "";
+  const match = OVERALL_STATE.exec(raw);
+  const [, status = "", explanation = ""] = match ?? [];
+  if (!match) return null;
+  const state = readinessWord(status);
+  return {
+    kind: "overall" as const,
+    line: one.table.line,
+    word: state.word,
+    mark: state.mark,
+    context: safeText(explanation.trim()),
+    headers: input < 0 ? OVERALL_HEADERS : ["Gate field", "Resolved input", "Readiness boundary"],
+    cells:
+      input < 0
+        ? [row.cells[field] ?? "", row.cells[boundary] ?? ""]
+        : [row.cells[field] ?? "", row.cells[input] ?? "", row.cells[boundary] ?? ""],
+  };
+}
 
 /** A header that could hold the key evidence located or the conflicts and duplicates. */
 const evidenceHeader = (header: string) => /evidence|conflict|duplicate/i.test(header);
@@ -107,7 +156,7 @@ function holdOf(command: string | undefined) {
 /** The readiness table as rows, or why there is nothing to draw. */
 export function sourceReadiness(entry: OutputEntry): SourceReadiness {
   const found = readinessTable(entry);
-  if (!found || found.table.rows.length === 0) return { kind: "absent" };
+  if (!found || found.table.rows.length === 0) return overallReadiness(entry) ?? { kind: "absent" };
   const { table } = found;
   const [area, readiness, limitation, command] = [
     found.area,

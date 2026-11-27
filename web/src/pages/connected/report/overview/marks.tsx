@@ -27,14 +27,22 @@ export type { Slot } from "./markLayout";
 export type Mark = { label: string; value: number; text: string };
 export type MarkTone = "better" | "worse" | "flat" | "none";
 
-const FILL = { worse: "fill-warning-mark", other: "fill-chart-1" } as const;
-const STROKE = { worse: "stroke-warning-mark", other: "stroke-chart-1" } as const;
-const ink = (tone: MarkTone) => (tone === "worse" ? "worse" : "other");
+const FILL = {
+  better: "fill-better-mark",
+  worse: "fill-worse-mark",
+  other: "fill-chart-1",
+} as const;
+const STROKE = {
+  better: "stroke-better-mark",
+  worse: "stroke-worse-mark",
+  other: "stroke-chart-1",
+} as const;
+const ink = (tone: MarkTone) => (tone === "worse" || tone === "better" ? tone : "other");
 
 /** The part a level fell by: a direction's ink only where the caller states one, else neutral. */
 const FALLEN = {
-  worse: "fill-warning-fill stroke-warning-mark",
-  better: "fill-success-fill stroke-chart-1",
+  worse: "fill-scale-worse-2 stroke-worse-mark",
+  better: "fill-scale-better-2 stroke-better-mark",
   neutral: "fill-surface-subtle stroke-border-gap",
 } as const;
 const fallInk = (tone: MarkTone) => (tone === "worse" || tone === "better" ? tone : "neutral");

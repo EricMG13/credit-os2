@@ -19,7 +19,7 @@ export interface Stat {
   trace?: ReactNode;
 }
 
-const TONE = { better: "text-success-text", worse: "text-warning-text" } as const;
+const TONE = { better: "text-better-mark", worse: "text-worse-mark" } as const;
 
 /** Figures side by side in one tile, divided by hairlines: one strip, not a row of cards. */
 export function StatsStrip({ label, stats }: { label: string; stats: readonly Stat[] }) {

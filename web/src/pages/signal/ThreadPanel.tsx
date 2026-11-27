@@ -4,11 +4,12 @@
 // route and moves focus to that thread's "Open thread" link. Everything here is in memory: posting
 // adds the comment to this page's list and a reaction toggle flips its pressed state; no count is
 // recomputed (the delivered string stays) and nothing is written.
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
+import { Button } from "@/components/base/buttons/button";
 import { STALE_SENTENCE, useSignalActions, useSignalAsOf } from "./actions";
 import { useChoices } from "./choices";
 import { FeedAlert } from "./FeedStates";
@@ -23,7 +24,7 @@ import { OpenSourceButton } from "./parts/OpenSourceButton";
 import { Composer, MessageList } from "./parts/Messages";
 import type { OwnComments, ReactionWord } from "./parts/Messages";
 import type { SignalComment, SignalGroup, SignalScene, SignalStory, SignalThread } from "./slice";
-import { useSignalViewer } from "./viewer";
+import { SignalViewerContext, useSignalViewer } from "./viewer";
 import { writes } from "./writes";
 
 const TITLE_ID = "signal-thread-title";
@@ -110,7 +111,7 @@ function ConversationFooter({
   } else if (!writer) {
     footer = <p className={NOTE}>Readers see this thread but not the reply box.</p>;
   } else if (viewer.name === null || viewer.initials === null) {
-    footer = <p className={NOTE}>Set your name to write a comment.</p>;
+    footer = <p className={NOTE}>Your account details are unavailable.</p>;
   } else {
     footer = (
       <Composer
@@ -139,6 +140,7 @@ function ConversationContent({
   refused,
   onToggle,
   own,
+  onModerate,
   waiting,
 }: {
   thread: SignalThread;
@@ -156,6 +158,7 @@ function ConversationContent({
   refused: { count: number; text: string };
   onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
   own: OwnComments | null;
+  onModerate: ((comment: SignalComment) => void) | null;
 }) {
   return (
     <SlideoutMenu.Content>
@@ -192,6 +195,7 @@ function ConversationContent({
           isPressed={isPressed}
           onToggle={onToggle}
           own={own}
+          onModerate={onModerate}
         />
       )}
       {refused.text === "" ? null : (
@@ -315,7 +319,9 @@ function Conversation({
 }) {
   const viewer = useSignalViewer();
   const actions = useSignalActions();
+  const viewerContext = useContext(SignalViewerContext);
   const box = useRef<HTMLTextAreaElement>(null);
+  const [moderating, setModerating] = useState<SignalComment | null>(null);
   // A comment shows at once. On a service it is sent, and once answered the thread read again
   // holds it (or the service refused it), so the page's own copy goes.
   const [added, setAdded] = useState<Added[]>([]);
@@ -396,8 +402,35 @@ function Conversation({
         // On a service a reader may not react (the service refuses it), so no button is offered.
         onToggle={actions !== null && !writer ? null : onToggle}
         own={own}
+        onModerate={
+          actions !== null && viewerContext?.profileType === "admin" ? setModerating : null
+        }
       />
       {confirm}
+      {actions !== null && viewerContext?.profileType === "admin" ? (
+        <FormDialog
+          open={moderating !== null}
+          title="Remove this comment?"
+          intro="Replies stay, but this comment is removed for everyone."
+          fields={[]}
+          action="Remove comment"
+          destructive
+          onSend={async () => {
+            if (moderating === null) return null;
+            const answer = await actions.write(writes.moderateComment(moderating.id));
+            if (answer.refusal !== null) actions.refresh();
+            return answer.refusal;
+          }}
+          onClose={() => {
+            setModerating(null);
+          }}
+          onGone={() => {
+            focusAgainIfLost(() =>
+              document.getElementById(TITLE_ID)?.closest<HTMLElement>("[role='dialog']"),
+            );
+          }}
+        />
+      ) : null}
       <ConversationFooter
         thread={thread}
         writer={writer}
@@ -425,6 +458,10 @@ export function ThreadPanel({
   thread: SignalThread | null;
   writer: boolean;
 }) {
+  const actions = useSignalActions();
+  const viewer = useContext(SignalViewerContext);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const adminOpener = useOpener(() => openLinkTarget(thread === null ? null : thread.id));
   useOnGone(() => {
     // When the address was loaded directly the dialog library has no opener to restore and, in a
     // browser, its own frame-late restore leaves focus on the body; a click-opened panel is restored
@@ -461,6 +498,18 @@ export function ThreadPanel({
         <p className="text-small text-text-tertiary">
           {thread === null ? "This thread does not exist or is not open to you." : thread.subline}
         </p>
+        {thread !== null && actions !== null && viewer?.profileType === "admin" ? (
+          <Button
+            color="link-destructive"
+            className="mt-3"
+            onPress={() => {
+              adminOpener.remember();
+              setConfirmRemove(true);
+            }}
+          >
+            Remove this thread
+          </Button>
+        ) : null}
         <CloseButton label="Close thread" className="absolute top-3 right-3" />
       </header>
       {thread === null ? null : (
@@ -479,6 +528,25 @@ export function ThreadPanel({
           }
         />
       )}
+      {thread !== null && actions !== null && viewer?.profileType === "admin" ? (
+        <FormDialog
+          open={confirmRemove}
+          title="Remove this thread?"
+          intro="The thread and all of its comments, reactions and read marks are removed. This cannot be undone."
+          fields={[]}
+          action="Remove thread"
+          destructive
+          onSend={async () => {
+            const answer = await actions.write(writes.moderateThread(thread.id));
+            if (answer.refusal !== null) actions.refresh();
+            return answer.refusal;
+          }}
+          onClose={() => {
+            setConfirmRemove(false);
+          }}
+          onGone={adminOpener.restore}
+        />
+      ) : null}
     </SlideoutMenu>
   );
 }

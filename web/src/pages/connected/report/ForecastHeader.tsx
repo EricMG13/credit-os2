@@ -324,7 +324,11 @@ export function ForecastHeader({
           <p className="text-small text-text-secondary">
             {run.issuerHeading || run.issuer}
             {preview && " · Test preview"}
-            {hasModel ? ` · ${module}, the cases it publishes` : " · No forward model in this run"}
+            {hasModel
+              ? ` · ${module}, the cases it publishes`
+              : preview
+                ? " · No published forward model"
+                : " · No forward model in this run"}
           </p>
           {hasModel && <PageIndex />}
         </div>

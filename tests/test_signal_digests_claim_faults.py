@@ -25,8 +25,6 @@ DUE = at("2026-11-27 07:00")
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
-    store.add_user(database, "Tobias O", "reader")
     yield database
     database.close()
 

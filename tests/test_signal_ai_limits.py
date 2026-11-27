@@ -149,12 +149,11 @@ def test_a_scheduled_run_that_wrote_no_issue_is_not_run_again_before_its_next_sl
 def test_the_route_refuses_run_once_now_with_409_and_the_sentence(tmp_path):
     root = tmp_path / "root"
     db = _store(root)
-    store.add_user(db, "Rita Reader", "reader")
     ident = _digest(db)
     db.close()
     loop = Loop(root, ai=setup(tmp_path, FakeModel(answer=written)))
-    live = Live(root, loop=loop)
-    cookie = "signal_name=Rita%20Reader"
+    live = Live(root, loop=loop, signed_in=True)
+    cookie = f"credit_os_session={live.create_account_session('Rita Reader', 'reader')[1]}"
     try:
         status, _, body = live.call("POST", f"/api/digests/{ident}/run", cookie=cookie, body={})
         assert (status, body["outcome"]) == (200, "queued")

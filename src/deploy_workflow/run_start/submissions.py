@@ -28,6 +28,11 @@ from pathlib import Path, PurePath
 from typing import Any, BinaryIO, NotRequired, TypedDict, cast
 
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
+from deploy_workflow.accounts.analyst_names import (
+    ANALYST_NAME_RULE,
+    SUBMITTER_AT_MOST,
+    is_analyst_name,
+)
 from deploy_workflow.context import load_context
 from deploy_workflow.inbox import runs
 from deploy_workflow.inbox.filing import safe_name
@@ -74,12 +79,7 @@ _MODULES_AT_MOST = 40
 _MODULE_NAME_AT_MOST = 12
 _TURNS = (1, 64)
 _LEVELS = ("basic", "standard", "advanced")
-_SUBMITTER_AT_MOST = 80
-_INITIALS_AT_MOST = 2
-ANALYST_NAME_RULE = (
-    "Enter your name as your first name and initial, for example Eric G, "
-    "or two initials, for example Eric MG."
-)
+_SUBMITTER_AT_MOST = SUBMITTER_AT_MOST
 _KEYS = {"context", "modules", "max_turns", "level", "submitted_by", "model", "effort"}
 _NEWEST_DOCUMENT_DATE = "newest_document_date"
 DEFAULT_MODEL, DEFAULT_EFFORT = "gpt", "balanced"  # the only pair below the Advanced level
@@ -104,6 +104,13 @@ class Refused(ValueError):
     """The upload or request cannot be accepted; the message says why."""
 
 
+def authorized_answers(answers: object, actor: RunActor | None) -> object:
+    """Replace a client name for an actor, leaving malformed input to normal validation."""
+    if actor is None or not isinstance(answers, dict):
+        return answers
+    return {**answers, "submitted_by": actor.analyst_name}
+
+
 class Answers(TypedDict):
     context: dict[str, Any]  # a context/1 object, as the page's build() makes it
     modules: list[str]  # [] = the pathway's modules
@@ -113,6 +120,24 @@ class Answers(TypedDict):
     model: str  # from runs.MODELS
     effort: str  # from the selected model's offered choices
     newest_document_date: NotRequired[str]  # The analyst's override, when supplied.
+
+
+@dataclass(frozen=True)
+class RunActor:
+    """The authenticated account and the server-selected name approving one run."""
+
+    account_id: int
+    analyst_name: str
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.account_id, bool)
+            or not isinstance(self.account_id, int)
+            or self.account_id < 1
+        ):
+            raise ValueError("a run actor needs a positive account id")
+        if len(self.analyst_name) > _SUBMITTER_AT_MOST or not is_analyst_name(self.analyst_name):
+            raise ValueError("a run actor needs a valid analyst name")
 
 
 def _validate_newest_document_date(value: object) -> None:
@@ -184,21 +209,6 @@ def validated(answers: object) -> Answers:
     if not isinstance(by, str) or len(by) > _SUBMITTER_AT_MOST or not is_analyst_name(by):
         raise Refused(ANALYST_NAME_RULE)
     return answers  # type: ignore[return-value]
-
-
-def is_analyst_name(text: str) -> bool:
-    """Whether ``text`` is a first name, one space, then one or two capital initials: ``Eric G``,
-    or ``Eric MG`` where two analysts would otherwise read the same (owner, 2026-11-16). The
-    first name is letters, with single hyphens or apostrophes (straight or curly) inside it. The
-    start page's own check is the same rule (web/src/pages/connected/start/analystName.ts)."""
-    first, space, initials = text.partition(" ")
-    pieces = first.replace("'", "-").replace("\u2019", "-").split("-")
-    return (
-        bool(space)
-        and all(piece.isalpha() for piece in pieces)
-        and 1 <= len(initials) <= _INITIALS_AT_MOST
-        and all(letter.isalpha() and letter.isupper() for letter in initials)
-    )
 
 
 def _open_folders(layout: Layout) -> list[Path]:
@@ -282,10 +292,16 @@ def files_folder(layout: Layout, sid: str) -> Path:
     return _active(_folder(layout, sid))
 
 
-def seal(layout: Layout, sid: str) -> Path:
-    """Freeze the uploads: ``files`` becomes ``sealed`` and no upload or removal is accepted."""
+def seal(layout: Layout, sid: str, actor: RunActor | None = None) -> Path:
+    """Freeze uploads after checking signed approval identity under the upload lock."""
     folder = _folder(layout, sid)
     with _LOCK:
+        if actor is not None:
+            approval = issued_approval(layout, sid)
+            if (approval.actor_id, approval.actor_name) != (actor.account_id, actor.analyst_name):
+                raise Refused(
+                    "this summary was approved by another account or name; review the summary again"
+                )
         if _is_sealed(folder):
             return folder / "sealed"
         if _PENDING.get(sid):
@@ -965,6 +981,8 @@ class IssuedApproval:
     prior: str
     cap: str
     encoded_limits: str | None
+    actor_id: int | None = None
+    actor_name: str | None = None
 
     def limits(self) -> list[Item] | None:
         if self.encoded_limits is None:
@@ -984,6 +1002,29 @@ def issued_approval(layout: Layout, sid: str) -> IssuedApproval:
     prior = (
         lines[1] if len(lines) > 1 and not lines[1].startswith((_CAP_LINE, _LIMITS_LINE)) else ""
     )
+    identity_error = "approved summary identity could not be read; review the summary again"
+    account_lines = [line.removeprefix("account=") for line in lines if line.startswith("account=")]
+    name_lines = [line.removeprefix("name=") for line in lines if line.startswith("name=")]
+    actor_id: int | None = None
+    actor_name: str | None = None
+    if len(account_lines) > 1 or len(name_lines) > 1:
+        raise Refused(identity_error)
+    if account_lines:
+        raw_id = account_lines[0]
+        if not raw_id.isascii() or not raw_id.isdigit() or len(raw_id) > 19:
+            raise Refused(identity_error)
+        actor_id = int(raw_id)
+        if not 1 <= actor_id <= 2**63 - 1:
+            raise Refused(identity_error)
+    if name_lines:
+        try:
+            actor_name = bytes.fromhex(name_lines[0]).decode("utf-8")
+        except (ValueError, UnicodeError) as error:
+            raise Refused(identity_error) from error
+        if len(actor_name) > SUBMITTER_AT_MOST or not is_analyst_name(actor_name):
+            raise Refused(identity_error)
+    if (actor_id is None) != (actor_name is None):
+        raise Refused(identity_error)
     return IssuedApproval(
         digest=lines[0] if lines else "",
         prior=prior,
@@ -991,6 +1032,8 @@ def issued_approval(layout: Layout, sid: str) -> IssuedApproval:
         encoded_limits=next(
             (x.removeprefix(_LIMITS_LINE) for x in lines[1:] if x.startswith(_LIMITS_LINE)), None
         ),
+        actor_id=actor_id,
+        actor_name=actor_name,
     )
 
 
@@ -1011,7 +1054,9 @@ def issued_summary_limits(layout: Layout, sid: str) -> list[Item] | None:
     return issued_approval(layout, sid).limits()
 
 
-def _record_issued(layout: Layout, sid: str, result: dict[str, Any]) -> None:
+def _record_issued(
+    layout: Layout, sid: str, result: dict[str, Any], actor: RunActor | None = None
+) -> None:
     """Replace the submission's issued digest (and the earlier run and the cap the summary showed)
     with ``value`` (none when empty), under the lock."""
     folder = _folder(layout, sid)
@@ -1026,20 +1071,31 @@ def _record_issued(layout: Layout, sid: str, result: dict[str, Any]) -> None:
     with _LOCK:
         if not folder.is_dir():  # the scheduler's release removed it after the check above
             raise Refused("unknown submission")
+        if actor is not None and (_is_sealed(folder) or not (folder / "files").is_dir()):
+            raise Refused("the submission is being submitted; review it again")
         path = folder / _ISSUED
         if not value:
             path.unlink(missing_ok=True)
             return
         temp = folder / f".issued-{uuid.uuid4().hex}"
         try:
-            lines = (value, prior, _CAP_LINE + cap if cap else "", _LIMITS_LINE + encoded)
+            lines = (
+                value,
+                prior,
+                _CAP_LINE + cap if cap else "",
+                _LIMITS_LINE + encoded,
+                f"account={actor.account_id}" if actor else "",
+                f"name={actor.analyst_name.encode('utf-8').hex()}" if actor else "",
+            )
             temp.write_text("".join(f"{x}\n" for x in lines if x), encoding="ascii")
             os.replace(temp, path)
         finally:
             temp.unlink(missing_ok=True)
 
 
-def summary(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
+def summary(
+    layout: Layout, sid: str, answers: object, actor: RunActor | None = None
+) -> dict[str, Any]:
     """The launcher's own forecast for these files and answers, with the digest to approve.
 
     The forecast is for the config the answers' model and effort launch with (``runs.config_for``)
@@ -1059,10 +1115,13 @@ def summary(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
     # Imported here: that module is built on this one's uploads.
     from deploy_workflow.run_start import reference_portfolio
 
+    answers = authorized_answers(answers, actor)
     result = reference_portfolio.bind(layout, sid, _summarise(layout, sid, answers))
+    if actor is not None and result.get("digest"):
+        result["submitted_by"] = actor.analyst_name
     digest_issued = result.get("digest", "")
     try:
-        _record_issued(layout, sid, result)
+        _record_issued(layout, sid, result, actor)
     except Refused:
         if digest_issued:  # a digest was made for a submission that is not there: not possible
             raise
@@ -1135,7 +1194,7 @@ def _custom_estimate(prepared: Prepared) -> tuple[str, dict[str, Any]]:
     }
 
 
-def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
+def _summarise(layout: Layout, sid: str, answers: object) -> dict[str, Any]:
     try:
         answers = validated(answers)
         config = config_for(answers["model"], answers["effort"])
