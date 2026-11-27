@@ -60,4 +60,20 @@ describe("Sparkline", () => {
     const ys = [...container.querySelectorAll("circle[data-end]")].map((c) => c.getAttribute("cy"));
     expect(ys).toEqual(["8"]);
   });
+  it("rejects a decimal string too long to be a finite number, naming it", () => {
+    const long = "9".repeat(400);
+    expect(() => draw(["1", long])).toThrow(RangeError);
+    expect(() => draw(["1", long])).toThrow(long);
+  });
+  it("takes the extremes of a long series without a spread", () => {
+    const values = Array.from({ length: 200000 }, (_, at) => String(at));
+    const { container } = draw(values);
+    expect(container.querySelector("circle[data-end]")?.getAttribute("data-value")).toBe("199999");
+  });
+  it("rejects a width or height that leaves no room inside the inset", () => {
+    expect(() => render(<Sparkline values={["1", "2"]} width={4} label="x" />)).toThrow(RangeError);
+    expect(() => render(<Sparkline values={["1", "2"]} height={4} label="x" />)).toThrow(
+      RangeError,
+    );
+  });
 });

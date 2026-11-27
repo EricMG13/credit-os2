@@ -321,7 +321,7 @@ describe("SegmentsTile sparkline (mutation: four stated years for one segment)",
     expect(spark.querySelector("circle[data-end]")?.getAttribute("data-value")).toBe("3941");
     const figure = within(tile).getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ });
     expect(figure.getAttribute("aria-label")).toContain(
-      "Power & Control Net sales FY2021 to FY2024: Not supplied, 2,900, 3,316, 3,941",
+      "Power & Control Net sales: FY2021 Not supplied; FY2022 2,900; FY2023 3,316; FY2024 3,941",
     );
   });
   it("marks a stated gap inside the series as a gap, never bridged", () => {
@@ -375,8 +375,10 @@ describe("SegmentsTile sparkline reading of non-number cells (mutation)", () => 
       ),
     );
     const said = figureOf(tile) ?? "";
-    expect(said).toContain("Net sales FY2020 to FY2024: 2,400, 2,500, n.m., 3,316, 3,941");
-    expect(said).not.toContain("Not supplied, 3,316");
+    expect(said).toContain(
+      "Net sales: FY2020 2,400; FY2021 2,500; FY2022 n.m.; FY2023 3,316; FY2024 3,941",
+    );
+    expect(said).not.toContain("FY2022 Not supplied");
     const spark = within(tile).getByRole("img", {
       name: "Power & Control Net sales, FY2020 to FY2024",
     });
@@ -384,7 +386,7 @@ describe("SegmentsTile sparkline reading of non-number cells (mutation)", () => 
       [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
     ).toEqual(["2400 2500", "3316 3941"]);
   });
-  it("reads a period with no row as the could-not-read words the bar rows use", () => {
+  it("reads a period with no row as not stated", () => {
     // FY2022 exists as a period through Airframe's row only; Power & Control has none.
     const tile = draw(
       addRow(
@@ -402,7 +404,7 @@ describe("SegmentsTile sparkline reading of non-number cells (mutation)", () => 
       ),
     );
     expect(figureOf(tile)).toContain(
-      "Net sales FY2019 to FY2024: 2,300, 2,400, 2,500, This page could not read FY2022 for this row., 3,316, 3,941",
+      "Net sales: FY2019 2,300; FY2020 2,400; FY2021 2,500; FY2022 not stated; FY2023 3,316; FY2024 3,941",
     );
   });
 });
@@ -475,5 +477,73 @@ describe("SegmentsTile: which period the bars draw when no two years are compare
       notDrawn: ["PF FY2024"],
     });
     expect(view.comparison).toBeNull();
+  });
+});
+
+// Mutations (not a real handoff) of the accepted handoff's Power & Control sales (FY2023 3,316 and
+// FY2024 3,941 are its own cells; the other years are invented).
+describe("SegmentsTile sparkline: stated words, skipped years, a drawn period that is not a number", () => {
+  const row = (period: string, sales: string) => [
+    "Power & Control",
+    period,
+    sales,
+    "1000",
+    "USD millions",
+    "-",
+    "-",
+  ];
+  const rows = (...pairs: [string, string][]) =>
+    pairs.reduce(
+      (entry, [period, sales]) => addRow(entry, SCHEDULE, row(period, sales)),
+      cp1Entry(),
+    );
+  const figureOf = (tile: HTMLElement) =>
+    within(tile)
+      .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+      .getAttribute("aria-label") ?? "";
+  const sparkOf = (tile: HTMLElement, first: string) =>
+    within(tile).getByRole("img", { name: `Power & Control Net sales, ${first} to FY2024` });
+
+  it.each(["restated in the Form 10-K", "n.m. per the annual report", "Source: the prospectus"])(
+    "says a words cell that cites a filing as the table does: %s",
+    (words) => {
+      const tile = draw(rows(["FY2022", words], ["FY2021", "2500"], ["FY2020", "2400"]));
+      const said = figureOf(tile);
+      expect(said).not.toMatch(/Form 10-K|annual report|prospectus|Source:/);
+      expect(said).toContain("FY2021 2,500; FY2022 Detail is in Evidence.; FY2023 3,316");
+    },
+  );
+  it("breaks the line at each year the schedule does not state and says so", () => {
+    // FY2019, FY2021, FY2023, FY2024 stated; FY2020 and FY2022 have no period at all.
+    const tile = draw(rows(["FY2021", "2500"], ["FY2019", "2300"]));
+    expect(figureOf(tile)).toContain(
+      "Power & Control Net sales: FY2019 2,300; FY2020 not stated; FY2021 2,500; FY2022 not stated; FY2023 3,316; FY2024 3,941",
+    );
+    const spark = sparkOf(tile, "FY2019");
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(2);
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["3316 3941"]);
+  });
+  it("does not bridge a year the schedule states only as pro forma", () => {
+    const tile = draw(rows(["FY2022 PF", "3000"], ["FY2021", "2500"], ["FY2020", "2400"]));
+    const spark = sparkOf(tile, "FY2020");
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(1);
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["2400 2500", "3316 3941"]);
+    expect(figureOf(tile)).toContain("FY2021 2,500; FY2022 not stated; FY2023 3,316");
+  });
+  it("draws no sparkline when the drawn period's own sales is not a number", () => {
+    const tile = draw(
+      setCell(
+        rows(["FY2022", "2900"], ["FY2021", "2800"]),
+        SCHEDULE,
+        0,
+        "Net sales",
+        "Not supplied: withheld",
+      ),
+    );
+    expect(within(tile).queryByRole("img", { name: /^Power & Control Net sales, FY/ })).toBeNull();
   });
 });

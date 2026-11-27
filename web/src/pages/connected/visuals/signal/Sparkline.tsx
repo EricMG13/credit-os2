@@ -24,15 +24,28 @@ export function Sparkline({
   end?: string;
   label: string;
 }) {
+  if (width <= 2 * INSET || height <= 2 * INSET)
+    throw new RangeError(
+      `Sparkline: ${String(width)} x ${String(height)} leaves no room inside the ${String(INSET)} px inset`,
+    );
   for (const value of values)
     if (value !== null && !DECIMAL.test(value))
       throw new RangeError(`Sparkline: "${value}" is not a plain decimal figure`);
-  const numbers = values.map((value) => (value === null ? null : Number(value)));
+  const numbers = values.map((value) => {
+    if (value === null) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) throw new RangeError(`Sparkline: "${value}" is not a finite number`);
+    return n;
+  });
   const stated = numbers.flatMap((n) => (n === null ? [] : [n]));
   if (stated.length < 2) return null;
 
-  const low = Math.min(...stated);
-  const high = Math.max(...stated);
+  let low = Infinity;
+  let high = -Infinity;
+  for (const n of stated) {
+    if (n < low) low = n;
+    if (n > high) high = n;
+  }
   const span = Math.max(values.length - 1, 1);
   const x = (index: number) => INSET + ((width - 2 * INSET) * index) / span;
   const y = (n: number) =>
@@ -59,6 +72,7 @@ export function Sparkline({
     }
   }
   const lastSlot = slots[last];
+  const inLine = new Set(runs.filter((run) => run.length >= 2).flat());
 
   return (
     <svg
@@ -98,9 +112,7 @@ export function Sparkline({
         ) : null,
       )}
       {slots.map((slot) =>
-        slot !== null &&
-        slot.index !== last &&
-        !runs.some((run) => run.length >= 2 && run.includes(slot)) ? (
+        slot !== null && slot.index !== last && !inLine.has(slot) ? (
           <circle
             key={`dot-${String(slot.index)}`}
             data-value={slot.text}

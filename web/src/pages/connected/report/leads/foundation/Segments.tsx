@@ -6,7 +6,13 @@ import { GapSlot, Measured, SIZE, textWidth } from "../kit/marks";
 import { group } from "../kit/numbers";
 import { safeText } from "../kit/reader";
 import type { LeadProps } from "../types";
-import { figureGap, segmentView, type Segment, type SegmentView } from "./foundationData";
+import {
+  figureGap,
+  handoffWords,
+  segmentView,
+  type Segment,
+  type SegmentView,
+} from "./foundationData";
 import {
   SEG,
   segmentLayout,
@@ -16,6 +22,7 @@ import {
   type SegmentLayout,
   type SegmentPeriods,
 } from "./segmentsGeometry";
+import { withUnstated } from "./periodsData";
 
 const LABEL = "Segments";
 /** The figure's width before the first measure (and in jsdom): the span-6 tile at 1128 px. */
@@ -59,7 +66,7 @@ const SPARK_WIDTH = 60;
 type SalesSeries = {
   /** The stated figure of each period, null for every non-number (the line breaks there). */
   texts: (string | null)[];
-  /** Each period as the reading says it. */
+  /** Each period with its figure as the reading says it. */
   said: string[];
   first: string;
   last: string;
@@ -77,29 +84,33 @@ function salesSeries(
 ): SalesSeries | null {
   const drawnPeriod = view.periods.find((period) => period.label === periods.drawn);
   if (drawnPeriod?.kind !== "annual") return null;
-  const upTo = view.periods
-    .filter(
-      (period) =>
-        period.kind === "annual" &&
-        period.form === drawnPeriod.form &&
-        isReported(period.label) &&
-        !view.unplaced.includes(period.label),
-    )
-    .map((period) => period.label);
-  const labels = upTo.slice(0, upTo.indexOf(periods.drawn) + 1);
+  const upTo = view.periods.filter(
+    (period) =>
+      period.kind === "annual" &&
+      period.form === drawnPeriod.form &&
+      isReported(period.label) &&
+      !view.unplaced.includes(period.label),
+  );
+  // A year of the form that the schedule does not state is a slot of its own (the line breaks there).
+  const slots = withUnstated(upTo.slice(0, upTo.findIndex((p) => p.label === periods.drawn) + 1));
+  const labels = slots.map((period) => period.label);
   const cells = labels.map((label) => segment.sales.find((value) => value.label === label)?.cell);
+  // The drawn period's own figure ends the line: a drawn period that is not a number draws none.
+  if (cells.at(-1)?.kind !== "number") return null;
   const texts = cells.map((cell) => (cell?.kind === "number" ? cell.text : null));
-  // A stated gap is said "Not supplied" (its reason is Evidence-only); stated words as written;
-  // a period with no row as the bar rows say it.
+  // A stated gap is said "Not supplied" (its reason is Evidence-only); stated words as the bar rows
+  // and table say them; a period the schedule does not state "not stated".
   const said = labels.map((label, at) => {
     const cell = cells[at];
     return cell === undefined || cell === null
-      ? `This page could not read ${label} for this row.`
-      : cell.kind === "number"
-        ? group(cell.text)
-        : cell.kind === "gap"
-          ? "Not supplied"
-          : safeText(cell.text);
+      ? `${label} not stated`
+      : `${label} ${
+          cell.kind === "number"
+            ? group(cell.text)
+            : cell.kind === "gap"
+              ? "Not supplied"
+              : handoffWords(cell.text)
+        }`;
   });
   const first = labels[0];
   const last = labels.at(-1);
@@ -110,7 +121,7 @@ function salesSeries(
 
 /** The series in words for the figure's reading: grouped figures, each other cell in its own words. */
 function seriesWords(view: SegmentView, segment: Segment, series: SalesSeries) {
-  return `${safeText(segment.name)} ${view.salesLabel} ${series.first} to ${series.last}: ${series.said.join(", ")}`;
+  return `${safeText(segment.name)} ${view.salesLabel}: ${series.said.join("; ")}`;
 }
 
 function reading(
