@@ -20,12 +20,14 @@ from deploy_workflow.inbox import teams
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow import reference_fetch
 from deploy_workflow.run_start import service, standing_portfolios
+from deploy_workflow.accounts import store as account_store
 from deploy_workflow.signal import fetch as signal_fetch
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
 from . import (
     admission,
     artifacts,
+    auth_gate,
     coverage,
     deliverables,
     portfolio,
@@ -243,7 +245,9 @@ def _report_entries(snapshot: dict[str, Any] | None) -> dict[str, dict[str, Any]
     return entries
 
 
-def _read_page(dist: Path, *, synthetic: bool, signal: bool, read_only: bool = False) -> bytes:
+def _read_page(
+    dist: Path, *, synthetic: bool, signal: bool, read_only: bool = False, sign_in: bool = False
+) -> bytes:
     connected = dist / "connected.html"
     page = (connected if connected.is_file() else dist / "index.html").read_bytes()
     if b"<head>" not in page or page.count(b"connect-src 'none'") != 1:
@@ -255,6 +259,8 @@ def _read_page(dist: Path, *, synthetic: bool, signal: bool, read_only: bool = F
     )
     if signal:  # exactly where Signal is hosted: the page shows its screens
         metadata += '<meta name="credit-os-signal" content="on">'
+    if sign_in:  # exactly where the live application asks for a session
+        metadata += '<meta name="credit-os-sign-in" content="on">'
     page = page.replace(b"connect-src 'none'", b"connect-src 'self'", 1)
     page = page.replace(b"<head>", b"<head>" + metadata.encode("ascii"), 1)
     return page.replace(b'src="./', b'src="/').replace(b'href="./', b'href="/')
@@ -379,12 +385,41 @@ class _SignalReplies(service.Handler):
 
     hosted: signal_host.SignalHost | None = None
     raw_requestline: bytes  # set by http.server before any reply; its stubs do not list it
+    accounts: Path | None = None  # the resolved account store folder where sign-in is on
+    account: account_store.Account | None = None  # who the gate found (None without a session)
+
+    def check_origin(self) -> None:
+        super().check_origin()
+        if self.accounts is not None:
+            self.account = auth_gate.check(
+                self, self.accounts, lambda path: _app_page(path, signal=self.hosted is not None)
+            )
 
     def end_headers(self) -> None:
         # Here, as the base's own: every reply passes, those http.server writes itself included.
         for name, value in signal_host.reply_headers(self.hosted, self.raw_requestline).items():
             self.send_header(name, value)
         super().end_headers()
+
+
+def _auth_me(accounts: Path | None, path: str, account: account_store.Account | None) -> None:
+    """Where sign-in is on, answer ``GET /auth/me``: the signed-in account, or none."""
+    if accounts is None or path != "/auth/me":
+        return
+    shown = None
+    if account is not None:
+        shown = {
+            "id": account.id,
+            "display_name": account.display_name,
+            "profile_type": account.profile_type,
+        }
+    raise http_base.Reply(200, {"account": shown})
+
+
+def _only_get(accounts: Path | None, path: str) -> None:
+    """``/auth/me`` answers GET only (reached with a session; the gate refused the rest)."""
+    if accounts is not None and path == "/auth/me":
+        raise http_base.Reply(405, {"error": "method not allowed"}, {"Allow": "GET"})
 
 
 def _handler(
@@ -394,7 +429,7 @@ def _handler(
     *,
     read_only: bool = False,
     signal: signal_host.SignalHost | None = None,
-) -> type[service.Handler]:
+) -> type[_SignalReplies]:
     caps = {pathway: str(amount) for pathway, amount in PATHWAY_CAP_USD.items()}
 
     class Handler(_SignalReplies):
@@ -426,11 +461,13 @@ def _handler(
             super().send_reply(response)
 
         def _post(self, url: SplitResult) -> None:
+            _only_get(self.accounts, url.path)
             signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._post(url)
 
         def _delete(self, url: SplitResult) -> None:
+            _only_get(self.accounts, url.path)
             signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._delete(url)
@@ -439,7 +476,7 @@ def _handler(
 
         def _get(self, url: SplitResult) -> None:
             path = url.path
-            if path in {"/library", "/library/", "/library/index.html", "/library.html"}:
+            if path in auth_gate.LIBRARY_PATHS:
                 raise http_base.Reply(308, b"", {"Location": "/"})
             if _app_page(path, signal=signal is not None):
                 raise http_base.Reply(
@@ -453,6 +490,7 @@ def _handler(
                     },
                 )
             signal_host.divert(signal, self, url)
+            _auth_me(self.accounts, path, self.account)
             reply = _connected_reply(self._layout, url, context, caps)
             if reply is not None:
                 raise reply
@@ -477,6 +515,40 @@ class Server(service._Server):
     signal: signal_host.SignalHost | None = None
 
 
+def _is_inside(folder: Path, root: Path) -> bool:
+    """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
+    the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
+    file as ``root`` (``root`` exists). Creates nothing."""
+    return any(p.exists() and os.path.samefile(p, root) for p in (folder, *folder.parents))
+
+
+def _accounts_folder(
+    root: Path, *, sign_in: bool, accounts_dir: Path | None, preview: bool
+) -> Path | None:
+    """The resolved account store folder where sign-in is on, else None (``accounts_dir`` is then
+    ignored). The folder is opened once here, so a bad one fails at start-up with the store's own
+    ``StoreError``."""
+    if not sign_in:
+        return None
+    if preview:
+        raise ValueError("sign-in is for the live application only")
+    if accounts_dir is None:
+        raise ValueError("sign-in needs the account store's folder")
+    if not accounts_dir.is_absolute():  # before resolving: the store's own refusal, first
+        raise account_store.StoreError(account_store.RELATIVE_FOLDER)
+    if not root.exists():  # so the identity check below always has a root to compare with
+        raise ValueError("sign-in needs the shared folder to exist")
+    folder = accounts_dir.resolve()
+    if (
+        folder.is_relative_to(root.resolve())
+        or _is_inside(accounts_dir, root)
+        or _is_inside(folder, root)
+    ):
+        raise ValueError("the account store's folder must not be inside the shared folder")
+    account_store.open_db(folder).close()
+    return folder
+
+
 def _offline_resolve(host: str) -> Iterator[str]:
     """The ruled synthetic-mode behaviour (not a stand-in): a synthetic run fetches nothing, so no
     lookup or connection is made. Each fetchable standing key records this refusal as its failure
@@ -496,6 +568,8 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     read_only: bool = False,
     copilot_models: Mapping[str, frozenset[str]] | None = None,
     environ: Mapping[str, str] | None = None,
+    sign_in: bool = False,
+    accounts_dir: Path | None = None,
 ) -> Iterator[Server]:
     """Hold the upstream scheduler for the lifetime of the React HTTP server.
 
@@ -507,12 +581,21 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
         raise ValueError("an explicit launcher is required in synthetic mode only")
     if not 0 <= port <= 65535:
         raise ValueError("--port must be from 0 to 65535")
+    accounts = _accounts_folder(
+        root, sign_in=sign_in, accounts_dir=accounts_dir, preview=read_only or synthetic
+    )
     dist = (web or PROJECT / "web" / "dist").resolve()
     # A proof run and the read-only preview open no feed store and run no background loop.
     hosted = None
     if not (read_only or synthetic):
         hosted = signal_host.SignalHost(root, environ=os.environ if environ is None else environ)
-    page = _read_page(dist, synthetic=synthetic, signal=hosted is not None, read_only=read_only)
+    page = _read_page(
+        dist,
+        synthetic=synthetic,
+        signal=hosted is not None,
+        read_only=read_only,
+        sign_in=accounts is not None,
+    )
     context = _form_template(synthetic=synthetic)
     settings = (  # Teams cards are for real runs only: a synthetic service never posts
         Settings(
@@ -526,6 +609,7 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     scheduler = Scheduler(settings)
     context["copilot_models"] = scheduler.model_choices
     handler = _handler(dist, page, context, read_only=read_only, signal=hosted)
+    handler.accounts = accounts
     try:
         with Server(("127.0.0.1", port), handler) as server:
             server.scheduler, server.signal = scheduler, hosted
@@ -546,6 +630,8 @@ def serve(  # noqa: PLR0913 - match the server options
     synthetic: bool = False,
     copilot_models: Mapping[str, frozenset[str]] | None = None,
     environ: Mapping[str, str] | None = None,
+    sign_in: bool = False,
+    accounts_dir: Path | None = None,
 ) -> None:
     """Serve until interrupted: the HTTP server, the scheduler loop and, where Signal is hosted,
     its loop (started once the server is bound, stopped and joined on the way out). OSError
@@ -559,6 +645,8 @@ def serve(  # noqa: PLR0913 - match the server options
             synthetic=synthetic,
             copilot_models=copilot_models,
             environ=environ,
+            sign_in=sign_in,
+            accounts_dir=accounts_dir,
         ) as server,
         signal_host.running(server.signal),
     ):

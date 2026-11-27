@@ -32,7 +32,6 @@ _NOT_UNDERSTOOD = (
 )
 _NO_STORE = "error: there is no account store in {folder}; check --accounts-dir"
 _NOT_TEXT = "error: the passcode could not be read as text; nothing was set"
-_RELATIVE = "error: the account store's folder must be an absolute path"
 _DIFFER = "error: the two entries differ; nothing was set"
 
 
@@ -165,7 +164,7 @@ def _usage_error(parser: argparse.ArgumentParser) -> int:
 def _serve(folder: Path, args: argparse.Namespace) -> int:
     database = folder / "accounts.db"
     new_store = _absent(database)
-    if args.group == "accounts" and new_store:
+    if args.group == "accounts" and new_store and folder.is_absolute():
         print(_NO_STORE.format(folder=folder), file=sys.stderr)
         return 2
     try:
@@ -202,8 +201,5 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     folder = _folder(args.accounts_dir, env)
     if folder is None:
         print(_NO_FOLDER, file=sys.stderr)
-        return 2
-    if not folder.is_absolute():
-        print(_RELATIVE, file=sys.stderr)
         return 2
     return _serve(folder, args)

@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import sqlite3
+import sys
 import threading
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath, PureWindowsPath
 from typing import Any
 
 import pytest
 
+from deploy_workflow.accounts import store as store_module
 from deploy_workflow.accounts.store import (
     Account,
     Conflict,
     Missing,
     StoreError,
+    _inside_local_appdata,
     account_by_id,
     account_by_identity,
     disable_account,
@@ -261,20 +265,22 @@ def test_accounts_flow(db: sqlite3.Connection) -> None:
         db, object_id="o-2", email="a.kovac2@example.org", given_name="Anton", family_name="Kovac"
     )
     assert b.display_name == "A. Kovac (a.kovac2)" and b.profile_type == "reader"
+    third = _reg(db, object_id="o-3", email="a.kovac2@example.net")
+    assert third.display_name == "A. Kovac (a.kovac2@example.net)"
     with pytest.raises(Conflict):
-        _reg(db, object_id="o-3", email="a.kovac2@example.net")
-    assert _count(db) == 2
+        _reg(db, object_id="o-4", email="a.kovac2@example.net")
+    assert _count(db) == 3
     again = _reg(
         db, name="Ana Kovac", email="ana@example.org", given_name="Ana", family_name="Kovac"
     )
     assert again.id == 1 and again.display_name == "A. Kovac"
     assert again.email == "a.kovac@example.org"
-    assert _count(db) == 2
+    assert _count(db) == 3
     c = _reg(db, tenant_id="t-2", name="B. Novak", email="b.novak@example.org")
-    assert c.id == 3 and c.display_name == "B. Novak"
-    row = db.execute("SELECT given_name, family_name FROM accounts WHERE id=3").fetchone()
+    assert c.id == 4 and c.display_name == "B. Novak"
+    row = db.execute("SELECT given_name, family_name FROM accounts WHERE id=4").fetchone()
     assert row[0] is None and row[1] is None
-    assert [x.id for x in list_accounts(db)] == [1, 2, 3]
+    assert [x.id for x in list_accounts(db)] == [1, 2, 3, 4]
 
 
 def test_empty_local_part_bracket_holds_the_email(db: sqlite3.Connection) -> None:
@@ -442,6 +448,255 @@ def test_foreign_owned_file_is_refused_with_message_four(
         "it must belong to the account that runs the application and be open to no one else "
         "(chmod 700 for the folder, 600 for the file)"
     )
+
+
+# ---- slice 2, T1: folder rules in open_db ----
+
+LOCAL = r"C:\Users\ana\AppData\Local"
+_SAME = PureWindowsPath(r"C:\Users\ana\AppData\Local\x")
+_ACL_ACCESS = "system.posix_acl_access"
+_ACL_DEFAULT = "system.posix_acl_default"
+_REMEDY_TEXT = (
+    "it must belong to the account that runs the application and be open to no one else "
+    "(chmod 700 for the folder, 600 for the file)"
+)
+
+
+def test_relative_folder_refused_by_open_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(StoreError) as err:
+        open_db(Path("relative/dir"))
+    assert str(err.value) == "the account store's folder must be an absolute path"
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("folder", "local_appdata", "expected"),
+    [
+        (PureWindowsPath(r"C:\Users\ana\AppData\Local\credit-os\accounts"), LOCAL, True),
+        (
+            PureWindowsPath(r"C:\Users\ana\AppData\Local\credit-os\accounts"),
+            r"c:\users\ANA\appdata\local",
+            True,
+        ),
+        (PureWindowsPath(LOCAL), LOCAL, True),
+        (PureWindowsPath(r"C:\Users\ana\AppData\LocalLow\x"), LOCAL, False),
+        (PureWindowsPath(r"D:\shared\accounts"), LOCAL, False),
+        (PureWindowsPath(r"\\server\share\accounts"), LOCAL, False),
+        (PureWindowsPath(r"C:\Users\ana\AppData\Local\..\..\bob\x"), LOCAL, False),
+        (_SAME, None, False),
+        (_SAME, "", False),
+        (_SAME, r"AppData\Local", False),
+        (_SAME, r"C:Users\ana\AppData\Local", False),
+        (_SAME, r"\\server\share\Local", False),
+        (PureWindowsPath(r"\\server\share\Local\x"), r"\\server\share\Local", False),
+    ],
+)
+def test_inside_local_appdata(folder: PurePath, local_appdata: str | None, expected: bool) -> None:
+    assert _inside_local_appdata(folder, local_appdata) is expected
+
+
+def test_windows_branch_asks_the_decision_with_real_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "store"
+    local = tmp_path / "local"
+    monkeypatch.setattr(store_module, "_IS_WINDOWS", True)
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+    seen: list[tuple[PurePath, str | None]] = []
+
+    def refuse(where: PurePath, base: str | None) -> bool:
+        seen.append((where, base))
+        return False
+
+    monkeypatch.setattr(store_module, "_inside_local_appdata", refuse)
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        "on Windows the account store's folder must be inside your own %LOCALAPPDATA%, "
+        "which only you can open"
+    )
+    assert not folder.exists()
+    assert len(seen) == 1
+    assert str(seen[0][0]) == os.path.realpath(folder)
+    assert seen[0][1] == os.path.realpath(local)
+
+    monkeypatch.setattr(store_module, "_inside_local_appdata", lambda where, base: True)
+    open_db(folder).close()
+    assert (folder / "accounts.db").is_file()
+
+
+def test_windows_branch_without_localappdata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(store_module, "_IS_WINDOWS", True)
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    seen: list[str | None] = []
+
+    def refuse(where: PurePath, base: str | None) -> bool:
+        seen.append(base)
+        return False
+
+    monkeypatch.setattr(store_module, "_inside_local_appdata", refuse)
+    with pytest.raises(StoreError, match="inside your own %LOCALAPPDATA%"):
+        open_db(tmp_path / "store")
+    assert seen == [None]
+    assert not (tmp_path / "store").exists()
+
+
+def _fake_listxattr(
+    monkeypatch: pytest.MonkeyPatch, answers: dict[str, list[str] | OSError]
+) -> None:
+    """Simulate extended attributes by path (no real ACL is set); unnamed paths have none."""
+
+    def listxattr(path: Any = None, *, follow_symlinks: bool = True) -> list[str]:
+        answer = answers.get(str(path), [])
+        if isinstance(answer, OSError):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(os, "listxattr", listxattr, raising=False)
+
+
+@posix_only
+@pytest.mark.parametrize("attribute", [_ACL_ACCESS, _ACL_DEFAULT])
+def test_linux_folder_acl_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, attribute: str
+) -> None:
+    folder = tmp_path / "store"
+    _fake_listxattr(monkeypatch, {str(folder): [attribute]})
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store's folder {folder} carries an access-control list; {_REMEDY_TEXT}"
+    )
+
+
+@posix_only
+@pytest.mark.parametrize("attribute", [_ACL_ACCESS, _ACL_DEFAULT])
+def test_linux_file_acl_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, attribute: str
+) -> None:
+    folder = tmp_path / "store"
+    path = folder / "accounts.db"
+    _fake_listxattr(monkeypatch, {str(path): [attribute]})
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store {path} carries an access-control list; {_REMEDY_TEXT}"
+    )
+
+
+@posix_only
+@pytest.mark.parametrize("code", [errno.ENOTSUP, errno.EOPNOTSUPP])
+def test_linux_no_extended_attributes_means_no_acl(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    folder = tmp_path / "store"
+    error = OSError(code, "")
+    _fake_listxattr(monkeypatch, {str(folder): error, str(folder / "accounts.db"): error})
+    open_db(folder).close()
+
+
+@posix_only
+def test_linux_other_listxattr_error_propagates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "store"
+    _fake_listxattr(monkeypatch, {str(folder): OSError(errno.EACCES, "")})
+    with pytest.raises(OSError) as err:
+        open_db(folder)
+    assert err.value.errno == errno.EACCES
+
+
+@posix_only
+def test_linux_unrelated_attributes_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    folder = tmp_path / "store"
+    _fake_listxattr(monkeypatch, {str(folder): ["user.note"]})
+    open_db(folder).close()
+
+
+# ---- slice 2, T1: display names ----
+
+
+def _name(db: sqlite3.Connection, n: int, name: str, email: str) -> str:
+    return _reg(db, object_id=f"n-{n}", name=name, email=email).display_name
+
+
+def test_name_three_candidates(db: sqlite3.Connection) -> None:
+    assert _reg(db).display_name == "A. Kovac"
+    assert _name(db, 2, "A. Kovac", "a.kovac2@example.org") == "A. Kovac (a.kovac2)"
+    assert _name(db, 3, "A. Kovac", "a.kovac2@example.net") == "A. Kovac (a.kovac2@example.net)"
+    with pytest.raises(Conflict) as err:
+        _name(db, 4, "A. Kovac", "a.kovac2@example.net")
+    assert str(err.value) == ("the display name 'A. Kovac' and its two bracketed forms are taken")
+    assert _count(db) == 3
+
+
+def test_name_squatter_of_the_bracketed_form(db: sqlite3.Connection) -> None:
+    assert _name(db, 1, "A. Kovac (a.kovac2)", "squat@example.org") == "A. Kovac (a.kovac2)"
+    assert _name(db, 2, "A. Kovac", "a.kovac@example.org") == "A. Kovac"
+    assert _name(db, 3, "A. Kovac", "a.kovac2@example.org") == "A. Kovac (a.kovac2@example.org)"
+
+
+def test_name_same_local_part_different_brands(db: sqlite3.Connection) -> None:
+    got = [_name(db, i, "John Smith", f"john.smith@brand-{b}.example") for i, b in enumerate("abc")]
+    assert got == [
+        "John Smith",
+        "John Smith (john.smith)",
+        "John Smith (john.smith@brand-c.example)",
+    ]
+
+
+def test_name_reserved_is_never_free(db: sqlite3.Connection) -> None:
+    assert _name(db, 1, "before accounts", "b@example.org") == "before accounts (b)"
+
+
+def test_name_is_cut_to_sixty(db: sqlite3.Connection) -> None:
+    assert _name(db, 1, "x" * 70, "x@example.org") == "x" * 60
+
+
+def test_name_bracket_fits_sixty(db: sqlite3.Connection) -> None:
+    assert _name(db, 1, "N" * 70, "n@example.org") == "N" * 60
+    got = _name(db, 2, "N" * 70, "nn@example.org")
+    assert got == "N" * 55 + " (nn)" and len(got) == 60
+
+
+def test_name_long_local_part_is_marked(db: sqlite3.Connection) -> None:
+    email = "l" * 50 + "@x.org"
+    assert _name(db, 1, "Ana Kovac", "ak@x.org") == "Ana Kovac"
+    second = _name(db, 2, "Ana Kovac", email)
+    assert second == "Ana Kovac (" + "l" * 39 + "…)" and len(second) == 52
+    third = _name(db, 3, "Ana Kovac", email)
+    assert third == "Ana Kovac (…" + "l" * 33 + "@x.org)" and len(third) == 52
+
+
+def test_name_cut_name_with_bracket(db: sqlite3.Connection) -> None:
+    long_name = "Ana " + "K" * 60
+    assert _name(db, 1, long_name, "a@x.org") == "Ana " + "K" * 56
+    assert _name(db, 2, long_name, "ak@x.org") == "Ana " + "K" * 51 + " (ak)"
+
+
+def test_name_long_double_barrelled(db: sqlite3.Connection) -> None:
+    long_name = "Konstantinopoulou-Papadimitriou, Alexandra (Credit Research, London)"
+    assert len(long_name) == 68
+    mail = "alexandra.konstantinopoulou-papadimitriou@example."
+    got = [
+        _name(db, 1, long_name, "k@example.org"),
+        _name(db, 2, long_name, mail + "org"),
+        _name(db, 3, long_name, mail + "org"),
+        _name(db, 4, long_name, mail + "net"),
+    ]
+    assert got == [
+        "Konstantinopoulou-Papadimitriou, Alexandra (Credit Research,",
+        "Konstantinopoulou (alexandra.konstantinopoulou-papadimitri…)",
+        "Konstantinopoulou (…tantinopoulou-papadimitriou@example.org)",
+        "Konstantinopoulou (…tantinopoulou-papadimitriou@example.net)",
+    ]
+    assert all(len(x) <= 60 for x in got)
 
 
 # ---- review fixes, 2026-11-27 ----

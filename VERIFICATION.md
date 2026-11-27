@@ -4,6 +4,50 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 2: sessions, the one check, the switch and `/auth/me` (PR #119)
+
+- Scope: `deploy_workflow.accounts` (sessions; folder rules and display names moved or fixed) and
+  `react_frontend` (the gate, the start-up switch, `/auth/me`, the sign-in meta) with their tests.
+  Sign-in stays off unless `make_server(sign_in=True, accounts_dir=...)` is used; nothing does yet.
+  No request to Microsoft, no model call, no live fetch, no new dependency. Stacked on #108.
+  Trimmed here: the seven oldest entries (all 2026-11-18, from "Desktop review follow-up after
+  PR #64" to "Connected desktop findings and Forecast proof").
+- Sessions: a `secrets.token_urlsafe(32)` token, only its SHA-256 stored, 12 real hours from
+  sign-in (UTC arithmetic; a London time across the clock change was 13 h before the fix); lookup
+  writes nothing; an unknown, expired, ended or malformed token, or a disabled account, gives no
+  session.
+- The check: after Host, `Sec-Fetch-Site` and `Origin`, before `Transfer-Encoding` and every route.
+  Only GET `/sign-in` and GET `/auth/me` pass without a session (exact method and path); app pages
+  and `/library` paths get a 303 to `/sign-in`; the rest get 401. The cookie counts only when its name
+  appears once across all `Cookie` headers; a store error is a 500, never "no session".
+- Start-up: sign-in refused in read-only and synthetic modes; the store's folder must be given,
+  absolute, private, outside `--root` by path and by file identity (case variants, the macOS
+  firmlink and `..` caught), and `--root` must exist. Linux POSIX ACLs refused; on Windows the folder
+  must be inside `%LOCALAPPDATA%` (simulated here). Display names: first free of three candidates,
+  at most 60 characters, "before accounts" reserved.
+- Checked: `tests/test_accounts_*.py` 147 and `tests/test_auth_*.py` 44 passed (440 with the server,
+  Signal-host, standing-portfolio and repo-rules tests); expected values are hand-written or come
+  from independent standard-library calls (`hashlib` for the stored hash, `os.path.realpath`);
+  `tools/quality_gate.py`, `lint-imports`, `mypy --strict` on the package, `ruff` exit 0. The
+  deny-by-default test sends every path the code names, 200 seeded hostile paths and all seven
+  methods: no route runs without a session, every route runs with one; with the gate call removed
+  22 tests fail. The log test finds no 8-character piece of any token and no stored hash anywhere.
+  Reviews: per-task `mx-precise` (four Mediums fixed), `mx-adversary` on the slice (two Mediums and
+  a Low fixed over two rounds, re-review passed), confidence review, rewrite tournament (incumbent
+  holds), sweep (3 Info), `mx-architect` pre-merge PASS, 2 Low and 3 Info (Opus 5.5 at xhigh: Fable
+  usage was exhausted).
+- Merge with refreshed slice 1 `1aecd0fe` and `main` `cebb1726`: 412 auth, accounts, frontend,
+  Signal-host and repo-rules tests passed on macOS, including deny-by-default positive controls
+  and the passcode and session log checks. The quality gate and all three import contracts
+  passed. The merge review confirmed the incoming deliverables route and all sign-in refusals
+  before Scheduler construction. The Windows work-PC check in TODO item 15 remains open.
+- Not verified: Windows and a real Linux ACL (both simulated); Linux bind mounts; SMB or OneDrive
+  ownership mapping; real browsers' cookies; concurrent load; the Ubuntu runner (the case-variant and
+  dot-dot tests skip there; nothing was run on Linux); routes whose path is built at run time (the
+  gate still runs before them); GitNexus (not indexed); CI on the PR head until it runs. The local
+  fast subset (2,611 passed) had one environmental failure, `test_react_runtime_identity` (a macOS
+  temp path of 125 characters, limit 80), and 156 skips for the missing web `node_modules`.
+
 ## 2026-11-26 — Sign-in slice 1: account store, passcodes, lockout, accounts command line
 
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
@@ -925,44 +969,3 @@ then 5; the narrow layout and the controls listed below.
 - Not fixed: publication still grows with the number of runs (reads, hashes, 840 download
   files at 30 runs). Not verified: a live run, real PDFs, Windows. One server test failed once
   under load and passed in the next ten runs; it was not identified.
-
-## 2026-11-18 — Performance review: source pages, publication reads, library index, PR checks
-
-- Scope: synthetic runs with canned replies on one Linux container (4 cores, shared with other
-  jobs). No provider call, no real issuer file, no Windows, no browser proof. Medians of 7
-  loopback requests unless stated. The PDF is a Chromium-printed text file, not a filing.
-- Source pages: `model.handoff._pages` now keeps the pages of bytes it has read, by their sha256,
-  in memory (50 million characters, least recently read first out). The reader still reads and
-  hashes the original on every request. One 250-page PDF source: report open 9.5 s to 41 ms after
-  the first open in a process (9.1 s); one cited page 9.8 s to 3 ms. A synthetic run with one
-  10-page PDF read it 46 times: 46.2 s to 3.9 s.
-- Publication: `admission.published` keeps the parsed `data.js` until the file's identity changes
-  (inode, size, modified and changed times); a file changed less than 2 s ago is not kept. At 30
-  runs (16.1 MB): library 116 to 9.5 ms, reports list 124 to 6.4, report entry 145 to 6.2, report
-  snapshot 155 to 45, finished run page 146 to 30, source download 112 to 5.7, portfolio basis
-  120 to 5.7. The kept object takes about 48 MB at that size.
-- Library index: the reply leaves out each run's `files` list, which no page reads: 1,306,297 to
-  92,407 bytes decoded at 30 runs (102,754 to 6,619 gzip).
-- PR checks: `checks.yml` now runs `tests/test_react_*.py`, `proof/test_launcher.py` and a `web`
-  job (lint, format, types, unused, duplication, component tests, build, script tests). At
-  2e48875 57 of 254 server tests failed or errored (run identifiers and a launcher signature
-  from the Copilot cutover) and `npm run unused` failed on one export; the tests and the export
-  are corrected. One server defect found by them: an output without `module` made the report
-  list and the library index answer 500 (`library_cards._designated_output`).
-- Commands: `tools/quality_gate.py` 0 findings; pytest on `tests/test_react_*.py`,
-  `proof/test_launcher.py`, `tests/test_handoff_loop.py`, `tests/test_handoff_transport.py`,
-  `tests/model`, `tests/test_quality_gate.py`, `tests/test_library_index.py`,
-  `tests/test_update_library.py` 1,377 passed; `tests/test_cpos_launch.py`, the run start and
-  inbox scheduler, runs and activity files 1,523 passed; web `lint`, `format:check`, `typecheck`,
-  `unused`, `duplication`, `test:scripts` exit 0. `npm test` (5,285 tests) passed before the
-  one-word web edit; after it the start-page files (281 tests) passed.
-- Confidence review, ranked: (1) a kept publication could go stale or be changed by a reply:
-  tests cover a swapped folder, a same-size rewrite in place, a missing file and every read
-  route against the shared object; (2) kept pages could bypass the hash check: the hash is taken
-  on each request before the lookup, and changed bytes are refused (test); (3) a caller could
-  edit kept pages: each call gets its own list (test); (4) the run page's admission lookup lost
-  a guard: the link and 64 MB checks stay, and a pending run still reads nothing (tests).
-- Not fixed: the publisher still rebuilds the whole library for each run end and each service
-  start, under the scheduler lock (0.12 s a run: 3.5 s at 30 runs), and `data.js` grows by about
-  0.5 MB a synthetic run. The profile is flat, so this needs per-run publication, a design choice.
-- Not verified: a live run, real PDFs, Windows, the web gates in GitHub Actions before this PR.
