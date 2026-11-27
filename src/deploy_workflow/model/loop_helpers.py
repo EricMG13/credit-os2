@@ -21,7 +21,7 @@ def redacted_request(redactor: Redactor, request: TurnRequest) -> TurnRequest:
             redactor.text(item.call_id),
             redactor.text(item.name),
             redactor.json_value(item.arguments),
-            item.bad_arguments,
+            None if item.bad_arguments is None else redactor.text(item.bad_arguments),
         )
 
     def message(item: Message) -> Message:
@@ -60,7 +60,7 @@ def redacted_turn(redactor: Redactor, turn: Turn) -> Turn:
                 redactor.text(c.call_id),
                 redactor.text(c.name),
                 redactor.json_value(c.arguments),
-                c.bad_arguments,
+                None if c.bad_arguments is None else redactor.text(c.bad_arguments),
             )
             for c in turn.tool_calls
         ),
