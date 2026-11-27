@@ -91,6 +91,12 @@ export function drawnGapReason(reason: string) {
   return cites(why) ? (drawnAmount(why) ?? EVIDENCE_REASON) : why;
 }
 
+/**
+ * A note the module wrote, as the page draws it: its words with a citing bracket set aside, else
+ * the reason rule (which points to the evidence). Uncited text is unchanged.
+ */
+export const drawnNote = (text: string) => drawnAmount(text) ?? drawnGapReason(text);
+
 /** Whether a cell with no parsed value is a gap the module wrote, not a stated level. */
 export const wroteGap = ({ text, reason }: { text: string; reason: string | null }) =>
   reason !== null || /^Not (?:supplied|calculated)\b/u.test(text.trim());

@@ -1,5 +1,5 @@
 import { orderPeriods } from "@/utils/periodOrder";
-import type { OutputEntry } from "../../publishedReport";
+import { containsReference, type OutputEntry } from "../../publishedReport";
 import { gridOf } from "../../visuals/LegacyForecast";
 import { isForecastPeriod } from "../../visuals/scenarioPeriods";
 import {
@@ -91,7 +91,36 @@ export type DownsidePanel = {
   line?: number;
 };
 
-const LEAD_NUMBER = /^(-?\d[\d,]*(?:\.\d+)?) \(/;
+const LEAD_NUMBER = /^(-?\d[\d,]*(?:\.\d+)?) \((.*)\)$/;
+/** A bracket that states a figure of its own (a unit, a currency, a comparison) is no citation. */
+const OWN_FIGURE = /\d[\d,]*(?:\.\d+)?\s*(?:x|%|m\b|bn\b|million|billion)|[A-Z]{3}\s?-?\d|[$€£]/;
+const COMPARISON = /\b(?:from|vs|versus|was|prior|restated)\b/i;
+
+/**
+ * The leading figure of "N (bracket)": N only when the bracket restates N in the measure's own unit
+ * ("(-USD 5.13 million)" in a "USD millions" row, "(5.0x)" in an "x" row) or is a pure citation
+ * ("(annual_report.pdf pages 59, 153)"), or carries no number at all ("(covenant breached)"). A
+ * bracket that states another figure (another currency or quantity, a comparison) leaves the cell
+ * stated and not placed.
+ */
+function leadValue(plain: string, unit: string): number | null {
+  const match = LEAD_NUMBER.exec(plain);
+  const lead = amount(match?.[1] ?? "");
+  const inner = (match?.[2] ?? "").trim();
+  if (lead === null) return null;
+  if (!/\d/.test(inner)) return lead;
+  if (containsReference(inner))
+    return OWN_FIGURE.test(inner) || COMPARISON.test(inner) ? null : lead;
+  const currency = /^([A-Z]{3}) millions?$/.exec(unit)?.[1];
+  const restated = currency
+    ? /^-?\s*([A-Z]{3}) (\d[\d,]*(?:\.\d+)?) million$/.exec(inner)
+    : /^(-?\d[\d,]*(?:\.\d+)?)\s*(x|%)$/.exec(inner);
+  if (!restated) return null;
+  if (currency ? restated[1] !== currency : restated[2] !== unit) return null;
+  const said = amount((currency ? restated[2] : restated[1]) ?? "");
+  const exact = currency ? Math.abs(lead) : lead;
+  return said !== null && Math.abs(exact - said) <= 0.005000001 ? lead : null;
+}
 const STATED_GAP = /^Not (?:supplied|calculated):\s*(\S.*)$/;
 
 /** A stressed cell read in its measure's unit ("7.5x" in an "(x)" row is 7.5). A gap keeps the
@@ -102,7 +131,7 @@ function stressCell(text: string, unit: string): Cell {
   // ("6.53x", "4.88x; pro forma 6.02x"). A bare number there has no scale and is not drawn.
   const multiple = /^(-?\d+(?:\.\d+)?)x(?:;|$)/.exec(plain)?.[1];
   const value = unit
-    ? (amount(plain, unit) ?? amount(LEAD_NUMBER.exec(plain)?.[1] ?? ""))
+    ? (amount(plain, unit) ?? leadValue(plain, unit))
     : multiple === undefined
       ? null
       : Number(multiple);

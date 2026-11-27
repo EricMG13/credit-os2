@@ -9,6 +9,7 @@ import {
   drawnCellText,
   drawnGapReason,
   drawnGapText,
+  drawnNote,
   wroteGap,
   cellsOf,
   absentText,
@@ -22,7 +23,7 @@ import {
 import { gapLine } from "./gapLine";
 import { GapChip, ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
-import { cellWord, gapReading, gapText } from "./overview/notes";
+import { cellWord, gapReading, stressNoteText } from "./overview/notes";
 import { downsidePanels, stressLabel, type DownsidePanel } from "./overview/stressData";
 import { Figure, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
@@ -574,13 +575,14 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
       </Part>
     );
   const notes = [
-    ...data.assumptions,
+    // The module's own classification and case names can cite a source: drawn by the page's rule.
+    ...data.assumptions.map(drawnNote),
     ...data.panels.flatMap((panel) =>
       panel.cells.flatMap((cell, at) => {
         const scenario = data.cases[at]?.name ?? "";
         if (cell.value === null) {
           // The cell's own words: the module's stated reason, or the text it wrote in full.
-          const words = gapText(cell);
+          const words = stressNoteText(cell);
           return words === null
             ? []
             : [

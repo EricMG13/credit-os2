@@ -164,6 +164,13 @@ export function gapText(cell: Cell) {
   return gapWord(trimmed) === trimmed ? null : trimmed;
 }
 
+/**
+ * The words a stress cell with no bar owes beneath its panel: `gapText`, and for a cell labelled
+ * "Stated, not drawn" its value as written, so the label's promise holds for a short bare number.
+ */
+export const stressNoteText = (cell: Cell) =>
+  cellWord(cell) === STATED_NOT_DRAWN ? cell.text.trim() : gapText(cell);
+
 /** Plain notes (a table's own basis notes) as notes with no lead. */
 export const plainNotes = (texts: readonly string[]): Note[] => texts.map((text) => ({ text }));
 
