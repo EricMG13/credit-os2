@@ -92,8 +92,15 @@ export type DownsidePanel = {
 };
 
 /** "N (…)", then only more round or square brackets and at most one full stop. */
-const LEAD_NUMBER =
-  /^(-?\d[\d,]*(?:\.\d+)?) ((?:\([^()]*\)|\[[^\]]*\])(?:\s*(?:\([^()]*\)|\[[^\]]*\]))*)\.?$/;
+const GROUP = String.raw`(?:\((?:[^()]|\([^()]*\))*\)|\[[^\]]*\])`;
+const LEAD_NUMBER = new RegExp(String.raw`^(-?\d[\d,]*(?:\.\d+)?) (${GROUP}(?:\s*${GROUP})*)\.?$`);
+/** An evidence marker item, as `MARKER_ITEM` in publishedReport.ts (not exported there), or a bare number. */
+const MARKER_ITEM = String.raw`(?:[CDEGKRS]\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|\d+)`;
+/** A bracket holding only evidence markers ("[S12]", "[E3.2, G3]", "[1]"); case-sensitive. */
+const MARKER_BRACKET = new RegExp(
+  String.raw`\[\s*${MARKER_ITEM}(?:\s*[,;]\s*${MARKER_ITEM})*\s*\]`,
+  "g",
+);
 /** Where a citation's number ends: not before a decimal, a word, a share, a multiple or a scale. */
 const END = String.raw`(?![\w%]|[.,]\d|\s*(?:x|times|m|bn|millions?|billions?)\b)`;
 /**
@@ -102,7 +109,7 @@ const END = String.raw`(?![\w%]|[.,]\d|\s*(?:x|times|m|bn|millions?|billions?)\b
  * register code.
  */
 const CITATION = new RegExp(
-  String.raw`\b(?:pp?\.|pages?|notes?|tables?|sections?)\s*\d+(?:\.\d+)*${END}(?:\s*(?:[,;&–-]|and)\s*\d+${END})*|\bT[A-Z0-9]{0,8}\.\d+(?:\.[A-Z0-9]+)*|\bE\d{1,4}[a-z]?\b|\bCP-[A-Z0-9]+(?:-[A-Z0-9]+)*`,
+  String.raw`\b(?:pp?\.?|pgs?\.?|pages?|notes?|tables?|sections?)\s*\d+(?:\.\d+)*${END}(?:\s*(?:[,;&–-]|and)\s*\d+${END})*(?:\s+of\s+\d+${END})?|\bT[A-Z0-9]{0,8}\.\d+(?:\.[A-Z0-9]+)*|\bE\d{1,4}[a-z]?\b|\bCP-[A-Z0-9]+(?:-[A-Z0-9]+)*`,
   "gi",
 );
 
@@ -118,8 +125,14 @@ function leadValue(plain: string, unit: string): number | null {
   const lead = amount(match?.[1] ?? "");
   if (lead === null) return null;
   const left = (match?.[2] ?? "")
+    .replace(MARKER_BRACKET, " ")
     .replace(/[()[\]]/g, " ")
     .replace(CITATION, " ")
+    // A reference of several words ("calculation R01", "Results.pdf") is set aside by its clause
+    // (a comma or semicolon then a space, so a decimal comma stays), then word by word.
+    .split(/[,;]\s/)
+    .filter((clause) => !containsReference(clause))
+    .join(", ")
     .split(/\s+/)
     .filter((word) => !containsReference(word))
     .join(" ")
