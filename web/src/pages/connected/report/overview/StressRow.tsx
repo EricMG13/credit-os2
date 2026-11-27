@@ -38,7 +38,15 @@ import {
   type DownsidePanel,
   type HeadroomTest,
 } from "./stressData";
-import { DOWNSIDE, gapPlace, perRow, rowLayout, type PanelLayout } from "./downsideLayout";
+import { categoryAt } from "./category";
+import {
+  DOWNSIDE,
+  NAME_INDENT,
+  gapPlace,
+  perRow,
+  rowLayout,
+  type PanelLayout,
+} from "./downsideLayout";
 import { TEXT, inside, textWidth, thinTicks } from "./chartText";
 import { pathLayout } from "./pathLayout";
 import { Figure } from "./Tile";
@@ -450,12 +458,12 @@ function PanelBars({
   layout,
   head,
   row: height,
-  first,
+  colours,
 }: {
   layout: PanelLayout & { x: number };
   head: number;
   row: number;
-  first: boolean;
+  colours: readonly string[];
 }) {
   const { x, panel, zero, at } = layout;
   const bottom = head + panel.cells.length * height;
@@ -479,7 +487,7 @@ function PanelBars({
               width={Math.max(1, Math.abs(end - zero))}
               height={DOWNSIDE.bar}
               rx="2"
-              className={first ? "fill-chart-1" : "fill-chart-2"}
+              style={{ fill: colours[row] }}
             />
             <Lines
               lines={lines}
@@ -499,18 +507,18 @@ function PanelRow({
   cases,
   panels,
   width,
-  first,
 }: {
   cases: Downside["cases"];
   panels: DownsidePanel[];
   width: number;
-  first: number;
 }) {
   const layout = rowLayout(
     cases.map((item) => item.name),
     panels,
     width,
   );
+  // One colour a case, in the stated case order, the same in every panel (ruling R2).
+  const colours = cases.map((_, at) => categoryAt(at));
   return (
     <svg
       viewBox={`0 0 ${String(width)} ${String(layout.height)}`}
@@ -523,26 +531,31 @@ function PanelRow({
       </defs>
       {cases.map((item, row) => {
         const lines = layout.nameLines[row] ?? [];
+        const middle = layout.head + row * layout.row + layout.row / 2;
         return (
-          <Lines
-            key={item.id}
-            lines={lines}
-            x={0}
-            y={firstBaseline(layout.head + row * layout.row + layout.row / 2, lines.length)}
-            className={
-              item.control ? "fill-text-secondary font-body" : "fill-text-primary font-body"
-            }
-          />
+          <Fragment key={item.id}>
+            <rect
+              data-swatch={item.name}
+              x="0"
+              y={middle - DOWNSIDE.swatch / 2}
+              width={DOWNSIDE.swatch}
+              height={DOWNSIDE.swatch}
+              rx="2"
+              style={{ fill: colours[row] }}
+            />
+            <Lines
+              lines={lines}
+              x={NAME_INDENT}
+              y={firstBaseline(middle, lines.length)}
+              className={
+                item.control ? "fill-text-secondary font-body" : "fill-text-primary font-body"
+              }
+            />
+          </Fragment>
         );
       })}
       {layout.panels.map((panel, at) => (
-        <PanelBars
-          key={at}
-          layout={panel}
-          head={layout.head}
-          row={layout.row}
-          first={first + at === 0}
-        />
+        <PanelBars key={at} layout={panel} head={layout.head} row={layout.row} colours={colours} />
       ))}
     </svg>
   );
@@ -561,7 +574,7 @@ function Downside({ data, href }: { data: Downside | null; href: NoteHref }) {
     <>
       <div ref={frame} className="flex min-w-0 flex-col gap-4">
         {rows.map((panels, at) => (
-          <PanelRow key={at} cases={data.cases} panels={panels} width={width} first={at * step} />
+          <PanelRow key={at} cases={data.cases} panels={panels} width={width} />
         ))}
       </div>
       <ReasonNotes notes={downsideNotes(data)} href={href} />

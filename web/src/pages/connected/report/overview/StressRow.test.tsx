@@ -895,3 +895,33 @@ it("S17-2-1 says why a case named in the key has no figure", () => {
     within(tile).getAllByText(/Downside case: no figure, EBITDA is not positive/i),
   ).toHaveLength(1);
 });
+
+// Colour-signal-build rulings R1 and R2: expected values are written out by hand.
+it("draws no band, share or better/worse colour on the covenant tile", () => {
+  render(<StressRow {...rowProps([covenants])} />);
+  const tile = screen.getByRole("region", { name: "Covenant headroom" });
+  expect(tile.innerHTML).not.toMatch(
+    /better-mark|worse-mark|scale-better|scale-worse|cap-band|scale-amount|category-|warning-|error-|success-/,
+  );
+  expect(tile.textContent).not.toContain("%");
+});
+
+it("draws one colour a case, the same in every panel, with a swatch beside each name", () => {
+  render(<StressRow {...rowProps([downside])} />);
+  const tile = downsideTile();
+  const fill = (element: Element | null) => (element as SVGElement | null)?.style.fill;
+  const colours = ["var(--color-category-1)", "var(--color-category-3)", "var(--color-category-4)"];
+  const panels = [...tile.querySelectorAll("[data-panel]")];
+  expect(panels.length).toBeGreaterThan(1);
+  for (const panel of panels) {
+    const bars = [...panel.querySelectorAll("[data-bar]")].map(fill);
+    expect(bars).toEqual(colours.slice(0, bars.length));
+  }
+  for (const svg of within(tile).getAllByRole("img")) {
+    expect([...svg.querySelectorAll("[data-swatch]")].map(fill)).toEqual(colours);
+  }
+  expect(tile.innerHTML).not.toMatch(
+    /better-mark|worse-mark|scale-better|scale-worse|cap-band|category-2|category-7/,
+  );
+  for (const gap of tile.querySelectorAll("[data-gap]")) expect(fill(gap)).toBe("");
+});
