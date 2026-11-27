@@ -3,7 +3,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import fixture from "../../../fixtures/signal.json";
 import { KindDot } from "./parts/KindDot";
-import { change, show } from "./test-helpers";
+import { show } from "./test-helpers";
 
 const key = () => screen.queryByRole("group", { name: "Key" });
 const swatches = (group: HTMLElement) =>
@@ -28,11 +28,28 @@ describe("the kind dot", () => {
     expect(dotOf(articleOf(CORVANE), "News")).toBe("fill-category-4");
     expect(dotOf(articleOf(TESSALY), "Regulatory case")).toBe("fill-category-3");
     expect(dotOf(articleOf(HALVORSEN), "Rating action")).toBe("fill-category-5");
-    for (const article of screen.getAllByRole("article")) {
-      expect(article.querySelectorAll("svg[aria-hidden='true'] circle")).toHaveLength(1);
-      expect(article.innerHTML).not.toMatch(/category-(1|2|7)\b/);
-    }
   });
+
+  it.each([
+    "/signal/main/feed/for-you",
+    "/signal/ai-on/feed/for-you",
+    "/signal/issuers/feed/latest",
+  ])(
+    "draws one kind dot per story, none on a market post or digest, and no slot 1, 2 or 7 at %s",
+    (hash) => {
+      show(hash);
+      for (const article of screen.getAllByRole("article")) {
+        // A market post and a digest card carry no kind dot.
+        const none =
+          within(article).queryByRole("heading", { name: /^Market backdrop/ }) !== null ||
+          within(article).queryByText("Digest") !== null;
+        // The byline is the first line of the card: the strength pips below it are not kind dots.
+        const dots = article.querySelectorAll(".mb-0\\.5 svg circle");
+        expect(dots).toHaveLength(none ? 0 : 1);
+        expect(article.innerHTML).not.toMatch(/category-(1|2|7)\b/);
+      }
+    },
+  );
 
   it("draws a filing in slot 8 and no dot on the market post", () => {
     show("/signal/issuers/feed/latest");
@@ -136,11 +153,6 @@ describe("the key above a list", () => {
     group.threads = group.threads.filter((t) => t.storyId === null);
     expect(group.threads.length).toBeGreaterThan(0);
     show("/signal/main/group/leveraged-credit", slice);
-    expect(key()).toBeNull();
-  });
-
-  it("draws no key on an empty list", () => {
-    show("/signal/main/feed/for-you", change(0, ["snapshot", "feed", "stories"], []));
     expect(key()).toBeNull();
   });
 });

@@ -273,7 +273,11 @@ export function GroupPage({
         </EmptyState>
       ) : (
         <>
-          <KindKey stories={group.threads.flatMap((t) => stories.get(t.storyId ?? "") ?? [])} />
+          <KindKey
+            stories={group.threads.flatMap((t) =>
+              t.storyId === null ? [] : (stories.get(t.storyId) ?? []),
+            )}
+          />
           <ul aria-label="Shared in this group" className={`mt-4 ${LIST_TILE}`}>
             {group.threads.map((thread) => {
               const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);
