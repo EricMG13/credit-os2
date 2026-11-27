@@ -215,9 +215,22 @@ const UNORDERED =
   "These periods give no single latest reported period, so no latest figure or change is drawn.";
 
 /** Every period's cell as written, in the table's order, where no latest can be chosen. */
-function AsWritten({ series, href }: { series: Series; href: Href }) {
+function AsWritten({
+  series,
+  href,
+  title,
+  said = true,
+}: {
+  series: Series;
+  href: Href;
+  /** The series' own title, where the tile draws more than one list. */
+  title?: string;
+  /** Whether this list says the unordered sentence (once per tile). */
+  said?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-1">
+      {title && <Note>{title}</Note>}
       <ul className="flex flex-col gap-0.5 text-small text-text-primary">
         {series.points.map((point) =>
           point.figure === null ? (
@@ -231,7 +244,7 @@ function AsWritten({ series, href }: { series: Series; href: Href }) {
           ),
         )}
       </ul>
-      <p className="text-caption text-text-tertiary">{UNORDERED}</p>
+      {said && <p className="text-caption text-text-tertiary">{UNORDERED}</p>}
     </div>
   );
 }
@@ -410,14 +423,25 @@ const partSaid = (title: string, mark: Mark) =>
  * Undrawn facilities as the module states them where the split bar does not draw them: the latest
  * figure as written with its period, or the latest period's gap in the module's words.
  */
-function UndrawnNote({ undrawn, href }: { undrawn: Reading; href: Href }) {
-  if (undrawn.state === "absent")
+function UndrawnNote({ undrawn, cash, href }: { undrawn: Reading; cash: Reading; href: Href }) {
+  if (undrawn.state === "absent") {
+    // Cash's own gap box already says a shared reason once.
+    if (cash.state === "absent" && cash.reason === undrawn.reason) return null;
     return (
       <GapNote>
         <Reason text={undrawn.reason} href={href(undrawn.line)} />
       </GapNote>
     );
-  if (undrawn.state === "unordered") return <AsWritten series={undrawn.series} href={href} />;
+  }
+  if (undrawn.state === "unordered")
+    return (
+      <AsWritten
+        series={undrawn.series}
+        href={href}
+        title={undrawn.title}
+        said={cash.state !== "unordered"}
+      />
+    );
   const mark = latestMark(undrawn);
   if (mark) return <Note>{`${undrawn.title} ${mark.text} in ${mark.label}`}</Note>;
   return (
@@ -468,7 +492,7 @@ function CashMark({ cash, undrawn, href }: { cash: Reading; undrawn: Reading; hr
       <Drawn reading={cash}>
         {pair && <Change pair={pair} tone={toneOf(cash)} reading={cash} />}
       </Drawn>
-      <UndrawnNote undrawn={undrawn} href={href} />
+      <UndrawnNote undrawn={undrawn} cash={cash} href={href} />
     </div>
   );
 }

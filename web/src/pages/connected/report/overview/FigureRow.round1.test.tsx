@@ -104,3 +104,29 @@ it("C5-3 says a negative adjusted EBITDA is stated and not drawn", () => {
   expect(tile).toHaveTextContent("Stated, not drawn: -$50m in FY2024");
   expect(tile.querySelector('svg[role="img"]')).toBeNull();
 });
+
+it("C5-R1 draws one gap box when the liquidity table is missing", () => {
+  const full = entry([], OK);
+  const noLiquidity = {
+    ...full,
+    sections: full.sections.filter((s) => !s.heading.includes("liquidity")),
+  };
+  render(
+    <FigureRow
+      snapshot={{} as Snapshot}
+      run={{ folder: "run-1" } as unknown as PublishedRun}
+      view={{ entries: [noLiquidity], models: [] } as unknown as ReportView}
+    />,
+  );
+  expect(cash().querySelectorAll(".gap-hatch")).toHaveLength(1);
+});
+
+it("C5-R2 labels the unordered undrawn list and says the sentence once", () => {
+  draw([
+    ["FY2024", "275", "450", "US$m", "Stated."],
+    ["FY2024", "250", "400", "US$m", "Stated."],
+  ]);
+  const text = cash().textContent;
+  expect(text).toContain("Undrawn committed facilities");
+  expect(text.split("These periods give no single latest reported period").length - 1).toBe(1);
+});
