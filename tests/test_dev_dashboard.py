@@ -150,3 +150,40 @@ def test_progress_note_cannot_supersede_an_owner_decision(tmp_path: Path) -> Non
         with pytest.raises(ValueError, match="only a summary"), db:
             decision_run(db, args)
         assert db.execute("SELECT count(*) FROM decisions").fetchone()[0] == 0
+
+
+def test_rejected_launch_is_logged_once_and_resolves_on_same_attempt(tmp_path: Path) -> None:
+    import pytest
+
+    from tools.dev_ledger import launch_run
+
+    path = tmp_path / "dev.sqlite"
+    args = argparse.Namespace(
+        run="run-1", id="A:1", expected_revision=1, reserve=0, spec="bad", plan="p"
+    )
+    with connect(path) as db:
+        start_run(db, argparse.Namespace(run="run-1", spec="s", plan="p", cap=0, workers=1))
+        for _ in range(2):
+            with pytest.raises(ValueError, match="approved spec and plan"), db:
+                launch_run(db, args)
+        assert db.execute("SELECT count(*) FROM attempts").fetchone()[0] == 0
+        assert (
+            db.execute("SELECT count(*) FROM events WHERE kind='launch-rejected'").fetchone()[0]
+            == 1
+        )
+        assert b"launch-notice" in dashboard(path, "/view/", {})[1]
+        args.spec = "s"
+        launch_run(db, args)
+    _, contents = dashboard(path, "/view/", {})
+    assert b"launch-notice" not in contents
+    assert b"Launch recovered" in contents
+
+
+def test_worker_elapsed_distinguishes_settlement_from_a_result() -> None:
+    from tools.dev_dashboard import worker_elapsed
+
+    assert worker_elapsed({"launch": 12, "settle": 75}) == "Time to settlement · 1m 03s"
+    assert worker_elapsed({"launch": 12, "worker-result": 20}) == "Time to result · 8s"
+    assert (
+        worker_elapsed({"launch": 12, "claude-start": 16, "claude-stop": 20}) == "Agent time · 4s"
+    )

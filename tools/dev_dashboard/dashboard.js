@@ -23,6 +23,7 @@ document.querySelector("#copy")?.addEventListener("click", async () => {
 const progress = document.querySelector("#run-progress");
 const refreshStatus = document.querySelector("#refresh-status");
 const runState = document.querySelector("#run-state");
+const progressLink = document.querySelector("#progress-link");
 let refreshing = false;
 
 async function refreshProgress() {
@@ -34,11 +35,15 @@ async function refreshProgress() {
     const updated = new DOMParser().parseFromString(await response.text(), "text/html");
     const next = updated.querySelector("#run-progress");
     const nextState = updated.querySelector("#run-state");
-    if (!next || !nextState) throw Error("Progress unavailable");
+    const nextLink = updated.querySelector("#progress-link");
+    if (!next || !nextState || !nextLink) throw Error("Progress unavailable");
     if (!progress.contains(document.activeElement) && next.innerHTML !== progress.innerHTML) {
       progress.replaceChildren(...next.childNodes);
     }
     runState.textContent = nextState.textContent;
+    if (progressLink.textContent !== nextLink.textContent) {
+      progressLink.textContent = nextLink.textContent;
+    }
     refreshStatus.textContent = "Updates every 10 seconds";
   } catch {
     refreshStatus.textContent = "Waiting for a progress update";

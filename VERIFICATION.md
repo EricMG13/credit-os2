@@ -4,6 +4,10 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Coordinator activity timeline
+
+Live Chrome and Edge exercised rejection, same-attempt recovery, refresh and retained drafts.
+The coordinating Codex chat received the native review. Claude start/stop used fixtures because Claude Code was signed out.
 
 ## 2026-11-27 — Development coordinator and dashboard
 

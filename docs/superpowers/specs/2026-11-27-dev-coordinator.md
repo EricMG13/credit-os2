@@ -71,3 +71,79 @@ Worked examples use synthetic values. They specify pilot behavior and carry no c
 | Four tasks receive Medium findings. Three lacked the already-approved period rule in the brief; one waited for a falling-behind integration base. Same-model replay with the rule included clears the three contextual failures. | Fix brief assembly and stale-base handling, verify the next dispatch receives the rule, retain the model and report the correction. | “D-09 applied. I restored the missing period rule to the brief. Three replays now pass with the same model.” |
 
 For reviewer experiments, score blinded detection of labeled H/M, clean-control false positives and confirmed unique defects. The builder’s first-pass grade cannot qualify a reviewer model. Pilot automation first applies to builders; reviewer route changes require a separately approved recall/false-positive target and live canary. Secure the scorecard against self-grading with read-only source events, independent confirmation and fixed thresholds per policy epoch. Keep project-scoped access and redacted event links. Retain only the fields needed for a comparison and set retention at pilot approval.
+
+
+## Running the coordinator locally
+
+Use the coordinator tools from the current approved checkout. All participating worktrees
+share one absolute ledger path under the primary checkout's ignored `.superpowers/` directory.
+For a standard Git worktree, the parent of `git rev-parse --path-format=absolute --git-common-dir`
+is the primary checkout. Keep the database and local evidence there across session restarts.
+
+1. Run `tools/dev_ledger.py card SPEC_FILE PLAN_FILE`. Verify the cached target against GitHub,
+   inspect applicable rulings, and show the resulting document digests in the approval card.
+   Include the deadline, workers, cost cap and unit, and the permitted client, model and effort.
+   Once the owner approves, call `tools/dev_ledger.py --db DB approve RUN SPEC_FILE PLAN_FILE
+   CAP WORKERS DEADLINE_UNIX SHOWN_SPEC_SHA256 SHOWN_PLAN_SHA256 --base BASE_SHA
+   --shown-base SHOWN_BASE_SHA --dispatch-policy POLICY_FILE --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
+   model and effort pairs, maximum attempt duration and billing mode. A changed file requires
+   a new approval card. Use `start` with symbolic revision names only for disposable tests.
+2. At each milestone read `status RUN --text`. Record a progress update or an open question
+   with `note RUN ID REVISION PAYLOAD`; the payload gives its kind (owner, applied or verified)
+   and a plain-English summary. A note preserves the current writer revision. For “explain D-04”, use `explain RUN D-04` on the
+   ledger that issued the decision. Translate its consequence, reason and evidence into plain
+   English. Record each redirect with its expected revision and a fresh decision ID. Preserve
+   the original ID in the redirect payload as `supersedes`. On restart use `recover RUN` to settle any
+   terminal unmetered workers whose accounting was interrupted. Keep reservations for
+   workers with unknown outcomes while checking their native session and worktree. A pause or resume uses the corresponding `action`.
+   Identify the affected work when explaining why an earlier result cannot be integrated.
+   To preserve an unaffected attempt during a redirect, include its exact ID in
+   `revalidated_attempts` and record the verified assumptions in `reason`. Accept the result
+   at the current revision. The ledger retains its original launch revision.
+3. A model route needs recorded, independent outcomes for its client and task family. Feed
+   completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
+   Show changes to the selected route with their decision IDs. A model trial, a browser journey
+   and a merged change each have their own verification scope.
+4. In Codex chats, reserve an attempt in the shared ledger before using the chat's native
+   subagent control. Bind the worker to the approved task, revision, model and effort. Record
+   its return and settle its reservation using the available evidence for the approved billing mode.
+   For an owner-approved separate worker session, dispatch with
+   `python tools/dev_dispatch.py --db DB --registry DB --cohort COHORT_FILE
+   --run RUN --attempt ATTEMPT --revision REV --base SHA --reserve UNITS --spec SPEC_FILE
+   --plan PLAN_FILE --prompt WORK_ORDER --cwd WORKTREE --client CLIENT --timeout SECONDS`.
+   Verify the returned worker output against the approved examples. Record acceptance with
+   `python tools/dev_ledger.py --db DB accept RUN ATTEMPT REV --candidate CANDIDATE_SHA`.
+5. On each independent review or confirmed escape, invoke `python tools/dev_observe.py
+   --db DB record EVENTS_JSONL --evidence-root EVIDENCE_DIRECTORY --registry DB
+   --route-policy ROUTE_POLICY_FILE`. Read each returned decision to the owner in plain
+   English. Use the trial conditions in the approved spec to schedule eligible replay work.
+   After a verified merge, record `python tools/dev_ledger.py --db DB merged RUN ATTEMPT
+   CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.
+
+Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Credit OS2 checkout.
+The command prints a private loopback URL. In Codex desktop, open or reuse that dashboard as a
+browser tab in the coordinating chat’s right panel after establishing the run. When available,
+use `open_in_codex` with `placement: "right"` and the dashboard URL for the selected run.
+Select the run in the tab and keep the same tab for later updates. In clients without the panel
+tool, give the owner the local link. Run lookup, refresh, decision details, and prompts use the same
+ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
+change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.
+Record a substantive checkpoint with `note RUN ID REVISION` and a JSON payload containing
+`kind: "progress"`, a plain-English `summary`, and the `attempt` ID when it is a worker update.
+Progress notes never advance the run revision. If a native launch is rejected for an approval
+mismatch, compare the current spec and plan digests with the approved card. Retry the same
+attempt using the approved digests if the documents match. Otherwise obtain approval for the
+changed documents before dispatch. The dashboard refreshes the worker timeline
+while an owner can keep editing a decision reply.
+
+### Following Claude workers on the shared dashboard
+
+For an approved Claude run, reserve an attempt before spawning the native worker. Run
+`python3 tools/dev_claude_activity.py bind RUN ATTEMPT SESSION_ID AGENT_TYPE` in the
+Credit OS2 checkout, using the current Claude session ID and exact agent type. Assign each
+concurrent attempt in that session a distinct agent type. For a custom ledger under `.superpowers`, set `CREDIT_OS2_DEV_DB` to its absolute path
+before starting Claude so binding and hooks use the same file. The project hooks attach the first
+start and matching return to that attempt. Use a fresh attempt for a retry. Follow Claude's
+native Flightdeck pane for session details. On return, verify and settle in the coordinator as
+usual. The hook timestamps are activity evidence and do not attest to model, effort, or success.
+A completed hook or failed activity capture does not change worker admission or recovery.
