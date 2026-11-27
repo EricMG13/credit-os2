@@ -4,7 +4,9 @@ import { cx } from "@/utils/cx";
 import { moduleName } from "../api";
 import { evidencePath, unitLabel, type OutputEntry } from "../publishedReport";
 import type { ReportView } from "../reportView";
+import { drawnReason } from "../visuals/drawnQualifications";
 import {
+  drawnCellText,
   cellsOf,
   absentText,
   covenantTests,
@@ -141,7 +143,9 @@ function FigureList({ items, tone }: { items: ListItem[]; tone: "primary" | "sec
         >
           <span className="font-mono text-caption text-text-secondary">{item.label}</span>
           {item.value === null ? (
-            <GapChip>{item.reason ? `${item.text}: ${item.reason}` : item.text}</GapChip>
+            <GapChip>
+              {item.reason ? `${item.text}: ${drawnReason(item.reason)}` : item.text}
+            </GapChip>
           ) : item.value >= 0 && most > 0 ? (
             <BarCell text={item.text} share={item.value / most} tone={tone} />
           ) : (
@@ -217,7 +221,7 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
         items={items.map((item) => ({
           key: item.key,
           label: item.label,
-          text: item.cell?.text ?? "",
+          text: drawnCellText(item.cell?.text ?? ""),
           value: item.cell?.value ?? null,
           trace: rowTrace(folder, schedule.entry, item.line, `debt maturing, ${item.label}`),
         }))}
@@ -292,17 +296,17 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
               <span>
                 Level{" "}
                 {test.threshold.value === null ? (
-                  <GapChip>{test.threshold.text}</GapChip>
+                  <GapChip>{drawnCellText(test.threshold.text)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{test.threshold.text}</Figure>
+                  <Figure className="text-mono">{drawnCellText(test.threshold.text)}</Figure>
                 )}
               </span>
               <span>
                 Current{" "}
                 {test.current.value === null ? (
-                  <GapChip>{test.current.text}</GapChip>
+                  <GapChip>{drawnCellText(test.current.text)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{test.current.text}</Figure>
+                  <Figure className="text-mono">{drawnCellText(test.current.text)}</Figure>
                 )}
               </span>
               {test.headroom && (
@@ -356,7 +360,7 @@ function cellReading(cell: DownsidePanel["cells"][number] | undefined) {
   if (!cell) return "";
   return cell.value === null && (cell.reason !== null || !cell.text.trim())
     ? gapReading(cell.text)
-    : cell.text;
+    : drawnCellText(cell.text);
 }
 
 /** A name broken into lines of at most `chars` characters, at spaces; a longer word is broken. */
@@ -502,7 +506,7 @@ function StressMultiple({
                       y={y + 12}
                       className="fill-text-primary font-mono text-caption"
                     >
-                      {lead(cell.text)}
+                      {lead(drawnCellText(cell.text))}
                     </text>
                   </g>
                 );
@@ -566,11 +570,10 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
         if (cell.value === null) {
           // The cell's own words: the module's stated reason, or the text it wrote in full.
           const words = gapText(cell);
-          return words === null ? [] : [`${scenario}, ${panel.measure}: ${words}.`];
+          return words === null ? [] : [`${scenario}, ${panel.measure}: ${drawnReason(words)}.`];
         }
-        return lead(cell.text) !== cell.text
-          ? [`${scenario}, ${panel.measure}: ${cell.text}.`]
-          : [];
+        const text = drawnCellText(cell.text);
+        return lead(text) !== text ? [`${scenario}, ${panel.measure}: ${text}.`] : [];
       }),
     ),
   ];

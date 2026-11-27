@@ -9,6 +9,7 @@ import {
   periodList,
   scenarioComparisonNotice,
 } from "../visuals/scenarioPeriods";
+import { drawnAmount, EVIDENCE_AMOUNT } from "../visuals/drawnQualifications";
 import { amount, record, word } from "../visuals/visualData";
 import {
   blocked,
@@ -49,6 +50,10 @@ export type MeasureCase = {
   own: Map<string, MeasureCell>;
 };
 
+/** A schedule, covenant or stress cell's text as the page draws it: no citation, no file name. */
+export const drawnCellText = (text: string) =>
+  drawnAmount(text) ?? figureWithoutCitation(text) ?? (text.trim() ? EVIDENCE_AMOUNT : "");
+
 const byPeriod = <T extends { period: string }>(cells: readonly T[]) =>
   orderPeriods(cells, ({ period }) => period).ordered;
 
@@ -83,6 +88,9 @@ export function measureRows(model: unknown, pattern: RegExp) {
   ];
 }
 
+const normalLabel = (label: string) => label.replace(/\s+/gu, " ").trim().toLowerCase();
+const sameLabel = (a: string, b: string) => normalLabel(a) === normalLabel(b);
+
 /** The grid's one row for the measure: the only match, or the only match of `prefer`. */
 function measureRow(grid: Grid, pattern: RegExp, prefer?: RegExp) {
   const rows = grid.rows.filter((row) => pattern.test(row.label));
@@ -112,12 +120,14 @@ export { fiscalYear, periodList };
  */
 export function forecastMeasure(model: unknown, pattern: RegExp, prefer?: RegExp) {
   const names = forecastCaseNames(record(record(model).cashflow));
-  const read = grids(model).flatMap((grid) => {
+  const found = grids(model).flatMap((grid) => {
     const row = measureRow(grid, pattern, prefer);
     return row ? [{ grid, row }] : [];
   });
-  const [first] = read;
+  const [first] = found;
   if (!first) return null;
+  // Rows under different labels are different measures: only the first row's own label is merged.
+  const read = found.filter(({ row }) => sameLabel(row.label, first.row.label));
   const observations = read.flatMap(({ grid, row }) =>
     grid.columns.flatMap((column, at) =>
       isForecastPeriod(column.label)
@@ -159,7 +169,7 @@ export function forecastMeasure(model: unknown, pattern: RegExp, prefer?: RegExp
   return {
     label: first.row.label,
     /** Other rows the model publishes for this measure, not read here. */
-    others: measureRows(model, pattern).filter((label) => label !== first.row.label),
+    others: measureRows(model, pattern).filter((label) => !sameLabel(label, first.row.label)),
     cases,
     periods,
     history,
@@ -438,7 +448,7 @@ const SOURCE_COLUMN = /^(?:Source|Evidence|References?|Ref|Register|Id)$/iu;
 /** Columns that hold words about the row: drawn as its notes, under the figures. */
 const NOTE_COLUMN = /^(?:Basis|Basis and limitation|Notes?|Limitations?|Status|Category)$/iu;
 /** A register id in brackets, such as "(T2E.3.r03)": machinery, never page text. */
-const REGISTER_ID = /\s*\((?:[A-Z]\d[\w]*(?:\.\w+)*)\)/gu;
+const REGISTER_ID = /\s*\((?:[A-Z]\d\w*(?:\.\w+)+)\)/gu;
 /** A cell that states a unit of its own: letters or a currency sign beside its figure. */
 const OWN_UNIT = /[A-Za-z$€£¥]/u;
 
@@ -484,6 +494,33 @@ export function gapContext(gap: FundingGap) {
     .join(" · ");
 }
 
+/** A closing bracket, with the space before it: where a cell writes its citation. */
+const CLOSING_BRACKET = /\s*(?:\([^()[\]]*\)|\[[^()[\]]*\])$/u;
+
+/**
+ * The plain figure a referenced cell states: the cell without its closing citation bracket, when
+ * what is left is one figure that cites nothing. Null otherwise: no amount can be drawn.
+ */
+function figureWithoutCitation(text: string) {
+  const bracket = CLOSING_BRACKET.exec(text)?.[0] ?? "";
+  if (!bracket || !containsReference(bracket)) return null;
+  const rest = text.slice(0, text.length - bracket.length).trim();
+  return rest && !containsReference(rest) && amount(rest.replaceAll("−", "-")) !== null
+    ? rest
+    : null;
+}
+
+/** One gap cell as drawn: a cell citing a source is its amount without the citation, else a gap. */
+function gapFigure(header: string, cell: string): GapFigure {
+  const text = cell.trim();
+  if (!containsReference(text))
+    return { header, text: plain(text), value: amount(text.replaceAll("−", "-")) };
+  const drawn = drawnAmount(text) ?? figureWithoutCitation(text);
+  return drawn === null
+    ? { header, text: NOT_STATED_IN_ROW, value: null }
+    : { header, text: plain(drawn), value: amount(drawn.replaceAll("−", "-")) };
+}
+
 function gapIn(entry: OutputEntry, module: string): FundingGap | null {
   const tables = entry.sections.flatMap(({ blocks }) =>
     blocks.flatMap((block) => (block.type === "table" ? [block] : [])),
@@ -499,16 +536,9 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
     const written = amounts.filter((at) => (row.cells[at] ?? "").trim() !== "");
     const valued = written.filter((at) => !BARE_DASH.test((row.cells[at] ?? "").trim()));
     const stated = valued.length ? valued : written;
-    const figures = stated.map((at) => {
-      const text = (row.cells[at] ?? "").trim();
-      return {
-        header: plain(table.headers[at] ?? ""),
-        text: containsReference(text)
-          ? "Stated with a source reference; see Evidence."
-          : plain(text),
-        value: amount(text.replaceAll("−", "-")),
-      };
-    });
+    const figures = stated.map((at) =>
+      gapFigure(plain(table.headers[at] ?? ""), row.cells[at] ?? ""),
+    );
     const notes = table.headers.flatMap((header, at) => {
       if (!NOTE_COLUMN.test(header.trim())) return [];
       const words = readerReason(row.cells[at] ?? "");
@@ -534,7 +564,9 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
       label: plain(row.cells[0] ?? ""),
       figures: figures.length ? figures : [{ header: "", text: NOT_STATED_IN_ROW, value: null }],
       unit: gapUnit(table.headers, row.cells, values),
-      unitInFigure: figures.some(({ text, value }) => value === null && OWN_UNIT.test(text)),
+      unitInFigure: figures.some(
+        ({ text, value }) => value === null && text !== NOT_STATED_IN_ROW && OWN_UNIT.test(text),
+      ),
       notes,
       horizon: horizonText && !containsReference(horizonText) ? plain(horizonText) : null,
     };

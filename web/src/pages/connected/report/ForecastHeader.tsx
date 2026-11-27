@@ -14,6 +14,7 @@ import {
 } from "../publishedReport";
 import type { ReportView } from "../reportView";
 import type { forecastCaseOptions } from "../visuals/LegacyForecast";
+import { drawnReason } from "../visuals/drawnQualifications";
 import {
   absentText,
   cellsOf,
@@ -28,7 +29,7 @@ import {
 import { gapLine } from "./gapLine";
 import { caseRationale } from "./caseRationale";
 import { ModuleGap } from "./ForecastGaps";
-import { moduleSource } from "./overview/figureData";
+import { blockedReason, moduleSource } from "./overview/figureData";
 import { bottomLine } from "./overview/read";
 import { Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
@@ -210,7 +211,7 @@ function BottomLine({
   const found = handoff
     ? handoff.output.parseError
       ? { entry: handoff, reason: `${name}'s output could not be read; it is in Evidence.` }
-      : { entry: handoff, reason: blocked(handoff) ? source.reason : undefined }
+      : { entry: handoff, reason: blocked(handoff) ? blockedReason(handoff) : undefined }
     : source;
   if (!found.entry || found.reason)
     return (
@@ -375,7 +376,10 @@ export function ForecastHeader({
 function noFigure(cells: MeasureCell[]) {
   return cells
     .filter((cell) => cell.value === null)
-    .map((cell) => `${cell.period} not calculated${cell.reason ? `: ${cell.reason}` : ""}`);
+    .map(
+      (cell) =>
+        `${cell.period} not calculated${cell.reason ? `: ${drawnReason(cell.reason)}` : ""}`,
+    );
 }
 
 /** Why a stat has no figure, in the words the lead uses; a case's years counted and named. */
@@ -521,7 +525,7 @@ export function ForecastStats({
           label: end ? `Net leverage, ${end.period}` : "Net leverage, last forecast year",
           value: null,
           gap: end
-            ? `${end.period} not calculated${end.reason ? `: ${end.reason}` : ""}`
+            ? `${end.period} not calculated${end.reason ? `: ${drawnReason(end.reason)}` : ""}`
             : absentText(leverage, caseName),
           trace: trace("Net leverage", leverageRow)(end),
         },
