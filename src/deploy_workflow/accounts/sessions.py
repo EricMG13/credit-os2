@@ -12,6 +12,7 @@ from deploy_workflow.accounts.store import (
     Account,
     Missing,
     StoreError,
+    _account,
     account_by_id,
     utc_text,
     write_transaction,
@@ -51,15 +52,15 @@ def session_account(db: sqlite3.Connection, token: str, *, now: datetime) -> Acc
     utc_text(now)  # rejects a naive time
     if not TOKEN.fullmatch(token):
         return None
+    # Read the account and session from the same snapshot of the store.
     row = db.execute(
-        "SELECT account_id, expires_at FROM sessions WHERE token_hash=?", (_hash(token),)
+        "SELECT a.*, s.expires_at FROM sessions AS s JOIN accounts AS a ON a.id=s.account_id "
+        "WHERE s.token_hash=? AND a.disabled=0 AND s.expires_at != s.created_at",
+        (_hash(token),),
     ).fetchone()
     if row is None or now >= datetime.fromisoformat(str(row["expires_at"])):
         return None
-    account = account_by_id(db, int(row["account_id"]))
-    if account is None or account.disabled:
-        return None
-    return account
+    return _account(row)
 
 
 def end_session(db: sqlite3.Connection, token: str) -> None:

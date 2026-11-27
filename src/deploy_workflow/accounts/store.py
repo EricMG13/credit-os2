@@ -519,15 +519,31 @@ def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per 
     return account
 
 
+def _revoke_sessions(db: sqlite3.Connection, account_id: int) -> None:
+    # An empty lifetime revokes the token while retaining the sign-in timestamp.
+    db.execute("UPDATE sessions SET expires_at=created_at WHERE account_id=?", (account_id,))
+
+
+def _disable_account_locked(db: sqlite3.Connection, account_id: int) -> None:
+    cursor = db.execute("UPDATE accounts SET disabled=1 WHERE id=?", (account_id,))
+    if cursor.rowcount == 0:
+        raise Missing(f"no account {account_id}")
+    _revoke_sessions(db, account_id)
+
+
 def disable_account(db: sqlite3.Connection, account_id: int) -> None:
     with write_transaction(db):
-        cursor = db.execute("UPDATE accounts SET disabled=1 WHERE id=?", (account_id,))
-        if cursor.rowcount == 0:
-            raise Missing(f"no account {account_id}")
+        _disable_account_locked(db, account_id)
 
 
 def enable_account(db: sqlite3.Connection, account_id: int) -> None:
     with write_transaction(db):
+        was_disabled = db.execute(
+            "SELECT 1 FROM accounts WHERE id=? AND disabled=1", (account_id,)
+        ).fetchone()
+        if was_disabled is not None:
+            # Older builds left sessions intact on disabled accounts.
+            _revoke_sessions(db, account_id)
         cursor = db.execute("UPDATE accounts SET disabled=0 WHERE id=?", (account_id,))
         if cursor.rowcount == 0:
             raise Missing(f"no account {account_id}")
@@ -568,7 +584,7 @@ def disable_account_as_admin(
     with write_transaction(db):
         _require_enabled_admin(db, actor_id)
         _require_admin_remains(db, account_id, removes_admin=True)
-        db.execute("UPDATE accounts SET disabled=1 WHERE id=?", (account_id,))
+        _disable_account_locked(db, account_id)
         summary = account_summary(db, account_id)
         if summary is None:
             raise Missing(f"no account {account_id}")
