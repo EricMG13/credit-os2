@@ -266,7 +266,7 @@ describe("Refinancing synthetic reply", () => {
     const wall = screen.getByRole("img", { name: "Maturity wall, stacked by issuer" });
     expect(wall.querySelectorAll(".recharts-bar-rectangle path").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
-      "-75 USD millions",
+      "-$75m",
     );
   });
 
@@ -288,7 +288,7 @@ describe("Refinancing synthetic reply", () => {
       screen.getByRole("img", { name: "Maturity wall, stacked by issuer" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
-      "9007199254740993.1 USD millions",
+      "$9007199254740993.1m",
     );
   });
 
@@ -308,7 +308,7 @@ describe("Refinancing synthetic reply", () => {
       screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
     ).getByRole("row", { name: /Alpha/ });
     expect(row).toHaveTextContent(
-      "Resources: multiple amounts left out (800 USD millions; 900 USD millions)",
+      "Resources: multiple amounts left out ($800m; $900m)",
     );
     expect(row.querySelector('[data-mark="debt maturing"]')).toBeInTheDocument();
     expect(row.querySelector('[data-mark="committed resources"]')).not.toBeInTheDocument();
