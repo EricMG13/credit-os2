@@ -3,6 +3,9 @@
 by: user
 date: 2026-11-24
 
+Amended 2026-11-26 by `2026-11-26-coverage-analytics.md`: the sentence "It computes no average,
+difference, score or composite" is replaced by that ruling's closed list of five computations.
+
 This is a decision record. It does not lift the paid-run pause and carries no `lifts:` or `configs:`
 line. No provider was called in making it; the page runs no module and starts no run.
 
