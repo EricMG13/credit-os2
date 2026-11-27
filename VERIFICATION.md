@@ -4,6 +4,42 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 1: account store, passcodes, lockout, accounts command line
+
+- Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
+  only. No route uses it; no request to Microsoft, no model call, no network access; no new
+  dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
+  the oldest entries, to stay under 1,000 lines.
+- Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
+  (absolute path only; the command line has no `--root`, and refusing a folder under the root is
+  slice 2's start-up check), WAL, one numbered migration, a made-here guard. On
+  POSIX the folder and file must belong to the running account and be open to no one else; the
+  file is created 0600. Not checked: access-control lists, and anything on Windows (owner's call).
+- Passcodes: Analyst and Admin only, 12 to 1,024 characters, scrypt (n 2^14, r 8, p 5) with a
+  16-byte salt each time, compared in constant time, the two must differ (checked in one
+  transaction). Lockout: five wrong in an hour (from the first failure) lock the identity for an
+  hour from the fifth; counted in the store before the passcode is checked, so a store that cannot
+  record a failure refuses rather than answers.
+- Command line: `python -m deploy_workflow.accounts passcode set {analyst,admin}` reads the
+  passcode twice at a terminal prompt that does not echo; a pipe, closed input, an argument or a
+  non-text byte is refused, and no usage error repeats what was typed. `accounts list`,
+  `accounts disable`, `accounts type`.
+- Checked: `tests/test_accounts_{store,passcodes,cli,logs}.py` 94 passed, expected values
+  written by hand by the coordinator; `tools/quality_gate.py` exit 0; `lint-imports` exit 0
+  (`accounts` in the services layer); `mypy --strict` on the package exit 0. The log test captures
+  every logger at DEBUG, stdout, stderr and exception text across the hostile cases and finds no
+  five-character piece of any passcode, nor any stored hash or salt. A pty run of the real prompt
+  did not echo (review probe). Reviews: per-task `mx-precise`, `mx-invariants` on the account race
+  and the lockout, `mx-adversary` on the slice (two Mediums fixed, re-review passed), `mx-architect`
+  pre-merge PASS, 6 Low and 5 Info (run on Opus 5.5 at xhigh: Fable usage was exhausted).
+- Merge with `main` `cebb1726`: accounts and repo-rules tests 113 passed on macOS, including the
+  passcode log check. The changed-code gate and all three import contracts passed.
+- Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
+  processes (threads only); a real full disk; CI on the PR head until it runs.
+- Review fixes, 2026-11-27: a correct passcode no longer clears earlier failures; the made-here
+  check runs before WAL; the account commands refuse a missing store; `accounts enable`;
+  `--accounts-dir` after the sub-command; names keep U+200C and U+200D.
+
 ## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
 
 - Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
@@ -930,61 +966,3 @@ then 5; the narrow layout and the controls listed below.
   start, under the scheduler lock (0.12 s a run: 3.5 s at 30 runs), and `data.js` grows by about
   0.5 MB a synthetic run. The profile is flat, so this needs per-run publication, a design choice.
 - Not verified: a live run, real PDFs, Windows, the web gates in GitHub Actions before this PR.
-
-## 2026-11-18 — Copilot cutover, compact handoffs and connected publication
-
-- Astra's end-of-phase review and follow-up confirmed the pinned SDK disables background
-  compaction and autonomous continuations. The Opus hold prices one input token per serialized
-  byte plus runtime framing. Tests covered rejected direct HTTP routes, unavailable Luna effort
-  and disabled seat policy, first and later context checks, and the approved configuration and cap.
-- Confidence review exercised interrupted publication, stale uploads and on-disk edits to approved
-  inputs, including module list, model route and cap. A restart refused the changed queue entries
-  before dispatch. Failed capability checks opened the app offline with paid choices unavailable.
-- Read-only TDG inputs estimated CP-3 at 61,424, CP-5 at 48,098 and CP-6 at 50,061 initial tokens.
-  The prior full requests estimated 209,269, 252,017 and 223,679 respectively. These are serialized
-  request estimates. Offline tests passed an exact chunk through the continuation and validated
-  the resulting handoff. Unknown transport versions and source text with split credentials refused.
-- Clean extraction of ZIP SHA-256 `8b5c0a8f03f776a2fbc0a40b4882be419546d93e3daa04cecaaa60f6292ba1c7`
-  (local proof snapshot `08e281b9`) passed Chrome `20261118-020520-01` and Edge
-  `20261118-020552-01` on macOS. Both exercised intake, report pages and verified a downloaded
-  handoff against its published SHA-256. The old library URL redirected and its script returned
-  404. Zero non-loopback page requests. Static fixture checks passed.
-- The Python quality gate passed. Focused Python checks passed for launch, model, scheduler,
-  intake and publication. Embedded packaging verified that rebuilding removes retired files.
-- Follow-up confidence and Astra review checked the stored first-prompt estimate, the oversized
-  repair refusal before reservation, and the exact seat status in the review summary. A stale
-  picker cannot enable paid Submit. Passed 509 web and 402 targeted Python tests plus the repair check.
-- On macOS the pinned SDK 1.0.28 opened a local stdio connection to Copilot CLI 1.0.108 (protocol 3).
-  The isolated status check reported unauthenticated and created zero sessions.
-- Integrated with main `c1439225`. ZIP SHA-256 `593911cc8a84f6d2722daee9e7aa983564ef57b9ec0a735f50c79bfb8c2bf47d`
-  (proof snapshot `b7fcc73b`) passed clean-extraction Chrome `20261118-020828-01`
-  and Edge `20261118-020859-01` on macOS with zero non-loopback page requests.
-  Passed 232 targeted Python tests, 540 web tests, the quality gate, lint and typecheck.
-  Astra confirmed the merge retained the desktop styles and Copilot approval and cap checks.
-- Deployment-seat verification, the first authorized paid run and Windows work-PC acceptance
-  are pending. Native Copilot search stays unavailable pending evidence and cost verification.
-
-## 2026-11-18 — Desktop review follow-up after PR #64
-
-- Astra reviewed the merged desktop diff. Fixed activity polling after a malformed response, source-run provenance for reused inputs, Forecast copy for missing calculations, and the retry action named by the service. Verified the regressions, exact source-run link and draft preservation, retained layout, 680 Forecast cells and three confidence scores in the live desktop checks. Chrome and Edge passed offline workflow proof (`run-ryqfCu`), and all 83 file routes rendered. 1,161 frontend and 42 Python tests, build, lint, formatting and the quality gate passed. Fallow passed against merged main with zero new findings and against the original base with 12 styling advisories for values already on that base.
-
-## 2026-11-18 — Desktop Impeccable refinement
-
-- Distill, Clarify, Layout, Typeset, Quieter, Harden, Animate and Polish covered the connected and file-based React workflow. The retained Caesars desktop preview checked Library, History, Overview, Calendar, Changes, Modules, Forecast and Evidence. All 680 Forecast display cells and confidence scores of 33, 0 and 54 matched, including source trace access.
-- Chrome and Edge passed the synthetic desktop workflow (`run-0lS2Cg`). Local browser fixtures verified long text, stale-filter recovery, keyboard focus as runs changed groups, stable feed and module rows, and the reduced-motion setting. Chrome rendered 83 file-based Library, Model and Run routes.
-- All 3,844 focused tests, production build, changed-file ESLint and Prettier, and the quality gate passed. The confidence review checked report figures, source destinations, run approval and caps, polling behavior, and missing values.
-
-## 2026-11-18 — Fallow follow-up on main
-
-- Verified all 18 original warnings with per-file Fallow inspection before refactoring. Fallow 3.8.1 audit against `origin/main` passed with zero new complexity, dead-code, or duplication findings. Seven styling advisories point to arbitrary utility literals already present on main. No suppressions or threshold changes.
-- All 570 focused tests passed. Build, changed-file lint and formatting, and Python quality gate passed. Desktop synthetic proof passed in Chrome and Edge (`run-LeBkY9`). Retained Caesars matched all 680 display cells and confidence scores of 33, 0, and 54 with their trace controls. Post-edit review retained the separate intake session, validation, and report trace responsibilities.
-
-## 2026-11-18 — Module Bottom line confidence
-
-- Retained Caesars desktop preview. Verified 33/100 and 0/100 as Insufficient Information and 54/100 as Low, with distinct fills and the original confidence and prose traces. The tile remains available when the score has no rendered Bottom line. All 97 focused tests, build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded.
-
-## 2026-11-18 — Forecast redesign
-
-- Desktop preview verified at 1440 × 900 and 1280 × 900. Cash flow and scenario comparison open together. Compared all 680 historical and forecast display cells with the retained Caesars calculation record, including periods, missing values and zeros.
-- In-app preview verified FY2029E scenario comparison, Growth rates, Chart or Table and the downside source drawer. Design review confirmed the stronger selected-control state after recapture. Claude Model handoff and RBOT-HTML `fc010a7` informed the layout.
-- 174 focused tests passed. Chrome and Edge completed the synthetic desktop proof in `run-ikJ2Lt`. Build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded. Post-edit review retained exact row matching and the separate-grid fallback.
