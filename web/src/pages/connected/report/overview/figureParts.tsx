@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cx } from "@/utils/cx";
 import { evidencePath, type OutputEntry } from "../../publishedReport";
 import { PublishedSource } from "../PublishedTrace";
@@ -37,15 +37,56 @@ const SWATCH = {
   prior: "bg-chart-3",
   signal: "bg-warning-mark",
   gap: "gap-hatch border border-dashed border-border-gap",
+  /** After the axis break on the maturity wall: the amber, hatched by the caller's `style`. */
+  amountUndated: "border border-scale-amount-edge bg-scale-amount-2",
 } as const;
 
 type SwatchTone = keyof typeof SWATCH;
 
-export function Key({ tone, children }: { tone: SwatchTone; children: ReactNode }) {
+export function Key({
+  tone,
+  style,
+  children,
+}: {
+  tone: SwatchTone;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
   return (
     <span className="flex items-center gap-1.5 text-caption font-normal text-text-secondary">
-      <span aria-hidden="true" className={cx("size-2.5 flex-none rounded-[2px]", SWATCH[tone])} />
+      <span
+        aria-hidden="true"
+        className={cx("size-2.5 flex-none rounded-[2px]", SWATCH[tone])}
+        style={style}
+      />
       {children}
+    </span>
+  );
+}
+
+/** The five amount steps, smallest first, each outlined because the pale ones are near the ground. */
+const AMOUNT_SWATCH = [
+  "bg-scale-amount-1",
+  "bg-scale-amount-2",
+  "bg-scale-amount-3",
+  "bg-scale-amount-4",
+  "bg-scale-amount-5",
+] as const;
+
+/** The legend of an amount drawn in the amber scale: the steps and the words that read them. */
+export function AmountKey() {
+  return (
+    <span className="flex items-center gap-1.5 text-caption font-normal text-text-secondary">
+      <span aria-hidden="true" className="flex flex-none">
+        {AMOUNT_SWATCH.map((fill) => (
+          <span
+            key={fill}
+            data-amount-swatch
+            className={cx("size-2.5 border border-scale-amount-edge", fill)}
+          />
+        ))}
+      </span>
+      Amount due: darker is larger
     </span>
   );
 }
