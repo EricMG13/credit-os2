@@ -136,7 +136,7 @@ it("places the current value and the threshold on one scale from zero, and lists
   render(<StressRow {...rowProps([covenants])} />);
   const tile = screen.getByRole("region", { name: "Covenant headroom" });
   const start = 8;
-  const current = start + x(tile.querySelector("[data-current]"), "width");
+  const current = x(tile.querySelector("[data-current]"), "cx");
   const threshold = x(tile.querySelector("[data-threshold]"), "x1");
   expect((current - start) / (threshold - start)).toBeCloseTo(4.2 / 5.0, 6);
   expect(within(tile).getByText("0.8x")).toBeVisible();
@@ -149,8 +149,32 @@ it("places the current value and the threshold on one scale from zero, and lists
   expect(others[1]).toHaveTextContent("Not supplied");
   expect(others[1]).toHaveTextContent("not stated");
   // The missing current value is not drawn as an empty bar.
-  expect(others[1]?.querySelector(".bg-chart-1")).toBeNull();
-  expect(others[0]?.querySelector(".bg-chart-1")).not.toBeNull();
+  expect(others[1]?.querySelector("[data-current]")).toBeNull();
+  expect(others[0]?.querySelector("[data-current]")).not.toBeNull();
+});
+
+it("draws current and threshold as separate neutral marks, including when they coincide", () => {
+  render(
+    <StressRow
+      {...rowProps([
+        covenantsOf([
+          ["Net leverage", "5.0", "5.0", "0.0x", "At threshold", "x", ""],
+          ["Minimum EBITDA", "-50", "-20", "30", "Passes at or above", "US$m", ""],
+        ]),
+      ])}
+    />,
+  );
+  const tile = headroomTile();
+  const current = tile.querySelector("[data-current]");
+  const threshold = tile.querySelector("[data-threshold]");
+  expect(current?.tagName.toLowerCase()).toBe("circle");
+  expect(threshold?.tagName.toLowerCase()).toBe("line");
+  expect(current?.getAttribute("class")).not.toMatch(/chart-1|chart-/);
+  expect(current?.getAttribute("cx")).toBe(threshold?.getAttribute("x1"));
+  const further = within(tile).getAllByRole("listitem")[0];
+  expect(further?.querySelector("[data-current]")).not.toBeNull();
+  expect(further?.querySelector("[data-threshold]")).not.toBeNull();
+  expect(further?.querySelector(".bg-chart-1")).toBeNull();
 });
 
 it("draws the blocked module's own reason in place of the headroom figure", () => {
@@ -273,7 +297,7 @@ it("draws a negative stated value as a figure, and keeps the module's own word f
   const [ebitda, charge] = within(headroomTile()).getAllByRole("listitem");
   expect(ebitda).toHaveTextContent("-$20m / -$50m");
   expect(ebitda).not.toHaveTextContent("Not supplied");
-  expect(ebitda?.querySelector(".bg-chart-1")).not.toBeNull();
+  expect(ebitda?.querySelector("[data-current]")).not.toBeNull();
   expect(charge).toHaveTextContent("Not calculated");
   expect(charge).toHaveTextContent("covenant suspended");
   expect(charge).not.toHaveTextContent("Not supplied");
@@ -288,10 +312,14 @@ it("places a negative lead test and its threshold on one scale that holds zero",
     />,
   );
   const tile = headroomTile();
-  const bar = tile.querySelector("[data-current]");
-  const zero = x(bar, "x") + x(bar, "width");
+  const current = x(tile.querySelector("[data-current]"), "cx");
   const threshold = x(tile.querySelector("[data-threshold]"), "x1");
-  expect(x(bar, "width") / (zero - threshold)).toBeCloseTo(20 / 50, 6);
+  const zeroTick = [...tile.querySelectorAll("[data-axis] text")].find((tick) =>
+    /^\$?0(?:\.0+)?(?:m)?$/.test(tick.textContent),
+  );
+  if (zeroTick === undefined) throw new Error("Zero tick is missing from the scale");
+  const zero = x(zeroTick, "x");
+  expect(Math.abs(current - zero) / Math.abs(zero - threshold)).toBeCloseTo(20 / 50, 2);
   expect(
     within(tile).getByText("-$20m against a threshold of -$50m. Passes at or above."),
   ).toBeVisible();

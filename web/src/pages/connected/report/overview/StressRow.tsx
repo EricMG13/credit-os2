@@ -47,7 +47,7 @@ import {
   rowLayout,
   type PanelLayout,
 } from "./downsideLayout";
-import { TEXT, inside, textWidth, thinTicks } from "./chartText";
+import { TEXT, inside, thinTicks } from "./chartText";
 import { pathLayout } from "./pathLayout";
 import { Figure } from "./Tile";
 import { entryLine } from "./traceLine";
@@ -58,22 +58,6 @@ type Ready = Extract<FigureSource, { state: "ready" }>;
 
 const shown = (test: HeadroomTest, cell: HeadroomTest["current"]) =>
   cell.value === null ? gapWord(cell.text) : withUnit(figureText(cell.text), test.unit);
-
-/** Where the current value's label sits: inside a bar long enough to hold it, else past its end
- * where that is inside the figure, else before its start. */
-function valueLabel(current: number, zero: number, label: string, width: number) {
-  const room = textWidth(label, "mono");
-  const left = current < zero;
-  const anchor = left ? ("end" as const) : ("start" as const);
-  if (Math.abs(current - zero) >= room + 16)
-    return { inside: true, x: left ? zero - 8 : zero + 8, anchor };
-  if (!left && current + 6 + room <= width) return { inside: false, x: current + 6, anchor };
-  if (left && current - 6 - room >= 0) return { inside: false, x: current - 6, anchor };
-  const start = Math.min(current, zero);
-  return start - 6 - room >= 0
-    ? { inside: false, x: start - 6, anchor: "end" as const }
-    : { inside: false, x: Math.max(current, zero) + 6, anchor: "start" as const };
-}
 
 /** The bullet's marks across `width` pixels, from the test's shares of its scale. */
 function bulletMarks(test: HeadroomTest, width: number) {
@@ -90,7 +74,6 @@ function bulletMarks(test: HeadroomTest, width: number) {
     };
   });
   return {
-    zero: x(share.zero),
     current: x(share.current),
     threshold: x(share.threshold),
     ticks: thinTicks(ticks, width),
@@ -102,11 +85,10 @@ function BulletChart({ test }: { test: HeadroomTest }) {
   const width = measured === null || measured <= 0 ? BULLET.width : Math.round(measured);
   const marks = bulletMarks(test, width);
   if (!marks) return null;
-  const { current, threshold, zero } = marks;
+  const { current, threshold } = marks;
   const low = Math.min(current, threshold);
   const high = Math.max(current, threshold);
   const value = shown(test, test.current);
-  const label = valueLabel(current, zero, value, width);
   const headroom = test.headroom ? `${test.headroom} headroom` : null;
   const limit = shown(test, test.threshold);
   return (
@@ -143,40 +125,35 @@ function BulletChart({ test }: { test: HeadroomTest }) {
           rx="4"
           className="fill-border-hairline"
         />
-        <rect
-          data-current
-          x={Math.min(zero, current)}
-          y="34"
-          width={Math.abs(current - zero)}
-          height="20"
-          rx="4"
-          className="fill-chart-1"
-        />
         <line
           data-threshold
           x1={threshold}
-          y1="28"
+          y1="34"
           x2={threshold}
-          y2="60"
+          y2="54"
           strokeWidth="2"
-          className="stroke-text-primary"
+          className="stroke-text-tertiary"
+        />
+        <circle
+          data-current
+          cx={current}
+          cy="44"
+          r="5"
+          className="fill-surface-subtle stroke-text-primary"
+          strokeWidth="2"
         />
         <text
-          x={label.x}
-          y="48.5"
-          textAnchor={label.anchor}
+          x={inside(current, value, width)}
+          y="69"
+          textAnchor="middle"
           fontSize={TEXT}
-          className={
-            label.inside
-              ? "fill-white font-mono font-medium"
-              : "fill-text-primary font-mono font-medium"
-          }
+          className="fill-text-primary font-mono font-medium"
         >
           {value}
         </text>
         <text
           x={inside(threshold, limit, width)}
-          y="76"
+          y="84"
           textAnchor="middle"
           fontSize={TEXT}
           className="fill-text-primary font-mono font-medium"
@@ -206,7 +183,7 @@ function BulletChart({ test }: { test: HeadroomTest }) {
 const gapCell = (test: HeadroomTest) =>
   test.current.value === null ? test.current : test.threshold;
 
-/** Why a test has no bar: the handoff's reason, or its cell as written when that is all it says. */
+/** Why a test has no marks: the handoff's reason, or its cell as written when that is all it says. */
 function TestGap({ test, href }: { test: HeadroomTest; href: NoteHref }) {
   const cell = gapCell(test);
   const text = gapText(cell);
@@ -218,7 +195,7 @@ function TestGap({ test, href }: { test: HeadroomTest; href: NoteHref }) {
   );
 }
 
-/** A further test in one line: its bar against its threshold, or the gap the handoff states. */
+/** A further test in one line: its current and threshold marks, or the gap the handoff states. */
 function TestRow({ test, href }: { test: HeadroomTest; href: NoteHref }) {
   const geometry = bulletGeometry(test);
   return (
@@ -239,15 +216,14 @@ function TestRow({ test, href }: { test: HeadroomTest; href: NoteHref }) {
       {geometry ? (
         <span aria-hidden="true" className="relative block h-2 rounded-ds-full bg-surface-subtle">
           <span
-            className="absolute inset-y-0 rounded-ds-full bg-chart-1"
-            style={{
-              left: `${String(Math.min(geometry.share.zero, geometry.share.current) * 100)}%`,
-              width: `${String(Math.abs(geometry.share.current - geometry.share.zero) * 100)}%`,
-            }}
-          />
-          <span
+            data-threshold
             className="absolute -inset-y-1 w-0.5 bg-text-primary"
             style={{ left: `${String(geometry.share.threshold * 100)}%` }}
+          />
+          <span
+            data-current
+            className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-text-primary bg-surface-subtle"
+            style={{ left: `${String(geometry.share.current * 100)}%` }}
           />
         </span>
       ) : (
