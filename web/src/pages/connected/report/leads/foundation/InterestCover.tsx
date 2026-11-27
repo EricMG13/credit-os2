@@ -160,6 +160,15 @@ export function InterestCoverTile({ lead }: { lead: LeadProps }) {
       </GapTile>
     );
   const change = coverChange(cover);
+  const separated = new Set(cover.separations.flatMap(({ from, to }) => [from, to]));
+  const table = coverTable(cover);
+  const details: string[] = [];
+  table.rows = table.rows.map(([label = "", value = "", basis = ""], at) => {
+    if (!separated.has(label)) return [label, value, basis];
+    const period = cover.periodWords[at] ?? label;
+    details.push([period, basis].filter(Boolean).join(" · "));
+    return [period, value, basis];
+  });
   return (
     <FigureTile
       props={lead}
@@ -169,7 +178,7 @@ export function InterestCoverTile({ lead }: { lead: LeadProps }) {
       title="Interest cover"
       line={cover.tableLine}
       source="interest cover"
-      table={coverTable(cover)}
+      table={table}
       notes={coverNotes(cover)}
     >
       <Legend items={coverLegend(cover)} />
@@ -181,6 +190,13 @@ export function InterestCoverTile({ lead }: { lead: LeadProps }) {
       <Measured fallback={FALLBACK}>
         {(width) => <CoverStrip cover={cover} width={width} />}
       </Measured>
+      {details.length > 0 && (
+        <ul className="flex flex-col gap-1 text-caption text-text-secondary">
+          {details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      )}
     </FigureTile>
   );
 }

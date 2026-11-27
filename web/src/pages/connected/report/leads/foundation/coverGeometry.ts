@@ -152,6 +152,8 @@ export function coverLayout(cover: InterestCover, width: number): CoverLayout {
     const before = rows[at];
     if (before?.mark.kind !== "value" || row.mark.kind !== "value") return [];
     if (!placed(before.label) || !placed(row.label)) return [];
+    if (cover.separations.some(({ from, to }) => from === before.label && to === row.label))
+      return [];
     const from: [number, number] = [x(before.mark.value), before.y];
     return [{ from, to: [x(row.mark.value), row.y] as [number, number] }];
   });

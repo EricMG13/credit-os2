@@ -1,3 +1,4 @@
+import { unitLabel, writtenUnit } from "../../../publishedReport";
 import { LINE, SIZE, fittingTicks, gapSlotHeight, niceAxis, textWidth, wrap } from "../kit/marks";
 import { group, type Reading } from "../kit/numbers";
 import type { LiquidityPeriod, NetDebtPeriod, NetDebtView, ProForma } from "./foundationData";
@@ -12,6 +13,14 @@ const safeText = written;
 /** A cell as the page writes it: the figure grouped, or a gap or words exactly as written. */
 const words = (cell: Reading) => (cell.kind === "number" ? group(cell.text) : safeText(cell.text));
 
+/** A figure outside the tile's reporting unit carries its own unit wherever it is shown. */
+function moneyWords(cell: Reading, rowUnit: string, tileUnit: string) {
+  const text = words(cell);
+  return cell.kind === "number" && unitLabel(rowUnit) !== tileUnit
+    ? writtenUnit(text, rowUnit || "(unit not stated)")
+    : text;
+}
+
 /** A ratio cell: "4.88x", or the gap or words as written. */
 const ratioWords = (cell: Reading | null) =>
   cell === null ? "not stated" : cell.kind === "number" ? `${group(cell.text)}x` : words(cell);
@@ -23,12 +32,13 @@ const dateWords = (cell: Reading) => (cell.text.trim() ? safeText(cell.text) : n
 const MOST_BARS = 2;
 
 /**
- * The adjustments drawn as pro forma net debt bars: those that state a pro forma net debt, in
- * handoff order, only when there are at most two. With more, none is chosen (by size or
- * otherwise): the periods are the bars and every adjustment is a mark on the strip.
+ * The adjustments drawn as pro forma net debt bars: those in the net debt reporting unit,
+ * in handoff order, only when there are at most two. All adjustments remain in the tables.
  */
 export function proFormaBars(view: NetDebtView): ProForma[] {
-  const priced = view.adjustments.filter((item) => item.netDebt.kind === "number");
+  const priced = view.adjustments.filter(
+    (item) => item.netDebt.kind === "number" && item.unit === view.unit,
+  );
   return priced.length <= MOST_BARS ? priced : [];
 }
 
@@ -368,8 +378,10 @@ export function liquidityLines(view: NetDebtView): LiquidityLine[] {
     return {
       label,
       total: total ? stated(total) : null,
-      cash: row ? stated(row.cash) : null,
-      undrawn: row ? stated(row.undrawn) : null,
+      cash: row ? { ...stated(row.cash), text: moneyWords(row.cash, row.unit, view.unit) } : null,
+      undrawn: row
+        ? { ...stated(row.undrawn), text: moneyWords(row.undrawn, row.unit, view.unit) }
+        : null,
     };
   });
 }
@@ -409,10 +421,10 @@ export function netDebtTable(view: NetDebtView) {
       ...view.adjustments.map((item) => [
         `Pro forma: ${safeText(item.event)}`,
         dateWords(item.date) ?? "Not stated",
-        words(item.amount),
+        moneyWords(item.amount, item.reportingUnit, view.unit),
         "Not stated",
         "Not stated",
-        words(item.netDebt),
+        moneyWords(item.netDebt, item.reportingUnit, view.unit),
         ratioWords(item.leverage),
       ]),
     ],
@@ -440,8 +452,8 @@ export function adjustmentsTable(view: NetDebtView) {
             text: dateWords(item.date) ?? "",
             gap: /^Not (?:supplied|calculated)/i.test(item.date.text),
           },
-      cellOf(item.amount),
-      cellOf(item.netDebt),
+      { ...cellOf(item.amount), text: moneyWords(item.amount, item.reportingUnit, view.unit) },
+      { ...cellOf(item.netDebt), text: moneyWords(item.netDebt, item.reportingUnit, view.unit) },
       { ...cellOf(item.leverage), text: ratioWords(item.leverage) },
     ]),
   };
