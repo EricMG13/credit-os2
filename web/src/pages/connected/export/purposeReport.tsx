@@ -99,11 +99,11 @@ export function purposeDocument(
     pathway: runPathway(run, view.catalogue),
     scope: scopeLabel(run),
     restrictions: purpose.restrictions ?? [],
-    content: <PurposeReport purpose={purpose} />,
+    content: <PurposeReport purpose={purpose} pathway={run.pathway} />,
   };
 }
 
-function PurposeReport({ purpose }: { purpose: Purpose }) {
+function PurposeReport({ purpose, pathway }: { purpose: Purpose; pathway?: string | null }) {
   const { title, decision, withheld = 0, restrictions, charts, gap, passages, exhibits } = purpose;
   return (
     <div className="issuer-front-page grid min-w-0 gap-5">
@@ -130,7 +130,12 @@ function PurposeReport({ purpose }: { purpose: Purpose }) {
             // A table's section can hold the same paragraph twice; each is printed.
             <p key={at}>{richParts(note, readerText)}</p>
           ))}
-          <PublishedTable table={table} heading={title} drawCell={unitCells(table)} />
+          <PublishedTable
+            table={table}
+            heading={title}
+            drawCell={unitCells(table)}
+            pathway={pathway}
+          />
         </section>
       ))}
       {passages?.map(

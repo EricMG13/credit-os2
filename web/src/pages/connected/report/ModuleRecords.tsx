@@ -289,6 +289,7 @@ function RecordDrawing({
           wideBars
           records
           emptyLabel="Left blank"
+          pathway={run.pathway}
           drawCell={(column, cell) =>
             drawUnits(column, cell) ?? (compact && !all ? gapChip(cell, run.pathway) : undefined)
           }
@@ -326,6 +327,7 @@ function ChosenRecord({
           block={note}
           trace={traceKey(entry, note.line)}
           href={evidencePath(run.folder, entry, note.line)}
+          pathway={run.pathway}
         />
       ))}
       <RecordDrawing run={run} entry={entry} record={record} />

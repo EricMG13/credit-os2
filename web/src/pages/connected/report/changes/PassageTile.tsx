@@ -35,12 +35,14 @@ export function PassageBody({
   noun,
   entry,
   folder,
+  pathway,
   numbered = false,
 }: {
   items: PassageItem[];
   noun: string;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
   numbered?: boolean;
 }) {
   const List = numbered ? "ol" : "ul";
@@ -67,6 +69,7 @@ export function PassageBody({
               <PublishedTable
                 table={item.table}
                 drawCell={unitCells(item.table)}
+                pathway={pathway}
                 rowSource={(line, label) => (
                   <PublishedSource
                     href={evidencePath(folder, entry, line)}
@@ -93,6 +96,7 @@ export function PassageTile({
   items,
   entry,
   folder,
+  pathway,
   tone = "plain",
   numbered = false,
 }: {
@@ -102,6 +106,7 @@ export function PassageTile({
   items: PassageItem[] | null;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
   tone?: "plain" | "counter";
   numbered?: boolean;
 }) {
@@ -110,7 +115,14 @@ export function PassageTile({
     body = <GapNote>Not established for this run: the module wrote no such passage.</GapNote>;
   else
     body = (
-      <PassageBody items={items} noun={noun} entry={entry} folder={folder} numbered={numbered} />
+      <PassageBody
+        items={items}
+        noun={noun}
+        entry={entry}
+        folder={folder}
+        pathway={pathway}
+        numbered={numbered}
+      />
     );
   return (
     <Tile span={span} label={title} title={title} tone={tone}>

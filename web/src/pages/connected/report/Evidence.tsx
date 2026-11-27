@@ -184,6 +184,7 @@ function EvidenceLocation({
                   table={rowView(block, line)}
                   heading={plainText(section.heading)}
                   evidence
+                  pathway={pathway}
                 />
               ) : section.heading === FORECAST_INPUTS ? (
                 <pre className="max-h-100 overflow-auto rounded-ds-sm bg-surface-subtle p-3 text-caption whitespace-pre-wrap wrap-anywhere">

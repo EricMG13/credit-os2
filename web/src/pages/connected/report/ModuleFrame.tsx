@@ -165,10 +165,12 @@ function Continuation({
   source,
   entry,
   folder,
+  pathway,
 }: {
   source: NonNullable<BottomLineSource>;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const wide = useWideScreen(768);
   const paragraphs =
@@ -179,6 +181,7 @@ function Continuation({
             block={block}
             trace={traceKey(entry, block.line)}
             href={evidencePath(folder, entry, block.line)}
+            pathway={pathway}
           />
         ))
       : null;
@@ -297,7 +300,13 @@ function HeaderBottom({
         <span className="text-caption text-text-tertiary">
           <Anchor id={ANCHOR.bottomLine}>Bottom line</Anchor>
         </span>
-        <HollowPassage section={hollow} title="Bottom line" entry={entry} folder={folder} />
+        <HollowPassage
+          section={hollow}
+          title="Bottom line"
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       </Bottom>
     );
   return owed ? (
@@ -387,7 +396,7 @@ export function ModuleHeader({
           pathway={pathway}
         />
         {entry && bottomLine && !entry.output.parseError && (
-          <Continuation source={bottomLine} entry={entry} folder={folder} />
+          <Continuation source={bottomLine} entry={entry} folder={folder} pathway={pathway} />
         )}
       </div>
     </Tile>
@@ -398,16 +407,19 @@ function Paragraph({
   block,
   entry,
   folder,
+  pathway,
 }: {
   block: TextBlock;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   return (
     <FindingParagraph
       block={block}
       trace={traceKey(entry, block.line)}
       href={evidencePath(folder, entry, block.line)}
+      pathway={pathway}
     />
   );
 }
@@ -418,11 +430,13 @@ function PassageTable({
   title,
   entry,
   folder,
+  pathway,
 }: {
   table: Table;
   title: string;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   if (!table.rows.length) return <GapNote>{NO_ROWS}</GapNote>;
   return (
@@ -432,6 +446,7 @@ function PassageTable({
       drawCell={unitCells(table)}
       traceAt={(line) => traceKey(entry, line)}
       rowHref={(line) => evidencePath(folder, entry, line)}
+      pathway={pathway}
     />
   );
 }
@@ -445,11 +460,13 @@ function HollowPassage({
   title,
   entry,
   folder,
+  pathway,
 }: {
   section: Section;
   title: string;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -470,6 +487,7 @@ function HollowPassage({
             title={title}
             entry={entry}
             folder={folder}
+            pathway={pathway}
           />
         ) : null,
       )}
@@ -491,7 +509,9 @@ function PassageBlocks({
 }) {
   return section.blocks.map((block) =>
     block.type === "text" ? (
-      readable(block) && <Paragraph key={block.line} block={block} entry={entry} folder={folder} />
+      readable(block) && (
+        <Paragraph key={block.line} block={block} entry={entry} folder={folder} pathway={pathway} />
+      )
     ) : block.type === "table" ? (
       <PassageTable
         key={block.line}
@@ -499,6 +519,7 @@ function PassageBlocks({
         title={readableTitle(section.heading, undefined, pathway)}
         entry={entry}
         folder={folder}
+        pathway={pathway}
       />
     ) : null,
   );
@@ -508,10 +529,12 @@ function KeyFindings({
   section,
   entry,
   folder,
+  pathway,
 }: {
   section: Section;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const paragraphs = section.blocks.filter(
     (block): block is TextBlock => block.type === "text" && readable(block),
@@ -531,7 +554,7 @@ function KeyFindings({
             >
               {String(at + 1).padStart(2, "0")}
             </span>
-            <Paragraph block={block} entry={entry} folder={folder} />
+            <Paragraph block={block} entry={entry} folder={folder} pathway={pathway} />
           </li>
         ))}
       </ol>
@@ -542,6 +565,7 @@ function KeyFindings({
           title={KEY_FINDINGS}
           entry={entry}
           folder={folder}
+          pathway={pathway}
         />
       ))}
     </>
@@ -574,7 +598,15 @@ export function ModuleFindings({
   if (!left && !right) return null;
   const [leftSpan, rightSpan] = left && right ? ([7, 5] as const) : ([12, 12] as const);
   const hollowOf = (section: Section | undefined, name: string) =>
-    section && <HollowPassage section={section} title={name} entry={entry} folder={folder} />;
+    section && (
+      <HollowPassage
+        section={section}
+        title={name}
+        entry={entry}
+        folder={folder}
+        pathway={pathway}
+      />
+    );
   return (
     <>
       {left && (
@@ -585,7 +617,7 @@ export function ModuleFindings({
           title={<Anchor id={ANCHOR.findings}>{KEY_FINDINGS}</Anchor>}
         >
           {keyFindings ? (
-            <KeyFindings section={keyFindings} entry={entry} folder={folder} />
+            <KeyFindings section={keyFindings} entry={entry} folder={folder} pathway={pathway} />
           ) : (
             (hollowOf(hollow.findings, KEY_FINDINGS) ?? <GapNote>{MISSING_PASSAGE}</GapNote>)
           )}
@@ -747,7 +779,13 @@ export function ModuleLimitations({
       kicker="As the module reports them"
     >
       {hollow ? (
-        <HollowPassage section={hollow} title={title} entry={entry} folder={folder} />
+        <HollowPassage
+          section={hollow}
+          title={title}
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       ) : (
         owed &&
         !paragraphs.length &&
@@ -790,7 +828,14 @@ export function ModuleLimitations({
         )}
       </ul>
       {tables.map((table) => (
-        <PassageTable key={table.line} table={table} title={title} entry={entry} folder={folder} />
+        <PassageTable
+          key={table.line}
+          table={table}
+          title={title}
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       ))}
     </Tile>
   );

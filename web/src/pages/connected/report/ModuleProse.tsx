@@ -115,6 +115,7 @@ function ProseTile({
               block={block}
               trace={traceKey(entry, block.line)}
               href={evidencePath(folder, entry, block.line)}
+              pathway={pathway}
             />
           </div>
         ))}

@@ -61,7 +61,9 @@ export function ComparisonTable({
   rows,
   source,
   evidence = true,
+  pathway,
 }: {
+  pathway?: string | null;
   rows: string[][];
   source?: (label: string, index: number) => string | undefined;
   /** True (the Evidence page) draws a cell's references; false keeps only its own words. */
@@ -73,6 +75,7 @@ export function ComparisonTable({
   return (
     <PublishedTable
       evidence
+      pathway={pathway}
       rowSource={
         source &&
         ((line, label) => {
@@ -149,11 +152,13 @@ export function ReportChanges({
               ledger={ledgerOf(entry, run.folder, run.pathway)}
               entry={entry}
               folder={run.folder}
+              pathway={run.pathway}
             />
             <LeftoverTile
               sections={leftovers(entry, run.folder, run.pathway)}
               entry={entry}
               folder={run.folder}
+              pathway={run.pathway}
             />
           </Bento>
         )}
@@ -251,7 +256,13 @@ function Verdict({
           <GapNote>The comparison does not state a verdict in a sentence.</GapNote>
         )}
         {verdict && entry && verdict.body.length > 0 && (
-          <PassageBody items={verdict.body} noun="passage" entry={entry} folder={folder} />
+          <PassageBody
+            items={verdict.body}
+            noun="passage"
+            entry={entry}
+            folder={folder}
+            pathway={pathway}
+          />
         )}
         <ComparedDates change={change} />
         <GapSentence>Stance, earlier → current: the comparison does not state it</GapSentence>
@@ -319,13 +330,14 @@ function Measures({
       }
     >
       {entry && lead.length > 0 && (
-        <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+        <PassageBody items={lead} noun="passage" entry={entry} folder={folder} pathway={pathway} />
       )}
       {view === "table" ? (
         <section aria-label="Earlier against current">
           <ComparisonTable
             rows={rows}
             evidence={false}
+            pathway={pathway}
             source={(_label, index) => hrefs.get(index)}
           />
         </section>
@@ -438,7 +450,13 @@ function Comparison({
             </p>
           )}
           {entry && analysisLead.length > 0 && (
-            <PassageBody items={analysisLead} noun="passage" entry={entry} folder={folder} />
+            <PassageBody
+              items={analysisLead}
+              noun="passage"
+              entry={entry}
+              folder={folder}
+              pathway={run.pathway}
+            />
           )}
           <ModuleMatrix change={change} source={trace.module} pathway={run.pathway} />
         </Tile>
@@ -451,7 +469,13 @@ function Comparison({
       />
       {entry && <Passages entry={entry} folder={folder} pathway={run.pathway} />}
       {entry && (
-        <LedgerTile ledger={ledger} entry={entry} folder={folder} lead={lead(LEDGER_REGISTER)} />
+        <LedgerTile
+          ledger={ledger}
+          entry={entry}
+          folder={folder}
+          pathway={run.pathway}
+          lead={lead(LEDGER_REGISTER)}
+        />
       )}
       <FactsTile result={issuerFacts(entry, folder, matchedLines, run.pathway)} />
       {entry && (
@@ -465,7 +489,9 @@ function Comparison({
           title="Also compared in the analysis"
         />
       )}
-      {entry && <LeftoverTile sections={rest} entry={entry} folder={folder} />}
+      {entry && (
+        <LeftoverTile sections={rest} entry={entry} folder={folder} pathway={run.pathway} />
+      )}
       {unmoved.length > 0 && (
         <Tile span={12} label="Measures that did not move" title="Measures that did not move">
           <details>
@@ -513,6 +539,7 @@ function Passages({
       items={passageItems(entry, title, folder, pathway)}
       entry={entry}
       folder={folder}
+      pathway={pathway}
       {...extra}
     />
   );
