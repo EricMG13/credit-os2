@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Sparkline } from "./Sparkline";
+import { MiniColumns, Sparkline } from "./Sparkline";
 
 afterEach(cleanup);
 
@@ -82,5 +82,53 @@ describe("Sparkline", () => {
     expect(() => render(<Sparkline values={["1", "2"]} height={4} label="x" />)).toThrow(
       RangeError,
     );
+  });
+});
+
+describe("MiniColumns", () => {
+  it("keeps missing periods distinct and maps written amounts to columns", () => {
+    const { container } = render(
+      <MiniColumns values={["0", null, "2.5"]} colour="amber" label="Debt by period" />,
+    );
+    expect(screen.getByRole("img", { name: "Debt by period" })).toBeInTheDocument();
+    expect(container.querySelectorAll("rect[data-value]")).toHaveLength(2);
+    expect(container.querySelector('rect[data-value="0"]')).toHaveAttribute("height", "1");
+    expect(container.querySelectorAll("rect[data-gap]")).toHaveLength(1);
+    expect(container.querySelector('rect[data-value="2.5"]')).toHaveAttribute("fill", "amber");
+  });
+
+  it("rejects text that is not a written decimal", () => {
+    expect(() => render(<MiniColumns values={["1e3"]} colour="amber" label="Debt" />)).toThrow(
+      RangeError,
+    );
+  });
+
+  it("keeps negative columns below the zero baseline", () => {
+    const { container } = render(
+      <MiniColumns values={["1", "-1"]} colour="amber" label="Signed debt amounts" />,
+    );
+    const zero = container.querySelector("line[data-zero-base]");
+    const positive = container.querySelector('rect[data-value="1"]');
+    const negative = container.querySelector('rect[data-value="-1"]');
+    expect(positive?.getAttribute("y")).toBe("1");
+    expect(negative?.getAttribute("y")).toBe(zero?.getAttribute("y1"));
+  });
+
+  it("keeps dense bars and gap strokes inside their period slots", () => {
+    const values = Array.from({ length: 110 }, (_, index) => (index === 109 ? null : "0"));
+    const { container } = render(
+      <MiniColumns values={values} colour="amber" label="Dense debt maturities" />,
+    );
+    const bars = container.querySelectorAll('rect[data-value="0"]');
+    expect(bars).toHaveLength(109);
+    const bar = bars.item(bars.length - 1);
+    const gap = container.querySelector("rect[data-gap]");
+    expect(gap).not.toBeNull();
+    const barEnd = Number(bar.getAttribute("x")) + Number(bar.getAttribute("width"));
+    const gapStart = Number(gap?.getAttribute("x"));
+    const gapEnd =
+      gapStart + Number(gap?.getAttribute("width")) + Number(gap?.getAttribute("stroke-width")) / 2;
+    expect(barEnd).toBeLessThanOrEqual(gapStart);
+    expect(gapEnd).toBeLessThanOrEqual(60);
   });
 });

@@ -807,7 +807,10 @@ test("Coverage opens Monitor by default and keeps named analytics regions honest
     ),
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("row", { name: /Beta SA/ }));
-  for (const view of ["Refinancing", "Market"]) {
+  fireEvent.click(screen.getByRole("button", { name: "Refinancing" }));
+  expect(await screen.findByRole("table", { name: "Maturity wall totals" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Refinancing" })).toBeInTheDocument();
+  for (const view of ["Market"]) {
     fireEvent.click(screen.getByRole("button", { name: view }));
     expect(screen.getByRole("region", { name: view })).toHaveTextContent(
       `${view} analysis is not available yet.`,

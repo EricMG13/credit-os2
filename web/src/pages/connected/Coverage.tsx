@@ -36,6 +36,7 @@ import { IssuerDetail } from "./coverage/IssuerDetail";
 import { Matrix } from "./coverage/Matrix";
 import { Monitor } from "./coverage/Monitor";
 import { Patterns } from "./coverage/Patterns";
+import { Refinancing } from "./coverage/Refinancing";
 export { MONITOR_GROUPS } from "./coverage/Monitor";
 import { RankView } from "./coverage/Rank";
 import { named, STATE_WORDS } from "./coverage/shared";
@@ -700,6 +701,13 @@ function Dashboard({ data: served }: { data: Data }) {
         )
       ) : view === "patterns" ? (
         <Patterns
+          data={data}
+          issuers={shown}
+          selected={selectedIssuer}
+          onSelect={setSelectedIssuer}
+        />
+      ) : view === "refinancing" ? (
+        <Refinancing
           data={data}
           issuers={shown}
           selected={selectedIssuer}

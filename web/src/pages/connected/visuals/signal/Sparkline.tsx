@@ -163,3 +163,92 @@ export function Sparkline({
     </svg>
   );
 }
+
+/** A compact set of amount columns; null periods stay visibly empty. */
+export function MiniColumns({
+  values,
+  colour,
+  label,
+}: {
+  values: readonly (string | null)[];
+  colour: string;
+  label: string;
+}) {
+  for (const value of values)
+    if (value !== null && !DECIMAL.test(value))
+      throw new RangeError(`MiniColumns: "${value}" is not a plain decimal figure`);
+  const parsed = values.map((value) => (value === null ? null : decimal(value)));
+  const scale = parsed.reduce((largest, value) => Math.max(largest, value?.scale ?? 0), 0);
+  const scaled = parsed.map((value) =>
+    value === null ? null : value.coefficient * 10n ** BigInt(scale - value.scale),
+  );
+  const stated = scaled.flatMap((value) => (value === null ? [] : [value]));
+  let low = stated[0] ?? 0n;
+  let high = low;
+  for (const value of stated) {
+    if (value < low) low = value;
+    if (value > high) high = value;
+  }
+  const verticalInset = 1;
+  const width = 60;
+  const height = 18;
+  const positive = high > 0n ? high : 0n;
+  const negative = low < 0n ? -low : 0n;
+  const span = positive + negative;
+  const precision = 1_000_000n;
+  const plotHeight = height - verticalInset * 2;
+  const zeroY =
+    verticalInset +
+    (span === 0n
+      ? plotHeight / 2
+      : (Number((positive * precision) / span) / Number(precision)) * plotHeight);
+  const step = width / Math.max(values.length, 1);
+  const slotInset = Math.min(step * 0.1, 0.5);
+  const barWidth = step - 2 * slotInset;
+  return (
+    <svg role="img" aria-label={label} width={width} height={height} viewBox="0 0 60 18">
+      <line
+        data-zero-base
+        x1="0"
+        x2={width}
+        y1={zeroY}
+        y2={zeroY}
+        stroke="currentColor"
+        strokeOpacity=".25"
+      />
+      {scaled.map((value, index) => {
+        if (value === null)
+          return (
+            <rect
+              key={index}
+              data-gap="true"
+              x={index * step + slotInset}
+              y={2}
+              width={barWidth}
+              height={14}
+              fill="none"
+              stroke="currentColor"
+              strokeDasharray="2 2"
+              strokeWidth={slotInset * 2}
+            />
+          );
+        const magnitude = value < 0n ? -value : value;
+        const proportion =
+          span === 0n ? 0 : Number((magnitude * precision) / span) / Number(precision);
+        const barHeight = Math.max(1, proportion * plotHeight);
+        const y = value < 0n ? zeroY : zeroY - barHeight;
+        return (
+          <rect
+            key={index}
+            data-value={values[index] ?? ""}
+            x={index * step + slotInset}
+            y={y}
+            width={barWidth}
+            height={barHeight}
+            fill={colour}
+          />
+        );
+      })}
+    </svg>
+  );
+}

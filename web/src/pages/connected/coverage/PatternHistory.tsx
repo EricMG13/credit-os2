@@ -133,6 +133,30 @@ function issuerSources(data: Coverage, issuer: Issuer, field: string): TraceSour
   return run ? factsOf(data, run.key, field).map((fact) => ({ issuer, run, fact })) : [];
 }
 
+function issuerPeriodTrace(data: Coverage, issuer: Issuer, field: string) {
+  const sources = issuerSources(data, issuer, field);
+  if (sources.length === 0) return openRun(issuer);
+  const run = sources[0]?.run;
+  if (!run) return openRun(issuer);
+  return (
+    <details>
+      <summary>Period evidence ({sources.length})</summary>
+      <ul>
+        <li>{openRun(issuer)}</li>
+        {sources.map(({ fact }, index) => (
+          <li
+            key={`${fact?.output ?? ""}-${String(fact?.line)}-${String(fact?.period)}-${String(index)}`}
+          >
+            {fact?.period ?? "Period not stated"}{" "}
+            {fact ? `${written(fact)} (${fact.basis ?? "Basis not stated"})` : "No fact stated"}{" "}
+            {fact && traceFact(run, fact, "Evidence")}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function sourcesForOut(
   data: Coverage,
   field: string,
@@ -409,8 +433,8 @@ export function PatternHistory({
             <ul>
               {outOfOrder.map((issuer) => (
                 <li key={issuer.key}>
-                  {issuer.name}: periods cannot be ordered for this issuer {openRun(issuer)}{" "}
-                  {sourceDisclosure("Period evidence", issuerSources(data, issuer, field), false)}
+                  {issuer.name}: periods cannot be ordered for this issuer{" "}
+                  {issuerPeriodTrace(data, issuer, field)}
                 </li>
               ))}
             </ul>
@@ -568,8 +592,7 @@ export function PatternHistory({
             <ul>
               {outOfOrder.map((issuer) => (
                 <li key={issuer.key}>
-                  {issuer.name}: periods cannot be ordered {openRun(issuer)}{" "}
-                  {sourceDisclosure("Period evidence", issuerSources(data, issuer, field), false)}
+                  {issuer.name}: periods cannot be ordered {issuerPeriodTrace(data, issuer, field)}
                 </li>
               ))}
             </ul>
