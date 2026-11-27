@@ -69,9 +69,13 @@ T2H5_MONEY = {
 }
 RATIO_STEP = 1e-9  # the script does not round its ratios
 _PART = re.compile(r"\s*/\s*")
-_NOT_ANNUAL = re.compile(r"\b(?:q[1-4]|h[12]|[1-9]m|quarter|half|month|ytd)\b")
+_NOT_ANNUAL = re.compile(
+    r"\b(?:q[1-4]|h[12]|quarter|half|month|ytd)\b"  # `Q1 FY26`, `H1 FY26`
+    r"|\b(?:[1-4]q|[12]h)(?:\d{4}|\d{2})?\b"  # `1Q26`, `2Q2026`, `1H26`
+    r"|\b[1-9]m(?:\d{4}|\d{2})?\b"  # `9M`, `9M26`
+)
 _OTHER_BASIS = re.compile(
-    r"covenant|agency|rating|lease[ -]?adjusted|ifrs ?16|pro ?forma|run[ -]?rate|principal|"
+    r"covenant|agency|\bratings?\b|lease[ -]?adjusted|ifrs ?16|pro ?forma|run[ -]?rate|principal|"
     r"face value|average debt"
 )
 _EBITDA_OVER_INTEREST = re.compile(r"ebitda\s*(?:/|to|over)\s*(?:\(?cash\s+|net\s+)?interest")
@@ -193,6 +197,22 @@ class _Model:
     unit: str
 
 
+def _money_column(table: Table, name: str, where: str) -> tuple[int, str]:
+    """The money column ``name``: the one whose header is the name alone or with a unit in
+    brackets (`EBITDA (USD m)`) before any longer header that merely starts with it (`EBITDA
+    margin`); two such exact headers stay ambiguous."""
+    exact = [
+        i
+        for i, c in enumerate(table[0])
+        if re.fullmatch(rf"{re.escape(_label(name))}(?: \(.*\))?", _label(c))
+    ]
+    if not exact:
+        return column(table, name, where)
+    if len(exact) > 1:
+        raise _NotChecked(f"{where} has {len(exact)} `{name}` columns")
+    return exact[0], table[0][exact[0]]
+
+
 def _model(text: str, tables: types.ModuleType) -> _Model:
     fields: dict[Key, dict[str, Field]] = {}
     order: dict[str, list[Key]] = {}
@@ -201,7 +221,7 @@ def _model(text: str, tables: types.ModuleType) -> _Model:
         if isinstance(table, str):
             raise _NotChecked(table)
         rows = _keyed(table, ident)
-        cols = {name: column(table, name, ident) for name in spec}
+        cols = {name: _money_column(table, name, ident) for name in spec}
         for key, row in rows.items():
             fields.setdefault(_norm(key), {}).update(_fields(row, cols, tables))
             if ident == "T2H.5":
