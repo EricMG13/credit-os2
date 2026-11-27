@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -404,6 +405,47 @@ def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         emit(report)
 
 
+def commit_tree(sha: str) -> str:
+    if re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", sha) is None:
+        raise ValueError("candidate and merge must be full Git commit IDs")
+    return subprocess.check_output(
+        ["git", "rev-parse", "--verify", f"{sha}^{{tree}}"], text=True
+    ).strip()
+
+
+def merged_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    if not args.target.startswith("refs/remotes/origin/"):
+        raise ValueError("supply the freshly fetched origin target ref")
+    tree = commit_tree(args.candidate)
+    if commit_tree(args.merged_sha) != tree:
+        raise ValueError("merged tree differs from the accepted candidate")
+    subprocess.run(["git", "check-ref-format", args.target], check=True)
+    subprocess.run(["git", "merge-base", "--is-ancestor", args.merged_sha, args.target], check=True)
+    db.execute("BEGIN IMMEDIATE")
+    accepted = db.execute(
+        "SELECT result FROM events WHERE run=? AND id=?", (args.run, f"accept:{args.id}")
+    ).fetchone()
+    if accepted is None or json.loads(accepted["result"]).get("candidate_sha") != args.candidate:
+        raise ValueError("attempt was not accepted at this candidate SHA")
+    payload = {
+        "candidate_sha": args.candidate,
+        "merged_sha": args.merged_sha,
+        "target_ref": args.target,
+        "tree": tree,
+    }
+    ident = f"merged:{args.id}"
+    existing = db.execute(
+        "SELECT result FROM events WHERE run=? AND id=?", (args.run, ident)
+    ).fetchone()
+    if existing is not None:
+        if json.loads(existing["result"]) != payload:
+            raise ValueError("attempt has a different recorded merge")
+    else:
+        event(db, args.run, ident, "merged", payload)
+    db.commit()
+    emit(payload)
+
+
 def accept_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     db.execute("BEGIN IMMEDIATE")
     observed = db.execute(
@@ -423,7 +465,10 @@ def accept_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     )
     if cursor.rowcount != 1:
         raise ValueError("attempt is unknown, unsettled, already accepted, or superseded")
-    event(db, args.run, f"accept:{args.id}", "accept", {"revision": args.expected_revision})
+    receipt: dict[str, object] = {"revision": args.expected_revision}
+    if getattr(args, "candidate", None) is not None:
+        receipt.update(candidate_sha=args.candidate, tree=commit_tree(args.candidate))
+    event(db, args.run, f"accept:{args.id}", "accept", receipt)
     db.commit()
     emit({"ok": True, "attempt": args.id, "revision": args.expected_revision})
 
@@ -527,6 +572,10 @@ def arguments() -> argparse.Namespace:
     accept.add_argument("run")
     accept.add_argument("id")
     accept.add_argument("expected_revision", type=int)
+    accept.add_argument("--candidate")
+    merged = sub.add_parser("merged")
+    for field in ("run", "id", "candidate", "merged_sha", "target"):
+        merged.add_argument(field)
     return parser.parse_args()
 
 
@@ -543,6 +592,7 @@ def main() -> int:
         "recover": recover_run,
         "status": status_run,
         "accept": accept_run,
+        "merged": merged_run,
     }
     try:
         args = arguments()

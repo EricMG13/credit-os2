@@ -55,7 +55,7 @@ One paired trial over six tasks costs twelve builder attempts plus blind scoring
 
 Use event-based progression on task completion, a newly linked escape, deadline, or owner instruction. During a long task, a deterministic timer may report a missed checkpoint and remaining allowance. Re-read an unchanged PR only on a bounded polling interval when its client lacks check events. The first pilot measures whether these signals are sufficient before adding monitoring infrastructure.
 
-## Rollout execution
+## Initial pilot evidence
 
 The implementation worktree started at GitHub main `0563bccc`. The local project entry points share
 one policy in `AGENTS.md`. Claude's local initialization lists `/dev`. Codex's local prompt
@@ -63,7 +63,7 @@ inspection lists `$credit-os2-dev` and the shared rules. Use the skill or plain-
 Codex until the literal slash binding is proven. Two ongoing Codex chats acknowledged the
 coordinator rules and applied decision IDs to their existing work.
 
-Use the run ledger for pilot state and `python tools/dev_route.py <trial.json>` to evaluate
+The initial pilot used the run ledger for state and `python tools/dev_route.py <trial.json>` to evaluate
 independently scored evidence. An eligible result is the evidence for a routing decision. A
 client needs a verified dispatch binding and authorized route limits before applying a decision
 to an actual worker. Use the running application and record browser and critique proof in the
@@ -96,3 +96,45 @@ and revision decisions on a single host. An overrun freezes launches for that da
 the coordinator reconciles spend. Old worker results can settle costs while integration
 refuses superseded output. The current pilot conservatively invalidates all older results
 from that run when a decision advances. Selective reuse needs verified dependency tracking.
+
+## Operating the local release after the initial pilot
+
+The coordinator owns these calls. The owner approves the card in chat and can steer by
+decision ID. Use the absolute database path returned by the card for every local command,
+including the route registry. Keep it outside every builder's writable worktree.
+
+| Milestone | Coordinator operation | Result to show |
+|---|---|---|
+| Discover | Run `dev_ledger.py card SPEC PLAN` from the intended checkout. Compare the cached target with GitHub and check the relevant rulings and working-tree changes. | Outcome, checkout, candidate, target, acceptance examples and document digests. |
+| Approve | Record the displayed digests, deadline, capacity and approved dispatch-policy digest with `dev_ledger.py approve`. Use the complete command in AGENTS.md. | One acknowledgement for the approved pair. Repeating it leaves the run at its current revision. |
+| Work | Resolve the approved cohort in that database and dispatch into a separate Credit OS2 worktree. Retain the effective model and effort and the worker output. Verify the result before accepting the attempt. | Plain-English milestone. Escalate a blocked permission, changed product meaning or exhausted limit. |
+| Steer | Use `status`, `explain` and `decision` for run choices. A pause or redirect invalidates earlier writer results. Use the route registry for a route reversal and identify the specific decision. | Owner decisions first, reversible choices already applied second, verified work third. |
+| Learn | Record the independently verified first review, resolved worker route, accepted elapsed time, rework, costs and evidence digest. Assess the same client, task family, risk and scoring protocol. | Report the sample size, missing observations and probable cause. Apply a qualifying route within the approved allowlist. Show the decision ID and fallback. |
+| Deliver | For a visible change, drive the running app in a real browser using independent expected values, inspect the rendered state and link the proof to the PR candidate. Check GitHub CI and the tested integration tree. | Report verified coverage and any untested surface. Request the owner's merge decision for the specific SHA and target. |
+
+A confirmed cost overrun stops dispatch across the shared ledger. The coordinator reports the
+attempt, reserved amount, actual charge and remaining headroom. After the owner reconciles that
+charge, `dev_ledger.py reconcile RUN ATTEMPT ACTUAL REASON` releases the freeze and preserves
+the actual spend against the existing cap. A new route or wider ceiling requires its own authority.
+
+## Server-side enforcement pilot result
+
+The disposable target required an up-to-date browser check from GitHub Actions (app 15368)
+and applied that rule to administrators. A real Chrome run displayed 0 for a missing prior and
+failed its base-revision oracle. A same-name success status posted by the owner could not
+satisfy the required check. GitHub returned HTTP 405 for pending or failed proof, HTTP 409
+for a superseded approved SHA, and HTTP 405 after the previously green candidate's base moved.
+The updated candidate passed real Chrome and merged with the same Git tree,
+`ec2570b1fb3c801ec2e5cfbf7bc355618d675a3d`. Main has no equivalent effective rules.
+This pilot used one repository administrator and a workflow that the test candidate did not
+modify. Independent actor permissions and protection against a change to the proof workflow
+itself remain separate controls. [Negative and repaired fixture](https://github.com/EricMG13/credit-os2/pull/179)
+· [Base movement](https://github.com/EricMG13/credit-os2/pull/180)
+
+## Client availability
+
+On 27 November the authenticated local Codex Cloud CLI reported no available environments
+for this workspace when given `credit-os2`. In the web Codex Location picker, Cloud offered
+Default environment. Searching for `credit-os2` returned no match. A cloud qualification
+requires a read-only run against the named environment that reports its checkout and candidate.
+The local Claude client also needs an authenticated subscription session for a live worker test.

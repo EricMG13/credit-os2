@@ -10,6 +10,7 @@ from tools.dev_route import (
     Trial,
     apply_trial,
     assess,
+    canary_attempt_key,
     claim_canary,
     connect_registry,
     explain_route,
@@ -36,6 +37,8 @@ def batch(prefix, count, route, defects=0):
     return [
         {
             "task": f"{prefix}-{index}",
+            "run": "run-1",
+            "attempt": f"attempt-{prefix}-{index}",
             "fixture": f"{prefix}-{index}-v1",
             "cohort": COHORT,
             "evidence": f"artifact/{prefix}-{index}/{route['effort']}",
@@ -182,15 +185,19 @@ def test_qualified_trial_verifies_manifest_and_resolves_route(tmp_path):
     for index in range(5):
         with connect_registry(registry) as db:
             db.execute("BEGIN IMMEDIATE")
-            claim = claim_canary(db, cohort, f"canary-{index}")
+            claim = claim_canary(db, cohort, canary_attempt_key("run-1", f"attempt-canary-{index}"))
             db.commit()
         assert claim["route"] == CHALLENGER
     with connect_registry(registry) as db:
         db.execute("BEGIN IMMEDIATE")
-        replay = claim_canary(db, cohort, "canary-0")
+        replay = claim_canary(db, cohort, canary_attempt_key("run-1", "attempt-canary-0"))
         db.commit()
     assert replay["replayed"] is True
     assert replay["remaining"] == 0
+    ordinary = resolve_route(registry, cohort)
+    assert ordinary["canary_pending"] is False
+    assert ordinary["route"] == INCUMBENT
+    assert ordinary["decision_id"].startswith("baseline:")
     with connect_registry(registry) as db:
         db.execute("BEGIN IMMEDIATE")
         with pytest.raises(ValueError, match="no unclaimed bounded canary"):
@@ -274,7 +281,7 @@ def test_failed_canary_restores_only_the_active_challenger(tmp_path):
     cohort = Trial.model_validate(record).cohort
     with connect_registry(registry) as db:
         db.execute("BEGIN IMMEDIATE")
-        claim_canary(db, cohort, "canary-0")
+        claim_canary(db, cohort, canary_attempt_key("run-1", "attempt-canary-0"))
         db.commit()
 
     failed = pilot()

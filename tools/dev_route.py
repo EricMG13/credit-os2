@@ -37,6 +37,8 @@ class Cohort(Evidence):
 
 
 class Review(Evidence):
+    run: str | None = Field(default=None, min_length=1)
+    attempt: str | None = Field(default=None, min_length=1)
     task: str = Field(min_length=1)
     evidence: str = Field(min_length=1)
     fixture: str = Field(min_length=1)
@@ -228,7 +230,7 @@ def resolve_route_db(db: sqlite3.Connection, cohort: Cohort) -> dict[str, object
         (key,),
     ).fetchone()
     event = db.execute(
-        "SELECT decision_id FROM route_events WHERE cohort=? "
+        "SELECT decision_id FROM route_events WHERE cohort=? AND action != 'canary-start' "
         "ORDER BY created DESC, rowid DESC LIMIT 1",
         (key,),
     ).fetchone()
@@ -239,7 +241,7 @@ def resolve_route_db(db: sqlite3.Connection, cohort: Cohort) -> dict[str, object
         "cohort_key": key,
         "route": {"model": row["model"], "effort": row["effort"]},
         "decision_id": event["decision_id"],
-        "canary_pending": row["canary_model"] is not None,
+        "canary_pending": row["canary_model"] is not None and row["canary_remaining"] > 0,
         "canary_remaining": row["canary_remaining"],
         "canary_route": (
             {"model": row["canary_model"], "effort": row["canary_effort"]}
@@ -248,6 +250,19 @@ def resolve_route_db(db: sqlite3.Connection, cohort: Cohort) -> dict[str, object
         ),
         "canary_decision_id": row["canary_decision_id"],
     }
+
+
+def canary_attempt_key(run: str, attempt: str) -> str:
+    return json.dumps([run, attempt], separators=(",", ":"))
+
+
+def reviewed_attempts(reviews: list[Review]) -> set[str]:
+    keys = set()
+    for item in reviews:
+        if item.run is None or item.attempt is None:
+            raise ValueError("canary review must identify its run and worker attempt")
+        keys.add(canary_attempt_key(item.run, item.attempt))
+    return keys
 
 
 def claim_canary(db: sqlite3.Connection, cohort: Cohort, attempt_id: str) -> dict[str, object]:
@@ -403,7 +418,7 @@ def promote_trial(application: TrialApplication) -> None:
     ):
         raise ValueError("the five claimed canary attempts are not complete")
     claims = canary_claims(db, cohort_key(trial.cohort), current["canary_decision_id"])
-    if claims != {item.task for item in trial.canary} or len(claims) != 5:
+    if claims != reviewed_attempts(trial.canary) or len(claims) != 5:
         raise ValueError("canary reviews must match exactly five claimed attempts")
     record_route(
         db,
@@ -424,7 +439,7 @@ def restore_trial(application: TrialApplication) -> None:
     current_route = application.current_route
     if current is not None and current["canary_model"] == trial.challenger.model:
         claims = canary_claims(db, cohort_key(trial.cohort), current["canary_decision_id"])
-        if not {item.task for item in trial.canary}.issubset(claims):
+        if not reviewed_attempts(trial.canary).issubset(claims):
             raise ValueError("canary reviews must match claimed attempts")
     pending_canary = (
         current_route == trial.incumbent

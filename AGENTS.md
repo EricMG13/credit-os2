@@ -165,3 +165,14 @@ is the primary checkout. Keep the database and local evidence there across sessi
    completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
    Show changes to the selected route with their decision IDs. A model trial, a browser journey
    and a merged change each have their own verification scope.
+4. Dispatch with `python tools/dev_dispatch.py --db DB --registry DB --cohort COHORT_FILE
+   --run RUN --attempt ATTEMPT --revision REV --base SHA --reserve UNITS --spec SPEC_FILE
+   --plan PLAN_FILE --prompt WORK_ORDER --cwd WORKTREE --client CLIENT --timeout SECONDS`.
+   Verify the returned worker output against the approved examples. Record acceptance with
+   `python tools/dev_ledger.py --db DB accept RUN ATTEMPT REV --candidate CANDIDATE_SHA`.
+5. On each independent review or confirmed escape, invoke `python tools/dev_observe.py
+   --db DB record EVENTS_JSONL --evidence-root EVIDENCE_DIRECTORY --registry DB
+   --route-policy ROUTE_POLICY_FILE`. Read each returned decision to the owner in plain
+   English. Use the trial conditions in the approved spec to schedule eligible replay work.
+   After a verified merge, record `python tools/dev_ledger.py --db DB merged RUN ATTEMPT
+   CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.

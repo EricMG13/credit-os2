@@ -242,3 +242,35 @@ def test_restart_settles_only_proven_terminal_unmetered_attempts(tmp_path: Path)
     }
     assert json.loads(call(db, "recover", "run-a").stdout)["settled"] == []
     assert call(db, "accept", "run-a", "finished", "1").returncode == 2
+
+
+def test_merge_receipt_binds_accepted_tree_and_target(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    def git(*args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", *args],
+            text=True,
+        ).strip()
+
+    git("init", "-q")
+    git("commit", "--allow-empty", "-qm", "candidate")
+    candidate = git("rev-parse", "HEAD")
+    git("commit", "--allow-empty", "-qm", "merged with identical tree")
+    merged = git("rev-parse", "HEAD")
+    target = "refs/remotes/origin/test-target"
+    git("update-ref", target, merged)
+    db = tmp_path / "run.sqlite"
+    start(db)
+    assert call(db, "launch", "run-a", "w", "1", "0", "spec-v1", "plan-v1").returncode == 0
+    assert call(db, "settle", "run-a", "w", "0").returncode == 0
+    assert call(db, "accept", "run-a", "w", "1", "--candidate", candidate).returncode == 0
+    args = ("merged", "run-a", "w", candidate, merged, target)
+    assert call(db, *args).returncode == call(db, *args).returncode == 0
+    Path("app.txt").write_text("difference")
+    git("add", "app.txt")
+    git("commit", "-qm", "changed tree")
+    assert (
+        call(db, "merged", "run-a", "w", candidate, git("rev-parse", "HEAD"), target).returncode
+        == 2
+    )
