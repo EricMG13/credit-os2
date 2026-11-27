@@ -137,9 +137,7 @@ export function ModuleMatrix({
                         {direction ? (
                           <span
                             data-direction={direction}
-                            className={cx(
-                              "inline-flex items-center gap-1 font-medium text-text-primary",
-                            )}
+                            className="inline-flex items-center gap-1 font-medium text-text-primary"
                           >
                             <StatusShape shape={DIRECTION_MARK[direction].shape} />
                             {statusText}

@@ -15,7 +15,7 @@ const TINT = { better: BETTER[1], worse: WORSE[1] } as const;
 const ARROW = {
   better: "text-better-mark",
   worse: "text-worse-mark",
-  flat: "text-text-tertiary",
+  none: "text-text-tertiary",
 } as const;
 const SHAPE_INK = {
   better: "**:data-shape:text-better-mark",
@@ -118,7 +118,13 @@ function MeasureRow({
               )}
             >
               {(sign === 1 || sign === -1) && (
-                <Way aria-hidden="true" className={cx("size-4 flex-none", ARROW[tone ?? "flat"])} />
+                <Way
+                  aria-hidden="true"
+                  className={cx(
+                    "size-4 flex-none",
+                    ARROW[tone === "better" || tone === "worse" ? tone : "none"],
+                  )}
+                />
               )}
               <Figure className="text-small">{delta}</Figure>
               {tone && (

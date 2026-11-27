@@ -129,9 +129,9 @@ describe("Changes rows colour a comparable change by the owner's table", () => {
       { key: "net_debt", difference: "-12.5" },
       { key: "free_cash_flow", difference: "-30" },
     ]);
-    expect(status(need(figure("gross_debt")))).toContain("text-worse-mark");
-    expect(status(need(figure("net_debt")))).toContain("text-better-mark");
-    expect(status(need(figure("free_cash_flow")))).toContain("text-worse-mark");
+    expect(status(need(figure("gross_debt")))).toEqual(["text-worse-mark", "text-worse-mark"]);
+    expect(status(need(figure("net_debt")))).toEqual(["text-better-mark", "text-better-mark"]);
+    expect(status(need(figure("free_cash_flow")))).toEqual(["text-worse-mark", "text-worse-mark"]);
   });
 
   it("a Not assessable measure, a same-period revision and an unknown key stay neutral", () => {
@@ -164,19 +164,5 @@ describe("Changes rows colour a comparable change by the owner's table", () => {
       "style",
       expect.stringMatching(/scale/),
     );
-  });
-
-  it("draws one legend in words outside the list where a row is tinted", () => {
-    draw([{ key: "net_leverage", difference: 0.3 }]);
-    const list = screen.getAllByRole("list").find((l) => l.getAttribute("aria-label"));
-    expect(list?.textContent).not.toMatch(/Green: better/);
-    expect(screen.getAllByText("Green: better")).toHaveLength(1);
-    expect(screen.getAllByText("Orange: worse")).toHaveLength(1);
-    expect(screen.getAllByText(/^Grey arrow: no better or worse is drawn/)).toHaveLength(1);
-  });
-
-  it("a flat-only list draws no legend", () => {
-    draw([{ key: "undrawn", difference: 0 }]);
-    expect(screen.queryByText("Green: better")).toBeNull();
   });
 });

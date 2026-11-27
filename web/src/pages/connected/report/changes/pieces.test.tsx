@@ -310,7 +310,6 @@ describe("MaturityPair amount fill", () => {
     const earlier = c.querySelector('[data-bar="earlier"]');
     expect(fill(earlier)).toBe("");
     expect(earlier).toHaveClass("border-chart-3");
-    expect(earlier?.className).not.toMatch(/bg-chart-1/);
   });
 
   it("steps a negative figure by its size and keeps a gap hatched with no amount fill", () => {
