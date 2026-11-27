@@ -250,6 +250,32 @@ def test_figures_keep_their_text_period_unit_and_basis_and_missing_is_not_zero()
     assert fields["cp-4/covenant-headroom/current"]["series"] == "row"
 
 
+def test_market_yield_fact_projects_its_written_quote_date_separately_from_run_as_of(
+    tmp_path: Path,
+) -> None:
+    raw = (
+        "# CP-3D\n\n"
+        "### Chart data: yield against maturity\n\n"
+        "| Instrument | Maturity date | Yield | Spread | Quote date | Source class | "
+        "Reporting unit "
+        "| Basis and limitation |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Senior note 2030 | 2030-06-15 | 6.40 | Not supplied: no benchmark | 2025-02-14 "
+        "| Dealer indication | % | Indicative only. |\n"
+    )
+    path = tmp_path / "market.md"
+    path.write_text(raw, encoding="utf-8")
+    snapshot = _retained_at(path, "CP-3D")
+    page = coverage.coverage(snapshot)
+    assert page is not None
+    [fact] = [
+        item for item in page["facts"] if item["field"] == "cp-3d/yield-against-maturity/yield"
+    ]
+    assert fact["text"] == "6.40"
+    assert fact["quoteDate"] == "2025-02-14"
+    assert page["issuers"][0]["runs"][0]["asOf"] == "2025-03-31"
+
+
 def test_a_row_fact_carries_the_tables_direction_and_a_period_fact_carries_none() -> None:
     snapshot = _snapshot()
     table = copy.deepcopy(HEADROOM)

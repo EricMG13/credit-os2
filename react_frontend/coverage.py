@@ -161,6 +161,9 @@ def _chart_facts(
                 "basis": cells[-1],
                 "line": row["line"],
             }
+            quoted = chart.get("quoted")
+            if isinstance(quoted, int):
+                fact["quoteDate"] = cells[quoted]
             if measure != headers[at]:
                 fact["heading"] = headers[at]
             if direction is not None and cells[direction]:

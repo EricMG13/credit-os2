@@ -33,6 +33,7 @@ import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
 import { Headroom } from "./coverage/Headroom";
 import { IssuerDetail } from "./coverage/IssuerDetail";
+import { Market } from "./coverage/Market";
 import { Matrix } from "./coverage/Matrix";
 import { Monitor } from "./coverage/Monitor";
 import { Patterns } from "./coverage/Patterns";
@@ -715,6 +716,13 @@ function Dashboard({ data: served }: { data: Data }) {
         />
       ) : view === "headroom" ? (
         <Headroom
+          data={data}
+          issuers={shown}
+          selected={selectedIssuer}
+          onSelect={setSelectedIssuer}
+        />
+      ) : view === "market" ? (
+        <Market
           data={data}
           issuers={shown}
           selected={selectedIssuer}
