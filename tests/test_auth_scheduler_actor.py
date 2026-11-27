@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from threading import Barrier
@@ -235,4 +236,40 @@ def test_historical_accepted_record_replays_without_new_account_id(root) -> None
     saved = json.loads((layout(root).state / f"{old.id}.json").read_text())
     assert replay.id == old.id and replay.account_id is None and replay.submitted_by == "Old L"
     assert "account_id" not in saved
+    scheduler.close()
+
+
+def test_signed_submit_with_no_issued_summary_is_refused_before_anything_moves(root) -> None:
+    sid = upload(root)
+    answers = answers_for(submitted_by="Client L")
+    folder = layout(root).uploads / sid
+    scheduler = Scheduler(settings(root))
+    actor = submissions.RunActor(3, "Eric G")
+    assert not (folder / "issued").exists()
+    before = (folder.stat().st_mtime_ns, (folder / "files").stat().st_mtime_ns)
+
+    with pytest.raises(submissions.Refused) as refused:
+        scheduler.submit(sid, answers, "any-digest", actor=actor)
+    assert str(refused.value) == "review the summary again; no summary was issued for this run"
+    with pytest.raises(submissions.Refused) as sealing:
+        submissions.seal(layout(root), sid, actor)
+    assert str(sealing.value) == str(refused.value)
+    with pytest.raises(submissions.Refused) as recording:
+        scheduler._record_for(sid, answers, "any-digest", folder / "files", actor)
+    assert str(recording.value) == str(refused.value)
+
+    assert (folder / "files" / "a.txt").is_file() and not (folder / "sealed").exists()
+    assert (folder.stat().st_mtime_ns, (folder / "files").stat().st_mtime_ns) == before
+    assert scheduler.record_of_submission(sid) is None
+    assert not list(layout(root).drops.iterdir())
+    scheduler.close()
+
+
+def test_run_folder_names_never_hold_an_equals_sign(root) -> None:
+    """``issued_approval`` reads line 2 of the issued file as a run folder name and relies on
+    ``Scheduler._new_id`` never producing ``account=`` or ``name=`` there."""
+    scheduler = Scheduler(settings(root))
+    name = scheduler._new_id()
+    assert re.fullmatch(r"\d{8}-\d{6}-\d{2}", name)
+    assert "=" not in name
     scheduler.close()

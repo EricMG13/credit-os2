@@ -409,6 +409,8 @@ class Scheduler:
         and save the queued record. Nothing has moved when this raises."""
         approval = submissions.issued_approval(self.layout, sid)
         if actor is not None:
+            if not approval.digest:
+                raise submissions.Refused(submissions.NO_SUMMARY_ISSUED)
             if (approval.actor_id, approval.actor_name) != (actor.account_id, actor.analyst_name):
                 raise submissions.Refused(
                     "this summary was approved by another account or name; review the summary again"

@@ -344,7 +344,10 @@ def test_no_abbreviated_options(tmp_path, capsys, flag):
 
 
 def _no_store(folder: Path) -> str:
-    return f"error: there is no account store in {folder}; check --accounts-dir\n"
+    return (
+        f"error: there is no account store in {folder};"
+        " check --accounts-dir or CREDIT_OS_ACCOUNTS_DIR\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -414,3 +417,34 @@ def test_enable(d, capsys):
     assert account is not None and account.disabled is False
     assert run(d, "accounts", "enable", "9") == 2
     assert capsys.readouterr().err == "error: no account 9\n"
+
+
+# --- parked batch 2026-11-27 -------------------------------------------------------------------
+
+
+def test_cli_docstring_names_every_command():
+    doc = cli.__doc__ or ""
+    for command in ("passcode set", "accounts list", "disable", "enable", "type", "analyst-name"):
+        assert command in doc
+
+
+def test_accounts_dir_between_group_and_action(d, capsys):
+    seed(d)
+    assert cli.main(["accounts", "--accounts-dir", str(d), "list"], environ={}) == 0
+    assert "a.kovac@example.org" in capsys.readouterr().out
+
+
+def test_accounts_dir_between_group_and_action_rightmost_wins(d, tmp_path, capsys):
+    seed(d)
+    other = tmp_path / "other"
+    argv = ["--accounts-dir", str(other), "accounts", "--accounts-dir", str(d), "list"]
+    assert cli.main(argv, environ={}) == 0
+    assert "a.kovac@example.org" in capsys.readouterr().out
+    assert not other.exists()
+    argv = ["accounts", "--accounts-dir", str(other), "--accounts-dir", str(d), "list"]
+    assert cli.main(argv, environ={}) == 0
+
+
+def test_passcode_accounts_dir_between_group_and_action(d, capsys):
+    assert cli.main(["passcode", "--accounts-dir", str(d), "set", "analyst"], environ={}) == 2
+    assert capsys.readouterr().err.strip() == cli._NEEDS_TERMINAL

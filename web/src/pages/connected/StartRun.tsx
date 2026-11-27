@@ -1038,6 +1038,10 @@ function IntakeForm({
       },
     );
     if (signIn) {
+      if (!summary.digest)
+        throw new Error(
+          "This summary could not be approved. Select Review run to request a new summary.",
+        );
       const authoritativeName = summary.submitted_by;
       if (typeof authoritativeName !== "string" || !isAnalystName(authoritativeName))
         throw new Error("The run summary did not include the authorized analyst name.");
