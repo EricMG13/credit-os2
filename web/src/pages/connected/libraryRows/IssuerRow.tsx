@@ -14,7 +14,7 @@ import { stated } from "../reportView";
 import { CreditView } from "./CreditView";
 import { FigureMark, figureName } from "./FigureMark";
 import { useFigureTrace } from "./figureTrace";
-import type { IssuerGroup } from "./group";
+import type { IssuerGroup, SectorSlot } from "./group";
 import { useNextEvent, useSeen } from "./nextEvent";
 import { useScopedSnapshots } from "./rowSnapshot";
 import { SECTOR } from "../visuals/signal/scales";
@@ -190,7 +190,7 @@ export function IssuerRow({
   /** The Interest cover column header already carries the qualified label. */
   coverageInHeader?: boolean;
   /** The sector's category slot (1 to 8) for its dot; none, no dot. */
-  sectorSlot?: number;
+  sectorSlot?: SectorSlot;
 }) {
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);

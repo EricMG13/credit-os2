@@ -112,3 +112,40 @@ it("draws no tint legend for a row whose only change is not a number", async () 
   await screen.findByRole("heading", { name: "Alpha" });
   expect(screen.queryByLabelText("Tint colours")).toBeNull();
 });
+
+it("draws the tint legend as a group around a real list", async () => {
+  serve([entry("a", "Alpha", "", BETTER_LEVERAGE)], ["a"]);
+  render(<ConnectedApp path="/" mode="synthetic" />);
+  const tint = await screen.findByLabelText("Tint colours");
+  expect(tint.tagName).toBe("DIV");
+  expect(tint).toHaveAttribute("role", "group");
+  const items = within(tint).getAllByRole("listitem");
+  expect(items).toHaveLength(3);
+  for (const li of items) {
+    expect(li.parentElement?.tagName).toBe("UL");
+    expect(li.parentElement).not.toHaveAttribute("role");
+  }
+  const grey = items[2]?.querySelector("svg");
+  expect(grey).toHaveAttribute("aria-hidden", "true");
+  expect(grey).toHaveClass("text-text-secondary");
+});
+
+it("draws no tint legend for a figure that is not stated, even with a prior and a change", async () => {
+  serve(
+    [
+      entry("a", "Alpha", "", {
+        net_leverage: {
+          value: "",
+          unit: "x",
+          period: "FY2026",
+          prior: { value: "3.00", period: "FY2025" },
+          change: "-0.75",
+        },
+      }),
+    ],
+    ["a"],
+  );
+  render(<ConnectedApp path="/" mode="synthetic" />);
+  await screen.findByRole("heading", { name: "Alpha" });
+  expect(screen.queryByLabelText("Tint colours")).toBeNull();
+});

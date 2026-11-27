@@ -38,15 +38,16 @@ const SHAPE_MARK = {
   flat: "",
 } as const;
 const TINT = { better: BETTER[1], worse: WORSE[1] } as const;
-const CELL = "relative flex min-w-0 flex-col gap-1 rounded-ds-sm p-2 xl:pr-8";
+const CELL = "relative flex min-w-0 flex-col gap-1 rounded-ds-sm p-2 xl:pr-10";
 
 /**
  * What a figure's change draws: its tone (the owner's table, `signal.ts`), and the sign of the
  * change. Undefined when the figure has no prior value to change from.
  */
 export function figureChange(metricKey: string, figure: Figure | undefined) {
-  const prior = figure?.prior?.value.trim() ? figure.prior : undefined;
-  const change = prior && figure?.change != null ? figure.change : undefined;
+  if (!stated(figure)) return undefined;
+  const prior = figure.prior?.value.trim() ? figure.prior : undefined;
+  const change = prior && figure.change != null ? figure.change : undefined;
   if (!prior || change === undefined) return undefined;
   return { kind: tone(metricKey, change), sign: changeSign(change), prior, change };
 }

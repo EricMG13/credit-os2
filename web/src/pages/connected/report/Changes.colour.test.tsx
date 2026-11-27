@@ -116,7 +116,7 @@ describe("Changes rows colour a comparable change by the owner's table", () => {
     expect(status(cash)).toEqual([]);
     expect(rowOf(cash)).toHaveAttribute("data-tone", "none");
     expect(background(rowOf(cash))).not.toMatch(/scale-(better|worse)/);
-    expect(arrow(cash)).toHaveClass("text-text-tertiary");
+    expect(arrow(cash)).toHaveClass("text-text-secondary");
     expect(arrow(cash)?.getAttribute("class") ?? "").not.toMatch(/better|worse/);
     expect(word(cash)).toBeNull();
     expect(shape(cash)).toEqual([]);

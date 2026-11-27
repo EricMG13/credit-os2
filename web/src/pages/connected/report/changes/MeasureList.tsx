@@ -15,7 +15,7 @@ const TINT = { better: BETTER[1], worse: WORSE[1] } as const;
 const ARROW = {
   better: "text-better-mark",
   worse: "text-worse-mark",
-  none: "text-text-tertiary",
+  none: "text-text-secondary",
 } as const;
 const SHAPE_INK = {
   better: "**:data-shape:text-better-mark",
@@ -114,7 +114,7 @@ function MeasureRow({
               data-change
               className={cx(
                 "flex items-center gap-1.5 rounded-ds-xs px-1.5 py-1 text-caption font-medium text-text-primary",
-                tone === null && "bg-surface-subtle",
+                tone !== "better" && tone !== "worse" && "bg-surface-subtle",
               )}
             >
               {(sign === 1 || sign === -1) && (
@@ -199,7 +199,7 @@ function TintLegend() {
         Orange: worse
       </span>
       <span className="flex items-center gap-1.5">
-        <ArrowUp aria-hidden="true" className="size-3 flex-none text-text-tertiary" />
+        <ArrowUp aria-hidden="true" className="size-3 flex-none text-text-secondary" />
         Grey arrow: no better or worse is drawn; the owner's table gives this measure none, or the
         comparison left its cause unresolved
       </span>
@@ -230,7 +230,7 @@ export function MeasureList({
   );
   return (
     <div className="grid gap-3">
-      <ul aria-label={label} className="grid">
+      <ul aria-label={label} className="grid gap-1">
         {items.map((item) => (
           <MeasureRow
             key={item.key}

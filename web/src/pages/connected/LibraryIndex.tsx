@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { BookOpen01, SearchLg } from "@untitledui/icons";
+import { ArrowUp, BookOpen01, SearchLg } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Skeleton } from "@/components/gap/Skeleton";
@@ -74,21 +74,22 @@ const CATEGORY = {
 /** What a tinted cell and a grey arrow mean, in words beside each swatch. */
 function TintLegend() {
   return (
-    <ul
-      role="group"
-      aria-label="Tint colours"
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary"
-    >
-      <li className="inline-flex items-center gap-1.5">
-        <TintSwatch colour={BETTER[1]} />
-        <span>Green: better</span>
-      </li>
-      <li className="inline-flex items-center gap-1.5">
-        <TintSwatch colour={WORSE[1]} />
-        <span>Orange: worse</span>
-      </li>
-      <li>Grey arrow: no better or worse is drawn</li>
-    </ul>
+    <div role="group" aria-label="Tint colours">
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary">
+        <li className="inline-flex items-center gap-1.5">
+          <TintSwatch colour={BETTER[1]} />
+          <span>Green: better</span>
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <TintSwatch colour={WORSE[1]} />
+          <span>Orange: worse</span>
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <ArrowUp aria-hidden="true" className="size-3 flex-none text-text-secondary" />
+          <span>Grey arrow: no better or worse is drawn</span>
+        </li>
+      </ul>
+    </div>
   );
 }
 

@@ -32,7 +32,7 @@ describe("MeasureList colour", () => {
     const row = screen.getByRole("listitem");
     expect(row).toHaveAttribute("data-tone", "none");
     expect(row.getAttribute("style") ?? "").not.toMatch(/scale/);
-    expect(row.querySelector("[data-change] svg")).toHaveClass("text-text-tertiary");
+    expect(row.querySelector("[data-change] svg")).toHaveClass("text-text-secondary");
     expect(row.querySelector("[data-change]")?.textContent).not.toMatch(/better|worse/);
   });
 
@@ -75,5 +75,32 @@ describe("MeasureList colour", () => {
     expect(cause.className).not.toMatch(/warning/);
     expect(cause).toHaveClass("text-text-secondary");
     expect(cause.querySelector('[data-shape="triangle"]')).not.toBeNull();
+  });
+});
+
+describe("MeasureList separation", () => {
+  it("spaces the rows so two tinted rows stay distinct", () => {
+    list([item({ key: "a", label: "A" }), item({ key: "b", label: "B" })]);
+    expect(screen.getByRole("list", { name: "Measures that moved" })).toHaveClass("gap-1");
+  });
+
+  it("keeps the grey chip on a flat or tone-less row and drops it on a tinted row", () => {
+    list([
+      item({ key: "a", label: "A", tone: "flat" }),
+      item({ key: "b", label: "B" }),
+      item({ key: "c", label: "C", tone: "better" }),
+    ]);
+    const [flat, none, better] = screen.getAllByRole("listitem");
+    expect(flat?.querySelector("[data-change]")).toHaveClass("bg-surface-subtle");
+    expect(none?.querySelector("[data-change]")).toHaveClass("bg-surface-subtle");
+    expect(better?.querySelector("[data-change]")).not.toHaveClass("bg-surface-subtle");
+  });
+
+  it("draws the legend's grey arrow in the same grey as the rows' arrows", () => {
+    const { container } = list([item({ tone: "better" })]);
+    const legend = [...container.querySelectorAll("span")].find((node) =>
+      node.textContent.startsWith("Grey arrow"),
+    );
+    expect(legend?.querySelector("svg")).toHaveClass("text-text-secondary");
   });
 });

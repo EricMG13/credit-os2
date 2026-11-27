@@ -90,14 +90,14 @@ function Side({
       {cell ?? "Not stated"}
     </Figure>
   );
-  const bar = (height: number, zone: "above" | "below") => (
+  const bar = (height: number, zone: "above" | "below", amountValue: number) => (
     <span
       data-bar={side}
       data-zone={zone}
       className={cx(BAR, FILL[side], zone === "above" ? "rounded-t-ds-xs" : "rounded-b-ds-xs")}
       style={{
         height: `${String(Math.max(height, MIN_BAR))}px`,
-        ...(current && { backgroundColor: step(Math.abs(value ?? 0) / largest, AMOUNT) }),
+        ...(current && { backgroundColor: step(Math.abs(amountValue) / largest, AMOUNT) }),
       }}
     />
   );
@@ -124,7 +124,7 @@ function Side({
         ) : value >= 0 ? (
           <>
             {label}
-            {value === 0 ? tick : bar(px(value), "above")}
+            {value === 0 ? tick : bar(px(value), "above", value)}
           </>
         ) : null}
       </div>
@@ -136,7 +136,7 @@ function Side({
     >
       {value !== null && value < 0 ? (
         <>
-          {bar(px(value), "below")}
+          {bar(px(value), "below", value)}
           {label}
         </>
       ) : null}

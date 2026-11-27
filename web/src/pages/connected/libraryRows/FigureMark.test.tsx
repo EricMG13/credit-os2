@@ -247,3 +247,13 @@ it("draws no arrow and no tint for a change that is not a number", () => {
   const cell = container.querySelector("[data-tone]") as HTMLElement;
   expect(cell.getAttribute("style") ?? "").toBe("");
 });
+
+it("keeps the cell's right padding past the head's inset and the 32 px trace button at xl", () => {
+  // The head sits at xl:top-2 xl:right-2 (8 px) and the button is 32 px: 8 + 32 = 40 px = pr-10.
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={lev} />,
+  );
+  const cell = container.querySelector("[data-tone]");
+  expect(cell).toHaveClass("xl:pr-10");
+  expect(cell).not.toHaveClass("xl:pr-8");
+});
