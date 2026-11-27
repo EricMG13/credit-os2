@@ -71,7 +71,8 @@ function drawingCell(
     chartGaps: [],
     events: [],
     maps: [],
-    [slot]: [descriptor],
+    // The drawing is given its readable name, so its heading and source link never name the file.
+    [slot]: [typeof named === "string" ? { ...descriptor, title } : descriptor],
   };
   return {
     key: `${slot}-${String(descriptor.table)}`,

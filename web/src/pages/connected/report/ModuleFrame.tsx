@@ -725,7 +725,16 @@ export function ModuleLimitations({
     (block): block is TextBlock => block.type === "text" && readable(block),
   );
   const tables = (section?.blocks ?? []).filter((block): block is Table => block.type === "table");
-  const summary = paragraphs.length ? undefined : summaryLimitation;
+  // The summary's limitation is drawn last unless a drawn paragraph already says the same.
+  const said = (words: string) => words.replace(/\s+/g, " ").trim().toLowerCase();
+  const summary =
+    summaryLimitation &&
+    !paragraphs.some(
+      ({ text }) =>
+        said(readParagraph(text).body) === said(readParagraph(summaryLimitation.text).body),
+    )
+      ? summaryLimitation
+      : undefined;
   if (!paragraphs.length && !tables.length && !owed && !gaps.length && !hollow && !summary)
     return null;
   const title = "Limitations of this module";
@@ -746,16 +755,6 @@ export function ModuleLimitations({
         !summary && <GapNote>{MISSING_PASSAGE}</GapNote>
       )}
       <ul className="flex flex-col">
-        {summary && (
-          <GapWell trace={traceKey(entry, summary.line)} label="Show sources for this limitation">
-            <Prose
-              text={summary.text}
-              href={evidencePath(folder, entry, summary.line)}
-              pathway={pathway}
-              className="text-small text-text-primary"
-            />
-          </GapWell>
-        )}
         {paragraphs.map((block) => (
           <GapWell
             key={block.line}
@@ -779,6 +778,16 @@ export function ModuleLimitations({
             pathway={pathway}
           />
         ))}
+        {summary && (
+          <GapWell trace={traceKey(entry, summary.line)} label="Show sources for this limitation">
+            <Prose
+              text={summary.text}
+              href={evidencePath(folder, entry, summary.line)}
+              pathway={pathway}
+              className="text-small text-text-primary"
+            />
+          </GapWell>
+        )}
       </ul>
       {tables.map((table) => (
         <PassageTable key={table.line} table={table} title={title} entry={entry} folder={folder} />

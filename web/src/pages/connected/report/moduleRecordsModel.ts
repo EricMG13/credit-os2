@@ -253,16 +253,44 @@ export function withoutReference(title: string) {
   return words.join(" ").replace(LOOSE_END, "");
 }
 
+/** A bracket part that is only a reference: a file, with or without its locator, or a bare locator. */
+const REFERENCE_PART =
+  /^(?:(?:(?:see|per|from|in|source:?)\s+)?[\w./-]+\.[a-z0-9]{2,5}(?:\s+(?:p|pp|cl|s|sec|page|para|note|table|schedule|annex)\.?\s*[\w.\u2013-]+)?|(?:p|pp|cl|s|sec|page|para)\.?\s*[\w.\u2013-]+)$/i;
+
+/**
+ * A bracket without the references it holds, its other words kept ("(restated, annual_report.pdf
+ * p. 40)" is "(restated)"); null where a part mixes a reference with other words, which cannot be
+ * cut exactly.
+ */
+function bracketWithoutReference(group: string): string | null {
+  const open = group.indexOf("(");
+  const inner = group.slice(open + 1, group.lastIndexOf(")"));
+  const kept: string[] = [];
+  for (const part of inner.split(/(?<=[,;])\s*/)) {
+    const words = part.replace(/[,;]$/, "").trim();
+    if (!containsReference(words)) kept.push(words);
+    else if (!REFERENCE_PART.test(words)) return null;
+  }
+  return kept.length ? `${group.slice(0, open)}(${kept.join(", ")})` : "";
+}
+
 /** A cell's own words where the page draws them without the source: its sentences that cite none
  * (the rule a table's cell follows) or, for a sentence that cites only in a bracket ("Net leverage
- * <= 4.5x (credit_agreement.pdf cl. 12)"), the sentence without that bracket. Empty where the cell
- * is nothing but a reference. */
-export function cellWords(cell: string) {
+ * <= 4.5x (credit_agreement.pdf cl. 12)"), the sentence without that reference, the bracket's other
+ * words kept ("1,234 (restated, annual_report.pdf p. 40)" is "1,234 (restated)"). Empty where the
+ * cell is nothing but a reference, or where a reference cannot be cut from its words exactly. */
+function cellWords(cell: string) {
   if (!containsReference(cell)) return cell;
   const sentences = withoutReferences(cell);
   if (sentences) return sentences;
+  const cuts = new Map<string, string | null>(
+    [...cell.matchAll(PARENTHESISED)]
+      .filter(([group]) => containsReference(group))
+      .map(([group]) => [group, bracketWithoutReference(group)]),
+  );
+  if ([...cuts.values()].includes(null)) return "";
   const bare = cell
-    .replace(PARENTHESISED, (group) => (containsReference(group) ? "" : group))
+    .replace(PARENTHESISED, (group) => cuts.get(group) ?? group)
     .replace(/\s{2,}/g, " ")
     .replace(LOOSE_END, "")
     .trim();

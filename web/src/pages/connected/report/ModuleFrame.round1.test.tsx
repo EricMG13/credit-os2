@@ -184,4 +184,8 @@ it("C6-7: a drawing's tile is named without the file and page it cites", () => {
     { events: [{ table: 21, title: "Maturity profile (credit_agreement.pdf p. 12)" }] },
   );
   expect(screen.getByRole("region", { name: "Maturity profile" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Maturity profile" })).toBeVisible();
+  expect(screen.queryByText(/credit_agreement/)).toBeNull();
+  expect(screen.queryByRole("link", { name: /credit_agreement/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /credit_agreement/ })).toBeNull();
 });

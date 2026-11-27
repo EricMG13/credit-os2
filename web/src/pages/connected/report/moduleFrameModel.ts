@@ -158,11 +158,19 @@ const BASIS_COLUMNS = [
 ] as const;
 
 /** A cell for the basis line: as written, a stated gap as a gap, nothing for a cited source. */
-function basisPart(name: string, text: string | undefined): BasisPart | null {
+function basisPart(
+  name: string,
+  text: string | undefined,
+  pathway?: string | null,
+): BasisPart | null {
   const cell = text?.trim() ?? "";
   if (!cell || containsReference(cell)) return null;
   // A cell holding only a dash states nothing: a gap like "Not stated" ("Entity: —").
-  return { name, text: readerText(cell), gap: /^(?:not |withheld)|^[\u2014\u2013-]$/i.test(cell) };
+  return {
+    name,
+    text: readerText(cell, pathway),
+    gap: /^(?:not |withheld)|^[\u2014\u2013-]$/i.test(cell),
+  };
 }
 
 /** Currency and unit read as one part, drawn as the currency's symbol ("$m"), where both are stated. */
@@ -179,7 +187,7 @@ function joinMoney(parts: BasisPart[]) {
   );
 }
 
-function entityBasis(entry: OutputEntry): Basis {
+function entityBasis(entry: OutputEntry, pathway?: string | null): Basis {
   const key = entry.sections.find((section) => /entity period key/i.test(section.heading));
   const table = key?.blocks.find((block): block is Table => block.type === "table");
   const row = table?.rows[0];
@@ -187,10 +195,10 @@ function entityBasis(entry: OutputEntry): Basis {
   const at = (header: string) =>
     row.cells[table.headers.findIndex((name) => name.trim() === header)];
   const parts = joinMoney(
-    BASIS_COLUMNS.flatMap(([header, name]) => basisPart(name, at(header)) ?? []),
+    BASIS_COLUMNS.flatMap(([header, name]) => basisPart(name, at(header), pathway) ?? []),
   );
   if (!parts.length) return null;
-  const entity = basisPart("Entity", at("Entity Name") ?? row.cells[0]);
+  const entity = basisPart("Entity", at("Entity Name") ?? row.cells[0], pathway);
   return {
     kind: "entity",
     entity: entity && !entity.gap ? entity.text : "",
@@ -206,13 +214,13 @@ function entityBasis(entry: OutputEntry): Basis {
  * entity period key, named, with each of its cells as written or as the gap it states; else the
  * periods of its Period table.
  */
-function basisOf(entry: OutputEntry): Basis {
-  const stated = entityBasis(entry);
+function basisOf(entry: OutputEntry, pathway?: string | null): Basis {
+  const stated = entityBasis(entry, pathway);
   if (stated) return stated;
   const periods = namedTable(entry, "Period table", ["Period", "Start", "End"]);
   const names =
     periods?.rows.flatMap(({ cells }) => {
-      const part = basisPart("Period", cells[0]);
+      const part = basisPart("Period", cells[0], pathway);
       return part && !part.gap ? [part.text] : [];
     }) ?? [];
   return names.length ? { kind: "periods", periods: names } : null;
@@ -287,7 +295,7 @@ export function moduleFrame(
     prose,
     drawingGaps: drawingGaps(entry, pathway),
     summaryLimitation: summaryLimitation(entry, bottomLine),
-    basis: basisOf(entry),
+    basis: basisOf(entry, pathway),
     missing: missingPassages(entry, bottomLine ? [...drawn, "Bottom line"] : drawn),
     parseError: entry.output.parseError,
   };

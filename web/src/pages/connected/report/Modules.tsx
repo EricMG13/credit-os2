@@ -85,6 +85,7 @@ function pageOf(run: PublishedRun, entry: OutputEntry) {
     frame.limitations ||
     frame.hollow.Limitations ||
     frame.missing.includes("Limitations") ||
+    frame.summaryLimitation ||
     gaps.length,
   );
   const records = moduleRecords(entry, pathway);
@@ -183,7 +184,7 @@ function ModulePage({
           basis={frame.basis}
           about={
             current.id === "CP-1A" ? (
-              <CompanyProfile entry={entry} folder={run.folder} />
+              <CompanyProfile entry={entry} folder={run.folder} pathway={run.pathway} />
             ) : undefined
           }
           confidence={
@@ -231,7 +232,7 @@ function ModulePage({
           pathway={run.pathway}
           summaryLimitation={frame.summaryLimitation}
         />
-        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
+        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} pathway={run.pathway} />
         <ModuleFigures
           entry={entry}
           run={run}
