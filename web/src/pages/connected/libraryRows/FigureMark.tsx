@@ -47,8 +47,8 @@ const CELL = "relative flex min-w-0 flex-col gap-1 rounded-ds-sm p-2 xl:pr-8";
 export function figureChange(metricKey: string, figure: Figure | undefined) {
   const prior = figure?.prior?.value.trim() ? figure.prior : undefined;
   const change = prior && figure?.change != null ? figure.change : undefined;
-  if (change === undefined) return undefined;
-  return { kind: tone(metricKey, change), sign: changeSign(change) };
+  if (!prior || change === undefined) return undefined;
+  return { kind: tone(metricKey, change), sign: changeSign(change), prior, change };
 }
 
 /**
@@ -100,7 +100,6 @@ export function FigureMark({
         </span>
       </div>
     );
-  const prior = figure.prior?.value.trim() ? figure.prior : undefined;
   const change = figureChange(metricKey, figure);
   const kind = change?.kind ?? "none";
   const Direction = change?.sign === 1 ? ArrowUp : ArrowDown;
@@ -118,25 +117,25 @@ export function FigureMark({
         </span>
         {figure.period && <span className="text-caption text-text-secondary">{figure.period}</span>}
       </span>
-      {change !== undefined && prior && figure.change != null ? (
+      {change ? (
         <span
           data-line="change"
           className="flex min-w-0 flex-wrap items-center gap-x-1 text-caption text-text-secondary tabular-nums"
         >
-          {change.sign !== 0 && (
+          {(change.sign === 1 || change.sign === -1) && (
             <Direction
               aria-hidden
               className={cx("size-3.5 shrink-0", tinted ? ARROW[kind] : "text-text-secondary")}
             />
           )}
-          <span className="font-mono">{changeText(figure.change, figure.unit)}</span>
+          <span className="font-mono">{changeText(change.change, figure.unit)}</span>
           {kind !== "none" && (
             <span className={SHAPE_MARK[kind]}>
               <ToneMark tone={kind} />
             </span>
           )}
           <span>
-            from {withUnit(prior.value, figure.unit)} in {prior.period}
+            from {withUnit(change.prior.value, figure.unit)} in {change.prior.period}
           </span>
         </span>
       ) : (

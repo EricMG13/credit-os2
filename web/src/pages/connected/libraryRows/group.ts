@@ -56,13 +56,14 @@ export function libraryChoices(index: LibraryIndex): { sectors: string[]; pathwa
 
 /** The category slots (1 to 8) a sector dot may take: 1, 2 and 7 are left to better, worse and chrome. */
 const SECTOR_SLOTS = [3, 4, 5, 6, 8] as const;
+export type SectorSlot = (typeof SECTOR_SLOTS)[number];
 
 /**
  * Each sector's category slot: the distinct, non-empty sectors in the order the service first
  * listed them, unfiltered, so a filter never changes a colour; the first five take slots 3, 4, 5,
  * 6, 8 and every further sector takes slot 8.
  */
-export function sectorSlots(index: LibraryIndex): Map<string, number> {
+export function sectorSlots(index: LibraryIndex): Map<string, SectorSlot> {
   const sectors = [...issuerGroups(index).values()]
     .flat()
     .map(({ catalogue }) => catalogue.sector)

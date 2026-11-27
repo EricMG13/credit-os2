@@ -238,3 +238,12 @@ it("draws at most two content lines under the head, and no tertiary text or grey
   );
   expect(container.querySelectorAll("[data-line]")).toHaveLength(2);
 });
+
+it("draws no arrow and no tint for a change that is not a number", () => {
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={{ ...lev, change: "n/a" }} />,
+  );
+  expect(container.querySelector("svg:not([data-shape])")).toBeNull();
+  const cell = container.querySelector("[data-tone]") as HTMLElement;
+  expect(cell.getAttribute("style") ?? "").toBe("");
+});

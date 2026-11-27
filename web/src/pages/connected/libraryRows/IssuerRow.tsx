@@ -23,6 +23,9 @@ import { SECTOR } from "../visuals/signal/scales";
 export const ROW_COLUMNS =
   "xl:grid-cols-[minmax(15rem,1.6fr)_6.5rem_repeat(3,minmax(8rem,1fr))_minmax(10rem,1.1fr)_minmax(11rem,1.2fr)]";
 
+/** The three figures a row draws, left to right. */
+export const FIGURE_KEYS = ["net_leverage", "coverage", "cash"] as const;
+
 const CELL_LABEL = "text-caption text-text-tertiary xl:sr-only";
 const QUIET_LINK =
   "inline-flex min-h-8 min-w-8 items-center text-left text-small font-normal whitespace-normal max-[480px]:min-h-11 max-[480px]:min-w-11";
@@ -201,6 +204,7 @@ export function IssuerRow({
   // Published runs, as the run list the link opens counts them.
   const count = group.openable.size || entries.length;
   const runs = `${String(count)} ${count === 1 ? "run" : "runs"}`;
+  const [leverage, coverage, cash] = FIGURE_KEYS;
   const figure = (key: string, name: string, order: string) => {
     const shown = figureName(key, name, metrics[key]);
     const qualified = shown !== name;
@@ -327,9 +331,9 @@ export function IssuerRow({
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 xl:contents">
-          {figure("net_leverage", "Net leverage", "xl:order-3")}
-          {figure("coverage", "Interest cover", "xl:order-4")}
-          {figure("cash", "Liquidity (cash)", "xl:order-5")}
+          {figure(leverage, "Net leverage", "xl:order-3")}
+          {figure(coverage, "Interest cover", "xl:order-4")}
+          {figure(cash, "Liquidity (cash)", "xl:order-5")}
         </div>
         <div className="flex min-w-0 flex-col gap-1 xl:order-7">
           <span className={CELL_LABEL}>Next event</span>

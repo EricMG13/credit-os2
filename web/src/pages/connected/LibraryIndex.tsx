@@ -18,11 +18,12 @@ import {
   RUN_STATES,
   sectorSlots,
   type IssuerGroup,
+  type SectorSlot,
 } from "./libraryRows/group";
 import { figureChange, figureName } from "./libraryRows/FigureMark";
-import { Legend, type LegendEntry } from "./report/leads/kit/marks/Legend";
+import { Legend, type LegendColour, type LegendEntry } from "./report/leads/kit/marks/Legend";
 import { BETTER, WORSE } from "./visuals/signal/scales";
-import { IssuerRow, ROW_COLUMNS } from "./libraryRows/IssuerRow";
+import { FIGURE_KEYS, IssuerRow, ROW_COLUMNS } from "./libraryRows/IssuerRow";
 import { stated } from "./reportView";
 
 type LibraryFilters = { query: string; sector: string; pathway: string; state: string };
@@ -37,16 +38,16 @@ function filtersFromAddress(): LibraryFilters {
   };
 }
 
-/** The three figures a row draws a change for. */
-const CHANGE_KEYS = ["net_leverage", "coverage", "cash"] as const;
-
 /** Whether a row draws a tint or an arrow-only cell, which the tint legend explains. */
 function drawsChange({ newest }: IssuerGroup) {
-  return CHANGE_KEYS.some((key) => {
+  return FIGURE_KEYS.some((key) => {
     const change = figureChange(key, newest.metrics[key]);
     return (
       change !== undefined &&
-      (change.kind === "better" || change.kind === "worse" || change.sign !== 0)
+      (change.kind === "better" ||
+        change.kind === "worse" ||
+        change.sign === 1 ||
+        change.sign === -1)
     );
   });
 }
@@ -61,10 +62,20 @@ function TintSwatch({ colour }: { colour: string }) {
   );
 }
 
+/** A sector slot as the legend names its colour. */
+const CATEGORY = {
+  3: "category-3",
+  4: "category-4",
+  5: "category-5",
+  6: "category-6",
+  8: "category-8",
+} as const satisfies Record<SectorSlot, LegendColour>;
+
 /** What a tinted cell and a grey arrow mean, in words beside each swatch. */
 function TintLegend() {
   return (
     <ul
+      role="group"
       aria-label="Tint colours"
       className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary"
     >
@@ -120,7 +131,7 @@ function MatchRuns({
     .filter(([sector]) => shownSectors.has(sector))
     .map(([sector, slot]) => ({
       kind: "dot",
-      tone: `category-${String(slot)}` as `category-${3 | 4 | 5 | 6 | 8}`,
+      tone: CATEGORY[slot],
       text: sector,
     }));
   const tinted = rows.some(drawsChange);
@@ -183,7 +194,7 @@ function MatchRuns({
       {(sectorLegend.length > 0 || tinted) && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {sectorLegend.length > 0 && (
-            <div aria-label="Sector colours">
+            <div role="group" aria-label="Sector colours">
               <Legend items={sectorLegend} />
             </div>
           )}
@@ -211,9 +222,9 @@ function MatchRuns({
           >
             <span className="pl-9">Issuer</span>
             <span>Decision</span>
-            <span>Net leverage</span>
-            <span>{coverageInHeader ? coverageName : "Interest cover"}</span>
-            <span>Liquidity (cash)</span>
+            <span className="px-2">Net leverage</span>
+            <span className="px-2">{coverageInHeader ? coverageName : "Interest cover"}</span>
+            <span className="px-2">Liquidity (cash)</span>
             <span>Run</span>
             <span>Next event</span>
           </div>

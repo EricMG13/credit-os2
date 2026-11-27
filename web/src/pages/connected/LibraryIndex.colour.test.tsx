@@ -92,3 +92,23 @@ it("draws neither legend when no row has a sector or a change", async () => {
   expect(screen.queryByLabelText("Sector colours")).toBeNull();
   expect(screen.queryByLabelText("Tint colours")).toBeNull();
 });
+
+it("draws no tint legend for a row whose only change is not a number", async () => {
+  serve(
+    [
+      entry("a", "Alpha", "", {
+        net_leverage: {
+          value: "2.25",
+          unit: "x",
+          period: "FY2026",
+          prior: { value: "3.00", period: "FY2025" },
+          change: "n/a",
+        },
+      }),
+    ],
+    ["a"],
+  );
+  render(<ConnectedApp path="/" mode="synthetic" />);
+  await screen.findByRole("heading", { name: "Alpha" });
+  expect(screen.queryByLabelText("Tint colours")).toBeNull();
+});
