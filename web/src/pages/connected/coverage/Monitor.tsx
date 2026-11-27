@@ -291,17 +291,13 @@ export function Monitor({
     const byPeriod = new Map(own.map((item) => [item.fact.period ?? "", item]));
     const values = axis.map((slot) => byPeriod.get(slot)?.value ?? null);
     const stated = values.filter((value): value is Dec => value !== null);
-    const low = stated.reduce(
-      (minimum, value) => (compare(value, minimum) < 0 ? value : minimum),
-      stated[0] ?? "0",
-    );
-    const high = stated.reduce(
-      (maximum, value) => (compare(value, maximum) > 0 ? value : maximum),
-      stated[0] ?? "0",
-    );
-    const pixelValues = values.map((value) =>
-      value === null ? null : String(fraction(value, low, high)),
-    );
+    let low = stated[0] ?? "0";
+    let high = low;
+    for (const value of stated) {
+      if (compare(value, low) < 0) low = value;
+      if (compare(value, high) > 0) high = value;
+    }
+    const pixelValues = values.map((value) => (value === null ? null : fraction(value, low, high).toFixed(9)));
     const index = axis.indexOf(period);
     const prior = index > 0 ? byPeriod.get(axis[index - 1] as string) : undefined;
     const change = measure.changes.get(issuer.key) ?? null;
