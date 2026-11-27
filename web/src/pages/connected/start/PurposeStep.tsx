@@ -42,7 +42,14 @@ export function PurposeFields({ view }: { view: IntakeView }) {
             const capText = cap && shownCapText(Number(cap));
             // A custom run's cap is computed from its modules: the table's figure is its ceiling.
             const word = pathway.id === CUSTOM ? "Cap from your modules, at most" : "Cap";
-            return { ...pathway, cap: capText ? `${word} ${capText}` : "Cap unavailable" };
+            const amount = Number(cap);
+            return {
+              ...pathway,
+              cap: capText ? `${word} ${capText}` : "Cap unavailable",
+              ...(cap !== undefined && Number.isFinite(amount) && amount >= 0
+                ? { capAmount: amount }
+                : {}),
+            };
           })}
           onChange={view.changePathway}
         />

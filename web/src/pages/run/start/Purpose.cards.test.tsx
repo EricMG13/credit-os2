@@ -16,7 +16,7 @@ const cards = (cap: (id: string) => string | undefined) =>
     cap: cap(id),
   }));
 
-function draw(items: ReturnType<typeof cards>, value: string | null = null) {
+function draw(items: Parameters<typeof PurposeCards>[0]["purposes"], value: string | null = null) {
   render(
     <PurposeCards label="Pathway" value={value} onChange={() => undefined} purposes={items} />,
   );
@@ -73,5 +73,57 @@ describe("pathway cards", () => {
   it("draws no cap when none is passed", () => {
     draw(cards(() => undefined));
     expect(screen.queryByText(/^Cap /)).toBeNull();
+  });
+
+  it("draws the cap as a bar against the largest cap shown, with one legend", () => {
+    const four = [10, 20, 30, 50].map((amount, i) => ({
+      id: `p${String(i)}`,
+      title: `Pathway ${String(i)}`,
+      description: "d",
+      modules: "3 base modules",
+      cap: `Cap USD ${String(amount)}`,
+      capAmount: amount,
+    }));
+    const none = {
+      id: "pn",
+      title: "No cap",
+      description: "d",
+      modules: "1 base modules",
+      cap: "Cap unavailable",
+    };
+    draw([...four, none]);
+    const fill = (title: string) =>
+      screen
+        .getByRole("radio", { name: title })
+        .closest("label")
+        ?.querySelector<HTMLElement>("[data-part=cap-fill]");
+    const expected = [
+      ["20%", "var(--color-scale-amount-2)"],
+      ["40%", "var(--color-scale-amount-3)"],
+      ["60%", "var(--color-scale-amount-4)"],
+      ["100%", "var(--color-scale-amount-5)"],
+    ];
+    expected.forEach(([width, background], i) => {
+      const bar = fill(`Pathway ${String(i)}`);
+      expect(bar?.style.width).toBe(width);
+      expect(bar?.style.background).toBe(background);
+    });
+    expect(fill("No cap")).toBeNull();
+    expect(screen.getAllByText("Bar: the cap against the largest cap shown")).toHaveLength(1);
+  });
+
+  it("draws empty tracks and no step when every cap is zero", () => {
+    draw([
+      { id: "z", title: "Zero", description: "d", modules: "m", cap: "Cap USD 0", capAmount: 0 },
+    ]);
+    const label = screen.getByRole("radio", { name: "Zero" }).closest("label");
+    expect(label?.querySelector("[data-part=cap-fill]")).toBeNull();
+    expect(label?.querySelector("[data-part=cap-track]")).not.toBeNull();
+  });
+
+  it("draws no bar and no legend when no card has a capAmount", () => {
+    draw(cards(() => "Cap USD 25.00"));
+    expect(screen.queryByText(/Bar: the cap/)).toBeNull();
+    expect(document.querySelector("[data-part=cap-fill]")).toBeNull();
   });
 });

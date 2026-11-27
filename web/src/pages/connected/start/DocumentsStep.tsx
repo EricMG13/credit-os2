@@ -18,6 +18,8 @@ import {
   carriedIntro,
 } from "./intake";
 import { FieldMessage, problemAttrs, problemOn, SelectField } from "./fields";
+import { Legend, type LegendEntry } from "../report/leads/kit/marks/Legend";
+import { FAMILY_ORDER, documentFamily } from "./documentFamilies";
 import { ComparisonPortfolio } from "./ComparisonPortfolio";
 import { StandingPortfolios } from "./StandingPortfolios";
 
@@ -27,6 +29,33 @@ const FIELD = cx(field, "text-body", TARGET);
 /** The service's kind for a file: a quiet label, not a control, in sentence case. */
 const KIND_LABEL =
   "inline-flex max-w-full items-center rounded-ds-xs bg-surface-subtle px-1.5 py-0.5 text-caption break-words text-text-secondary";
+
+// Literal class strings, so Tailwind generates each.
+const FAMILY_DOT = {
+  3: "bg-category-3",
+  4: "bg-category-4",
+  5: "bg-category-5",
+  6: "bg-category-6",
+  8: "bg-category-8",
+} as const;
+
+/** One legend entry per document family present among the shown rows, in the table's order. */
+function familyLegend(view: IntakeView): LegendEntry[] {
+  const present = new Map<string, LegendEntry>();
+  for (const row of view.documentRows) {
+    const kind = row.stored
+      ? view.shownDocs.find((doc) => storedName(doc) === row.stored)?.kind
+      : undefined;
+    const family = kind === undefined ? null : documentFamily(kind);
+    if (family)
+      present.set(family.name, {
+        kind: "dot",
+        tone: `category-${String(family.slot)}` as LegendEntry["tone"],
+        text: family.name,
+      });
+  }
+  return FAMILY_ORDER.flatMap((name) => present.get(name) ?? []);
+}
 
 const kindWords = (kind: string) => {
   const words = kind.replaceAll("_", " ");
@@ -77,6 +106,7 @@ function IntakeDocumentRow({
   const reason = repeat ?? (stored ? view.ignored.get(stored) : undefined);
   const description = stored ? view.inspected.get(stored) : undefined;
   const record = stored ? view.shownDocs.find((doc) => storedName(doc) === stored) : undefined;
+  const family = record?.kind ? documentFamily(record.kind) : null;
   const badge = documentBadge({ repeat, reason, description, pendingCopy, copied, sameAs });
   const uploading = view.busy === "documents" && file !== undefined && !stored;
   const facts =
@@ -98,6 +128,12 @@ function IntakeDocumentRow({
                   "border border-dashed border-border-gap bg-transparent text-gap-text",
               )}
             >
+              {family && (
+                <span
+                  aria-hidden="true"
+                  className={cx("mr-1.5 size-2 shrink-0 rounded-full", FAMILY_DOT[family.slot])}
+                />
+              )}
               {kindWords(record.kind)}
             </span>
           )}
@@ -327,6 +363,11 @@ export function DocumentFields({
             </span>
           ) : null}
         </p>
+        {familyLegend(view).length > 0 && (
+          <div aria-hidden="true">
+            <Legend items={familyLegend(view)} />
+          </div>
+        )}
         {view.documentRows.length > 0 ? (
           <FileUpload.List
             aria-label="Documents added"
