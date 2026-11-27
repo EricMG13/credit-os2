@@ -425,7 +425,7 @@ class _SignalReplies(service.Handler):
     def _auth_get(self, url: SplitResult) -> None:
         router = self.auth_routes
         if router is not None:
-            reply = router.get(self, url)
+            reply = router.get(self, url, self.account)
             if reply is not None:
                 raise reply
 

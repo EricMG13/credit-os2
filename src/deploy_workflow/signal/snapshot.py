@@ -340,6 +340,7 @@ def _viewer(user: User | None) -> Json:
         "name": user.name,
         "initials": initials(user.name),
         "role": "reader" if user.role == "reader" else "writer",
+        "profileType": {"reader": "reader", "writer": "analyst", "owner": "admin"}[user.role],
         "roleLabel": _capital(user.role),
     }
 

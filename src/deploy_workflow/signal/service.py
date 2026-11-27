@@ -25,10 +25,10 @@ request path is ever joined to a directory, so no file under the data root is re
 
 Identity is the account already checked by the application's one request gate. The Signal request
 receives that account directly; it never parses the cookie or opens the account store. An Analyst
-maps to a writer and an Admin maps to an owner for Signal's existing permissions. Owner powers are
-not exposed on any route and stay on the command line:
-approving or pausing a source, the AI cap, and removing threads, comments or groups. Every API
-route except ``/api/me``, ``/api/status`` and ``/api/snapshot`` needs an account (401 otherwise);
+maps to a writer and an Admin maps to an owner for Signal's existing permissions. Admin
+moderation is available through exact routes in ``api_admin``; the AI cap remains on the command
+line. Every API route except ``/api/me``, ``/api/status`` and ``/api/snapshot`` needs an account
+(401 otherwise);
 the snapshot of a viewer with no account holds no stories, no groups and no person's name. Each
 request opens its own database connection and closes it; the loop has its own.
 
@@ -54,6 +54,7 @@ from deploy_workflow.http_base import refuse as _refuse
 from deploy_workflow.signal import (
     ai_gate,
     ai_run,
+    api_admin,
     api_groups,
     api_issuers,
     api_logos,
@@ -317,6 +318,7 @@ _ROUTES: tuple[_Route, ...] = (
     _Route("POST", re.compile(f"/api/topics/{_ID}/follow"), _follow),
     _Route("DELETE", re.compile(f"/api/topics/{_ID}/follow"), _unfollow),
     *api_groups.ROUTES,
+    *api_admin.ROUTES,
     *api_settings.ROUTES,
     *api_issuers.ROUTES,
     *api_logos.ROUTES,

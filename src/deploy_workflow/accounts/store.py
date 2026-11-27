@@ -51,6 +51,18 @@ class Missing(StoreError):
     """An unknown account id."""
 
 
+class ActorDisabled(StoreError):
+    """The acting Admin is no longer enabled."""
+
+
+class NotAdmin(StoreError):
+    """The acting account is no longer an Admin."""
+
+
+class LastAdmin(StoreError):
+    """A mutation would leave no enabled Admin."""
+
+
 _MIGRATION_1 = """
 CREATE TABLE accounts(
     id INTEGER PRIMARY KEY,
@@ -364,6 +376,41 @@ def list_accounts(db: sqlite3.Connection) -> list[Account]:
     return [_account(row) for row in db.execute("SELECT * FROM accounts ORDER BY id")]
 
 
+def account_directory(db: sqlite3.Connection) -> list[dict[str, object]]:
+    """Return the browser-safe account projection and latest sign-in time without writes."""
+    rows = db.execute(
+        "SELECT a.id, a.display_name, a.profile_type, a.disabled, "
+        "MAX(s.created_at) AS signed_in_at "
+        "FROM accounts AS a LEFT JOIN sessions AS s ON s.account_id=a.id "
+        "GROUP BY a.id ORDER BY a.id"
+    ).fetchall()
+    return [_account_summary(row) for row in rows]
+
+
+def _account_summary(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "id": int(row["id"]),
+        "display_name": str(row["display_name"]),
+        "profile_type": str(row["profile_type"]),
+        "disabled": bool(row["disabled"]),
+        "signed_in_at": row["signed_in_at"],
+    }
+
+
+def account_summary(db: sqlite3.Connection, account_id: int) -> dict[str, object] | None:
+    """Return one safe browser projection without changing session state."""
+    row = db.execute(
+        "SELECT a.id, a.display_name, a.profile_type, a.disabled, "
+        "MAX(s.created_at) AS signed_in_at "
+        "FROM accounts AS a LEFT JOIN sessions AS s ON s.account_id=a.id "
+        "WHERE a.id=? GROUP BY a.id",
+        (account_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _account_summary(row)
+
+
 def _name_taken(db: sqlite3.Connection, name: str) -> bool:
     return db.execute("SELECT 1 FROM accounts WHERE display_name=?", (name,)).fetchone() is not None
 
@@ -451,6 +498,48 @@ def enable_account(db: sqlite3.Connection, account_id: int) -> None:
             raise Missing(f"no account {account_id}")
 
 
+def _require_enabled_admin(db: sqlite3.Connection, actor_id: int) -> None:
+    actor = db.execute(
+        "SELECT profile_type, disabled FROM accounts WHERE id=?", (actor_id,)
+    ).fetchone()
+    if actor is None or bool(actor["disabled"]):
+        raise ActorDisabled("the acting account is not enabled")
+    if actor["profile_type"] != "admin":
+        raise NotAdmin("the acting account is not an Admin")
+
+
+def _require_admin_remains(db: sqlite3.Connection, account_id: int, *, removes_admin: bool) -> None:
+    target = db.execute(
+        "SELECT profile_type, disabled FROM accounts WHERE id=?", (account_id,)
+    ).fetchone()
+    if target is None:
+        raise Missing(f"no account {account_id}")
+    loses_enabled_admin = (
+        removes_admin and target["profile_type"] == "admin" and not bool(target["disabled"])
+    )
+    if not loses_enabled_admin:
+        return
+    enabled_admins = db.execute(
+        "SELECT COUNT(*) FROM accounts WHERE profile_type='admin' AND disabled=0"
+    ).fetchone()[0]
+    if enabled_admins == 1:
+        raise LastAdmin("keep at least one enabled Admin")
+
+
+def disable_account_as_admin(
+    db: sqlite3.Connection, actor_id: int, account_id: int
+) -> dict[str, object]:
+    """Disable an account after rechecking actor authority under the same write lock."""
+    with write_transaction(db):
+        _require_enabled_admin(db, actor_id)
+        _require_admin_remains(db, account_id, removes_admin=True)
+        db.execute("UPDATE accounts SET disabled=1 WHERE id=?", (account_id,))
+        summary = account_summary(db, account_id)
+        if summary is None:
+            raise Missing(f"no account {account_id}")
+        return summary
+
+
 def set_profile_type(db: sqlite3.Connection, account_id: int, profile_type: str) -> None:
     if profile_type not in PROFILE_TYPES:
         raise StoreError(
@@ -462,3 +551,21 @@ def set_profile_type(db: sqlite3.Connection, account_id: int, profile_type: str)
         )
         if cursor.rowcount == 0:
             raise Missing(f"no account {account_id}")
+
+
+def set_profile_type_as_admin(
+    db: sqlite3.Connection, actor_id: int, account_id: int, profile_type: str
+) -> dict[str, object]:
+    """Change a profile after rechecking actor authority under the same write lock."""
+    if profile_type not in PROFILE_TYPES:
+        raise StoreError(
+            f"invalid profile type {profile_type!r}; expected one of {', '.join(PROFILE_TYPES)}"
+        )
+    with write_transaction(db):
+        _require_enabled_admin(db, actor_id)
+        _require_admin_remains(db, account_id, removes_admin=profile_type != "admin")
+        db.execute("UPDATE accounts SET profile_type=? WHERE id=?", (profile_type, account_id))
+        summary = account_summary(db, account_id)
+        if summary is None:
+            raise Missing(f"no account {account_id}")
+        return summary

@@ -4,7 +4,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import fixture from "../../../fixtures/signal.json";
 import { readSlice } from "./slice";
-import { show, settled } from "./test-helpers";
+import { show } from "./test-helpers";
 
 const keyErrors = (spy: { mock: { calls: unknown[][] } }) =>
   spy.mock.calls.filter((call) => call.some((a) => String(a).includes("same key")));
@@ -63,27 +63,11 @@ describe("S5: a repeated sentence is announced again", () => {
     expect(status.querySelectorAll('[role="status"], [aria-live]')).toHaveLength(0);
   });
 
-  it("setting the same name again is a fresh node in the same status region", async () => {
+  it("keeps the delivered account name without an editable control", () => {
     show("/signal/main/feed/for-you");
-    const rename = async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Mara L/ }));
-      const dialog = await screen.findByRole("dialog", { name: "Your name" });
-      fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-      await waitFor(() => {
-        expect(screen.queryByRole("dialog", { hidden: true })).toBeNull();
-      });
-      await settled();
-    };
-    await rename();
-    const status = screen
-      .getAllByRole("status")
-      .find((s) => s.textContent === "Signed in as Mara L");
-    if (status === undefined) throw new Error("no status says Signed in as Mara L");
-    const first = status.firstChild;
-    await rename();
-    expect(status.isConnected).toBe(true);
-    expect(status).toHaveTextContent("Signed in as Mara L");
-    expect(status.firstChild).not.toBe(first);
+    expect(screen.getByText("Mara L")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mara L/ })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Your name" })).toBeNull();
   });
 });
 

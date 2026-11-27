@@ -37,6 +37,19 @@ describe("readSlice", () => {
     }
   });
 
+  it("accepts the additive authenticated profile type and keeps older snapshots readable", () => {
+    for (const profileType of ["reader", "analyst", "admin"] as const) {
+      const result = readSlice(withScene(["snapshot", "viewer", "profileType"], profileType));
+      expect(result.kind).toBe("ok");
+      if (result.kind === "ok") {
+        expect(result.data.scenes[2]?.snapshot.viewer.profileType).toBe(profileType);
+      }
+    }
+    const old = readSlice(withScene(["snapshot", "viewer", "profileType"], undefined));
+    expect(old.kind).toBe("ok");
+    if (old.kind === "ok") expect(old.data.scenes[2]?.snapshot.viewer.profileType).toBeUndefined();
+  });
+
   it("holds no AI digest card in the scene where AI is off (ruling 21), and one where it is on", () => {
     const result = readSlice(fixture.slice);
     if (result.kind !== "ok") throw new Error("the fixture reads");
@@ -83,6 +96,12 @@ describe("readSlice", () => {
       ["snapshot", "viewer", "role"],
       "admin",
       "scenes[2].snapshot.viewer.role: expected reader or writer",
+    ],
+    [
+      "a viewer profile type outside the three",
+      ["snapshot", "viewer", "profileType"],
+      "owner",
+      'scenes[2].snapshot.viewer.profileType: expected "reader", "analyst" or "admin"',
     ],
     [
       "a feed error outside the three",

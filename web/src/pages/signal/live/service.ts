@@ -50,7 +50,12 @@ function kindOf(failure: unknown): FeedError {
 }
 
 /** Why a read gave no slice: the sentence to show and, for a slice the reader refused, its reason. */
-export type Failure = { kind: FeedError; text: string; reason: string | null };
+export type Failure = {
+  kind: FeedError;
+  text: string;
+  reason: string | null;
+  unauthorized?: boolean;
+};
 type Read = { ok: true; slice: SignalSlice; asOf: string | null } | { ok: false; failure: Failure };
 
 const UNREADABLE = "Signal sent an answer this page could not read.";
@@ -81,7 +86,17 @@ export async function readSnapshot(stop: AbortSignal, query: string): Promise<Re
     const reason = got.kind === "invalid" ? got.reason : null;
     return { ok: false, failure: { kind: "unreadable", text: UNREADABLE, reason } };
   } catch (failure) {
-    return { ok: false, failure: { kind: kindOf(failure), text: sentence(failure), reason: null } };
+    return {
+      ok: false,
+      failure: {
+        kind: kindOf(failure),
+        text: sentence(failure),
+        reason: null,
+        ...(failure instanceof RequestError && failure.status === 401
+          ? { unauthorized: true }
+          : {}),
+      },
+    };
   }
 }
 
@@ -91,7 +106,11 @@ export async function sendWrite(request: SignalWrite, stop: AbortSignal): Promis
   try {
     return { refusal: null, reply: await ask(request.path, init, stop) };
   } catch (failure) {
-    return { refusal: sentence(failure), reply: null };
+    return {
+      refusal: sentence(failure),
+      reply: null,
+      ...(failure instanceof RequestError ? { status: failure.status } : {}),
+    };
   }
 }
 

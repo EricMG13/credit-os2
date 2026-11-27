@@ -234,7 +234,7 @@ describe("the Signal frame in a narrow window", () => {
     expect(nav.getByRole("link", { name: "Leveraged credit 3" })).toBeInTheDocument();
     expect(nav.getAllByText("Paused")).toHaveLength(2);
     expect(nav.getByRole("link", { name: "Settings" })).toBeInTheDocument();
-    expect(nav.getByRole("button", { name: /Mara L/ })).toBeInTheDocument();
+    expect(nav.getByText("Mara L")).toBeInTheDocument();
     expect(within(opened).getByRole("button", { name: "Close channels" })).toBeInTheDocument();
   });
 
@@ -301,35 +301,22 @@ describe("the Signal frame in a narrow window", () => {
     expect(button()).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("keeps the name chip reachable: it opens the name dialog over the panel and takes focus back", async () => {
+  it("shows the non-interactive account badge inside the channel panel", () => {
     windowIs(false);
     show("/signal/main/feed/for-you");
     open();
-    fireEvent.click(within(list()).getByRole("button", { name: /Mara L/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Your name" });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: /Display name/ }), {
-      target: { value: "Mara Lind" },
-    });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Your name", hidden: true })).toBeNull();
-    });
-    await settled();
-    const chip = within(list()).getByRole("button", { name: /Mara Lind/ });
-    expect(chip).toHaveFocus();
+    expect(within(list()).getByText("Mara L")).toBeInTheDocument();
+    expect(within(list()).queryByRole("button", { name: /Mara L/ })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Your name" })).toBeNull();
   });
 
-  it("gives focus to the Channels button after a first visit's name is set", async () => {
+  it("keeps an older no-name account readable without a name prompt", () => {
     windowIs(false);
     show("/signal/no-name/feed/for-you");
-    const dialog = screen.getByRole("dialog", { name: "Your name" });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: /Display name/ }), {
-      target: { value: "Mara L" },
-    });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-    await gone();
-    await settled();
-    expect(button()).toHaveFocus();
+    open();
+    expect(screen.getByText("Account")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Your name" })).toBeNull();
+    expect(within(list()).queryByRole("textbox", { name: /Display name/ })).toBeNull();
   });
 
   it("keeps the skip link first and sends focus to the page region", () => {

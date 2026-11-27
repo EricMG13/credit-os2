@@ -180,12 +180,14 @@ function CurrentPage({
   mode,
   readOnly,
   navigate,
+  signalProfileRevision,
 }: {
   route: Route;
   prior: string | null;
   mode: Mode;
   readOnly: boolean;
   navigate: (path: string) => void;
+  signalProfileRevision: number;
 }) {
   if (route.kind === "library") return <ReportLibrary readOnly={readOnly} />;
   if (route.kind === "coverage") return <Coverage readOnly={readOnly} />;
@@ -197,7 +199,7 @@ function CurrentPage({
   if (route.kind === "run-list") return <RunActivity mode={mode} />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
-  if (route.kind === "signal") return <SignalLive />;
+  if (route.kind === "signal") return <SignalLive profileRevision={signalProfileRevision} />;
   return (
     <>
       <PageHeader
@@ -244,6 +246,7 @@ export function ConnectedApp({
   const title = routeTitle(route);
   // A page showing a retained test preview says so; the bar's action follows the pages' condition.
   const [preview, setPreview] = useState(false);
+  const [signalProfileRevision, setSignalProfileRevision] = useState(0);
   useEffect(() => {
     document.title = `${title} — Credit OS`;
   }, [title]);
@@ -255,7 +258,15 @@ export function ConnectedApp({
       bleed={bleed}
       sections={sectionsFor(readOnly, signal)}
       symbol="/symbol.svg"
-      account={signIn && mode === "live" && !readOnly ? <AccountControl /> : undefined}
+      account={
+        signIn && mode === "live" && !readOnly ? (
+          <AccountControl
+            onProfileUpdated={() => {
+              setSignalProfileRevision((value) => value + 1);
+            }}
+          />
+        ) : undefined
+      }
       // Screen map, "On every screen": Start run is the bar's primary action, except on itself.
       action={route.kind === "start" || !canStartRun(readOnly, preview) ? undefined : START_ACTION}
     >
@@ -267,6 +278,7 @@ export function ConnectedApp({
             mode={mode}
             readOnly={readOnly}
             navigate={navigate}
+            signalProfileRevision={signalProfileRevision}
           />
         </Suspense>
       </PreviewReport>

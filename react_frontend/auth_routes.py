@@ -36,6 +36,10 @@ _FIXED_SIGN_IN_ERROR = "sign in could not be completed"
 _MAX_CALLBACK_CODE = 4096
 _MAX_CALLBACK_STATE = 512
 _MAX_PASSCODE_BODY = 16384
+_ACCOUNT_MUTATION = re.compile(
+    r"/auth/accounts/([1-9][0-9]{0,17})/(disable|profile-type)", re.ASCII
+)
+_MAX_ACCOUNT_BODY = 4096
 
 
 def _account_payload(account: store.Account) -> dict[str, object]:
@@ -165,7 +169,10 @@ class AuthRoutes:
         self._pending = PendingFlows()
 
     def get(
-        self, handler: http_base.Handler, url: urllib.parse.SplitResult
+        self,
+        handler: http_base.Handler,
+        url: urllib.parse.SplitResult,
+        account: store.Account | None = None,
     ) -> http_base.Reply | None:
         """Answer only the named GET routes; callers preserve their normal route fallback."""
         if url.path == "/sign-in":
@@ -174,7 +181,18 @@ class AuthRoutes:
             return self._get_start(handler, url)
         if url.path == "/auth/callback":
             return self._get_callback(handler, url)
+        if url.path == "/auth/accounts":
+            return self._get_accounts(url, account)
         return None
+
+    def _get_accounts(
+        self, url: urllib.parse.SplitResult, account: store.Account | None
+    ) -> http_base.Reply:
+        if url.query or url.fragment:
+            return http_base.refuse(400, "invalid accounts request")
+        if account is None:
+            return http_base.refuse(401, "sign in first")
+        return self._accounts_directory()
 
     def _get_sign_in(
         self, handler: http_base.Handler, url: urllib.parse.SplitResult
@@ -207,18 +225,110 @@ class AuthRoutes:
         url: urllib.parse.SplitResult,
         account: store.Account | None,
     ) -> http_base.Reply | None:
-        """Answer only passcode and sign-out POSTs after the central gate has run."""
+        """Answer only configured passcode, sign-out and account mutation POSTs."""
         if url.path == "/auth/passcode":
-            if account is None:
-                return http_base.refuse(401, "sign in first")
-            if url.query or url.fragment:
-                return _plain(400, "invalid passcode request")
-            return self._passcode(handler, account)
+            return self._post_passcode(handler, url, account)
         if url.path == "/auth/sign-out":
             if url.query or url.fragment:
                 return _plain(400, "invalid sign-out request")
             return self._sign_out(handler)
+        match = _ACCOUNT_MUTATION.fullmatch(url.path)
+        if match is not None:
+            return self._post_account_mutation(handler, url, account, match)
         return None
+
+    def _post_passcode(
+        self,
+        handler: http_base.Handler,
+        url: urllib.parse.SplitResult,
+        account: store.Account | None,
+    ) -> http_base.Reply:
+        if account is None:
+            return http_base.refuse(401, "sign in first")
+        if url.query or url.fragment:
+            return _plain(400, "invalid passcode request")
+        return self._passcode(handler, account)
+
+    def _post_account_mutation(
+        self,
+        handler: http_base.Handler,
+        url: urllib.parse.SplitResult,
+        account: store.Account | None,
+        match: re.Match[str],
+    ) -> http_base.Reply:
+        if account is None or account.disabled:
+            return http_base.refuse(401, "sign in first")
+        if account.profile_type != "admin":
+            return http_base.refuse(403, "only an Admin can do this")
+        if url.query or url.fragment:
+            return http_base.refuse(400, "invalid account request")
+        return self._mutate_account(handler, account, int(match[1]), match[2])
+
+    def _accounts_directory(self) -> http_base.Reply:
+        db = store.open_db(self._config.accounts_dir)
+        try:
+            return http_base.Reply(200, {"accounts": store.account_directory(db)})
+        finally:
+            db.close()
+
+    def _mutate_account(
+        self,
+        handler: http_base.Handler,
+        actor: store.Account,
+        account_id: int,
+        action: str,
+    ) -> http_base.Reply:
+        profile_type: str | None = None
+        if action == "profile-type":
+            try:
+                value = handler.json_body(_MAX_ACCOUNT_BODY)
+            except http_base.Reply:
+                return http_base.refuse(400, "invalid account request")
+            if (
+                not isinstance(value, dict)
+                or set(value) != {"profile_type"}
+                or not isinstance(value["profile_type"], str)
+                or value["profile_type"] not in store.PROFILE_TYPES
+            ):
+                return http_base.refuse(400, "invalid account request")
+            profile_type = value["profile_type"]
+        else:
+            length_headers = handler.headers.get_all("Content-Length") or []
+            if length_headers or handler.headers.get("Transfer-Encoding") is not None:
+                try:
+                    length = handler.content_length()
+                except http_base.Reply:
+                    return http_base.refuse(400, "invalid account request")
+                if length != 0:
+                    return http_base.refuse(400, "invalid account request")
+
+        db = store.open_db(self._config.accounts_dir)
+        try:
+            try:
+                if action == "disable":
+                    summary = store.disable_account_as_admin(db, actor.id, account_id)
+                else:
+                    assert profile_type is not None
+                    summary = store.set_profile_type_as_admin(
+                        db, actor.id, account_id, profile_type
+                    )
+            except (store.ActorDisabled, store.NotAdmin, store.LastAdmin, store.Missing) as error:
+                return self._mutation_refusal(error)
+            return http_base.Reply(200, {"account": summary})
+        finally:
+            db.close()
+
+    @staticmethod
+    def _mutation_refusal(error: store.StoreError) -> http_base.Reply:
+        if isinstance(error, store.ActorDisabled):
+            return http_base.refuse(401, "sign in first")
+        if isinstance(error, store.NotAdmin):
+            return http_base.refuse(403, "only an Admin can do this")
+        if isinstance(error, store.LastAdmin):
+            return http_base.refuse(409, "keep at least one enabled Admin")
+        if isinstance(error, store.Missing):
+            return http_base.refuse(404, "account not found")
+        raise AssertionError("unexpected account refusal")
 
     def _sign_in_page(self, status: int, reason: str | None = None) -> http_base.Reply:
         reply = http_base.contained_file(
