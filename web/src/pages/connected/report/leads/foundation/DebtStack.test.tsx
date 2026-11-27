@@ -205,6 +205,20 @@ describe("debt stack: other handoffs and mutations", () => {
     ]);
   });
 
+  it("a ranking whose every facility is a stated gap has no legend entry (mutated fixture, not a handoff)", () => {
+    // Relative value rows 8..10 (index 7..9) are ranking 2: state each as a gap.
+    let entry = relativeValueCp1Entry();
+    for (const at of [7, 8, 9])
+      entry = setCell(entry, STACK, at, "Amount", "Not supplied: not read");
+    const { tile } = draw(entry);
+    expect(tile.querySelectorAll("[data-gap]")).toHaveLength(3);
+    // Hand: ranking 1 still draws filled rects; ranking 2 draws none; the hatch is keyed.
+    expect([...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent)).toEqual([
+      "Ranking 1",
+      "Not stated",
+    ]);
+  });
+
   it("a stated gap amount is a hatched slot with the module's reason; a stated zero is a hairline", () => {
     let entry = setCell(
       cp1Entry(),

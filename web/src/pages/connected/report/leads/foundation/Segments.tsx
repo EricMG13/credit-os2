@@ -56,7 +56,14 @@ function apartLine(view: SegmentView, segment: Segment, periods: SegmentPeriods)
 const SPARK_COLUMN = 68;
 const SPARK_WIDTH = 60;
 
-type SalesSeries = { texts: (string | null)[]; first: string; last: string };
+type SalesSeries = {
+  /** The stated figure of each period, null for every non-number (the line breaks there). */
+  texts: (string | null)[];
+  /** Each period as the reading says it. */
+  said: string[];
+  first: string;
+  last: string;
+};
 
 /**
  * A segment's net sales over the annual reported periods of the drawn form, up to the drawn one,
@@ -80,21 +87,30 @@ function salesSeries(
     )
     .map((period) => period.label);
   const labels = upTo.slice(0, upTo.indexOf(periods.drawn) + 1);
-  const texts = labels.map((label) => {
-    const cell = segment.sales.find((value) => value.label === label)?.cell;
-    return cell?.kind === "number" ? cell.text : null;
+  const cells = labels.map((label) => segment.sales.find((value) => value.label === label)?.cell);
+  const texts = cells.map((cell) => (cell?.kind === "number" ? cell.text : null));
+  // A stated gap is said "Not supplied" (its reason is Evidence-only); stated words as written;
+  // a period with no row as the bar rows say it.
+  const said = labels.map((label, at) => {
+    const cell = cells[at];
+    return cell === undefined || cell === null
+      ? `This page could not read ${label} for this row.`
+      : cell.kind === "number"
+        ? group(cell.text)
+        : cell.kind === "gap"
+          ? "Not supplied"
+          : safeText(cell.text);
   });
   const first = labels[0];
   const last = labels.at(-1);
   if (first === undefined || last === undefined) return null;
   if (texts.filter((text) => text !== null).length < 3) return null;
-  return { texts, first, last };
+  return { texts, said, first, last };
 }
 
-/** The series in words for the figure's reading: grouped figures, a gap said as "Not supplied". */
+/** The series in words for the figure's reading: grouped figures, each other cell in its own words. */
 function seriesWords(view: SegmentView, segment: Segment, series: SalesSeries) {
-  const figures = series.texts.map((text) => (text === null ? "Not supplied" : group(text)));
-  return `${safeText(segment.name)} ${view.salesLabel} ${series.first} to ${series.last}: ${figures.join(", ")}`;
+  return `${safeText(segment.name)} ${view.salesLabel} ${series.first} to ${series.last}: ${series.said.join(", ")}`;
 }
 
 function reading(

@@ -4,6 +4,7 @@ import { GapSlot, LINE, Measured, SIZE } from "../kit/marks";
 import { Legend, type LegendEntry } from "../kit/marks/Legend";
 import type { LeadProps } from "../types";
 import {
+  kindOf,
   stackLayout,
   stackReading,
   stackTable,
@@ -36,9 +37,14 @@ const TONE = {
   8: "category-8",
 } as const;
 
-/** One legend entry per ranking present, ascending, then the hatch for a stated gap. */
+/**
+ * One legend entry per ranking that draws a filled category rect (not a gap, words or a stated
+ * zero), ascending, then the hatch for a stated gap.
+ */
 function legendOf(stack: DebtStack): LegendEntry[] {
-  const ranks = [...new Set(stack.facilities.map((f) => f.ranking))].sort((a, b) => a - b);
+  const ranks = [
+    ...new Set(stack.facilities.filter((f) => kindOf(f) === "amount").map((f) => f.ranking)),
+  ].sort((a, b) => a - b);
   return [
     ...ranks.map((ranking) => ({
       kind: "square" as const,

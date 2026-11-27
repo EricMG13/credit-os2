@@ -50,7 +50,8 @@ const SHORTEST = 120;
 const amountText = (facility: StackFacility) =>
   facility.amount.kind === "number" ? group(facility.amount.text) : cellText(facility.amount);
 
-function kindOf(facility: StackFacility): StackSegment["kind"] {
+/** How a facility is drawn: a filled rect only for a positive stated amount ("amount"). */
+export function kindOf(facility: StackFacility): StackSegment["kind"] {
   const { amount } = facility;
   if (amount.kind === "gap") return "gap";
   if (amount.kind === "text" || amount.value < 0) return "words";

@@ -96,6 +96,8 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
   });
   it("says every drawn figure in the aria-label", () => {
     const tile = draw(cp1Entry());
+    // Two periods only: the accepted handoff draws no sparkline (ruling C5).
+    expect(tile.querySelector("[data-values], [data-end]")).toBeNull();
     expect(within(tile).getByRole("img").getAttribute("aria-label")).toBe(
       "Segments, $m, FY2024 with FY2023 beneath. Power & Control: Net sales 3,941 (FY2023 3,316), EBITDA As Defined 2,236 (FY2023 1,866); Airframe: Net sales 3,809 (FY2023 3,094), EBITDA As Defined 1,962 (FY2023 1,547); Non-aviation: Net sales 190 (FY2023 175), EBITDA As Defined 81 (FY2023 71); Unallocated corporate, FY2024: Net sales Not supplied: no separate revenue line; EBITDA As Defined −106 (FY2023 −89).",
     );
@@ -341,6 +343,67 @@ describe("SegmentsTile sparkline (mutation: four stated years for one segment)",
       [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
     ).toEqual(["2400 2500", "3316 3941"]);
     expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(1);
+  });
+});
+
+// Mutation (not a real handoff): Power & Control sales FY2021 2,500 (invented), FY2022 stated as the
+// words "n.m." (invented), FY2023 3,316 and FY2024 3,941 (the schedule's own cells).
+describe("SegmentsTile sparkline reading of non-number cells (mutation)", () => {
+  const row = (name: string, period: string, sales: string) => [
+    name,
+    period,
+    sales,
+    "1000",
+    "USD millions",
+    "-",
+    "-",
+  ];
+  const figureOf = (tile: HTMLElement) =>
+    within(tile)
+      .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+      .getAttribute("aria-label");
+  it("reads stated words as written, not as Not supplied, and breaks the line there", () => {
+    const tile = draw(
+      addRow(
+        addRow(
+          addRow(cp1Entry(), SCHEDULE, row("Power & Control", "FY2022", "n.m.")),
+          SCHEDULE,
+          row("Power & Control", "FY2021", "2500"),
+        ),
+        SCHEDULE,
+        row("Power & Control", "FY2020", "2400"),
+      ),
+    );
+    const said = figureOf(tile) ?? "";
+    expect(said).toContain("Net sales FY2020 to FY2024: 2,400, 2,500, n.m., 3,316, 3,941");
+    expect(said).not.toContain("Not supplied, 3,316");
+    const spark = within(tile).getByRole("img", {
+      name: "Power & Control Net sales, FY2020 to FY2024",
+    });
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["2400 2500", "3316 3941"]);
+  });
+  it("reads a period with no row as the could-not-read words the bar rows use", () => {
+    // FY2022 exists as a period through Airframe's row only; Power & Control has none.
+    const tile = draw(
+      addRow(
+        addRow(
+          addRow(
+            addRow(cp1Entry(), SCHEDULE, row("Airframe", "FY2022", "3000")),
+            SCHEDULE,
+            row("Power & Control", "FY2021", "2500"),
+          ),
+          SCHEDULE,
+          row("Power & Control", "FY2020", "2400"),
+        ),
+        SCHEDULE,
+        row("Power & Control", "FY2019", "2300"),
+      ),
+    );
+    expect(figureOf(tile)).toContain(
+      "Net sales FY2019 to FY2024: 2,300, 2,400, 2,500, This page could not read FY2022 for this row., 3,316, 3,941",
+    );
   });
 });
 

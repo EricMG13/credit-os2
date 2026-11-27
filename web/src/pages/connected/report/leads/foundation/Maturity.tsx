@@ -104,6 +104,17 @@ function wallReading(marks: readonly WallMark[], unit: string) {
   return `Debt maturities${unit ? `, ${unit}` : ""}: ${parts.join(", ")}.`;
 }
 
+/**
+ * The stated amount of a bar mark. `wallLayout` makes a mark a bar only from a cell with a value, so
+ * a bar without one is a defect in the layout, not a zero.
+ */
+function barAmount(mark: WallMark): number {
+  const value = mark.cell?.value;
+  if (value === null || value === undefined)
+    throw new RangeError(`Maturity bar mark "${mark.label}" has no cell value`);
+  return value;
+}
+
 function Bar({ mark, layout, largest }: { mark: WallMark; layout: WallLayout; largest: number }) {
   if (mark.kind !== "bar") {
     const columns = layout.layout === "columns";
@@ -130,7 +141,7 @@ function Bar({ mark, layout, largest }: { mark: WallMark; layout: WallLayout; la
       height={Math.max(0, mark.undated ? mark.height - 1.5 : mark.height)}
       rx={Math.min(2, mark.height / 2, mark.width / 2)}
       strokeWidth={mark.undated ? 1.5 : 1}
-      className={AMOUNT_BAR[amountTone(mark.cell?.value ?? 0, largest)]}
+      className={AMOUNT_BAR[amountTone(barAmount(mark), largest)]}
     />
   );
 }
@@ -332,7 +343,7 @@ function Wall({
   // C4: the largest |amount| over every bar on this wall; gap slots carry no amount.
   const largest = Math.max(
     0,
-    ...layout.marks.flatMap((mark) => (mark.kind === "bar" ? Math.abs(mark.cell?.value ?? 0) : [])),
+    ...layout.marks.flatMap((mark) => (mark.kind === "bar" ? Math.abs(barAmount(mark)) : [])),
   );
   return (
     <>
