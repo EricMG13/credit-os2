@@ -5,6 +5,23 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
 
+## 2026-11-27 — Development coordinator and dashboard
+
+- Real Chrome and Edge on the local dashboard verified the run selector, ranked decisions,
+  decision details, reply drafting and copying, worker status, and unchanged ledger state.
+  Impeccable review of desktop and mobile led to a hidden-until-focused skip link and tighter
+  mobile worker columns. Fixture runs and worker decisions were synthetic.
+- Retained native Codex observation verified Astra medium through the ChatGPT subscription.
+  An isolated worker wrote the exact fixture and was accepted with zero reserved units.
+- A disposable GitHub target blocked stale, failed and wrongly attributed proof and allowed
+  the repaired tested tree. Claude subscription dispatch and production merge rules need
+  separate qualification. See the development coordinator rollout plan for the pilot scope.
+- The review repairs cover stale approvals, mismatched task and candidate evidence, canary
+  rollback, worker deadlines, and preservation of explicitly revalidated work.
+- The Windows ZIP retains the independent build manifest and hashes the same archived sources
+  when packaged and extracted on different hosts.
+
+
 ## 2026-11-27 — Foundation and Signal integration
 
 - Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
@@ -976,20 +993,3 @@ then 5; the narrow layout and the controls listed below.
   - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
-
-## 2026-11-24 — Frontend redesign: theme tokens and shell
-
-- Scope: `web/src/styles/theme.css` re-valued under the existing token names and
-  `web/src/shell/Shell.tsx` rebuilt as a top bar. No report, module, forecast or run page was
-  rebuilt; their layouts are unchanged and only take the new colours, type and radii. No handoff,
-  delivery or figure code changed, so no value, period, unit or source reference is affected.
-- Fidelity check: static build opened from disk in Chromium at 1440 and 390 px (`#/` and `#/kit`):
-  top bar, current-area tint and underline, buttons, badges, status marks, cards, metric tiles and
-  timeline draw in the new palette with no page errors. No report page was viewed with real run
-  data; the static build holds no report.
-- Web tests in four targeted runs: 320 files, 5,459 tests pass. One ConnectedApp run-start test
-  (leave-page prompt) failed once under load and passes alone, with and without this change.
-  Typecheck, knip, build and the 76 script tests pass. Full `npm run gates` and the Python suite
-  were not run.
-- `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
-  approved mockups to keep it.

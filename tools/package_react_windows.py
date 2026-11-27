@@ -39,7 +39,10 @@ SOURCE_PATHS = (
     "react_frontend",
     "src",
     "uv.lock",
+    "tests/fixtures/cp1-instruction-pr/answer-key.json",
     "web",
+    ":(exclude)apps/issuer-library/credit_os/web/index.html",
+    ":(exclude)docs/templates/context-form.html",
 )
 
 
@@ -68,7 +71,7 @@ def validate_source(source: ZipFile) -> None:
         paths.add(folded)
 
 
-def build_web(source: Path) -> Path:
+def build_web(source: Path) -> None:
     npm = shutil.which("npm.cmd") or shutil.which("npm")
     if npm is None:
         raise ValueError("install the pinned Node.js toolchain to build the candidate")
@@ -79,17 +82,12 @@ def build_web(source: Path) -> Path:
         raise ValueError("the build did not create web/dist/index.html")
     if (dist / "data.js").read_bytes() != (source / "web/public/data.js").read_bytes():
         raise ValueError("the build must contain the empty connected data placeholder")
-    return dist
 
 
-def write_bundle(source: ZipFile, dist: Path, output: Path, revision: str) -> None:
+def write_bundle(source: ZipFile, workspace: Path, output: Path) -> None:
+    dist = workspace / "web/dist"
     with ZipFile(output, "w", ZIP_DEFLATED) as dest:
         for entry in source.infolist():
-            if entry.filename in {
-                "apps/issuer-library/credit_os/web/index.html",
-                "docs/templates/context-form.html",
-            }:
-                continue
             if not entry.is_dir():
                 dest.writestr(
                     ZipInfo(entry.filename, entry.date_time),
@@ -101,7 +99,8 @@ def write_bundle(source: ZipFile, dist: Path, output: Path, revision: str) -> No
                 raise ValueError(f"unsupported build entry: {path.name}")
             if path.is_file():
                 dest.writestr(f"web/dist/{path.relative_to(dist).as_posix()}", path.read_bytes())
-        dest.writestr("SOURCE-COMMIT.txt", revision + "\n")
+        for name in ("SOURCE-COMMIT.txt", "proof-artifacts/connected-build-manifest.json"):
+            dest.writestr(name, (workspace / name).read_bytes())
 
 
 def package(project: Path, revision: str, output: Path) -> str:
@@ -115,9 +114,11 @@ def package(project: Path, revision: str, output: Path) -> str:
     ):
         validate_source(source)
         source.extractall(workspace)
-        dist = build_web(Path(workspace))
+        root = Path(workspace)
+        (root / "SOURCE-COMMIT.txt").write_bytes((commit + "\n").encode("ascii"))
+        build_web(root)
         pending = Path(staging) / output.name
-        write_bundle(source, dist, pending, commit)
+        write_bundle(source, root, pending)
         with pending.open("rb") as file:
             digest = hashlib.file_digest(file, "sha256").hexdigest()
         pending.replace(output)

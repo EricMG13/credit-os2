@@ -108,3 +108,83 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   (docs/QUALITY-GATE.md); a failure there not in tests/known-failures.txt is new.
 - Keep one concise verification record. VERIFICATION.md stays under 1,000 lines (checked: tests/test_repo_rules.py); trim its oldest entries (git history keeps them). No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.
+
+## Credit OS2 development coordinator
+
+Use `/dev <outcome>` where the client exposes the project command. The Codex project skill is
+`$credit-os2-dev`. “Start the development loop” is the portable entry. Derive the repository,
+current base, intended outcome, applicable rulings and analyst-visible acceptance examples
+before proposing work. Research and explanation requests stay read-only.
+
+Follow the [development coordinator specification](docs/superpowers/specs/2026-11-27-dev-coordinator.md).
+Before dispatching writers, present the exact spec and plan for approval together with the delivery
+slices, ceiling, permitted model routes and owner merge authority. Apply these rules to ongoing
+approved work at its next decision or verification boundary. Preserve its existing scope and
+authorization. Keep one coordinator and use the existing answer keys, reviewers and fix limits.
+
+Use stable decision IDs in milestone updates. Show owner decisions first, reversible choices
+already applied second and verified progress third. Accept explanations and redirects by ID.
+Continue unaffected work. Reject a late result for a superseded decision. Escalate changes to
+financial meaning, permissions, ceilings, exhausted recovery and merge promptly.
+
+Complete analyst-visible work with the application running in a real browser on the candidate
+revision. Assert the visible behavior against independently specified examples and apply
+Impeccable to that rendered state. Include backend changes that affect the display. Missing
+browser or critique evidence leaves completion pending. Review and merge evidence must identify
+the tested candidate and base. The owner authorizes the merge.
+
+Record confirmed finding and repair evidence, resolved model/effort, scope, time and available
+cost against the existing run. Treat unknown or mixed causation as ungraded for route changes.
+Apply only model routes within approved bounds and qualified for that client and environment.
+
+Use subscription access for development workers and reviewers. Use Astra at medium effort on
+Codex and Fable at medium effort on Claude when those models are selected. If the approved
+subscription route cannot be verified or has no capacity, queue that work and report the reason.
+
+### Running the development coordinator locally
+
+Use the coordinator tools from the current approved checkout. All participating worktrees
+share one absolute ledger path under the primary checkout's ignored `.superpowers/` directory.
+For a standard Git worktree, the parent of `git rev-parse --path-format=absolute --git-common-dir`
+is the primary checkout. Keep the database and local evidence there across session restarts.
+
+1. Run `tools/dev_ledger.py card SPEC_FILE PLAN_FILE`. Verify the cached target against GitHub,
+   inspect applicable rulings, and show the resulting document digests in the approval card.
+   Include the deadline, workers, cost cap and unit, and the permitted client, model and effort.
+   Once the owner approves, call `tools/dev_ledger.py --db DB approve RUN SPEC_FILE PLAN_FILE
+   CAP WORKERS DEADLINE_UNIX SHOWN_SPEC_SHA256 SHOWN_PLAN_SHA256 --base BASE_SHA
+   --shown-base SHOWN_BASE_SHA --dispatch-policy POLICY_FILE --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
+   model and effort pairs, maximum attempt duration and billing mode. A changed file requires
+   a new approval card. Use `start` with symbolic revision names only for disposable tests.
+2. At each milestone read `status RUN --text`. Record a progress update or an open question
+   with `note RUN ID REVISION PAYLOAD`; the payload gives its kind (owner, applied or verified)
+   and a plain-English summary. A note preserves the current writer revision. For “explain D-04”, use `explain RUN D-04` on the
+   ledger that issued the decision. Translate its consequence, reason and evidence into plain
+   English. Record each redirect with its expected revision and a fresh decision ID. Preserve
+   the original ID in the redirect payload as `supersedes`. On restart use `recover RUN` to settle any
+   terminal unmetered workers whose accounting was interrupted. Keep reservations for
+   workers with unknown outcomes while checking their native session and worktree. A pause or resume uses the corresponding `action`.
+   Identify the affected work when explaining why an earlier result cannot be integrated.
+   To preserve an unaffected attempt during a redirect, include its exact ID in
+   `revalidated_attempts` and record the verified assumptions in `reason`. Accept the result
+   at the current revision. The ledger retains its original launch revision.
+3. A model route needs recorded, independent outcomes for its client and task family. Feed
+   completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
+   Show changes to the selected route with their decision IDs. A model trial, a browser journey
+   and a merged change each have their own verification scope.
+4. Dispatch with `python tools/dev_dispatch.py --db DB --registry DB --cohort COHORT_FILE
+   --run RUN --attempt ATTEMPT --revision REV --base SHA --reserve UNITS --spec SPEC_FILE
+   --plan PLAN_FILE --prompt WORK_ORDER --cwd WORKTREE --client CLIENT --timeout SECONDS`.
+   Verify the returned worker output against the approved examples. Record acceptance with
+   `python tools/dev_ledger.py --db DB accept RUN ATTEMPT REV --candidate CANDIDATE_SHA`.
+5. On each independent review or confirmed escape, invoke `python tools/dev_observe.py
+   --db DB record EVENTS_JSONL --evidence-root EVIDENCE_DIRECTORY --registry DB
+   --route-policy ROUTE_POLICY_FILE`. Read each returned decision to the owner in plain
+   English. Use the trial conditions in the approved spec to schedule eligible replay work.
+   After a verified merge, record `python tools/dev_ledger.py --db DB merged RUN ATTEMPT
+   CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.
+
+Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Credit OS2 checkout.
+The command prints a local URL. Run lookup, refresh, decision details, and prompts use the same
+ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
+change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.
