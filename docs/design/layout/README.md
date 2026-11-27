@@ -1,6 +1,6 @@
 # Issuer report layout build
 
-This folder is the de-identified build contract for the approved layout pass. It covers fifteen screens: the issuer Library; report Overview, Changes, Modules, Forecast, Evidence, Calendar and Deliverables; Run start; Run activity; and Signal. Coverage is specified by its own workstream and is outside this pass.
+This folder documents the reviewed layout proposal. Production implementation requires formal owner approval of the private mockups and this de-identified contract. It covers fifteen screens: the issuer Library; report Overview, Changes, Modules, Forecast, Evidence, Calendar and Deliverables; Run start; Run activity; and Signal. Coverage is specified by its own workstream and is outside this pass.
 
 ## Screen specifications
 
