@@ -5,9 +5,11 @@ import type { Cohort } from "./cohort";
 export function LeftOut({
   out,
   title,
+  details,
 }: {
   out: Cohort["out"];
   title: string;
+  details?: ReadonlyMap<string, readonly string[]>;
 }): ReactElement | null {
   if (out.length === 0) return null;
 
@@ -17,7 +19,8 @@ export function LeftOut({
       <ul>
         {out.map(({ issuer, reason }) => (
           <li key={issuer.key}>
-            <span>{issuer.name}</span>: <span>{reason}</span>
+            <span>{issuer.name}</span>:{" "}
+            <span>{details?.get(issuer.key)?.join("; ") ?? reason}</span>
           </li>
         ))}
       </ul>
