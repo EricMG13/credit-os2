@@ -188,11 +188,85 @@ it("bars an amount column with the figures as written and a stated gap in words"
   expect(within(second).getByText("(3,742)")).toBeInTheDocument();
   expect(second.querySelector('[style*="width"]')).toHaveStyle({ width: "100%" });
   expect(second.querySelector('[style*="width"]')).toHaveClass("bg-chart-2");
+  // The positive bar's colour is its share's amount step: 0.5 of the column is the middle step.
+  expect(first.querySelector('[style*="width"]')).toHaveClass("bg-scale-amount-3");
   expect(within(revolver).getByText("Not supplied: synthetic")).toBeInTheDocument();
   expect(revolver.querySelector('[style*="width"]')).toBeNull();
   expect(within(revolver).queryByText("0")).toBeNull();
   expect(within(revolver).getByLabelText("Left blank")).toHaveTextContent("—");
   expect(within(first).getByText("275")).toBeInTheDocument();
+});
+
+it("names the bar colours in words, a negative one only where a negative bar is drawn", () => {
+  draw();
+  const wide = openDebt();
+  const legend = wide.parentElement;
+  expect(legend).not.toBeNull();
+  const scoped = within(legend as HTMLElement);
+  expect(scoped.getByText("Smaller amount")).toBeInTheDocument();
+  expect(scoped.getByText("Larger amount")).toBeInTheDocument();
+  expect(scoped.getByText("Negative amount")).toBeInTheDocument();
+  // The words sit outside the table, so its accessible name is unchanged.
+  expect(within(wide).queryByText("Smaller amount")).toBeNull();
+});
+
+it("draws no Negative amount entry when no drawn bar is negative", () => {
+  const positive = table(
+    21,
+    ["Instrument", "Principal", "Maturity"],
+    [
+      ["Term loan I", "1,871", "2028"],
+      ["Term loan J", "3,742", "2031"],
+    ],
+  );
+  draw(one("T4.18 Debt instruments", positive));
+  openRecords();
+  const wide = screen.getByRole("region", { name: "Debt instruments" });
+  expect(wide.querySelector('[style*="width"]')).toHaveClass("bg-scale-amount-3");
+  const scoped = within(wide.parentElement as HTMLElement);
+  expect(scoped.getByText("Smaller amount")).toBeInTheDocument();
+  expect(scoped.getByText("Larger amount")).toBeInTheDocument();
+  expect(scoped.queryByText("Negative amount")).toBeNull();
+});
+
+it("draws only the Negative amount entry when every drawn bar is negative", () => {
+  const negative = table(
+    21,
+    ["Instrument", "Principal", "Maturity"],
+    [
+      ["Term loan I", "(1,871)", "2028"],
+      ["Term loan J", "(3,742)", "2031"],
+    ],
+  );
+  draw(one("T4.18 Debt instruments", negative));
+  openRecords();
+  const wide = screen.getByRole("region", { name: "Debt instruments" });
+  expect(wide.querySelector('[style*="width"]')).toHaveClass("bg-chart-2");
+  const scoped = within(wide.parentElement as HTMLElement);
+  expect(scoped.getByText("Negative amount")).toBeInTheDocument();
+  expect(scoped.queryByText("Smaller amount")).toBeNull();
+  expect(scoped.queryByText("Larger amount")).toBeNull();
+});
+
+it("names a colour only where a fill is drawn: a zero share is a tick, not an amount bar", () => {
+  // Synthetic table: one zero cell (a grey tick) beside two negative bars.
+  const mixed = table(
+    21,
+    ["Instrument", "Principal", "Maturity"],
+    [
+      ["Term loan I", "0", "2028"],
+      ["Term loan J", "(1,871)", "2031"],
+      ["Term loan K", "(3,742)", "2033"],
+    ],
+  );
+  draw(one("T4.18 Debt instruments", mixed));
+  openRecords();
+  const wide = screen.getByRole("region", { name: "Debt instruments" });
+  expect(wide.querySelectorAll('[style*="width"]')).toHaveLength(2);
+  const scoped = within(wide.parentElement as HTMLElement);
+  expect(scoped.getByText("Negative amount")).toBeInTheDocument();
+  expect(scoped.queryByText("Smaller amount")).toBeNull();
+  expect(scoped.queryByText("Larger amount")).toBeNull();
 });
 
 it("draws a source reference cell as an Evidence link, never as text", () => {
@@ -388,6 +462,8 @@ describe("records tables take the mockup's form", () => {
     expect(screen.getByRole("heading", { level: 4, name: "EBITDA bridge" })).toBeInTheDocument();
     expect(container.querySelector('[style*="width"]')).toBeNull();
     expect(screen.queryByText(/^Bars:/)).toBeNull();
+    expect(screen.queryByText("Smaller amount")).toBeNull();
+    expect(screen.queryByText("Negative amount")).toBeNull();
     expect(screen.getByRole("cell", { name: "3813" })).toHaveClass("text-right");
   });
 
@@ -570,6 +646,9 @@ describe("a wide register at phone width", () => {
     expect(open).toHaveBeenCalledWith(traceKey(entry, line));
     // No bar is drawn in a card, so no scale is stated.
     expect(screen.queryByText(/^Bars:/)).toBeNull();
+    expect(screen.queryByText("Smaller amount")).toBeNull();
+    expect(screen.queryByText("Larger amount")).toBeNull();
+    expect(screen.queryByText("Negative amount")).toBeNull();
   });
 
   it("opens the scrolled full table from All columns", () => {
