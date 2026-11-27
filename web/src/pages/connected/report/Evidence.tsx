@@ -7,7 +7,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { moduleName, type Mode } from "../api";
 import { field } from "../layout";
 import {
-  classifySections,
   evidencePath,
   evidenceToken,
   FORECAST_INPUTS,
@@ -31,6 +30,7 @@ import { ScriptChecks } from "./ScriptChecks";
 import { BARE_MODULE_CODE, handoffName } from "./evidenceLabels";
 import { collectGaps, EvidenceGaps, GapSummary } from "./EvidenceGaps";
 import { EvidenceHandoffs } from "./EvidenceHandoffs";
+import { drawnSections, lineIsHidden } from "./evidenceDrawn";
 import { Disclosure } from "./evidenceKit";
 import { EvidenceSources, sourceRowId, type SourceGroup } from "./EvidenceSources";
 import { Bento, Tile } from "./overview/Tile";
@@ -99,16 +99,14 @@ function EvidenceLocation({
       <p className="text-text-secondary">This module's output could not be read into sections.</p>
     );
   const title = titleLine(entry.sections);
-  const sections = classifySections(entry.sections)
+  const sections = drawnSections(entry)
+    // CP-2G's forecast inputs are the model's raw JSON: drawn only when the address targets them.
     .filter(
-      ({ role, section }) =>
-        role !== "hidden" ||
-        (entry.output.module === "CP-2G" &&
-          line !== undefined &&
-          section.heading === FORECAST_INPUTS &&
-          section.blocks.some((block) => block.line === line)),
+      (section) =>
+        line !== undefined ||
+        entry.output.module !== "CP-2G" ||
+        section.heading !== FORECAST_INPUTS,
     )
-    .map(({ section }) => section)
     // The title of a handoff is the module's code: with nothing under it, it heads nothing in the
     // whole view and the card names the module. A location that points at it still draws it.
     .filter((section) => section.line !== title || section.blocks.length > 0 || line !== undefined);
@@ -312,6 +310,7 @@ function EvidenceSummary({
     Object.entries(snapshot.chips).some(
       ([key, chips]) =>
         key.startsWith(`${entry.output.id}:`) &&
+        !lineIsHidden(entry, Number(key.slice(key.lastIndexOf(":") + 1))) &&
         chips.some(
           (chip) =>
             chip.quote_found === false ||
@@ -608,7 +607,7 @@ function HandoffIndex({
                 className="min-h-8 underline max-[480px]:min-h-11"
                 iconTrailing={ArrowRight}
               >
-                {handoffName(item)}
+                {handoffName(item, run.pathway)}
               </Button>
             </li>
           ))}
@@ -647,10 +646,12 @@ function AssumptionRegister({
   model,
   entries,
   folder,
+  pathway,
 }: {
   model: ForecastModel;
   entries: OutputEntry[];
   folder: string;
+  pathway?: string | null;
 }) {
   const register = model.register;
   if (!register) return null;
@@ -693,7 +694,7 @@ function AssumptionRegister({
                 <tr key={index} className="border-t border-border-hairline align-top">
                   {cells.map((cell, i) => (
                     <td key={i} className="px-3 py-2">
-                      {readerText(cell)}
+                      {readerText(cell, pathway)}
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -749,7 +750,9 @@ export function ReportEvidence({
     recordTarget,
     sourceRow,
   } = evidenceRoute(entries, target, checks.length > 0);
-  const claim = Boolean(entry && line !== undefined && handoffBlockAt(entry, line));
+  const claim = Boolean(
+    entry && line !== undefined && !lineIsHidden(entry, line) && handoffBlockAt(entry, line),
+  );
   const landing = landingId(tab, recordTarget, sourceRow, Boolean(entry), claim);
   useLandOn(landing && target, landing);
   // A query belongs to the address it was typed at: following a result (a new address) clears it.
@@ -900,6 +903,7 @@ export function ReportEvidence({
                   model={model}
                   entries={entries}
                   folder={run.folder}
+                  pathway={run.pathway}
                 />
               ))}
             </Disclosure>

@@ -19,6 +19,7 @@ import {
   cellReading as stressReading,
   cellWord,
   gapText,
+  stressNoteText,
   gapWord,
   labelText,
   plainNotes,
@@ -329,7 +330,7 @@ function downsideReading(cases: Downside["cases"], panels: DownsidePanel[]) {
 function downsideNotes(data: Downside): Note[] {
   const gaps = data.panels.flatMap((panel) =>
     panel.cells.flatMap((cell, at) => {
-      const text = cell.value === null ? gapText(cell) : null;
+      const text = cell.value === null ? stressNoteText(cell) : null;
       return text === null
         ? []
         : [
@@ -576,8 +577,13 @@ function PathChart({ path }: { path: Path }) {
   const width = measured === null || measured <= 0 ? PATH.width : Math.round(measured);
   const geometry = pathLayout(pathGeometry(path.cases), width);
   const [base = [], ...others] = geometry.lines;
+  // A period any drawn case has no figure for is marked; a case with no figure at all is not drawn.
   const missing = geometry.periods.filter(({ period }) =>
-    base.some((point) => point.period === period && point.y === null),
+    geometry.lines.some(
+      (line) =>
+        line.some((point) => point.y !== null) &&
+        line.some((point) => point.period === period && point.y === null),
+    ),
   );
   const segments = (line: typeof base) =>
     line.flatMap((point, at) => {
@@ -742,13 +748,18 @@ function PathHeadline({ path }: { path: Path }) {
 
 function ForwardPath({ path, href }: { path: Path; href: NoteHref }) {
   const [first, ...others] = path.cases;
-  const gaps = (first?.points ?? [])
-    .filter((point) => point.value === null)
-    .map((point) => ({
-      lead: `${point.period}: `,
-      text: point.reason || "no figure in the model",
-      end: ".",
-    }));
+  // Every drawn case's missing periods are said: the first case by period, a later one by its name.
+  const gaps = path.cases.flatMap(({ group, points }, at) =>
+    at > 0 && !points.some((point) => point.value !== null)
+      ? []
+      : points
+          .filter((point) => point.value === null)
+          .map((point) => ({
+            lead: at === 0 ? `${point.period}: ` : `${group}, ${point.period}: `,
+            text: point.reason || "no figure in the model",
+            end: ".",
+          })),
+  );
   // A later case with no figure at all draws nothing: its key is named, so its reasons are said here.
   const unplotted = others.flatMap(({ group, points }) =>
     points.some((point) => point.value !== null)

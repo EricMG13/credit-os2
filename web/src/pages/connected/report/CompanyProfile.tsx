@@ -28,25 +28,34 @@ function describeCompany(entry: OutputEntry) {
 }
 
 /** Sector: the register's Sector cell, then the profile's `Sector and segments`. */
-function sectorOf(entry: OutputEntry) {
+function sectorOf(entry: OutputEntry, pathway?: string | null) {
   const register = registerRow(entry);
   const registered =
     register && filled(register.row.cells[register.table.headers.indexOf("Sector")]);
   const sector = registered ?? profileCell(entry, "Sector and segments")?.text;
   return sector === undefined || citesSource(sector)
     ? undefined
-    : proseWithoutMachinery(sector) || undefined;
+    : proseWithoutMachinery(sector, pathway) || undefined;
 }
 
 /** The issuer's sector and business description, as Business & governance states them. */
-export function CompanyProfile({ entry, folder }: { entry: OutputEntry; folder: string }) {
+export function CompanyProfile({
+  entry,
+  folder,
+  pathway,
+}: {
+  entry: OutputEntry;
+  folder: string;
+  pathway?: string | null;
+}) {
   // A blocked module's frame states that it could not run; the description adds nothing there.
   if (blocked(entry)) return null;
   // Only the selected output describes the issuer, as the report header did.
   if (!entry.selected) return <p className="pt-1 text-small text-text-tertiary">{ON_SELECTED}</p>;
   const described = describeCompany(entry);
-  const sector = sectorOf(entry);
-  const shown = described && !citesSource(described.text) && proseWithoutMachinery(described.text);
+  const sector = sectorOf(entry, pathway);
+  const shown =
+    described && !citesSource(described.text) && proseWithoutMachinery(described.text, pathway);
   const referenced = described !== undefined && !shown;
   return (
     <div className="flex min-w-0 flex-col gap-1 pt-1">

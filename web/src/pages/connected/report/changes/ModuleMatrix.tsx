@@ -35,27 +35,30 @@ const DIRECTION_MARK = {
  * The module's name as the rest of the report writes it. The pack's own title is used only for a
  * module the page has no name for, and never when that title is itself a module code.
  */
-function nameOf(module: string, title: string) {
-  const name = moduleName(module);
+function nameOf(module: string, title: string, pathway?: string | null) {
+  const name = moduleName(module, pathway);
   if (name !== UNNAMED_MODULE) return name;
   return title.trim() && !/^CP-[A-Z0-9]+$/i.test(title.trim()) ? title : UNNAMED_MODULE;
 }
 
-function side(ran: boolean, bottomLine: string | null) {
+function side(ran: boolean, bottomLine: string | null, pathway?: string | null) {
   if (bottomLine == null) return ran ? "Not stated" : "Did not run";
   const { body } = readParagraph(bottomLine);
   return containsReference(body)
     ? "See the module's output in Evidence."
-    : words(body) || "Not stated";
+    : words(body, pathway) || "Not stated";
 }
 
 /** Module × status; each row opens to the earlier and the current conclusion. One list, no second copy. */
 export function ModuleMatrix({
   change,
   source,
+  pathway,
 }: {
   change: PublishedChanges;
   source: (module: string) => string | undefined;
+  /** The run's pathway: a module the pathway names differently reads by that name. */
+  pathway?: string | null;
 }) {
   const modules = change.pack?.modules ?? [];
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
@@ -105,7 +108,7 @@ export function ModuleMatrix({
             status || (stated.length > 0 ? "Status not stated" : "Explanation not stated");
           const direction = Object.hasOwn(DIRECTION, status) ? DIRECTION[status] : undefined;
           const panel = `matrix-${item.module}`;
-          const title = nameOf(item.module, item.title);
+          const title = nameOf(item.module, item.title, pathway);
           return (
             <Fragment key={item.module}>
               <tr className="border-t border-border-hairline">
@@ -169,19 +172,19 @@ export function ModuleMatrix({
                     <div>
                       <h4 className="text-caption text-text-tertiary">Earlier</h4>
                       <p className="reading-copy text-small">
-                        {side(item.ran_prior, item.prior_bottom_line)}
+                        {side(item.ran_prior, item.prior_bottom_line, pathway)}
                       </p>
                     </div>
                     <div>
                       <h4 className="text-caption text-text-tertiary">Current</h4>
                       <p className="reading-copy text-small">
-                        {side(item.ran_current, item.current_bottom_line)}
+                        {side(item.ran_current, item.current_bottom_line, pathway)}
                       </p>
                     </div>
                     {explanation.length > 0 && (
                       <p className="reading-copy text-small text-text-secondary">
                         {explanation
-                          .map(({ name, value }) => `${name}: ${words(value)}`)
+                          .map(({ name, value }) => `${name}: ${words(value, pathway)}`)
                           .join(" · ")}
                       </p>
                     )}

@@ -20,7 +20,8 @@ const REGISTER_CODE =
   /^(?:(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?\s+(?:[-–—:]\s*)?|(?:TL|T|P)[A-Z0-9]{0,5}\s*[-–—:]\s+)/;
 
 /** A heading as a typed table draws it: no register code, module names for codes. */
-const shownTitle = (title: string) => readerText(plainText(title).replace(REGISTER_CODE, ""));
+const shownTitle = (title: string, pathway?: string | null) =>
+  readerText(plainText(title).replace(REGISTER_CODE, ""), pathway);
 
 function visible(table: Table) {
   const indexes = displayColumns(table.headers, false, table.rows);
@@ -34,22 +35,26 @@ function visible(table: Table) {
   };
 }
 
-function cellText(text: string | undefined) {
-  if (!text || !containsReference(text)) return readerText(text ?? "");
+function cellText(text: string | undefined, pathway?: string | null) {
+  if (!text || !containsReference(text)) return readerText(text ?? "", pathway);
   // The cell's own words stay; a cell that only cites a source reads "In Evidence".
-  return readerText(withoutReferences(text)) || "In Evidence";
+  return readerText(withoutReferences(text), pathway) || "In Evidence";
 }
 
 const LEDGER_ORDER = ["Closed", "Remaining", "New", "No longer stated"];
 
 // CP-8's limitations ledger: one group per status; the two reference columns stay in Evidence.
-function limitations(data: ReturnType<typeof visible>, traceAt: (line: number) => string) {
+function limitations(
+  data: ReturnType<typeof visible>,
+  traceAt: (line: number) => string,
+  pathway?: string | null,
+) {
   const at = (name: string) => data.headers.findIndex((header) => header.trim() === name);
   const [limitation, status, closed] = [at("Limitation"), at("Status"), at("What closed it")];
   if (limitation < 0 || status < 0 || closed < 0) return null;
   const groups = new Map<string, { text: string; closed: string; line: number }[]>();
   for (const { cells, line } of data.rows) {
-    const label = readerText(plainText(cells[status] ?? "")).trim();
+    const label = readerText(plainText(cells[status] ?? ""), pathway).trim();
     const note = cells[closed]?.trim() ?? "";
     groups.set(label, [
       ...(groups.get(label) ?? []),
@@ -78,15 +83,15 @@ function limitations(data: ReturnType<typeof visible>, traceAt: (line: number) =
                   className={`${TRACE_HOST} flex flex-wrap items-start gap-2 rounded-lg border border-border-hairline bg-surface-card p-2 text-sm`}
                 >
                   <span className="min-w-0 flex-1 wrap-anywhere">
-                    {richParts(item.text, readerText)}
+                    {richParts(item.text, (words) => readerText(words, pathway))}
                   </span>
                   <TraceControl
                     trace={traceAt(item.line)}
-                    label={`Show sources for ${readerText(plainText(item.text))}`}
+                    label={`Show sources for ${readerText(plainText(item.text), pathway)}`}
                   />
                   {item.closed && (
                     <p className="basis-full text-caption text-text-secondary">
-                      {richParts(item.closed, readerText)}
+                      {richParts(item.closed, (words) => readerText(words, pathway))}
                     </p>
                   )}
                 </li>
@@ -137,6 +142,7 @@ function monitoring(
   title: string,
   data: ReturnType<typeof visible>,
   traceAt: (line: number) => string,
+  pathway?: string | null,
 ) {
   const timed = data.headers[1] === "Leading / Lagging";
   const thresholdAt = timed ? 2 : 1;
@@ -147,11 +153,11 @@ function monitoring(
         kind: "watch",
         title,
         items: data.rows.map(({ cells, line }) => ({
-          indicator: cellText(cells[0]),
-          threshold: cellText(cells[thresholdAt]),
+          indicator: cellText(cells[0], pathway),
+          threshold: cellText(cells[thresholdAt], pathway),
           timing: timed ? (cells[1]?.toLowerCase() === "leading" ? "leading" : "lagging") : null,
           detail: data.headers.slice(detailAt).flatMap((label, index) => {
-            const text = cellText(cells[index + detailAt]);
+            const text = cellText(cells[index + detailAt], pathway);
             return text ? [{ label: WATCH_LABELS[label] ?? label, text }] : [];
           }),
           trace: traceAt(line),
@@ -161,18 +167,20 @@ function monitoring(
   );
 }
 
-function readingCell(text: string): Cell {
+function readingCell(text: string, pathway?: string | null): Cell {
   if (!text) return null;
-  if (/^withheld(?:[:\s]|$)/i.test(text)) return { kind: "withheld", reason: readerText(text) };
+  if (/^withheld(?:[:\s]|$)/i.test(text))
+    return { kind: "withheld", reason: readerText(text, pathway) };
   if (/^not (?:supplied|stated|calculable|modelled)(?:[:\s]|$)/i.test(text))
-    return { kind: "gap", reason: readerText(text) };
-  return { kind: "value", text: readerText(text), at: null };
+    return { kind: "gap", reason: readerText(text, pathway) };
+  return { kind: "value", text: readerText(text, pathway), at: null };
 }
 
 function statement(
   title: string,
   data: ReturnType<typeof visible>,
   traceAt: (line: number) => string,
+  pathway?: string | null,
 ) {
   const unit = data.headers.indexOf("Unit");
   if (data.headers[0] !== "Line item" || unit < 2) return null;
@@ -184,8 +192,9 @@ function statement(
       [cells[0], unitLabel((cells[unit] ?? "").trim()), cells[unit + 1]]
         .filter(Boolean)
         .join(" · "),
+      pathway,
     ),
-    cells: cells.slice(1, unit).map(readingCell),
+    cells: cells.slice(1, unit).map((cell) => readingCell(cell, pathway)),
     emphasis: false,
     line,
   }));
@@ -194,7 +203,7 @@ function statement(
     <StatementBlock
       block={{
         kind: "statement",
-        title: shownTitle(title),
+        title: shownTitle(title, pathway),
         nav: null,
         trace: null,
         periods,
@@ -214,6 +223,7 @@ function research(
   title: string,
   data: ReturnType<typeof visible>,
   traceAt: (line: number) => string,
+  pathway?: string | null,
 ) {
   if (
     data.headers.join("|") !== "Question|Status|Answer in brief|Evidence families|What stays open"
@@ -225,13 +235,14 @@ function research(
     <QuestionsBlock
       block={{
         kind: "questions",
-        title: shownTitle(title),
+        title: shownTitle(title, pathway),
         items: data.rows.map(({ cells, line }) => ({
-          question: readerText(cells[0] ?? ""),
+          question: readerText(cells[0] ?? "", pathway),
           state: cells[1] as AnswerState,
           answer:
             readerText(
               [cells[2], cells[4] && `Open question · ${cells[4]}`].filter(Boolean).join("\n"),
+              pathway,
             ) || null,
           trace: traceAt(line),
         })),
@@ -245,13 +256,14 @@ export function typedModuleTable(
   title: string,
   table: Table,
   traceAt: (line: number) => string,
+  pathway?: string | null,
 ) {
   const data = visible(table);
   if (!data.rows.length) return null;
   // Source readiness is drawn by its lead (leads/sourceReadiness); the table itself is in records.
   if (module === "CP-0" && title === "Source-readiness summary") return null;
   const watchTitle = monitoringTitle(module, title, data);
-  if (watchTitle) return monitoring(watchTitle, data, traceAt);
+  if (watchTitle) return monitoring(watchTitle, data, traceAt, pathway);
   const signature = data.headers.join("|");
   if (
     data.rows.some(({ cells }) =>
@@ -259,20 +271,21 @@ export function typedModuleTable(
     )
   )
     return null;
-  if (module === "CP-8" && title === "Limitations ledger") return limitations(data, traceAt);
+  if (module === "CP-8" && title === "Limitations ledger")
+    return limitations(data, traceAt, pathway);
   if (signature === "Risk|Probability|Impact")
     return (
       <MatrixBlock
         block={{
           kind: "matrix",
-          title: shownTitle(title),
+          title: shownTitle(title, pathway),
           columns: data.headers,
           note: null,
           trace: null,
           rows: data.rows.map(({ cells, line }) => ({
-            risk: readerText(cells[0] ?? ""),
-            probability: cells[1] ? readerText(cells[1]) : null,
-            impact: cells[2] ? readerText(cells[2]) : null,
+            risk: readerText(cells[0] ?? "", pathway),
+            probability: cells[1] ? readerText(cells[1], pathway) : null,
+            impact: cells[2] ? readerText(cells[2], pathway) : null,
             trace: traceAt(line),
           })),
         }}
@@ -286,15 +299,15 @@ export function typedModuleTable(
       <WatchBlock
         block={{
           kind: "watch",
-          title: shownTitle(title),
+          title: shownTitle(title, pathway),
           items: data.rows.map(({ cells, line }) => ({
-            indicator: readerText(cells[0] ?? ""),
+            indicator: readerText(cells[0] ?? "", pathway),
             timing: cells[1]?.toLowerCase() === "leading" ? "leading" : "lagging",
-            threshold: readerText(cells[2] ?? ""),
+            threshold: readerText(cells[2] ?? "", pathway),
             trace: traceAt(line),
           })),
         }}
       />
     );
-  return research(title, data, traceAt) ?? statement(title, data, traceAt);
+  return research(title, data, traceAt, pathway) ?? statement(title, data, traceAt, pathway);
 }

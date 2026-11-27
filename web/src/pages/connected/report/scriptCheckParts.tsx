@@ -100,7 +100,11 @@ export function CheckCard({ group }: { group: ScriptCheckOutcome[] }) {
   const registers = group.flatMap(({ register }) => (register ? [plain(register)] : []));
   const named = meaningful(outcome.figure) ?? meaningful(outcome.row);
   // A card is headed by its register and the figure checked: the figure alone is often "columns".
-  const where = group.length > 1 ? `${String(registers.length)} registers` : registers[0];
+  const merged = group.length;
+  const where =
+    merged > 1
+      ? `${String(merged)} ${registers.length === merged ? "registers" : "checks"}`
+      : registers[0];
   const title = [where, named && plain(named)].filter(Boolean).join(" · ") || "Check";
   const recomputed = [outcome.recomputed, outcome.recomputedLabel]
     .filter((value) => value !== null)

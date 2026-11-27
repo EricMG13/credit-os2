@@ -4,7 +4,13 @@ import { cx } from "@/utils/cx";
 import { moduleName } from "../api";
 import { evidencePath, unitLabel, type OutputEntry } from "../publishedReport";
 import type { ReportView } from "../reportView";
+import { sentence } from "../visuals/drawnQualifications";
 import {
+  drawnCellText,
+  drawnGapReason,
+  drawnGapText,
+  drawnNote,
+  wroteGap,
   cellsOf,
   absentText,
   covenantTests,
@@ -17,8 +23,13 @@ import {
 import { gapLine } from "./gapLine";
 import { GapChip, ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
-import { cellWord, gapReading, gapText } from "./overview/notes";
-import { downsidePanels, stressLabel, type DownsidePanel } from "./overview/stressData";
+import { cellWord, gapReading, stressNoteText } from "./overview/notes";
+import {
+  downsideNotes,
+  downsidePanels,
+  stressLabel,
+  type DownsidePanel,
+} from "./overview/stressData";
 import { Figure, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
 import type { ForecastSource } from "./ForecastRecord";
@@ -128,6 +139,16 @@ type ListItem = {
   trace?: ReactNode;
 };
 
+/** A gap's drawn words, then its recorded reason as the reader rule draws it, when it has one. */
+const reasoned = (text: string, reason = "") => {
+  const why = drawnGapReason(reason);
+  return why ? `${text}: ${why}` : text;
+};
+
+/** A cell as the page draws it: a value as written, a gap with its reason rule. */
+const drawnCell = (cell: { text: string; reason: string | null }) =>
+  wroteGap(cell) ? drawnGapText(cell.text) : drawnCellText(cell.text);
+
 /** A list of published figures, each on one scale from zero shared by the list only, each with
  * its own trace. A figure the module does not give keeps the module's words. */
 function FigureList({ items, tone }: { items: ListItem[]; tone: "primary" | "secondary" }) {
@@ -141,7 +162,7 @@ function FigureList({ items, tone }: { items: ListItem[]; tone: "primary" | "sec
         >
           <span className="font-mono text-caption text-text-secondary">{item.label}</span>
           {item.value === null ? (
-            <GapChip>{item.reason ? `${item.text}: ${item.reason}` : item.text}</GapChip>
+            <GapChip>{reasoned(item.text, item.reason)}</GapChip>
           ) : item.value >= 0 && most > 0 ? (
             <BarCell text={item.text} share={item.value / most} tone={tone} />
           ) : (
@@ -217,7 +238,7 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
         items={items.map((item) => ({
           key: item.key,
           label: item.label,
-          text: item.cell?.text ?? "",
+          text: drawnCell(item.cell ?? { text: "", reason: null }),
           value: item.cell?.value ?? null,
           trace: rowTrace(folder, schedule.entry, item.line, `debt maturing, ${item.label}`),
         }))}
@@ -292,17 +313,17 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
               <span>
                 Level{" "}
                 {test.threshold.value === null ? (
-                  <GapChip>{test.threshold.text}</GapChip>
+                  <GapChip>{drawnCell(test.threshold)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{test.threshold.text}</Figure>
+                  <Figure className="text-mono">{drawnCell(test.threshold)}</Figure>
                 )}
               </span>
               <span>
                 Current{" "}
                 {test.current.value === null ? (
-                  <GapChip>{test.current.text}</GapChip>
+                  <GapChip>{drawnCell(test.current)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{test.current.text}</Figure>
+                  <Figure className="text-mono">{drawnCell(test.current)}</Figure>
                 )}
               </span>
               {test.headroom && (
@@ -356,7 +377,7 @@ function cellReading(cell: DownsidePanel["cells"][number] | undefined) {
   if (!cell) return "";
   return cell.value === null && (cell.reason !== null || !cell.text.trim())
     ? gapReading(cell.text)
-    : cell.text;
+    : drawnCell(cell);
 }
 
 /** A name broken into lines of at most `chars` characters, at spaces; a longer word is broken. */
@@ -502,7 +523,7 @@ function StressMultiple({
                       y={y + 12}
                       className="fill-text-primary font-mono text-caption"
                     >
-                      {lead(cell.text)}
+                      {lead(drawnCellText(cell.text))}
                     </text>
                   </g>
                 );
@@ -559,18 +580,22 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
       </Part>
     );
   const notes = [
-    ...data.assumptions,
+    // The module's own classification and case names can cite a source: drawn by the page's rule.
+    ...(downsideNotes(entry) ?? []).map(({ lead, text }) => `${lead}${drawnNote(text)}`),
     ...data.panels.flatMap((panel) =>
       panel.cells.flatMap((cell, at) => {
         const scenario = data.cases[at]?.name ?? "";
         if (cell.value === null) {
           // The cell's own words: the module's stated reason, or the text it wrote in full.
-          const words = gapText(cell);
-          return words === null ? [] : [`${scenario}, ${panel.measure}: ${words}.`];
+          const words = stressNoteText(cell);
+          return words === null
+            ? []
+            : [
+                `${scenario}, ${panel.measure}: ${sentence(wroteGap(cell) ? drawnGapReason(words) : drawnCellText(words))}`,
+              ];
         }
-        return lead(cell.text) !== cell.text
-          ? [`${scenario}, ${panel.measure}: ${cell.text}.`]
-          : [];
+        const text = drawnCellText(cell.text);
+        return lead(text) !== text ? [`${scenario}, ${panel.measure}: ${text}.`] : [];
       }),
     ),
   ];
@@ -606,8 +631,9 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
           )}
         />
         <ul className="grid gap-1 text-caption text-text-secondary">
-          {notes.map((note) => (
-            <li key={note}>{note}</li>
+          {notes.map((note, at) => (
+            // Two cases can state the same note: the index keeps the keys apart.
+            <li key={`${String(at)}:${note}`}>{note}</li>
           ))}
         </ul>
       </div>

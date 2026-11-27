@@ -288,7 +288,7 @@ function AfterHedges({ net, placed }: { net: string; placed: boolean }) {
   );
 }
 
-const MILLIONS = /\b(?:million|m)$/;
+const MILLIONS = /(?:\d|\b)(?:million|m)$/;
 
 /**
  * The unit of a grid's money cells as the table states it: the currency and its millions when every
@@ -370,7 +370,7 @@ export function RateLadderTile({
   const reading = drawn
     .map(
       ({ step, gross, net }) =>
-        `${step}: before hedges ${gross}, after hedges ${net || "not stated"}`,
+        `${step}: before hedges ${readerCell(gross)}, after hedges ${net ? readerCell(net) : "not stated"}`,
     )
     .join("; ");
   const left = read

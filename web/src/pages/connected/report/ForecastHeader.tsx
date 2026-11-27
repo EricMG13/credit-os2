@@ -17,6 +17,7 @@ import type { forecastCaseOptions } from "../visuals/LegacyForecast";
 import {
   absentText,
   cellsOf,
+  cites,
   endOf,
   extremeOf,
   fundingGap,
@@ -24,11 +25,12 @@ import {
   periodList,
   type MeasureCell,
   type MeasureRead,
+  drawnGapReason,
 } from "./forecastData";
 import { gapLine } from "./gapLine";
 import { caseRationale } from "./caseRationale";
 import { ModuleGap } from "./ForecastGaps";
-import { moduleSource } from "./overview/figureData";
+import { blockedReason, moduleSource } from "./overview/figureData";
 import { bottomLine } from "./overview/read";
 import { Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
@@ -36,6 +38,7 @@ import type { ForecastSource } from "./ForecastRecord";
 
 /** A case the switch offers; `absent` is the lead's words for why a hatched case draws no path. */
 export type CaseChoice = { name: string; rawGroup: string; hatched: boolean; absent?: string };
+const CASE_NOTE_IN_EVIDENCE = "The model's note on this case is in Evidence.";
 type CaseOption = ReturnType<typeof forecastCaseOptions>[number];
 
 const TARGET = "min-h-8 max-[480px]:min-h-11";
@@ -143,7 +146,12 @@ export function CaseFigure({
 }) {
   if (!option) return null;
   const { name, rawGroup, period, periodStart, periodEnd, description, reason, units } = option;
-  const described = description || caseRationale(handoff, rawGroup);
+  const recorded = description || caseRationale(handoff, rawGroup);
+  // Dedupe on the recorded text; a description or reason that cites a source, marker or note
+  // is not drawn as written: Evidence holds it.
+  const showDescription = !recorded || !shownQualifications.includes(recorded);
+  const described = recorded && cites(readerText(recorded)) ? CASE_NOTE_IN_EVIDENCE : recorded;
+  const why = reason ? readerText(reason) : "";
   return (
     <div
       id="forecast-cases"
@@ -179,12 +187,16 @@ export function CaseFigure({
           })}
         </dd>
       </dl>
-      {(!described || !shownQualifications.includes(described)) && (
+      {showDescription && (
         <p className="text-caption text-text-secondary">
           {described || "Case description not recorded."}
         </p>
       )}
-      {reason && <p className="text-caption text-text-secondary">{readerText(reason)}</p>}
+      {why && (
+        <p className="text-caption text-text-secondary">
+          {cites(why) ? CASE_NOTE_IN_EVIDENCE : why}
+        </p>
+      )}
       {notice && (
         <p role="status" className="text-caption text-text-secondary">
           {notice}
@@ -210,7 +222,7 @@ function BottomLine({
   const found = handoff
     ? handoff.output.parseError
       ? { entry: handoff, reason: `${name}'s output could not be read; it is in Evidence.` }
-      : { entry: handoff, reason: blocked(handoff) ? source.reason : undefined }
+      : { entry: handoff, reason: blocked(handoff) ? blockedReason(handoff) : undefined }
     : source;
   if (!found.entry || found.reason)
     return (
@@ -375,20 +387,31 @@ export function ForecastHeader({
   );
 }
 
+/** A year with no figure, named with the model's reason as the reader rule draws it. */
+function notCalculated({ period, reason }: MeasureCell) {
+  const why = drawnGapReason(reason);
+  return `${period} not calculated${why ? `: ${why}` : ""}`;
+}
+
 /** Each year of a case with no figure, named with the model's reason. */
 function noFigure(cells: MeasureCell[]) {
-  return cells
-    .filter((cell) => cell.value === null)
-    .map((cell) => `${cell.period} not calculated${cell.reason ? `: ${cell.reason}` : ""}`);
+  return cells.filter((cell) => cell.value === null).map((cell) => notCalculated(cell));
 }
+
+/** Clauses joined by "; ", or by a space after one that already ends in a stop: never ".;". */
+const joined = (clauses: string[]) =>
+  clauses.reduce(
+    (all, clause) => (all ? `${all}${/[.!?]$/u.test(all) ? " " : "; "}${clause}` : clause),
+    "",
+  );
 
 /** Why a stat has no figure, in the words the lead uses; a case's years counted and named. */
 function absence(read: MeasureRead, cells: MeasureCell[], caseName: string) {
   if (!read.measure || !cells.length) return absentText(read, caseName);
   const valued = cells.filter((cell) => cell.value !== null);
   if (valued.length === 1)
-    return [`Only ${valued[0]?.period ?? ""} has a figure`, ...noFigure(cells)].join("; ");
-  return noFigure(cells).join("; ") || `No ${read.what} figure for ${caseName}.`;
+    return joined([`Only ${valued[0]?.period ?? ""} has a figure`, ...noFigure(cells)]);
+  return joined(noFigure(cells)) || `No ${read.what} figure for ${caseName}.`;
 }
 
 function selection(
@@ -524,9 +547,7 @@ export function ForecastStats({
       : {
           label: end ? `Net leverage, ${end.period}` : "Net leverage, last forecast year",
           value: null,
-          gap: end
-            ? `${end.period} not calculated${end.reason ? `: ${end.reason}` : ""}`
-            : absentText(leverage, caseName),
+          gap: end ? notCalculated(end) : absentText(leverage, caseName),
           trace: trace("Net leverage", leverageRow)(end),
         },
     selection(

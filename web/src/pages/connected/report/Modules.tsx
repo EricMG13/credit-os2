@@ -71,21 +71,24 @@ function nextModule(view: ReportView, id: string): FrameModule | undefined {
 
 /** Everything the page draws for one module output, read once per render. */
 function pageOf(run: PublishedRun, entry: OutputEntry) {
+  const pathway = run.pathway;
   const figures = moduleFigures(entry, run);
   const Lead = leadFor(entry.output.module);
   const kinds = framed(Lead);
   const frame = moduleFrame(entry, {
     figureTableLines: figures.tableLines,
     typedTables: kinds.has("figures"),
+    pathway,
   });
   const gaps = chartGaps(entry);
   const limitations = Boolean(
     frame.limitations ||
     frame.hollow.Limitations ||
     frame.missing.includes("Limitations") ||
+    frame.summaryLimitation ||
     gaps.length,
   );
-  const records = moduleRecords(entry);
+  const records = moduleRecords(entry, pathway);
   const hasRecords = records.tables.length > 0 || records.evidence.length > 0;
   return { figures, Lead, kinds, frame, gaps, limitations, hasRecords };
 }
@@ -177,10 +180,11 @@ function ModulePage({
           owed={frame.missing.includes("Bottom line")}
           hollow={frame.hollow["Bottom line"]}
           folder={run.folder}
+          pathway={run.pathway}
           basis={frame.basis}
           about={
             current.id === "CP-1A" ? (
-              <CompanyProfile entry={entry} folder={run.folder} />
+              <CompanyProfile entry={entry} folder={run.folder} pathway={run.pathway} />
             ) : undefined
           }
           confidence={
@@ -215,6 +219,7 @@ function ModulePage({
           missing={frame.missing}
           entry={entry}
           folder={run.folder}
+          pathway={run.pathway}
         />
         <ModuleLimitations
           section={frame.limitations}
@@ -224,8 +229,10 @@ function ModulePage({
           entry={entry}
           folder={run.folder}
           span={12}
+          pathway={run.pathway}
+          summaryLimitation={frame.summaryLimitation}
         />
-        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
+        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} pathway={run.pathway} />
         <ModuleFigures
           entry={entry}
           run={run}

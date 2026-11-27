@@ -5,6 +5,7 @@ import {
   classifySections,
   containsReference,
   readerText,
+  withoutReferences,
   displayColumns,
   methodNote,
   type Block,
@@ -108,7 +109,7 @@ function sectionNotes(section: Section) {
  * The module's tables for its records region, by kind, in handoff order; and the registers held
  * in Evidence. Every table of a reader section lands in exactly one of the two.
  */
-export function moduleRecords(entry: OutputEntry) {
+export function moduleRecords(entry: OutputEntry, pathway?: string | null) {
   const charted = drawingLines(entry);
   const titles = descriptorTitles(entry);
   const tables: RecordTable[] = [];
@@ -118,7 +119,7 @@ export function moduleRecords(entry: OutputEntry) {
     if (section.screen) continue;
     const own = section.blocks.filter((block): block is Table => block.type === "table");
     const drawn = registerBlocks(section, entry);
-    const title = readableTitle(section.heading);
+    const title = readableTitle(section.heading, undefined, pathway);
     for (const table of own) {
       const kind = charted.has(table.line)
         ? "charts"
@@ -132,7 +133,7 @@ export function moduleRecords(entry: OutputEntry) {
       const named = titles.get(table.line);
       tables.push({
         kind,
-        title: named === undefined ? title : readableTitle(named),
+        title: named === undefined ? title : readableTitle(named, undefined, pathway),
         section,
         table,
         notes: sectionNotes(section),
@@ -186,7 +187,7 @@ const CITATION = new RegExp(
  * before a conjunction or verb, an empty bracket, a space or a second mark after punctuation, a
  * stray possessive, or a sentence that opens on punctuation. */
 const UNCLEAN =
-  /\b(?:in|per|see|from|of|by|at|to|and|or|with|on|under|cf|not|no|nor|only|both|than|unlike|excluding|including|because|between)\s*(?=[,;:.!?)]|$)|\b(?:in|per|see|from|of|by|at|to|with|on|under)\s+(?:and|or|but|so|is|are|was|were)\b|\(\s*\)|\s[,;:.!?]|[,;:]\s*[.;:!?]|(?:^|\s)['\u2019]|^[,;:.]/gi;
+  /\b(?:in|per|see|from|of|by|at|to|and|or|with|on|under|cf|not|no|nor|only|both|than|unlike|excluding|including|because|between|is|are|was|were|be|been|has|have|had)\s*(?=[,;:.!?)]|$)|\b(?:in|per|see|from|of|by|at|to|with|on|under)\s+(?:and|or|but|so|is|are|was|were)\b|\(\s*\)|\s[,;:.!?]|[,;:]\s*[.;:!?]|(?:^|\s)['\u2019]|^[,;:.]/gi;
 /** Whether the cut added a mark of a broken sentence the module's own text did not have. */
 const brokenBy = (cut: string, text: string) =>
   [...cut.matchAll(UNCLEAN)].length > [...text.matchAll(UNCLEAN)].length;
@@ -199,7 +200,7 @@ export const holdsCode = (text: string) => ANY_CODE.test(text);
  * with its bracket or the word that cites it. Empty, so the surface links to Evidence, where a
  * code stands in the sentence itself, where more than one in/from citation is cut, or where the
  * cut leaves no clean sentence. */
-export function proseWithoutMachinery(text: string) {
+export function proseWithoutMachinery(text: string, pathway?: string | null) {
   let located = 0;
   const codeless = text
     .replace(POSSESSIVE_CODE, "()")
@@ -216,7 +217,7 @@ export function proseWithoutMachinery(text: string) {
     .trim();
   if (!bare || containsReference(bare)) return "";
   const cut = unmask(bare);
-  return brokenBy(cut, text) ? "" : readerText(cut);
+  return brokenBy(cut, text) ? "" : readerText(cut, pathway);
 }
 
 /** A figure before a magnitude word ("P2.5 billion") reads to the page-citation test as a page. */
@@ -239,7 +240,7 @@ export const citesSource = (text: string) => containsReference(holdFigures(text)
 
 /** The title without its cited source: a parenthesised reference, then a trailing clause that
  * cites one, then any word that is one. */
-function withoutReference(title: string) {
+export function withoutReference(title: string) {
   if (!containsReference(title)) return title;
   const bare = title.replace(PARENTHESISED, (group) => (containsReference(group) ? "" : group));
   const cuts = [...bare.matchAll(CLAUSE)].filter(({ index }) =>
@@ -252,16 +253,150 @@ function withoutReference(title: string) {
   return words.join(" ").replace(LOOSE_END, "");
 }
 
+/** A page or clause locator with its label ("cl. 12", "pp. 40-41", "note 5"). `p`, `pp` and `s`
+ * need a dot or a space before the digits, so a label such as "P50" or "S1" is not one. */
+const LOCATOR_PART =
+  String.raw`(?:(?:pp?|s)(?:\.\s*|\s+)|(?:cl(?:ause)?|sec|page|para|note|table|schedule|annex|slide)s?\.?\s*)` +
+  String.raw`\d[\w.()]*(?:\s*[\u2013-]\s*\d[\w.()]*)?`;
+const LOCATOR = new RegExp(`^${LOCATOR_PART}$`, "i");
+/** A part that ends in such a locator: what a bare page number after it may continue. */
+const ENDS_IN_LOCATOR = new RegExp(`(?:^|[\\s,;])${LOCATOR_PART}$`, "i");
+/** A bare page number or page range ("45", "40-41"); a year, a decimal or a quarter is not one. */
+const PAGE_NUMBER = /^\d{1,3}(?:\s*[\u2013-]\s*\d{1,3})?$/;
+/** What a citing part may hold besides words: file names, locators, register codes, hashes. */
+const CITATION_PARTS = new RegExp(
+  String.raw`(?<![\w.-])[\w-]+(?:\.[\w-]+)*\.[a-z]{2,5}\b|(?:^|(?<=[\s,;(]))${LOCATOR_PART}|\b(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?\b|\b[0-9a-f]{32,}\b`,
+  "gi",
+);
+/** A bracket that may hold one level of brackets of its own ("(credit_agreement.pdf cl. 12(b))"). */
+const BRACKET = /\s*\((?:[^()]|\([^()]*\))*\)/g;
+
+/** The text between a bracket's outer parentheses split at its top-level commas and semicolons
+ * (a comma inside a number, "1,234", or inside an inner bracket does not split); null where the
+ * brackets do not balance. */
+function topLevelParts(inner: string) {
+  const parts: string[] = [];
+  const marks: string[] = [];
+  let depth = 0;
+  let from = 0;
+  for (let at = 0; at < inner.length; at += 1) {
+    const char = inner.charAt(at);
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    if (depth < 0) return null;
+    const next = inner.charAt(at + 1);
+    if (depth === 0 && (char === "," || char === ";") && next !== "" && /[^\d]/.test(next)) {
+      const space = /^\s*/.exec(inner.slice(at + 1))?.[0] ?? "";
+      parts.push(inner.slice(from, at));
+      marks.push(char + space);
+      from = at + 1 + space.length;
+    }
+  }
+  if (depth !== 0) return null;
+  parts.push(inner.slice(from));
+  return { parts, marks };
+}
+
+/** Whether a citing part holds a figure besides its file name and locator. */
+const holdsFigure = (words: string) => /\d/.test(words.replace(CITATION_PARTS, " "));
+
+/** A part's inner brackets that cite, each without its citation; undefined where one cannot be cut
+ * exactly. A part with no inner bracket is returned as it is. */
+function partWithoutInnerReference(words: string): string | null | undefined {
+  let outside = words;
+  let rebuilt = words;
+  for (const group of words.match(BRACKET) ?? []) {
+    outside = outside.replace(group, "");
+    if (!containsReference(group)) continue;
+    const bare = bracketWithoutReference(group);
+    if (bare === undefined) return undefined;
+    rebuilt = rebuilt.replace(group, bare);
+  }
+  return containsReference(outside) ? null : rebuilt.replace(/\s{2,}/g, " ").trim();
+}
+
+/**
+ * A bracket without the references it holds, its other words and their marks kept exactly
+ * ("(restated, annual_report.pdf p. 40)" is "(restated)"). A part is split off only at a top-level
+ * comma or semicolon, so "1,234" stays whole; a part that cites, a labelled locator of that
+ * reference and a bare page number right after one go whole; "" where nothing else is left. A
+ * reference inside an inner bracket is cut with that bracket alone. Undefined where the cut would
+ * lose a figure of a citing part or leave brackets unbalanced: the caller keeps the cell as written.
+ */
+function bracketWithoutReference(group: string): string | undefined {
+  const open = group.indexOf("(");
+  const split = topLevelParts(group.slice(open + 1, group.lastIndexOf(")")));
+  if (!split) return undefined;
+  let kept = "";
+  let cut = false;
+  let located = false;
+  for (const [at, part] of split.parts.entries()) {
+    let words = part.trim();
+    const inner = partWithoutInnerReference(words);
+    if (inner === undefined) return undefined;
+    const cites = inner === null;
+    if (cites && holdsFigure(words)) return undefined;
+    if (inner !== null) words = inner;
+    const continues: boolean = located && PAGE_NUMBER.test(words);
+    cut = cites || LOCATOR.test(words) || continues;
+    located = cut && ENDS_IN_LOCATOR.test(words);
+    if (!cut && words) kept += kept ? `${split.marks[at - 1] ?? ", "}${words}` : words;
+  }
+  return kept ? `${group.slice(0, open)}(${kept})` : "";
+}
+
+/** A cell's own words where the page draws them without the source: its sentences that cite none
+ * (the rule a table's cell follows) or, for a sentence that cites only in a bracket ("Net leverage
+ * <= 4.5x (credit_agreement.pdf cl. 12)"), the sentence without that reference, the bracket's other
+ * words kept ("1,234 (restated, annual_report.pdf p. 40)" is "1,234 (restated)"). Empty where the
+ * cell is nothing but a reference, or where a reference cannot be cut from its words exactly. */
+function cellWords(cell: string) {
+  if (!containsReference(cell)) return cell;
+  const sentences = withoutReferences(cell);
+  if (sentences) return sentences;
+  const inexact: string[] = [];
+  const bare = cell
+    .replace(BRACKET, (group) => {
+      if (!containsReference(group)) return group;
+      const cut = bracketWithoutReference(group);
+      if (cut === undefined) inexact.push(group);
+      return cut ?? group;
+    })
+    .replace(/\s{2,}/g, " ")
+    .replace(LOOSE_END, "")
+    .trim();
+  return !inexact.length && !containsReference(bare) ? bare : "";
+}
+
+/** The table with each cell that cites a source inside words of its own holding those words alone,
+ * so the page draws them (the source is on the row's trace); a cell that is only a reference stays. */
+export function tableWithCellWords(table: Table): Table {
+  return {
+    ...table,
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: row.cells.map((cell) => {
+        if (!containsReference(cell) || withoutReferences(cell)) return cell;
+        return cellWords(cell) || cell;
+      }),
+    })),
+  };
+}
+
 /** A heading as the reader sees it: no drawing prefix or register code, module names for codes,
  * and the title's own words without the source it cites, which belongs in Evidence. */
-export function readableTitle(heading: string, untitled = "Untitled table") {
+export function readableTitle(
+  heading: string,
+  untitled = "Untitled table",
+  pathway?: string | null,
+) {
   const plain = plainText(heading);
   const bare = MACHINE_KEY.test(heading.trim())
     ? heading.trim().replace(MACHINE_PREFIX, "").replace(/[_.]+/g, " ")
     : null;
   // The key's module prefix names where the table came from: "cp1_references" is that module's references.
   const from = /^cp(\d[a-z0-9]*|dr)?(?=[._])/.exec(heading.trim().toLowerCase());
-  const owner = from ? moduleCodeName(`CP-${(from[1] ?? "").toUpperCase()}`) : null;
+  const owner = from ? moduleCodeName(`CP-${(from[1] ?? "").toUpperCase()}`, pathway) : null;
   const key =
     bare === null
       ? null
@@ -277,17 +412,17 @@ export function readableTitle(heading: string, untitled = "Untitled table") {
   // A title left after its code begins with a capital ("TDR.3 limitations" → "Limitations") where
   // its first word is all lower-case ("iPhone revenue" stays);
   // drawingTitle takes the code too, so the test reads the heading without its drawing prefix.
-  const coded = wordsOfIds(
+  const capitalised =
     (lead || REGISTER_CODE.test(plainText(heading).replace(DRAWING_PREFIX, ""))) &&
-      /^[a-z]+(?=\s|$)/.test(stripped)
+    /^[a-z]+(?=\s|$)/.test(stripped)
       ? stripped.charAt(0).toUpperCase() + stripped.slice(1)
-      : stripped,
-  );
+      : stripped;
   // A leading name such as "P3 programme" reads to the page-citation test as "p 3": a name, not
-  // a source, when the rest of the title cites none.
-  const name = LEADING_NAME.exec(coded)?.[0] ?? "";
-  const rest = coded.slice(name.length);
-  const title = readerText(name + withoutReference(rest)).trim();
+  // a source, when the rest of the title cites none. The cited source goes before the ids are
+  // worded, so "credit_agreement.pdf" is removed whole and not left as "credit agreement.pdf".
+  const name = LEADING_NAME.exec(capitalised)?.[0] ?? "";
+  const rest = capitalised.slice(name.length);
+  const title = readerText(wordsOfIds(name + withoutReference(rest)), pathway).trim();
   return title && !containsReference(title.slice(name.length)) ? title : untitled;
 }
 
@@ -572,12 +707,12 @@ export function barExclusions(table: Table, title = "") {
 const WHY = { total: "totals and rows below them", marked: "not additive" } as const;
 
 /** The line under a barred table: one scale per column, and the rows without a bar by reason. */
-export function scaleNote(table: Table, title = "") {
+export function scaleNote(table: Table, title = "", pathway?: string | null) {
   const left = excluded(table, title);
   const parts = (["total", "marked"] as const).flatMap((reason) => {
     const names = left
       .filter((item) => item.reason === reason && item.name)
-      .map(({ name }) => readerText(name));
+      .map(({ name }) => readerText(name, pathway));
     return names.length ? [` No bar (${WHY[reason]}): ${names.join(", ")}.`] : [];
   });
   return `Bars: one scale per column.${parts.join("")}`;

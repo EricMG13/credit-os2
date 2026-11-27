@@ -96,6 +96,9 @@ export type StackRow = {
 
 const flag = (text: string) => (/^yes$/i.test(text) ? true : /^no$/i.test(text) ? false : null);
 
+/** A ranking cell as a number; NaN when it is empty or not a number (never read as zero). */
+const rankOf = (text: string) => (text.trim() === "" ? Number.NaN : Number(text));
+
 /** The debt stack in rank order: the first claim first. */
 export function stackRows(table: SourceTable, descriptor: Descriptor, unit: string) {
   const label = columnAt(table, descriptor.label);
@@ -107,7 +110,7 @@ export function stackRows(table: SourceTable, descriptor: Descriptor, unit: stri
   const amounts = table.rows.map((row) => row[amount] ?? "");
   const levers = leverage === null ? [] : table.rows.map((row) => row[leverage] ?? "");
   const rows = table.rows.map((row, at) => ({
-    order: rank === null ? at : Number(row[rank]),
+    order: rank === null ? at : rankOf(row[rank] ?? ""),
     label: labelText(row[label] ?? "", "A facility"),
     secured: secured === null ? null : flag(row[secured] ?? ""),
     amount: readCell(amounts[at] ?? "", amounts, unit),
@@ -117,7 +120,10 @@ export function stackRows(table: SourceTable, descriptor: Descriptor, unit: stri
   if (!rows.some((row) => row.amount.value !== null)) return null;
   const place = (order: number) => (Number.isFinite(order) ? order : Infinity);
   return rows
-    .sort((a, b) => place(a.order) - place(b.order))
+    .sort((a, b) => {
+      const [first, second] = [place(a.order), place(b.order)];
+      return first === second ? 0 : first < second ? -1 : 1;
+    })
     .map((row): StackRow => ({
       label: row.label,
       secured: row.secured,

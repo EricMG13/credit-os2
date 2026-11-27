@@ -1,5 +1,5 @@
 import { orderPeriods } from "@/utils/periodOrder";
-import type { OutputEntry } from "../../publishedReport";
+import { containsReference, type OutputEntry } from "../../publishedReport";
 import { gridOf } from "../../visuals/LegacyForecast";
 import { isForecastPeriod } from "../../visuals/scenarioPeriods";
 import {
@@ -91,7 +91,68 @@ export type DownsidePanel = {
   line?: number;
 };
 
-const LEAD_NUMBER = /^(-?\d[\d,]*(?:\.\d+)?) \(/;
+/** "N (…)", then only more round or square brackets and at most one full stop. */
+const GROUP = String.raw`(?:\((?:[^()]|\([^()]*\))*\)|\[[^\]]*\])`;
+const LEAD_NUMBER = new RegExp(String.raw`^(-?\d[\d,]*(?:\.\d+)?) (${GROUP}(?:\s*${GROUP})*)\.?$`);
+/** An evidence marker item, as `MARKER_ITEM` in publishedReport.ts (not exported there), or a bare number. */
+const MARKER_ITEM = String.raw`(?:[CDEGKRS]\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|\d+)`;
+/** A bracket holding only evidence markers ("[S12]", "[E3.2, G3]", "[1]"); case-sensitive. */
+const MARKER_BRACKET = new RegExp(
+  String.raw`\[\s*${MARKER_ITEM}(?:\s*[,;]\s*${MARKER_ITEM})*\s*\]`,
+  "g",
+);
+/** Where a citation's number ends: not before a decimal, a word, a share, a multiple or a scale. */
+const END = String.raw`(?![\w%]|[.,]\d|\s*(?:x|times|m|bn|millions?|billions?)\b)`;
+/**
+ * A citation `containsReference` does not name, holding only its own numbers: a page, note, table
+ * or section (one number, then whole numbers), a register row id, an evidence marker, a module or
+ * register code.
+ */
+const CITATION = new RegExp(
+  String.raw`\b(?:pp?\.?|pgs?\.?|pages?|notes?|tables?|sections?)\s*\d+(?:\.\d+)*${END}(?:\s*(?:[,;&–-]|and)\s*\d+${END})*(?:\s+of\s+\d+${END})?|\bT[A-Z0-9]{0,8}\.\d+(?:\.[A-Z0-9]+)*|\bE\d{1,4}[a-z]?\b|\bCP-[A-Z0-9]+(?:-[A-Z0-9]+)*`,
+  "gi",
+);
+
+/**
+ * The leading figure of "N (…)": the brackets' words are read with every citation set aside. N
+ * when no figure is left ("(annual_report.pdf pages 59, 153)", "(covenant breached)"), or when
+ * what is left is one figure that states the row's own currency and scale or multiple and restates
+ * N, sign included, to its own last decimal, point or comma ("(-USD 5.13 million)" in a "USD
+ * millions" row, "(5.0x)" in an "x" row). Anything else leaves the cell stated and not placed.
+ */
+function leadValue(plain: string, unit: string): number | null {
+  const match = LEAD_NUMBER.exec(plain);
+  const lead = amount(match?.[1] ?? "");
+  if (lead === null) return null;
+  const left = (match?.[2] ?? "")
+    .replace(MARKER_BRACKET, " ")
+    .replace(/[()[\]]/g, " ")
+    .replace(CITATION, " ")
+    // A reference of several words ("calculation R01", "Results.pdf") is set aside by its clause
+    // (a comma or semicolon then a space, so a decimal comma stays), then word by word.
+    .split(/[,;]\s/)
+    .filter((clause) => !containsReference(clause))
+    .join(", ")
+    .split(/\s+/)
+    .filter((word) => !containsReference(word))
+    .join(" ")
+    .replace(/^[\s,;:.]+|[\s,;:.]+$/g, "");
+  if (!/\d/.test(left)) return lead;
+  const currency = /^(-?)([A-Z]{3}) ?(?=\d)/.exec(left);
+  if (currency && currency[2] !== /^[A-Z]{3}(?= )/.exec(unit)?.[0]) return null;
+  const figure = currency ? `${currency[1] ?? ""}${left.slice(currency[0].length)}` : left;
+  const said = amount(figure, unit);
+  // A figure with no unit of its own ("(5.0)", "(USD 5.0)") says nothing of the lead's unit.
+  if (said === null || amount(figure) !== null) return null;
+  const digits = /\d[\d,.]*\d|\d/.exec(figure)?.[0] ?? "";
+  const point = /[.,](\d+)$/.exec(digits);
+  const decimal =
+    point &&
+    Number(`${digits.slice(0, point.index).replaceAll(",", "")}.${point[1] ?? ""}`) ===
+      Math.abs(said);
+  const places = decimal ? (point[1]?.length ?? 0) : 0;
+  return Math.abs(lead - said) <= 0.5 * 10 ** -places * (1 + 1e-9) ? lead : null;
+}
 const STATED_GAP = /^Not (?:supplied|calculated):\s*(\S.*)$/;
 
 /** A stressed cell read in its measure's unit ("7.5x" in an "(x)" row is 7.5). A gap keeps the
@@ -102,7 +163,7 @@ function stressCell(text: string, unit: string): Cell {
   // ("6.53x", "4.88x; pro forma 6.02x"). A bare number there has no scale and is not drawn.
   const multiple = /^(-?\d+(?:\.\d+)?)x(?:;|$)/.exec(plain)?.[1];
   const value = unit
-    ? (amount(plain, unit) ?? amount(LEAD_NUMBER.exec(plain)?.[1] ?? ""))
+    ? (amount(plain, unit) ?? leadValue(plain, unit))
     : multiple === undefined
       ? null
       : Number(multiple);
@@ -201,18 +262,29 @@ function downsideCaseList(entry: OutputEntry, ids: string[], written: readonly W
             "This page could not read some case names; those cases are numbered in the order stated.",
           ]
         : [];
-  const assumptions = cases.flatMap(({ id, name, control }) => {
+  const parts = cases.flatMap(({ id, name, control }) => {
     const item = scenarios.get(id);
+    const lead = `${name}: `;
     // The module's own classification of the case, so a control is never read as a stress.
-    const kind = kinds.get(id) ? [`${name}: ${kinds.get(id) ?? ""}.`] : [];
-    if (control) return kind.length ? kind : [`${name}: the case with no shock applied.`];
+    const kind = kinds.get(id) ? [{ lead, text: `${kinds.get(id) ?? ""}.` }] : [];
+    if (control) return kind.length ? kind : [{ lead, text: "the case with no shock applied." }];
     if (!item) return kind;
     return [
       ...kind,
-      `${name}: EBITDA decline ${scenarioShareLabel(item.decline)}, cash interest increase ${scenarioShareLabel(item.interest)}.`,
+      {
+        lead,
+        text: `EBITDA decline ${scenarioShareLabel(item.decline)}, cash interest increase ${scenarioShareLabel(item.interest)}.`,
+      },
     ];
   });
-  return { cases, assumptions: [...numbering, ...assumptions] };
+  // `assumptionParts` keeps each note's case-name lead apart from the module's words, so a page can
+  // apply the reader rule to the words alone.
+  const assumptionParts = [...numbering.map((text) => ({ lead: "", text })), ...parts];
+  return {
+    cases,
+    assumptions: assumptionParts.map(({ lead, text }) => `${lead}${text}`),
+    assumptionParts,
+  };
 }
 
 /** A measure's unit from its label's last bracket: "(x)", "(%)", "(USD millions)". */
@@ -222,11 +294,11 @@ const unitOfMeasure = (measure: string) => /\(([^()]+)\)$/.exec(measure.trim())?
  * The stress results as small multiples: one panel a measure the handoff states, in its order and
  * as written, one bar a case, each panel on its own scale from zero.
  */
-export function downsidePanels(entry: OutputEntry) {
+function readDownside(entry: OutputEntry) {
   const view = downsideView(entry);
   if (!view) return null;
   const ids = view.matrix.headers.slice(1, -1);
-  const { cases, assumptions } = downsideCaseList(entry, ids, view.cases);
+  const { cases, assumptions, assumptionParts } = downsideCaseList(entry, ids, view.cases);
   const panels = view.matrix.rows.map(({ cells, line }): DownsidePanel => {
     const label = cells[0] ?? "";
     const read = ids.map((_, at) => stressCell(cells[at + 1] ?? "", unitOfMeasure(label)));
@@ -240,8 +312,25 @@ export function downsidePanels(entry: OutputEntry) {
     };
   });
   if (!panels.length) return null;
-  return { cases, panels, assumptions, line: view.matrix.line };
+  return { cases, panels, assumptions, assumptionParts, line: view.matrix.line };
 }
+
+export function downsidePanels(entry: OutputEntry) {
+  const read = readDownside(entry);
+  if (!read) return null;
+  return {
+    cases: read.cases,
+    panels: read.panels,
+    assumptions: read.assumptions,
+    line: read.line,
+  };
+}
+
+/**
+ * The cases' assumption notes with each case-name lead ("Downside case: ") apart from the module's
+ * words, so a page can apply the reader rule to the words alone; null where no stress is drawn.
+ */
+export const downsideNotes = (entry: OutputEntry) => readDownside(entry)?.assumptionParts ?? null;
 
 /**
  * For other pages that read one leverage and one cover measure (kept for their imports; the

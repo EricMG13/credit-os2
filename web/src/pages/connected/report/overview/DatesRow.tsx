@@ -25,6 +25,9 @@ const LANE = 30;
  */
 type Event = { key: string; date: string; name: string; from: number; rows: WatchRow[] };
 
+/** What the Calendar draws for a name that only cites a register; it says nothing about the event. */
+const PLACEHOLDER_NAME = "See Evidence";
+
 function events(rows: readonly WatchRow[]): Event[] {
   const found = new Map<string, Event>();
   for (const [at, row] of rows.entries()) {
@@ -32,9 +35,10 @@ function events(rows: readonly WatchRow[]): Event[] {
     const facts = [row.cells[0], row.cells[3], row.cells[4], row.cells[6]].map(
       (cell) => cell ?? "",
     );
-    const key = row.cells[3]
-      ? JSON.stringify([...facts, row.timingWithinRecordedPeriod])
-      : `unnamed-${String(at)}`;
+    const key =
+      row.cells[3] && row.cells[3] !== PLACEHOLDER_NAME
+        ? JSON.stringify([...facts, row.timingWithinRecordedPeriod])
+        : `unnamed-${String(at)}`;
     const known = found.get(key);
     if (known) known.rows.push(row);
     else found.set(key, { key, date: row.cells[0] ?? "", name, from: row.from, rows: [row] });

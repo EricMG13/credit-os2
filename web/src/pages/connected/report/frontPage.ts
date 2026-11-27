@@ -239,6 +239,32 @@ function readyField(text?: string) {
     : undefined;
 }
 
+/**
+ * The filed quotation after a page pointer, inner quotation marks included. A curly opener ends at
+ * the first ” that balances the “/” nesting. A straight opener is accepted only when the closing
+ * quote is the sole straight quote after it (any other straight quote could be an inner mark or the
+ * start of analyst text). A quotation whose end cannot be told without doubt yields nothing.
+ */
+function filedQuotation(text: string) {
+  const opened = /^[A-Z] page:? \d+:\s*([“"])/.exec(text);
+  if (!opened) return undefined;
+  const rest = text.slice(opened[0].length);
+  let end = -1;
+  if (opened[1] === '"') {
+    if (rest.split('"').length === 2) end = rest.indexOf('"');
+  } else {
+    let depth = 0;
+    for (let at = 0; at < rest.length && end < 0; at += 1) {
+      if (rest[at] === "“") depth += 1;
+      else if (rest[at] === "”") {
+        if (depth === 0) end = at;
+        else depth -= 1;
+      }
+    }
+  }
+  return end > 0 ? rest.slice(0, end) : undefined;
+}
+
 function companyProfile(entry: OutputEntry | undefined) {
   if (!entry) return {};
   const table = frontTable(entry, "company_description — issuer profile", [
@@ -263,7 +289,7 @@ function companyProfile(entry: OutputEntry | undefined) {
   const business = fact("Business description");
   const sourceText = business?.cells[2] ?? "";
   // The quotation is the filed description. The adjacent page pointer and analyst view stay in Evidence.
-  const body = readyField(/^[A-Z] page:? \d+:\s*[“"]([^”"]+)[”"]/.exec(sourceText)?.[1]);
+  const body = readyField(filedQuotation(sourceText));
   const place = fact("Country and legal domicile");
   const country = readyField(/^([\p{L} -]+);/u.exec(place?.cells[2] ?? "")?.[1]);
   const sectorFact = namedRow(
@@ -378,11 +404,14 @@ function financialProfile(entry: OutputEntry): OwnedTable | undefined {
   };
 }
 
+/** A fiscal-year label names its year whatever date follows it: `FY2024 / 2025-02-01`. */
+const fiscalLabel = /^FY\d{4} \/ \d{4}-\d{2}-\d{2}$/;
+
 function datedColumn(table: Table, date: string | null | undefined) {
   if (!date || !reportDate(date)) return undefined;
   const dated = table.headers.flatMap((header, index) =>
     header === date ||
-    header === `FY${date.slice(0, 4)} / ${date}` ||
+    (fiscalLabel.test(header) && header.endsWith(` / ${date}`)) ||
     header === `Rolling reported periods to ${date}`
       ? [index]
       : [],

@@ -9,6 +9,12 @@ import {
   periodList,
   scenarioComparisonNotice,
 } from "../visuals/scenarioPeriods";
+import {
+  drawnAmount,
+  drawnReason,
+  EVIDENCE_AMOUNT,
+  EVIDENCE_REASON,
+} from "../visuals/drawnQualifications";
 import { amount, record, word } from "../visuals/visualData";
 import {
   blocked,
@@ -49,6 +55,52 @@ export type MeasureCase = {
   own: Map<string, MeasureCell>;
 };
 
+/** A schedule, covenant or stress cell's value as the page draws it: no citation, no file name. */
+export const drawnCellText = (text: string) =>
+  cites(text) ? (citationFree(text) ?? EVIDENCE_AMOUNT) : text.trim();
+
+/**
+ * A cell with no value as the page draws it: the module's words without the citation, else the
+ * reason rule. It never says an amount is recorded where the module wrote a gap.
+ */
+export const drawnGapText = (text: string) =>
+  citationFree(text) ?? (text.trim() ? drawnGapReason(text) : "");
+
+/** What drawnAmount judges in one piece: it returns null over this many characters. */
+const JUDGED = 160;
+
+/**
+ * Whether text cites a source, marker or note in a form drawnAmount recognises. Text over the
+ * judged length is read in overlapping word windows, because drawnAmount returns null for it
+ * whole; a window can only over-hide a reason, never let a citation through.
+ */
+export function cites(text: string) {
+  const whole = text.trim();
+  if (whole.length <= JUDGED) return whole !== "" && drawnAmount(whole) !== whole;
+  const words = whole.split(/\s+/u);
+  for (let at = 0; at < words.length; at += 4) {
+    const piece = words.slice(at, at + 8).join(" ");
+    if (drawnAmount(piece) !== piece) return true;
+  }
+  return false;
+}
+
+/** A recorded reason as the reader rule draws it, with no citation in any form. */
+export function drawnGapReason(reason: string) {
+  const why = drawnReason(reason);
+  return cites(why) ? (drawnAmount(why) ?? EVIDENCE_REASON) : why;
+}
+
+/**
+ * A note the module wrote, as the page draws it: its words with a citing bracket set aside, else
+ * the reason rule (which points to the evidence). Uncited text is unchanged.
+ */
+export const drawnNote = (text: string) => drawnAmount(text) ?? drawnGapReason(text);
+
+/** Whether a cell with no parsed value is a gap the module wrote, not a stated level. */
+export const wroteGap = ({ text, reason }: { text: string; reason: string | null }) =>
+  reason !== null || /^Not (?:supplied|calculated)\b/u.test(text.trim());
+
 const byPeriod = <T extends { period: string }>(cells: readonly T[]) =>
   orderPeriods(cells, ({ period }) => period).ordered;
 
@@ -83,6 +135,9 @@ export function measureRows(model: unknown, pattern: RegExp) {
   ];
 }
 
+const normalLabel = (label: string) => label.replace(/\s+/gu, " ").trim().toLowerCase();
+const sameLabel = (a: string, b: string) => normalLabel(a) === normalLabel(b);
+
 /** The grid's one row for the measure: the only match, or the only match of `prefer`. */
 function measureRow(grid: Grid, pattern: RegExp, prefer?: RegExp) {
   const rows = grid.rows.filter((row) => pattern.test(row.label));
@@ -112,12 +167,14 @@ export { fiscalYear, periodList };
  */
 export function forecastMeasure(model: unknown, pattern: RegExp, prefer?: RegExp) {
   const names = forecastCaseNames(record(record(model).cashflow));
-  const read = grids(model).flatMap((grid) => {
+  const found = grids(model).flatMap((grid) => {
     const row = measureRow(grid, pattern, prefer);
     return row ? [{ grid, row }] : [];
   });
-  const [first] = read;
+  const [first] = found;
   if (!first) return null;
+  // Rows under different labels are different measures: only the first row's own label is merged.
+  const read = found.filter(({ row }) => sameLabel(row.label, first.row.label));
   const observations = read.flatMap(({ grid, row }) =>
     grid.columns.flatMap((column, at) =>
       isForecastPeriod(column.label)
@@ -159,7 +216,7 @@ export function forecastMeasure(model: unknown, pattern: RegExp, prefer?: RegExp
   return {
     label: first.row.label,
     /** Other rows the model publishes for this measure, not read here. */
-    others: measureRows(model, pattern).filter((label) => label !== first.row.label),
+    others: measureRows(model, pattern).filter((label) => !sameLabel(label, first.row.label)),
     cases,
     periods,
     history,
@@ -438,7 +495,7 @@ const SOURCE_COLUMN = /^(?:Source|Evidence|References?|Ref|Register|Id)$/iu;
 /** Columns that hold words about the row: drawn as its notes, under the figures. */
 const NOTE_COLUMN = /^(?:Basis|Basis and limitation|Notes?|Limitations?|Status|Category)$/iu;
 /** A register id in brackets, such as "(T2E.3.r03)": machinery, never page text. */
-const REGISTER_ID = /\s*\((?:[A-Z]\d[\w]*(?:\.\w+)*)\)/gu;
+const REGISTER_ID = /\s*\((?:[A-Z]\d\w*(?:\.\w+)+)\)/gu;
 /** A cell that states a unit of its own: letters or a currency sign beside its figure. */
 const OWN_UNIT = /[A-Za-z$€£¥]/u;
 
@@ -484,6 +541,56 @@ export function gapContext(gap: FundingGap) {
     .join(" · ");
 }
 
+/** A closing bracket, with the space before it: where a cell writes its citation. */
+const CLOSING_BRACKET = /\s*(?:\(([^()[\]]*)\)|\[([^()[\]]*)\])$/u;
+const FILE_NAME = /[\w\-./]+\.(?:pdf|xlsx?|xlsm|docx?|csv|html?|md|txt|json)\b/giu;
+const CUE = /^(?:see|per|cf\.|sources?:?)\s*[,;:]?\s*/iu;
+/** A gap or register marker the cited cells write undotted: "C05". Period tags ("H2") are not. */
+const GAP_MARKER = /^C\d{2,3}(?:\.\w+)*$/u;
+/** A word a citation bracket completes: with the bracket gone it would say nothing. */
+const OPENS_CITATION = /\b(?:per|see|from|in|at|on|by|of|to|cf\.|according to|sources?:?)\s*$/iu;
+
+/** Whether one part of a closing bracket is nothing but a citation. */
+function pureCitation(part: string) {
+  const rest = part
+    .replace(FILE_NAME, " ")
+    .trim()
+    .replace(/^[\s,;:&]+|[\s,;:&]+$/gu, "")
+    .replace(CUE, "")
+    .trim();
+  return rest === "" || GAP_MARKER.test(rest) || drawnAmount(`1 (${rest})`) === "1";
+}
+
+/**
+ * The cell's text without its closing citation: a bracket that is only citation goes whole; one
+ * that mixes words with a citation keeps the words when every `;`-part is either one or the
+ * other. Null when a citation remains that cannot be set aside exactly.
+ */
+function citationFree(text: string) {
+  const whole = text.trim();
+  const match = CLOSING_BRACKET.exec(whole);
+  const inner = match?.[1] ?? match?.[2];
+  const head = match ? whole.slice(0, whole.length - match[0].length) : whole;
+  if (!match || inner === undefined || OPENS_CITATION.test(head)) return drawnAmount(whole);
+  const parts = inner.split(";").map((part) => part.trim());
+  const kept = parts.filter((part) => !pureCitation(part));
+  if (kept.length === parts.length) return drawnAmount(whole);
+  const bracket = kept.length ? ` (${kept.join("; ")})` : "";
+  return head.trim() ? drawnAmount(`${head.trim()}${bracket}`) : null;
+}
+
+/** One gap cell as drawn: its figure as written without any citation, else a gap. */
+function gapFigure(header: string, cell: string): GapFigure {
+  const text = cell.trim();
+  const drawn = citationFree(text);
+  if (drawn === null) {
+    return cites(text)
+      ? { header, text: NOT_STATED_IN_ROW, value: null }
+      : { header, text: plain(text), value: amount(text.replaceAll("−", "-")) };
+  }
+  return { header, text: plain(drawn), value: amount(drawn.replaceAll("−", "-")) };
+}
+
 function gapIn(entry: OutputEntry, module: string): FundingGap | null {
   const tables = entry.sections.flatMap(({ blocks }) =>
     blocks.flatMap((block) => (block.type === "table" ? [block] : [])),
@@ -499,16 +606,9 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
     const written = amounts.filter((at) => (row.cells[at] ?? "").trim() !== "");
     const valued = written.filter((at) => !BARE_DASH.test((row.cells[at] ?? "").trim()));
     const stated = valued.length ? valued : written;
-    const figures = stated.map((at) => {
-      const text = (row.cells[at] ?? "").trim();
-      return {
-        header: plain(table.headers[at] ?? ""),
-        text: containsReference(text)
-          ? "Stated with a source reference; see Evidence."
-          : plain(text),
-        value: amount(text.replaceAll("−", "-")),
-      };
-    });
+    const figures = stated.map((at) =>
+      gapFigure(plain(table.headers[at] ?? ""), row.cells[at] ?? ""),
+    );
     const notes = table.headers.flatMap((header, at) => {
       if (!NOTE_COLUMN.test(header.trim())) return [];
       const words = readerReason(row.cells[at] ?? "");
@@ -534,7 +634,9 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
       label: plain(row.cells[0] ?? ""),
       figures: figures.length ? figures : [{ header: "", text: NOT_STATED_IN_ROW, value: null }],
       unit: gapUnit(table.headers, row.cells, values),
-      unitInFigure: figures.some(({ text, value }) => value === null && OWN_UNIT.test(text)),
+      unitInFigure: figures.some(
+        ({ text, value }) => value === null && text !== NOT_STATED_IN_ROW && OWN_UNIT.test(text),
+      ),
       notes,
       horizon: horizonText && !containsReference(horizonText) ? plain(horizonText) : null,
     };

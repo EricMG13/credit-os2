@@ -1,6 +1,7 @@
 import { moduleName } from "../api";
 import { evidencePath, readerText, type OutputEntry, type PublishedRun } from "../publishedReport";
 import { collectGaps } from "./EvidenceGaps";
+import { drawnSections } from "./evidenceDrawn";
 import { handoffName } from "./evidenceLabels";
 
 export type SearchHit = { key: string; title: string; detail: string; href: string };
@@ -44,7 +45,7 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
   const lines: SearchHit[] = [];
   for (const entry of entries.filter((item) => item.selected)) {
     const module = moduleName(entry.output.module, run.pathway);
-    for (const section of entry.sections) {
+    for (const section of drawnSections(entry)) {
       const heading = clean(section.heading);
       const add = (line: number, title: string, text: string) => {
         lines.push({
@@ -101,7 +102,7 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
     .map(({ entry, gap }) => ({
       key: `${entry.output.id}:${String(gap.line)}`,
       title: clean(gap.title),
-      detail: `${handoffName(entry)}${gap.severity ? ` · ${gap.severity}` : ""}`,
+      detail: `${handoffName(entry, run.pathway)}${gap.severity ? ` · ${gap.severity}` : ""}`,
       href: evidencePath(run.folder, entry, gap.line),
     }));
   return { lines, sources, gaps, words };
