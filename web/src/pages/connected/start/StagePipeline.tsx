@@ -73,6 +73,35 @@ const MARK_ORDER: readonly ModuleMark[] = [
   "unchecked",
 ];
 
+/** A stage's modules counted by mark, in the key's order: the glyph, the figure, the words for a screen reader. */
+function StageCounts({ rows }: { rows: readonly ModuleRow[] }) {
+  const counts = MARK_ORDER.map((mark) => ({
+    mark,
+    count: rows.filter((row) => row.mark === mark).length,
+  })).filter((entry) => entry.count > 0);
+  return (
+    <span className="ml-auto flex shrink-0 items-center gap-2">
+      {counts.map(({ mark, count }) => {
+        const word = markWord(mark);
+        return (
+          <span key={mark} className="inline-flex items-center gap-1">
+            <span className="flex size-3.5 shrink-0 items-center justify-center">
+              <MarkShape mark={mark} />
+            </span>
+            <span
+              aria-hidden="true"
+              className="font-mono text-caption text-text-secondary tabular-nums"
+            >
+              {count}
+            </span>
+            <span className="sr-only">{`${String(count)} ${word.charAt(0).toLowerCase()}${word.slice(1)}`}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 /** What each mark drawn here means, in the words the marks are named with. */
 function MarkKey({ readiness }: { readiness: ModuleReadiness }) {
   const drawn = new Set(
@@ -159,6 +188,7 @@ export function StagePipeline({
               <span className="font-mono text-caption text-text-secondary tabular-nums">
                 {group.rows.length}
               </span>
+              {readiness.checked && <StageCounts rows={group.rows} />}
             </span>
             <ul aria-label={`${group.name} modules`} className={modules}>
               {group.rows.map((row) => (
