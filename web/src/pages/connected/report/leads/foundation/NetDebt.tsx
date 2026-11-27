@@ -33,13 +33,13 @@ const LABEL = "Net debt";
 const MARK_FILL = {
   prior: "fill-chart-3",
   current: "fill-chart-1",
-  proForma: "fill-warning-mark",
+  proForma: "fill-category-3",
 } as const;
 
 const NET_FILL = {
   prior: "fill-chart-3",
   current: "fill-chart-1",
-  proForma: "fill-warning-mark",
+  proForma: "fill-category-3",
 } as const;
 const CASH = {
   prior: "fill-surface-card stroke-chart-3",
@@ -57,7 +57,7 @@ function BarRow({ bar, left }: { bar: NetBar; left: number }) {
         x="0"
         y={bar.top + 12}
         fontSize={SIZE.label}
-        className={cx("font-body font-medium", pro ? "fill-warning-text" : "fill-text-primary")}
+        className="font-body font-medium fill-text-primary"
       >
         {bar.label}
       </text>
@@ -183,7 +183,8 @@ function StripRowMark({ row }: { row: StripRow }) {
         className={cx(
           "font-body",
           HALO_CLASS,
-          entry.proForma ? "fill-warning-text font-medium" : "fill-text-primary",
+          "fill-text-primary",
+          entry.proForma && "font-medium",
         )}
         {...HALO}
       >
@@ -481,7 +482,9 @@ function legendOf(view: NetDebtView, proForma: readonly ProForma[]) {
     ...(earlier.length ? [{ tone: "prior" as const, text: `${earlier.join(", ")} net debt` }] : []),
     ...(latest ? [{ tone: "primary" as const, text: `${latest} net debt` }] : []),
     { tone: "undated" as const, text: "Cash, to gross debt" },
-    ...(proForma.length ? [{ tone: "signal" as const, text: "Pro forma net debt" }] : []),
+    ...(proForma.length
+      ? [{ kind: "bar" as const, tone: "category-3" as const, text: "Pro forma net debt" }]
+      : []),
     ...(gap ? [{ tone: "gap" as const, text: "Not stated" }] : []),
   ];
 }
