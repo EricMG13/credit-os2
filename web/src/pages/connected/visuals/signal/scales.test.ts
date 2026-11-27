@@ -1,15 +1,23 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { AMOUNT, BETTER, NEUTRAL, POSITION, SECTOR, WORSE, step } from "./scales";
+import { AMOUNT, BETTER, DIVERGING, NEUTRAL, POSITION, SECTOR, WORSE, step } from "./scales";
 
 const theme = readFileSync(
   path.resolve(import.meta.dirname, "..", "..", "..", "..", "styles", "theme.css"),
   "utf8",
 );
 
-const exports = { POSITION, BETTER, WORSE, NEUTRAL, AMOUNT, SECTOR };
-const lengths = { POSITION: 4, BETTER: 3, WORSE: 3, NEUTRAL: 3, AMOUNT: 5, SECTOR: 8 };
+const exports = { POSITION, BETTER, WORSE, NEUTRAL, AMOUNT, DIVERGING, SECTOR };
+const lengths = {
+  POSITION: 4,
+  BETTER: 3,
+  WORSE: 3,
+  NEUTRAL: 3,
+  AMOUNT: 5,
+  DIVERGING: 2,
+  SECTOR: 8,
+};
 
 describe("scales", () => {
   for (const [name, scale] of Object.entries(exports)) {

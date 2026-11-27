@@ -188,6 +188,29 @@ it("keeps each case's dash whichever case is selected; the selected case is draw
   expect(segment(downside.container, "Downside case")?.getAttribute("stroke-width")).toBe("2.5");
 });
 
+const caseNames = ["Base case", "Downside case", "Upside case", "Stress case", "Recovery case"];
+const fiveCases = () =>
+  measureOf(
+    caseNames.flatMap((name) => cols(name, ["FY2025E", "FY2026E"])),
+    caseNames.flatMap((_, at) => [value(String(2 + at)), value(String(1 + at))]),
+  );
+const strokeOf = (container: HTMLElement, group: string) =>
+  container.querySelector(`[data-segment="${group}"]`)?.getAttribute("class");
+
+it("colours cases by category slots 3, 4, 5, 6, then 8, by written case order", () => {
+  const { container } = draw(fiveCases());
+  expect(strokeOf(container, "Base case")).toContain("stroke-category-3");
+  expect(strokeOf(container, "Downside case")).toContain("stroke-category-4");
+  expect(strokeOf(container, "Upside case")).toContain("stroke-category-5");
+  expect(strokeOf(container, "Stress case")).toContain("stroke-category-6");
+  expect(strokeOf(container, "Recovery case")).toContain("stroke-category-8");
+});
+
+it("keeps a case's written-order colour when only the third case is drawn", () => {
+  const { container } = draw(fiveCases(), { group: "Upside case", caseName: "Upside case" });
+  expect(strokeOf(container, "Upside case")).toContain("stroke-category-5");
+});
+
 it("places every label inside the plot, clear of the other labels", () => {
   const { container } = draw(
     measureOf(
@@ -379,7 +402,13 @@ it("draws every schedule row of a year that has two, side by side and in the tab
   const figure = within(screen.getByRole("figure"));
   expect(figure.getByText("300")).toBeInTheDocument();
   expect(figure.getByText("200")).toBeInTheDocument();
-  expect(container.querySelectorAll("rect.fill-chart-2")).toHaveLength(2);
+  expect(container.querySelectorAll("rect.stroke-scale-amount-edge")).toHaveLength(2);
+  // Ruling C4: the larger of the two amounts is the top step, 200 against 300 the step below.
+  const bars = [...container.querySelectorAll("rect.stroke-scale-amount-edge")];
+  const tone = (text: string) =>
+    bars.find((bar) => bar.parentElement?.textContent === text)?.getAttribute("class");
+  expect(tone("300")).toContain("fill-scale-amount-5");
+  expect(tone("200")).toContain("fill-scale-amount-4");
   fireEvent.click(screen.getByRole("button", { name: "Table" }));
   const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
   expect(table.getByText("FY2026: 300")).toBeInTheDocument();

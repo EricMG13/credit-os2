@@ -69,6 +69,7 @@ function reasonOf(cell: MeasureCell | undefined) {
 const isNegative = (cell: MeasureCell | undefined) => (cell?.value ?? 0) < 0;
 const isMissing = (cell: MeasureCell | undefined) => cell?.value == null;
 
+// PR 5: uses of cash take the first two Forecast category slots, 3 and 4.
 function Chart({ slots }: { slots: Slot[] }) {
   const { ref, width } = useMeasuredWidth(FALLBACK_WIDTH);
   const stacked = (slot: Slot) =>
@@ -165,7 +166,7 @@ function Chart({ slots }: { slots: Slot[] }) {
                   y={y}
                   width={barWidth}
                   height={barHeight}
-                  className={index === 0 ? "fill-chart-2" : "fill-chart-1"}
+                  className={index === 0 ? "fill-category-3" : "fill-category-4"}
                 />
                 <text
                   x={inside ? barMiddle : x + barWidth + 4}
@@ -248,11 +249,11 @@ function Legend({ debtTrace, gaps }: { debtTrace: ReactNode; gaps: boolean }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-text-secondary">
       <li className="flex items-center gap-2">
-        {swatch("bg-chart-2")}
+        {swatch("bg-category-3")}
         Distributions
       </li>
       <li className="flex items-center gap-2">
-        {swatch("bg-chart-1")}
+        {swatch("bg-category-4")}
         Debt repayment
         {debtTrace}
       </li>
