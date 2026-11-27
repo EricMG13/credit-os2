@@ -14,7 +14,6 @@ import { GapSlot, LINE, Measured, SIZE } from "../kit/marks";
 import { citesSource, clauses, IN_EVIDENCE, safeText } from "../kit/reader";
 import { unitLabel } from "../../../publishedReport";
 import type { LeadProps } from "../types";
-import { AMOUNT_BAR, AMOUNT_LEGEND, amountTone } from "./amountTone";
 import { dashed } from "./periodsData";
 import {
   GAP_WORDS,
@@ -104,18 +103,15 @@ function wallReading(marks: readonly WallMark[], unit: string) {
   return `Debt maturities${unit ? `, ${unit}` : ""}: ${parts.join(", ")}.`;
 }
 
-/**
- * The stated amount of a bar mark. `wallLayout` makes a mark a bar only from a cell with a value, so
- * a bar without one is a defect in the layout, not a zero.
- */
-function barAmount(mark: WallMark): number {
-  const value = mark.cell?.value;
-  if (value === null || value === undefined)
-    throw new RangeError(`Maturity bar mark "${mark.label}" has no cell value`);
-  return value;
-}
-
-function Bar({ mark, layout, largest }: { mark: WallMark; layout: WallLayout; largest: number }) {
+function Bar({
+  mark,
+  layout,
+  undatedFill,
+}: {
+  mark: WallMark;
+  layout: WallLayout;
+  undatedFill: string;
+}) {
   if (mark.kind !== "bar") {
     const columns = layout.layout === "columns";
     const box = columns
@@ -140,8 +136,8 @@ function Bar({ mark, layout, largest }: { mark: WallMark; layout: WallLayout; la
       width={Math.max(0, mark.undated ? mark.width - 1.5 : mark.width)}
       height={Math.max(0, mark.undated ? mark.height - 1.5 : mark.height)}
       rx={Math.min(2, mark.height / 2, mark.width / 2)}
-      strokeWidth={mark.undated ? 1.5 : 1}
-      className={AMOUNT_BAR[amountTone(barAmount(mark), largest)]}
+      strokeWidth={mark.undated ? 1.5 : undefined}
+      className={mark.undated ? `${undatedFill} stroke-chart-1` : "fill-chart-1"}
     />
   );
 }
@@ -340,11 +336,6 @@ function Wall({
 }) {
   const layout = wallLayout(slots.dated, slots.undated, width);
   const Labels = layout.layout === "columns" ? ColumnLabels : RowLabels;
-  // C4: the largest |amount| over every bar on this wall; gap slots carry no amount.
-  const largest = Math.max(
-    0,
-    ...layout.marks.flatMap((mark) => (mark.kind === "bar" ? Math.abs(barAmount(mark)) : [])),
-  );
   return (
     <>
       <svg
@@ -356,7 +347,7 @@ function Wall({
       >
         <Grid layout={layout} />
         {layout.marks.map((mark) => (
-          <Bar key={mark.label} mark={mark} layout={layout} largest={largest} />
+          <Bar key={mark.label} mark={mark} layout={layout} undatedFill="fill-surface-selected" />
         ))}
         <Axis layout={layout} />
         <BreakGlyph layout={layout} />
@@ -418,7 +409,10 @@ function MaturityFigure({ lead, source, span }: { lead: LeadProps; source: Ready
     ...furtherNotes(basisNotes(source.table).filter((note) => !citesAny(note))),
   ];
   const legend = [
-    ...AMOUNT_LEGEND,
+    { tone: "primary" as const, text: "Dated period" },
+    ...(slots.undated.length
+      ? [{ tone: "undated" as const, text: "After the axis break: no single year" }]
+      : []),
     ...(marks.some((mark) => mark.kind !== "bar")
       ? [{ tone: "gap" as const, text: "Not supplied" }]
       : []),

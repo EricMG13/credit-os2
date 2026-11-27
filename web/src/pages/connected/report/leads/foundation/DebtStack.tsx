@@ -4,7 +4,6 @@ import { GapSlot, LINE, Measured, SIZE } from "../kit/marks";
 import { Legend, type LegendEntry } from "../kit/marks/Legend";
 import type { LeadProps } from "../types";
 import {
-  kindOf,
   stackLayout,
   stackReading,
   stackTable,
@@ -17,40 +16,17 @@ const LABEL = "Debt stack";
 /** The figure's width before the first measure (and in jsdom): the span-6 tile at 1128 px. */
 const FALLBACK = 508;
 
-/** C6: the segment's fill slot by its stated ranking; 5 and above share the last slot. */
-const RANK_SLOT = [3, 4, 5, 6] as const;
-const slotOf = (ranking: number) => RANK_SLOT[ranking - 1] ?? 8;
+/** The segment's fill by the Secured cell as written; the word is printed beside it too. */
+const FILL: Record<string, string> = { yes: "fill-chart-1", no: "fill-chart-2" };
+const fillOf = (secured: string) => FILL[secured.trim().toLowerCase()] ?? "fill-chart-3";
 
-/** Literal class names, so Tailwind sees them. */
-const FILL: Record<number, string> = {
-  3: "fill-category-3",
-  4: "fill-category-4",
-  5: "fill-category-5",
-  6: "fill-category-6",
-  8: "fill-category-8",
-};
-const TONE = {
-  3: "category-3",
-  4: "category-4",
-  5: "category-5",
-  6: "category-6",
-  8: "category-8",
-} as const;
-
-/**
- * One legend entry per ranking that draws a filled category rect (not a gap, words or a stated
- * zero), ascending, then the hatch for a stated gap.
- */
 function legendOf(stack: DebtStack): LegendEntry[] {
-  const ranks = [
-    ...new Set(stack.facilities.filter((f) => kindOf(f) === "amount").map((f) => f.ranking)),
-  ].sort((a, b) => a - b);
+  const words = new Set(stack.facilities.map((f) => f.secured.trim().toLowerCase()));
   return [
-    ...ranks.map((ranking) => ({
-      kind: "square" as const,
-      tone: TONE[slotOf(ranking)],
-      text: `Ranking ${String(ranking)}`,
-    })),
+    ...(words.has("yes") ? [{ kind: "square" as const, text: "Secured: Yes" }] : []),
+    ...(words.has("no")
+      ? [{ kind: "square" as const, tone: "secondary" as const, text: "Secured: No" }]
+      : []),
     ...(stack.facilities.some((f) => f.amount.kind === "gap")
       ? [{ kind: "hatch" as const, text: "Not stated" }]
       : []),
@@ -103,7 +79,7 @@ function Segment({ segment, layout }: { segment: StackSegment; layout: StackLayo
       width={layout.column}
       height={Math.max(0.5, segment.height - 1)}
       rx="1.5"
-      className={FILL[slotOf(facility.ranking)]}
+      className={fillOf(facility.secured)}
     />
   );
 }
