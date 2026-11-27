@@ -50,7 +50,7 @@ describe("headroom", () => {
     const t = row("4.5", { direction: "Passes below" });
     expect(headroom(t, row("3.2", { unit: "USD millions" }))).toBeNull();
     expect(headroom(t, row("n/a", { at: null }))).toBeNull();
-    expect(headroom(row("4.5", { at: null, text: "Not supplied" , direction: "Passes below" }), row("3.2"))).toBeNull();
+    expect(headroom(row("4.5", { at: null, text: "Not supplied", direction: "Passes below" }), row("3.2"))).toBeNull();
     expect(headroom(row("4.5"), row("3.2"))).toBeNull();
     expect(headroom(row("4.5", { direction: "Within" }), row("3.2"))).toBeNull();
     expect(headroom(t, row("3.2", { direction: "Passes above" }))).toBeNull();

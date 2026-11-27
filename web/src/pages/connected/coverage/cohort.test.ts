@@ -150,6 +150,80 @@ describe("cohort on synthetic data (five invented issuers)", () => {
   });
 });
 
+describe("cohort unit and heading are chosen together", () => {
+  const H = "Net debt / adjusted EBITDA";
+  const mixed = data(
+    [
+      fact("a", "FY2025", "1", { unit: "USD millions" }),
+      fact("b", "FY2025", "2", { unit: "USD millions" }),
+      fact("c", "FY2025", "3", { unit: "EUR millions", heading: H }),
+      fact("d", "FY2025", "4", { unit: "EUR millions", heading: H }),
+      fact("e", "FY2025", "5", { unit: "GBP millions", heading: H }),
+    ],
+    KEYS,
+  );
+
+  it("takes the most common pair, not the most common unit and heading apart", () => {
+    const result = cohort(mixed, mixed.issuers, FIELD, "FY2025");
+    expect(result.unit).toBe("USD millions");
+    expect(result.heading).toBe("Net debt / EBITDA");
+    expect(result.members.map((m) => m.issuer.key)).toEqual(["a", "b"]);
+    expect(result.out.map((o) => [o.issuer.key, o.reason])).toEqual([
+      ["c", "other heading"],
+      ["d", "other heading"],
+      ["e", "other heading"],
+    ]);
+  });
+
+  it("a picked unit chooses the heading that goes with it", () => {
+    const result = cohort(mixed, mixed.issuers, FIELD, "FY2025", { unit: "EUR millions" });
+    expect(result.heading).toBe(H);
+    expect(result.members.map((m) => m.issuer.key)).toEqual(["c", "d"]);
+    expect(result.out.map((o) => [o.issuer.key, o.reason])).toEqual([
+      ["a", "other heading"],
+      ["b", "other heading"],
+      ["e", "other unit"],
+    ]);
+  });
+
+  it("an issuer stating reported and adjusted at one period qualifies in each cohort", () => {
+    const d = data(
+      [
+        fact("a", "FY2025", "1"),
+        fact("a", "FY2025", "2", { heading: H }),
+        fact("b", "FY2025", "3"),
+        fact("b", "FY2025", "4", { heading: H }),
+      ],
+      ["a", "b"],
+    );
+    const reported = cohort(d, d.issuers, FIELD, "FY2025");
+    expect(reported.heading).toBe("Net debt / EBITDA");
+    expect(reported.members.map((m) => m.value)).toEqual(["1", "3"]);
+    const adjusted = cohort(d, d.issuers, FIELD, "FY2025", { heading: H });
+    expect(adjusted.members.map((m) => m.value)).toEqual(["2", "4"]);
+  });
+
+  it("says no figure, not other period, when no fact states a period", () => {
+    const d = data([fact("a", "FY2025", "1"), fact("b", null, "2")], ["a", "b"]);
+    const result = cohort(d, d.issuers, FIELD, "FY2025");
+    expect(result.out.map((o) => [o.issuer.key, o.reason, o.stated])).toEqual([
+      ["b", "no figure", undefined],
+    ]);
+  });
+
+  it("two figures at one period and heading are more than one, in cohort and series", () => {
+    const d = data(
+      [fact("a", "FY2025", "5"), fact("a", "FY2025", "50", { unit: "k" }), fact("b", "FY2025", "6")],
+      ["a", "b"],
+    );
+    const result = cohort(d, d.issuers, FIELD, "FY2025");
+    expect(result.out.map((o) => [o.issuer.key, o.reason, o.stated])).toEqual([
+      ["a", "more than one figure", ["5", "50"]],
+    ]);
+    expect(series(d, d.issuers[0] as Issuer, FIELD, "Net debt / EBITDA", "x")).toEqual([]);
+  });
+});
+
 describe("series on synthetic data", () => {
   it("is null when the periods cannot be ordered", () => {
     const d = data([fact("a", "Spring", "1"), fact("a", "Autumn", "2")], ["a"]);
