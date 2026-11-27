@@ -111,6 +111,11 @@ def _kind(line: str) -> tuple[str, str]:
     return _label(line), ""
 
 
+def _is_total(label: str) -> bool:
+    """A total or subtotal row: it sums claims already in the table, so reading past it is safe."""
+    return re.match(r"(?:sub ?)?total\b", label) is not None
+
+
 def _states_gap(cell: str) -> bool:
     """A unit cell that states a gap in the module's own wording (`Not supplied: <reason>`,
     `Not calculable: <reason>`), as the T3.3 every-row-states-a-gap check reads it. Twin of
@@ -180,6 +185,11 @@ def _read(table: Table, tables: types.ModuleType) -> _Waterfall:
                 raise _NotChecked(
                     f"{_HEADING} has a row the check does not read: `{row[cols['Line']]}`"
                 )
+            if not _is_total(kind) and not blank(row[cols["Amount"]], tables):
+                raise _NotChecked(  # a claim or cost left out would make every recovery wrong
+                    f"{_HEADING} has a row with an amount the check does not read: "
+                    f"`{row[cols['Line']]}`"
+                )
             skipped.append(_plain(row[cols["Line"]]))
             continue
         else:
@@ -234,12 +244,36 @@ def _recoveries(
     return out
 
 
-def _named(cell: str) -> str:
-    """The claim a fulcrum cell names: a leading `Claim:` and a trailing note (after a dash, or
-    in brackets) are not the name (`Debt (66.7%)`, `Debt - 66.7% recovery` name `Debt`)."""
-    text = re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE)
-    text = re.sub(r"\s*\([^)]*\)\s*$", "", text)
-    return _label(re.split(r"\s+[-—–]\s+", text, maxsplit=1)[0])
+def _stripped(text: str) -> list[str]:
+    """The forms of a name once its note is taken off: a trailing bracket, a dash note, both."""
+    unbracketed = re.sub(r"\s*\([^)]*\)\s*$", "", text)
+    forms = [text, unbracketed, re.split(r"\s+[-—–]\s+", text, maxsplit=1)[0]]
+    forms.append(re.split(r"\s+[-—–]\s+", unbracketed, maxsplit=1)[0])
+    forms.append(re.sub(r"\s*\([^)]*\)\s*$", "", forms[2]))
+    return list(dict.fromkeys(_label(f) for f in forms))
+
+
+def _full(cell: str) -> str:
+    """A claim's name as written (a leading `Claim:` aside), compared as a label."""
+    return _label(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
+
+
+def _named(cell: str, claims: list[str]) -> str | None:
+    """The claim (its `_full` name) or the no-fulcrum word a fulcrum cell names, None when it
+    names neither or more than one. The full name is compared first; a trailing note (after a
+    dash, or in brackets: `Debt (66.7%)`, `Debt - 66.7% recovery` name `Debt`) is taken off only
+    where what is left is not the start of another claim's name (`Senior Notes (2029)` is not
+    `Senior Notes`, where `Senior Notes (2027)` is also a claim)."""
+    full = {_full(c) for c in claims}
+    forms = _stripped(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
+    for i, form in enumerate(forms):
+        if form in full or form in NO_FULCRUM:
+            others = [f for f in full if f != form and f.startswith(form)]
+            if i == 0 or form in NO_FULCRUM or not others:
+                return form
+    noted = {_full(c): _stripped(_plain(c)) for c in claims}  # a claim written with a note
+    found = {k for k, v in noted.items() if any(f in v[1:] for f in forms)}
+    return found.pop() if len(found) == 1 else None
 
 
 def _fulcrum(case: str, w: _Waterfall, result: dict[str, Any]) -> Outcome:
@@ -249,12 +283,11 @@ def _fulcrum(case: str, w: _Waterfall, result: dict[str, Any]) -> Outcome:
         return where("not checked", stated=cell, reason=f"{_HEADING} states no fulcrum for {case}")
     if result["status"] != "complete":
         return where("not checked", stated=cell, reason=str(result.get("note")))
-    found, name = result["fulcrum_claim_id"], _named(cell)
-    claims = {_named(c["claim_id"]) for c in w.claims}
-    if name not in NO_FULCRUM and name not in claims:
+    found, name = result["fulcrum_claim_id"], _named(cell, [c["claim_id"] for c in w.claims])
+    if name is None:
         why = f"`{cell}` names no claim of the table and none of {', '.join(NO_FULCRUM)}"
         return where("not checked", stated=cell, reason=why)
-    agreed = name in NO_FULCRUM if found is None else name == _named(found)
+    agreed = name in NO_FULCRUM if found is None else name == _full(found)
     label = "no fulcrum" if found is None else str(found)
     status: Status = "agreed" if agreed else "disagreed"
     return where(status, stated=cell, recomputed_label=label, reason=FULCRUM_FORMULA)
@@ -315,20 +348,44 @@ MISSING_TABLE = (
 _TITLE = re.compile(r"^\s*(?:#{1,6}\s+(?P<heading>.*?)\s*#*|\*\*(?P<bold>.+?)\*\*\s*:?)\s*$")
 
 
+def _is_title(label: str) -> bool:
+    """The label is the section's name: `Recovery waterfall` once a number in front, a colon, a
+    bracketed note or a dash note is off it (not `Recovery waterfall limitations`)."""
+    label = re.sub(r"^\d+(?:\.\d+)*\.?\s+", "", label)
+    label = re.sub(r"\s*\([^)]*\)\s*$", "", label)
+    return re.split(r"\s+[-—–]\s+", label.strip(" :"), maxsplit=1)[0].strip(" :") == (
+        WATERFALL_HEADING.casefold()
+    )
+
+
+def _has_columns(table: Table | str | None) -> bool:
+    wanted = {_label(c) for c in WATERFALL_COLUMNS}
+    return isinstance(table, tuple) and wanted <= {_label(c) for c in table[0]}
+
+
 def find_table(text: str) -> Table | str | None:
     """The waterfall table: under a heading (any level) or a bold line whose words include
     "recovery waterfall" (numbering and a trailing note aside), else the one table with its
-    columns. None when there is none; why, when there are two or it is unread."""
+    columns. Of several such lines, the ones that are the section's title, then the ones followed
+    by the waterfall's columns, are the title. None when there is none; why, when there are two or
+    it is unread."""
     lines = core._unfenced(text)
-    titles = []
+    titles: list[tuple[int, str]] = []
     for i, line in enumerate(lines):
         found = _TITLE.match(line)
-        if found and "recovery waterfall" in _label(found["heading"] or found["bold"] or ""):
-            titles.append(i)
+        label = _label((found["heading"] or found["bold"] or "") if found else "")
+        if "recovery waterfall" in label:
+            titles.append((i, label))
+    if len(titles) > 1:
+        titles = [t for t in titles if _is_title(t[1])] or titles
+    if len(titles) > 1:
+        titles = [
+            t for t in titles if _has_columns(core._table_after(lines, t[0], _HEADING))
+        ] or titles
     if len(titles) > 1:
         return f"the handoff has {len(titles)} recovery waterfall headings"
     if titles:
-        return core._table_after(lines, titles[0], _HEADING)
+        return core._table_after(lines, titles[0][0], _HEADING)
     wanted = {_label(c) for c in WATERFALL_COLUMNS}
     headers = [
         i

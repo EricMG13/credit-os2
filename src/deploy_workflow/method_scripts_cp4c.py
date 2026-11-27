@@ -48,7 +48,7 @@ from deploy_workflow.method_scripts import (
     money,
     register_table,
 )
-from deploy_workflow.method_scripts_cp3 import NO_FULCRUM, RECOVERY, _named
+from deploy_workflow.method_scripts_cp3 import NO_FULCRUM, RECOVERY, _full, _named
 
 COLUMNS = ("scenario", "entity", "available value", "priority claim", "allocation", "residual")
 UNIT = "currency and scale"
@@ -61,6 +61,7 @@ FULCRUM_FORMULA = (
     "less than in full; a boundary or zero recovery is no fulcrum (recovery_waterfall.py)"
 )
 _NOTE = re.compile(r"^(?P<figure>.*?)\s*\((?P<note>[^()]*[A-Za-z][^()]*)\)\s*$")
+CLARIFIERS = ("full", "in full")  # after a figure: how much of the claim, not a reason
 CP4C_NOTE = (
     "Python checks T4E.5 and T4E.6 after you answer, with the method's own "
     "`recovery_waterfall.py` (you cannot run it). Each T4E.5 row is one step of the waterfall: "
@@ -135,6 +136,21 @@ def _claim(cell: str, unit: str, tables: types.ModuleType) -> tuple[str, core.Am
     return name or _plain(cell), found
 
 
+def _allocation(cell: str) -> tuple[str, str]:
+    """The allocation figure and the reason written after it, if any. A bracket is a reason only
+    after a figure; a bracket of only a unit or `full` is the figure's own clarifier (`300 (USD
+    m)`), and a whole cell in brackets is a negative figure (`(650m)`), neither a reason."""
+    found = _NOTE.match(cell)
+    if not found or not re.search(r"\d", found["figure"]):
+        return cell, ""
+    note = found["note"].strip()
+    if not core.bare(note):  # a unit, e.g. `USD m`: read with the figure
+        return f"{found['figure']} {note}", ""
+    if note.casefold() in CLARIFIERS:
+        return found["figure"], ""
+    return found["figure"], note
+
+
 def _step(row: list[str], cols: dict[str, tuple[int, str]], tables: types.ModuleType) -> _Step:
     def amount(name: str) -> core.Amount:
         return money(row[cols[name][0]], _unit_source(row, cols, name), tables)
@@ -142,17 +158,16 @@ def _step(row: list[str], cols: dict[str, tuple[int, str]], tables: types.Module
     name, claim = _claim(
         row[cols["priority claim"][0]], _unit_source(row, cols, "priority claim"), tables
     )
-    allocation = _plain(row[cols["allocation"][0]])
-    noted = _NOTE.match(allocation)
+    allocation, noted = _allocation(_plain(row[cols["allocation"][0]]))
     return _Step(
         _plain(row[cols["scenario"][0]]),
         _plain(row[cols["entity"][0]]),
         name,
         amount("available value"),
         claim,
-        noted["figure"] if noted else allocation,
+        allocation,
         row[cols["residual"][0]],
-        noted["note"] if noted else "",
+        noted,
         _unit_source(row, cols, "allocation"),
     )
 
@@ -279,11 +294,11 @@ def _fulcrum(scenario: str, steps: list[_Step], stated: str | None, loaded: Load
         result: dict[str, Any] = loaded.script.waterfall(steps[0].available.value, claims)
     except ValueError as error:
         return where("not checked", stated=stated, reason=f"the script refused the pool: {error}")
-    found, name = result["fulcrum_claim_id"], _named(stated)
-    if name not in NO_FULCRUM and name not in {_named(s.name) for s in steps}:
+    found, name = result["fulcrum_claim_id"], _named(stated, [s.name for s in steps])
+    if name is None:
         why = f"`{stated}` names no single T4E.5 claim (a range is not compared)"
         return where("not checked", stated=stated, reason=why)
-    agreed = name in NO_FULCRUM if found is None else name == _named(found)
+    agreed = name in NO_FULCRUM if found is None else name == _full(found)
     label = "no fulcrum" if found is None else str(found)
     if not agreed and name in _boundary(steps):
         why = (
@@ -301,7 +316,7 @@ def _boundary(steps: list[_Step]) -> set[str]:
     none. Empty when the value ends inside a class."""
     slack = float(steps[0].available.half) + sum(s.claim.half for s in steps)
     pool, total = float(steps[0].available.value or 0.0), 0.0
-    names = [_named(s.name) for s in steps]
+    names = [_full(s.name) for s in steps]
     out: set[str] = set()
     for i, step in enumerate(steps):
         total += float(step.claim.value or 0.0)
@@ -370,6 +385,13 @@ def _rows(steps: list[_Step], loaded: Loaded) -> list[Outcome]:
         elif _pooled(group) and len(_units(group, loaded.tables)) == 1:
             try:
                 left |= _left_over(group, loaded)
+                # Once a row is set by the governing evidence its allocation is not the
+                # script's, so the value left for the rows after it is unknown: as `_chain`
+                # does for a fulcrum, they are not checked (not seeded from the stated residual,
+                # which is the very figure the evidence overrides).
+                cut = next((i for i, s in enumerate(group) if s.noted), len(group))
+                why = "a row above is set by the governing evidence, so the value left is unknown"
+                skipped |= dict.fromkeys(map(id, group[cut + 1 :]), why)
             except ValueError as error:  # the script refuses a value (a deficit pool)
                 skipped |= dict.fromkeys(map(id, group), f"the script refused the pool: {error}")
     out: list[Outcome] = []
