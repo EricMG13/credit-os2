@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1440"><title>Signal feed, colour as signal</title>
+<style>
+/* shared: tokens and colour scales. Paste verbatim; do not edit. */
+@font-face{font-family:"Geist";font-weight:400;src:url("../../../../web/public/fonts/Geist-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist";font-weight:500;src:url("../../../../web/public/fonts/Geist-Medium.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:400;src:url("../../../../web/public/fonts/GeistMono-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url("../../../../web/public/fonts/GeistMono-Medium.woff2") format("woff2")}
+:root{--canvas:#FAFAFA;--tile:#FFFFFF;--well:#F4F4F5;--hair:#E4E4E7;--ink:#0A0A0A;--sec:#52525B;--label:#6B6B74;--acc:#1D4ED8;--tint:#EFF6FF;--prior:#8E8E96;
+--bt:#15803D;--ws:#C2410C;--fail:#DC2626;--blocked:#EA580C;
+--c1:#1D4ED8;--c2:#EA580C;--c3:#0F766E;--c4:#7E22CE;--c5:#B45309;--c6:#BE123C;--c7:#15803D;--c8:#475569;
+--mono:"Geist Mono",ui-monospace,Menlo,monospace;--sans:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 12px/16px var(--sans);width:1440px}
+.banner{background:var(--well);border-bottom:1px solid var(--hair);color:var(--sec);font-size:12px;line-height:16px;text-align:center;padding:5px 0}
+/* position in a cohort or order: sequential blue */
+[data-band="p1"]{background:#FFFFFF}[data-band="p2"]{background:#EFF6FF}[data-band="p3"]{background:#DBEAFE}[data-band="p4"]{background:#BFDBFE}
+/* better / worse: only where the direction table gives a direction */
+[data-band="bt1"]{background:#DCFCE7}[data-band="bt2"]{background:#BBF7D0}[data-band="bt3"]{background:#86EFAC}
+[data-band="ws1"]{background:#FFEDD5}[data-band="ws2"]{background:#FED7AA}[data-band="ws3"]{background:#FDBA74}
+[data-band="d0"]{background:#FFFFFF}
+/* amount: sequential amber */
+[data-band="a1"]{background:#FEF3C7}[data-band="a2"]{background:#FDE68A}[data-band="a3"]{background:#FCD34D}[data-band="a4"]{background:#F59E0B}[data-band="a5"]{background:#D97706}
+/* share of a limit used: bar fills only, never under text */
+[data-band="s1"]{background:#15803D}[data-band="s2"]{background:#777C22}[data-band="s3"]{background:#D97706}[data-band="s4"]{background:#DA4E16}[data-band="s5"]{background:#DC2626}
+[data-band^="p"],[data-band^="bt"],[data-band^="ws"],[data-band^="a"],[data-band="d0"]{color:#0A0A0A}
+.hatch{background:repeating-linear-gradient(135deg,transparent 0 5px,#E4E4E7 5px 6px);color:#52525B}
+.gapline{display:inline-block;border:1px dashed var(--prior);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,#EDEDF0 5px 6px);padding:1px 8px;color:#52525B}
+/* end shared */
+
+
+body{height:auto}
+a{color:var(--acc);text-decoration:none}
+.top{display:flex;align-items:center;gap:20px;height:48px;padding:0 24px;background:#fff;border-bottom:1px solid var(--hair)}
+.brand{display:flex;align-items:center;gap:8px;font:500 14px/16px var(--sans)}
+.brand i{width:20px;height:20px;border-radius:6px;background:var(--acc);display:block}
+.top nav{display:flex;gap:4px;margin-left:12px}
+.top nav a{padding:14px 10px 12px;color:var(--sec);text-decoration:none;border-bottom:2px solid transparent;font-size:13px}
+.top nav a.cur{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.sh-btn{margin-left:auto;background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;font:500 13px/16px var(--sans);text-decoration:none}
+.shell{display:grid;grid-template-columns:232px 1fr;gap:16px;padding:16px 24px 32px;align-items:start}
+.tile{background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:12px}
+.chan{padding:8px}
+.chan h3{margin:12px 8px 4px;font:500 11px/16px var(--sans);color:var(--label);text-transform:none}
+.chan ul{list-style:none;margin:0;padding:0}
+.chan li{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:8px;border-left:2px solid transparent;color:var(--ink)}
+.chan li.cur{background:var(--tint);border-left-color:var(--acc);color:var(--acc);font-weight:500}
+.chan li .n{margin-left:auto;font:400 11px/16px var(--mono);color:var(--sec);font-variant-numeric:tabular-nums}
+.chan li .star{color:var(--prior);font-size:13px;margin-left:auto}
+.chan li .star+.n{margin-left:6px}
+.chan li .n.solo{margin-left:auto}
+.main{min-width:0}
+.titlerow{display:flex;align-items:center;gap:12px}
+.titlerow h1{margin:0;font:500 20px/28px var(--sans)}
+.badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hair);border-radius:999px;padding:1px 10px 1px 6px;font-size:12px;line-height:18px;background:var(--tile);color:var(--ink)}
+.badge .ck{font-weight:500}
+.badge.fail{border:1px dashed var(--blocked)}
+.badge.fail .ck{color:var(--blocked);font-weight:700}
+.seg{margin-left:auto;display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;background:var(--tile)}
+.seg span{padding:4px 12px;color:var(--sec)}
+.seg span.on{background:var(--tint);color:var(--acc);font-weight:500}
+.ctl{display:flex;align-items:center;gap:12px;margin-top:12px}
+.tabs{display:flex;gap:4px}
+.tabs span{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;color:var(--sec)}
+.tabs span.on{background:var(--tint);color:var(--acc);font-weight:500}
+.tabs .ct{display:inline-flex;align-items:center;gap:4px;font:400 11px/16px var(--mono);color:var(--sec)}
+.search{margin-left:auto;width:280px;height:32px;border:1px solid var(--hair);border-radius:8px;background:var(--tile);display:flex;align-items:center;padding:0 10px;color:var(--label)}
+.pill{display:inline-flex;align-items:center;gap:8px;margin-top:12px;border:1px solid var(--hair);border-radius:999px;padding:2px 12px 2px 8px;background:var(--tile)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.pill a{font-weight:500}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ring{border:1.5px solid #52525B;background:transparent;width:8px;height:8px}
+.lgl{margin:12px 0 8px;display:flex;flex-wrap:wrap;gap:6px 24px;align-items:center;font-size:11px;line-height:16px;color:var(--label)}
+.lgi{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.lgl b{font-weight:500;color:var(--sec)}
+.lgl .mark{color:#52525B;font-weight:500}
+.lgl .chk{font-weight:500;color:var(--ink)}
+.lgl .bang{display:inline-flex;width:14px;height:14px;border:1px dashed var(--blocked);border-radius:50%;align-items:center;justify-content:center;color:var(--blocked);font-weight:700;font-size:11px;line-height:11px}
+.feed{padding:0 12px}
+.st{display:grid;grid-template-columns:36px 1fr;gap:12px;padding:14px 0;border-top:1px solid var(--hair)}
+.st:first-child{border-top:0}
+.mono{width:36px;height:36px;border-radius:8px;background:var(--well);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;font:500 12px/16px var(--sans);color:var(--sec)}
+.by{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--sec);margin-bottom:2px}
+.kind{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:500}
+.tm{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sb h2{margin:0;font:500 15px/22px var(--sans)}
+.sb h2 a{color:var(--ink)}
+.sum{margin:2px 0 0;color:var(--sec);max-width:72ch;font-size:13px;line-height:18px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;margin-top:8px;color:var(--sec)}
+.stage{color:var(--ink);font-weight:500}
+.aiblk{margin-top:8px;border-left:2px solid var(--hair);padding-left:10px}
+.ailabel{display:inline-block;font:500 11px/14px var(--sans);letter-spacing:.04em;border:1px solid var(--prior);color:var(--sec);border-radius:4px;padding:0 4px}
+.aiblk .row{margin-top:6px}
+.ail{margin:6px 0 0;color:var(--sec);max-width:72ch}
+.strength{display:inline-flex;align-items:center;gap:8px;color:var(--ink)}
+.pips{display:inline-flex;gap:3px}
+.pips i{display:inline-block;width:12px;height:12px;border:1px solid #B45309;border-radius:3px}.pips i.off{background:#fff}
+.pips i[data-band]{border-color:#B45309}
+.move{display:inline-flex;align-items:center;gap:6px;color:#52525B}
+.move .gl{font-size:11px}
+.move b{font-weight:500;color:#52525B}
+.move .ft{font:500 12px/16px var(--mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.about{gap:6px}
+.tags{margin-top:8px;display:flex;gap:6px}
+.tag{border:1px solid var(--hair);background:var(--well);border-radius:999px;padding:0 8px;color:var(--sec);font-size:11px;line-height:18px}
+.acts{display:flex;gap:16px;margin-top:8px}
+.acts a{font-weight:500}
+.acts .os{margin-left:auto}
+.avs{display:inline-flex}
+.avs b{width:22px;height:22px;border-radius:50%;background:var(--well);border:1px solid var(--hair);font:500 11px/20px var(--sans);text-align:center;color:var(--sec);margin-right:-4px}
+table.mkt{border-collapse:collapse;margin-top:8px;width:100%;max-width:880px}
+.mkt th,.mkt td{padding:3px 8px;border-top:1px solid var(--hair);vertical-align:top}
+.mkt thead th{border-top:0;font:500 11px/16px var(--sans);color:var(--label);text-align:right;white-space:nowrap;padding-bottom:4px}
+.mkt thead th.l{text-align:left}
+.mkt .ser{text-align:left;font-weight:500;white-space:nowrap}
+.mkt .full{display:block;font:400 11px/14px var(--sans);color:var(--label)}
+.mkt .r{text-align:right;white-space:nowrap}
+.mkt .fig{display:block;font:400 12px/16px var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.mkt .dt{display:block;font:400 11px/14px var(--mono);font-variant-numeric:tabular-nums;color:var(--label)}
+.mkt .dash{display:block;font:400 12px/16px var(--mono);color:var(--label)}
+.mkt .sp{text-align:right;padding-top:8px}
+.mkt .sp svg{display:block;margin-left:auto}
+.mkt td.hatch.note{text-align:left;padding:6px 8px;font:400 12px/16px var(--sans)}
+.mlg{margin:8px 0 0}
+.lgi .dsh{font-family:var(--mono)}
+.lgi .hs{display:inline-block;width:22px;height:10px;border:1px dashed var(--prior);background:repeating-linear-gradient(135deg,transparent 0 3px,#E4E4E7 3px 4px)}
+.lgi .ln{display:inline-block;width:18px;height:0;border-top:1.25px solid #52525B}
+.lgi .ln.brk{width:20px;border-top:0;position:relative;height:6px}
+.lgi .ln.brk:before,.lgi .ln.brk:after{content:"";position:absolute;top:3px;border-top:1.25px solid #52525B;width:7px}
+.lgi .ln.brk:before{left:0}.lgi .ln.brk:after{right:0}
+.lgi .pips i{width:10px;height:10px}
+
+</style></head><body>
+<div class="banner">Illustration of form. Figures are invented, not a delivered run.</div>
+<header class="top"><div class="brand"><i></i>Credit OS</div><nav><a href="#">Library</a><a href="#">Coverage</a><a href="#">Run activity</a><a class="cur" href="#">Signal</a></nav><a class="sh-btn" href="#">Start run</a></header>
+<div class="shell"><aside class="tile chan"><ul>
+<li class="cur"><span>Latest</span></li><li><span>Saved</span><span class="n solo">3</span></li></ul>
+<h3>Topics</h3><ul><li><span>Regulation &amp; competition</span><span class="star">☆</span><span class="n">4</span></li><li><span>Rating actions</span><span class="star">★</span><span class="n">2</span></li><li><span>M&amp;A and disposals</span><span class="star">☆</span></li><li><span>Packaging &amp; resins</span><span class="star">★</span><span class="n">3</span></li></ul>
+<h3>Issuers</h3><ul><li><span>Calderwick Packaging Inc.</span><span class="star">★</span><span class="n">3</span></li><li><span>Marrowfield Telecom</span><span class="star">★</span><span class="n">1</span></li><li><span>Northwave Networks</span><span class="star">☆</span><span class="n">1</span></li><li><span>Tessaly Foods</span><span class="star">☆</span><span class="n">2</span></li></ul>
+<h3>Groups</h3><ul><li><span>Packaging analysts</span><span class="n solo">3</span></li><li><span>Leveraged finance</span></li></ul>
+<h3>Digests</h3><ul><li><span>Monday industrials brief</span></li><li><span>Daily regulators</span></li></ul>
+<h3>&nbsp;</h3><ul><li><span>Signal settings</span></li></ul></aside>
+<main class="main">
+<div class="titlerow"><h1>Latest</h1><span class="badge"><span class="ck">✓</span>Sources checked 09:40</span><span class="seg"><span>Top</span><span class="on">Latest</span></span></div>
+<div class="ctl"><div class="tabs"><span class="on">All<span class="ct">7</span></span><span class="">Regulators<span class="ct"><i class="dot" style="background:var(--c1)"></i>1</span></span><span class="">News<span class="ct"><i class="dot" style="background:var(--c2)"></i>2</span></span><span class="">Ratings<span class="ct"><i class="dot" style="background:var(--c3)"></i>1</span></span><span class="">Research<span class="ct"><i class="dot" style="background:var(--c4)"></i>1</span></span><span class="">Filings<span class="ct"><i class="dot" style="background:var(--c5)"></i>1</span></span></div><div class="search">Search stories</div></div>
+<div class="pill"><i></i>2 new stories <a href="#">Show</a></div>
+<div class="lgl"><span class="lgi"><b>Story kind</b><span class="lgi"><i class="dot" style="background:var(--c1)"></i>Regulators</span><span class="lgi"><i class="dot" style="background:var(--c2)"></i>News</span><span class="lgi"><i class="dot" style="background:var(--c3)"></i>Ratings</span><span class="lgi"><i class="dot" style="background:var(--c4)"></i>Research</span><span class="lgi"><i class="dot" style="background:var(--c5)"></i>Filings</span><span class="lgi"><i class="dot ring"></i>Market post</span></span><span class="lgi"><b>Signal strength</b><span class="lgi"><span class="pips"><i data-band="a1"></i><i class="off"></i><i class="off"></i></span>Low</span><span class="lgi"><span class="pips"><i data-band="a1"></i><i data-band="a3"></i><i class="off"></i></span>Medium</span><span class="lgi"><span class="pips"><i data-band="a1"></i><i data-band="a3"></i><i data-band="a5"></i></span>High</span></span><span class="lgi"><b>Source status</b><span class="lgi"><span class="chk">✓</span>checked</span><span class="lgi"><span class="bang">!</span>one source failing</span></span><span class="lgi"><b>Rating moves shown with sign only</b><span class="mark">▲</span>Upgrade<span class="mark">▼</span>Downgrade, grey: no better or worse reading</span></div>
+<section class="tile feed"><article class="st"><div class="mono">UM</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c1)"></i>Regulators</span><span>Union Markets Authority</span><span class="tm">10:12</span></div>
+<h2><a href="#">Authority opens in-depth review of Northwave network-sharing deal</a></h2><p class="sum">Notice published after the initial review; remedies and wholesale access terms are under consultation.</p><div class="row"><span class="stage">Case stage: In-depth review</span><span>Decision due in March</span></div><div class="row about"><span>About:</span><span><a href="#">Northwave Networks</a></span></div><div class="tags"><span class="tag">Telecoms</span><span class="tag">Competition</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article><article class="st"><div class="mono">AR</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c3)"></i>Ratings</span><span>Ardent Ratings</span><span class="tm">09:52</span></div>
+<h2><a href="#">Marrowfield Telecom downgraded on slower deleveraging</a></h2><div class="aiblk"><span class="ailabel">AI</span><div class="row"><span class="move"><span class="gl">▼</span><b>Downgrade</b><span class="ft">B+ → B</span></span><span>Outlook stable</span></div><div class="row"><span class="strength"><span class="pips" aria-hidden="true"><i data-band="a1"></i><i data-band="a3"></i><i class="off"></i></span><span>Signal strength: Medium</span></span></div><p class="ail">First downgrade in the peer set this year; the agency cites capex that will not fall before 2028.</p></div><div class="row about"><span>About:</span><span><a href="#">Marrowfield Telecom</a></span></div><div class="tags"><span class="tag">Rating action</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article><article class="st"><div class="mono">FS</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c5)"></i>Filings</span><span>Filings service</span><span class="tm">09:31</span></div>
+<h2><a href="#">Calderwick Packaging Inc. files Form 8-K: amendment to its revolving credit agreement</a></h2><p class="sum">The filing reports an amendment to the revolving facility; revised terms are in the exhibit to the filing.</p><div class="row about"><span>About:</span><span><a href="#">Calderwick Packaging Inc.</a></span></div><div class="tags"><span class="tag">8-K</span><span class="tag">Credit agreement</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article><article class="st"><div class="mono">FD</div><div class="sb"><div class="by"><span class="kind"><i class="dot ring"></i>Market post</span><span>Fiscal Data Service</span><span class="tm">09:00</span></div><h2><a href="#">Market backdrop: Treasury yields, credit spreads and volatility, as of 12 March</a></h2><table class="mkt"><thead><tr><th class="l">Series</th><th>Value, as of its own date</th><th>Since previous</th><th>A week</th><th>A month</th><th>Last month</th></tr></thead><tbody><tr><th class="ser" scope="row">10-yr yield<span class="full">US 10-year Treasury yield</span></th><td class="r"><span class="fig">4.08%</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">0.00 pp</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="fig">−0.10 pp</span><span class="dt">from 5 Mar</span></td><td class="r"><span class="fig">+0.01 pp</span><span class="dt">from 12 Feb</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="3.0,10.5 5.7,7.6 8.4,6.2 11.1,6.2 13.8,7.6 16.5,9.8 19.2,11.9 21.9,13.3 24.6,14.0 27.3,13.3 30.0,10.5 32.7,7.6 35.4,4.8 38.1,2.7 40.8,2.0 43.5,2.7 46.2,4.8 48.9,6.9 51.6,9.1 54.3,9.8 57.0,9.8" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="9.8" r="2" fill="#52525B"/></svg></td></tr><tr><th class="ser" scope="row">2-yr yield<span class="full">US 2-year Treasury yield</span></th><td class="r"><span class="fig">4.06%</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">+0.02 pp</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="fig">−0.05 pp</span><span class="dt">from 5 Mar</span></td><td class="r"><span class="fig">−0.18 pp</span><span class="dt">from 12 Feb</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="3.0,2.0 5.7,2.0 8.4,2.6 11.1,4.4 13.8,6.2 16.5,8.0 19.2,9.2 21.9,9.8 24.6,9.2 27.3,8.6 30.0,6.8 32.7,6.2 35.4,5.6 38.1,6.2 40.8,7.4 43.5,9.8 46.2,11.6 48.9,12.8 51.6,14.0 54.3,14.0 57.0,12.8" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="12.8" r="2" fill="#52525B"/></svg></td></tr><tr><th class="ser" scope="row">HY spread<span class="full">US high-yield spread</span></th><td class="r"><span class="fig">331 bp</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">+2 bp</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="fig">−9 bp</span><span class="dt">from 5 Mar</span></td><td class="r"><span class="fig">−10 bp</span><span class="dt">from 12 Feb</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="3.0,5.2 5.7,3.3 8.4,3.3 11.1,5.2 13.8,7.7 16.5,10.8 19.2,13.4 21.9,14.0 24.6,13.4 27.3,10.8 30.0,8.3" fill="none" stroke="#52525B" stroke-width="1.25"/><polyline points="35.4,2.6 38.1,2.0 40.8,3.3 43.5,5.8 46.2,8.9 48.9,11.5 51.6,12.7 54.3,12.7 57.0,11.5" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="11.5" r="2" fill="#52525B"/></svg></td></tr><tr><th class="ser" scope="row">IG spread<span class="full">US investment-grade spread</span></th><td class="r"><span class="fig">99 bp</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">+1 bp</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="fig">+2 bp</span><span class="dt">from 5 Mar</span></td><td class="r"><span class="fig">−5 bp</span><span class="dt">from 12 Feb</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="3.0,2.0 5.7,3.5 8.4,6.5 11.1,9.5 13.8,11.0 16.5,12.5 19.2,11.0 21.9,9.5 24.6,8.0 27.3,5.0 30.0,5.0 32.7,5.0 35.4,6.5 38.1,8.0 40.8,11.0 43.5,12.5 46.2,14.0 48.9,14.0 51.6,14.0 54.3,11.0 57.0,9.5" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="9.5" r="2" fill="#52525B"/></svg></td></tr><tr><th class="ser" scope="row">Vol index<span class="full">Equity volatility index</span></th><td class="r"><span class="fig">14.9 Index</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">−0.1 pts</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="fig">−2.4 pts</span><span class="dt">from 5 Mar</span></td><td class="r"><span class="fig">−0.7 pts</span><span class="dt">from 12 Feb</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="3.0,9.6 5.7,6.4 8.4,4.4 11.1,4.0 13.8,5.2 16.5,7.6 19.2,10.4 21.9,12.8 24.6,14.0 27.3,14.0 30.0,12.0 32.7,8.8 35.4,6.0 38.1,3.2 40.8,2.0 43.5,2.8 46.2,4.8 48.9,7.6 51.6,10.0 54.3,12.0 57.0,12.4" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="12.4" r="2" fill="#52525B"/></svg></td></tr><tr class="hatchrow"><th class="ser" scope="row">Loan index<span class="full">Leveraged loan price index</span></th><td colspan="5" class="hatch note">Not read: the data service returned no value for this series, so no figure, change or trend is drawn.</td></tr><tr><th class="ser" scope="row">5-yr breakeven<span class="full">Five-year breakeven inflation</span></th><td class="r"><span class="fig">2.29%</span><span class="dt">12 Mar</span></td><td class="r"><span class="fig">0.00 pp</span><span class="dt">from 11 Mar</span></td><td class="r"><span class="dash">—</span><span class="dt">no earlier reading</span></td><td class="r"><span class="dash">—</span><span class="dt">no earlier reading</span></td><td class="sp"><svg width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="trend over the last month"><polyline points="46.2,2.0 48.9,8.0 51.6,14.0 54.3,14.0 57.0,14.0" fill="none" stroke="#52525B" stroke-width="1.25"/><circle cx="57.0" cy="14.0" r="2" fill="#52525B"/></svg></td></tr></tbody></table><div class="lgl mlg"><span class="lgi"><b>Moves shown with sign only</b> + up, − down; no better or worse reading, because yields and spreads have no direction</span><span class="lgi"><span class="hs"></span> hatched: series not read</span><span class="lgi"><span class="dsh">—</span> no earlier reading</span><span class="lgi"><span class="ln"></span> one line per series, a month of readings</span><span class="lgi"><span class="ln brk"></span> line breaks where a reading is missing (HY spread, 1 Mar)</span></div><div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a></div></div></article><article class="st"><div class="mono">BR</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c4)"></i>Research</span><span>Brightmoor Research</span><span class="tm">08:40</span></div>
+<h2><a href="#">Packaging demand softens into spring, survey of converters finds</a></h2><p class="sum">Converter order books point to flat volumes through the second quarter, with resin pass-through still lagging.</p><div class="aiblk"><span class="ailabel">AI</span><div class="row"><span class="strength"><span class="pips" aria-hidden="true"><i data-band="a1"></i><i data-band="a3"></i><i class="off"></i></span><span>Signal strength: Medium</span></span></div><p class="ail">Why it matters: flat volumes with lagging pass-through would press margins at packaging issuers.</p></div><div class="row about"><span>About:</span><span><a href="#">Calderwick Packaging Inc.</a></span></div><div class="tags"><span class="tag">Packaging</span><span class="tag">Demand</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article><article class="st"><div class="mono">FW</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c2)"></i>News</span><span>Fenwick Wire</span><span class="tm">08:15</span></div>
+<h2><a href="#">Tessaly Foods weighs sale of minority stake in snacks unit</a></h2><p class="sum">People familiar say proceeds would go to debt reduction; no terms disclosed.</p><div class="aiblk"><span class="ailabel">AI</span><div class="row"><span class="strength"><span class="pips" aria-hidden="true"><i data-band="a1"></i><i class="off"></i><i class="off"></i></span><span>Signal strength: Low</span></span></div><p class="ail">Why it matters: proceeds earmarked for debt reduction; nothing is agreed.</p></div><div class="row about"><span>About:</span><span><a href="#">Tessaly Foods</a></span></div><div class="tags"><span class="tag">M&amp;A</span><span class="tag">Consumer</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article><article class="st"><div class="mono">FW</div><div class="sb">
+<div class="by"><span class="kind"><i class="dot" style="background:var(--c2)"></i>News</span><span>Fenwick Wire</span><span class="tm">07:45</span></div>
+<h2><a href="#">Resin makers lift contract prices for a second month</a></h2><p class="sum">Producers cite feedstock costs; buyers expect to pass part of the increase through by summer.</p><div class="aiblk"><span class="ailabel">AI</span><div class="row"><span class="strength"><span class="pips" aria-hidden="true"><i data-band="a1"></i><i data-band="a3"></i><i data-band="a5"></i></span><span>Signal strength: High</span></span></div><p class="ail">Why it matters: input costs rise for packaging issuers before pass-through lands.</p></div><div class="row"><span class="avs"><b>FW</b><b>PT</b><b>CH</b></span><span>Also in 3 other sources</span></div><div class="row about"><span>About:</span><span><a href="#">Calderwick Packaging Inc.</a>,</span><span><a href="#">Tessaly Foods</a></span></div><div class="tags"><span class="tag">Resins</span><span class="tag">Costs</span></div>
+<div class="acts"><a href="#">Save</a><a href="#">Comment</a><a href="#">Share to group</a><a href="#" class="os">Open source</a></div></div></article></section>
+</main></div></body></html>
