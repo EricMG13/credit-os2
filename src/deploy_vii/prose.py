@@ -70,7 +70,23 @@ _QUANTITY = (
 # A bare year is a detached token: a percent sign after it makes a figure (1900%), as a unit
 # letter already did (1900x, 1900bn) (task 7.10 item 15), and so does a quantity word after
 # whitespace or a hyphen (2024 basis points, 2024 %, 2024-bp) (S13 A04).
-_YEAR_E = rf"(?![0-9A-Za-z%])(?!(?:\s+|-)(?:%|{_QUANTITY}))"
+# A year-shaped number is a figure too when a scale word or letter, a currency code or word, or a
+# count noun follows it ("USD 2050 m", "2050 EUR", "1950 employees"). One list of count nouns.
+_CURRENCY_CODES = (
+    "USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD|CNY|HKD|SEK|NOK|DKK|INR|BRL|MXN|ZAR|SGD|KRW|PLN|CZK|TRY"
+)
+_COUNT_NOUNS = "employees|branches|units|shares|customers|people|staff|stores|sites"
+_YEAR_SCALE = (
+    rf"(?i:m|k|bn|mn|millions?|billions?|thousands?|dollars|pounds|euros|{_COUNT_NOUNS})"
+    rf"(?![0-9A-Za-z])|(?:{_CURRENCY_CODES})(?![0-9A-Za-z])"
+)
+_YEAR_E = rf"(?![0-9A-Za-z%])(?!(?:\s+|-)(?:%|{_QUANTITY}|{_YEAR_SCALE}))"
+# A currency symbol (with or without spaces) or code before a year-shaped number makes it a figure.
+_SYMBOLS = r"$\u20ac\u00a3\u00a5"
+_YEAR_B = (
+    rf"(?<![{_SYMBOLS}])(?<![{_SYMBOLS}]\s)(?<![{_SYMBOLS}]\s\s)"
+    rf"(?<!(?:{_CURRENCY_CODES})\s)(?<!(?:{_CURRENCY_CODES})\s\s)"
+)
 _MONTH = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|"
     r"December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?"
@@ -98,7 +114,7 @@ LABELS: Mapping[str, re.Pattern[str]] = MappingProxyType(
                     rf"{_B}{_DAY} {_MONTH} {_YEAR}{_E}",
                     rf"{_B}{_MONTH} {_DAY}, {_YEAR}{_E}",
                     rf"{_B}{_YEAR}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01]){_E}",
-                    rf"(?<![$\u20ac\u00a3\u00a5]){_B}{_YEAR}{_YEAR_E}",
+                    rf"{_YEAR_B}{_B}{_YEAR}{_YEAR_E}",
                 )
             )
         ),
@@ -343,9 +359,17 @@ _FISCAL = re.compile(
     rf"(?:/({_YEAR}|[0-9]{{2}}))?{_E}"
 )
 _DATE = re.compile(rf"{_B}{_YEAR}-[0-9]{{2}}-[0-9]{{2}}{_E}")
-_PERIOD_YEAR = re.compile(rf"(?<![0-9])({_YEAR})(?![0-9])|{_B}(?:FY|CY) ?([0-9]{{2}}){_E}")
+_MONTH_DAY = rf"(?:{_DAY} {_MONTH}|{_MONTH} {_DAY},)"
+_WRITTEN_DATE = re.compile(rf"{_B}{_MONTH_DAY} {_YEAR}{_E}")
+# A year of a period text: a four-digit year, or the years of a fiscal label (FY25, FY2025/26,
+# FY25/26, FY2025/2026): the second year of a range needs no prefix of its own.
+_PERIOD_YEAR = re.compile(
+    rf"{_B}(?:FY|CY) ?(?:({_YEAR})(?:/({_YEAR}|[0-9]{{2}}))?|([0-9]{{2}})(?:/([0-9]{{2}}))?){_E}"
+    rf"|(?<![0-9])({_YEAR})(?![0-9])"
+)
 # A clause ends at sentence punctuation, a colon or a semicolon; a comma does not end it, so an
-# opening "In FY2025," still labels the figure after it.
+# opening "In FY2025," still labels the figure after it. A colon straight after a fiscal label
+# ("FY2024: revenue was ...") does not end the clause: the label labels what follows it.
 _CLAUSE_END = re.compile(r"[.!?;:](?=\s|$)")
 
 
@@ -365,7 +389,9 @@ def _fact_years(period: str | None) -> frozenset[int] | None:
     if not named:
         return None
     first = min(named)
-    if len(_DATE.findall(text)) == 1 and not _FISCAL.search(text):
+    if len(_DATE.findall(text)) + len(_WRITTEN_DATE.findall(text)) == 1 and not _FISCAL.search(
+        text
+    ):
         first -= 1
     return frozenset(range(first, max(named) + 1))
 
@@ -379,6 +405,10 @@ def _clauses(runs: Iterable[Run]) -> list[list[Run]]:
             continue
         last = 0
         for mark in _CLAUSE_END.finditer(run.text):
+            if mark.group() == ":" and any(
+                m.end() == mark.start() for m in _FISCAL.finditer(run.text)
+            ):
+                continue
             clauses[-1].append(Run(kind="text", text=run.text[last : mark.end()]))
             clauses.append([])
             last = mark.end()
