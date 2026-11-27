@@ -1,0 +1,252 @@
+"""Review fixes for the portfolio export validator (C8 fix round 1, batch A). Every export is the
+synthetic one (tools/synthetic_portfolio_exports.py); expected values are written by hand."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from deploy_vii.inputs import portfolio_export as pe
+from deploy_vii.inputs.portfolio_export import validate_export
+from tools import synthetic_portfolio_exports as synth
+
+RUN_DATE = date(2025, 3, 31)
+TOKEN = "#N/A N/A"
+FIGI, TICKER, MATURITY = 5, 0, 10  # holdings columns (HOLDING_HEADER)
+
+
+def problems(spec: synth.Spec) -> list[str]:
+    return [i.problem for i in validate_export(synth.files(spec), run_date=RUN_DATE).issues]
+
+
+def recomputed(spec: synth.Spec) -> str:
+    return "\n".join(validate_export(synth.files(spec), run_date=RUN_DATE).recomputed)
+
+
+def test_the_clean_export_has_no_findings():
+    assert problems(synth.clean()) == []
+
+
+# --- M-5: a missing maturity is not zero ---------------------------------------------------------
+
+
+def test_no_maturity_in_the_holdings_is_not_compared_as_zero():
+    spec = synth.clean()
+    for row in spec.holdings:
+        row[MATURITY] = ""
+    found = problems(spec)
+    assert not any("0.0000%" in p for p in found)
+    missing = [p for p in found if "maturity" in p and "cannot be checked" in p]
+    assert len(missing) == 1
+
+
+def test_maturity_value_is_none_without_maturities():
+    empty = pe.Profile()
+    assert pe.maturity_value(empty, 2028, None, False) is None
+    assert pe.maturity_value(empty, (pe.Decimal(0), pe.Decimal(1)), date(2025, 3, 31), True) is None
+
+
+# --- M-3: "No breach" is not a breach status -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("No breach", False),
+        ("No Breach", False),
+        ("not breached", False),
+        ("Non-breach", False),
+        ("Breach", True),
+        ("Breached", True),
+        ("In breach", True),
+        ("Pass", False),
+        ("", False),
+    ],
+)
+def test_status_classification(status, expected):
+    assert pe.is_breach_status(status) is expected
+
+
+def _monitor_row(spec: synth.Spec, ident: str) -> list:
+    return next(row for row in spec.constraints if row[0] == ident)
+
+
+def test_no_breach_status_on_a_breached_row_is_inconsistent():
+    spec = synth.clean()
+    row = _monitor_row(spec, "C-05")
+    row[3], row[6], row[7], row[8] = "≤ 20.0% NAV", "25.20%", "-5.20%", "No breach"
+    assert any("status No breach with current value 25.20%" in p for p in problems(spec))
+
+
+def test_no_breach_status_on_a_compliant_row_is_consistent():
+    spec = synth.clean()
+    _monitor_row(spec, "C-05")[8] = "No Breach"
+    assert not any("status No Breach" in p for p in problems(spec))
+
+
+def test_no_breach_status_does_not_hide_a_breach_on_the_holdings():
+    spec = synth.clean()
+    row = _monitor_row(spec, "C-01")  # the holdings give Aster 29.80%
+    row[3], row[6], row[7], row[8] = "≤ 25.0% NAV", "24.00%", "1.00%", "No breach"
+    assert any("is breached; the status says No breach" in p for p in problems(spec))
+
+
+def test_no_breach_status_does_not_hide_a_breached_sector_in_the_report():
+    spec = synth.clean()
+    synth._hidden_breach(spec)
+    synth._find(spec.exposure, "Software")[5] = "No breach"
+    assert any("a breach; the report states" in p and "No breach" in p for p in problems(spec))
+
+
+# --- M-2: an error token or N/A is not an identifier ---------------------------------------------
+
+
+def test_two_loans_with_a_figi_token_do_not_share_a_figi():
+    spec = synth.clean()
+    spec.holdings[2][FIGI] = spec.holdings[3][FIGI] = TOKEN
+    assert not any("is used on" in p for p in problems(spec))
+
+
+def test_two_borrowers_with_a_ticker_token_do_not_share_a_ticker():
+    spec = synth.clean()
+    spec.holdings[2][TICKER] = spec.holdings[3][TICKER] = TOKEN
+    assert not any("names 2 borrowers" in p for p in problems(spec))
+
+
+def test_a_borrower_with_a_real_and_a_token_ticker_has_one_ticker():
+    spec = synth.clean()
+    spec.holdings[1][TICKER] = TOKEN  # Aster Fictional Co: ASTR on row 2
+    assert not any("has 2 tickers" in p for p in problems(spec))
+
+
+def test_a_ticker_token_is_not_counted_as_a_ticker():
+    spec = synth.clean()
+    spec.holdings[2][TICKER] = spec.holdings[3][TICKER] = TOKEN
+    assert "tickers: 4;" in recomputed(spec)  # ASTR, DUNE, ELMI, FERN
+
+
+# --- M-1: a one-cell data row is not a section title ---------------------------------------------
+
+
+def test_a_summary_row_naming_a_sector_does_not_start_the_sector_section():
+    spec = synth.clean()
+    synth._find(spec.exposure, "Max Single Sector")[1:] = [""]
+    found = pe.sections(list(enumerate(spec.exposure, start=1)))
+    assert found["sectors"].title == "C. Top 20 Sectors"
+    assert [row[0] for _, row in found["sectors"].rows][:2] == ["Software", "Healthcare"]
+
+
+# --- M-4: the holdings columns are the Holdings sheet's ------------------------------------------
+
+
+def test_market_data_does_not_replace_the_holdings_columns():
+    spec = synth.clean()
+    # Market Data carries a Holdings column of its own but no sector column on the holdings sheet.
+    files = synth.files(spec)
+    export = pe.read_export(files)
+    assert export.holding_columns["par"] == 17  # the Holdings sheet's last column
+    assert "sector" in export.holding_columns
+
+
+def test_the_holdings_header_without_a_sector_is_reported_when_market_data_has_one():
+    spec = synth.clean()
+    files = synth.files(spec)
+    import io
+
+    from openpyxl import load_workbook
+
+    book = load_workbook(io.BytesIO(files[synth.HOLDINGS]))
+    book["Holdings"].cell(row=1, column=3).value = "Group"  # no sector column
+    market = book["Market Data"]
+    market.cell(row=1, column=18).value = "Quantity"  # a par column on Market Data
+    out = io.BytesIO()
+    book.save(out)
+    files[synth.HOLDINGS] = out.getvalue()
+    found = [i.problem for i in validate_export(files, run_date=RUN_DATE).issues]
+    assert "the holdings header has no column for sector" in found
+
+
+# --- M-9: a negated investment-grade label is not IG ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "bucket"),
+    [
+        ("Below Investment Grade", None),
+        ("Sub-IG", None),
+        ("Non-Investment Grade (BB+ and below)", "BB"),
+        ("Non-IG", None),
+        ("Investment Grade", "IG"),
+        ("IG", "IG"),
+        ("BBB", "IG"),
+        ("BB", "BB"),
+    ],
+)
+def test_label_bucket_negated_investment_grade(label, bucket):
+    assert pe.label_bucket(label) == bucket
+
+
+# --- M-6: parameter wording is matched without regard to case ------------------------------------
+
+
+def _set_parameter(spec: synth.Spec, ident: str, parameter: str) -> None:
+    _monitor_row(spec, ident)[2] = parameter
+
+
+def test_an_ordinal_sector_in_capitals_is_the_second_largest():
+    spec = synth.clean()
+    _set_parameter(spec, "C-04", "2nd Largest Sector: Healthcare")  # holdings give 35.10%
+    assert not any("largest sector (Software)" in p for p in problems(spec))
+
+
+def test_a_named_issuer_in_capitals_is_checked_against_the_named_issuer():
+    spec = synth.clean()
+    _set_parameter(spec, "C-01", "Max single issuer exposure (Largest: Birch)")
+    assert any("Birch" in p for p in problems(spec))
+
+
+# --- M-7: a headroom is the difference of two rounded figures ------------------------------------
+
+
+def test_headroom_may_differ_by_the_rounding_of_the_limit_and_the_current_value():
+    spec = synth.clean()
+    row = _monitor_row(spec, "C-01")
+    row[3], row[6], row[7] = "≤ 30.0% NAV", "29.8%", "0.16%"  # 30.0 less 29.8 is 0.2, give or take
+    assert not any("headroom 0.16%" in p for p in problems(spec))
+
+
+def test_headroom_beyond_that_rounding_is_still_reported():
+    spec = synth.clean()
+    row = _monitor_row(spec, "C-01")
+    row[3], row[6], row[7] = "≤ 30.0% NAV", "29.8%", "0.5%"
+    assert any("headroom 0.5% is not the limit" in p for p in problems(spec))
+
+
+def test_the_average_price_may_differ_by_the_rounding_of_the_stated_nav_and_par():
+    spec = synth.clean()
+    synth._set(spec.exposure, "NAV", 1, "USD 98.6m")  # 98.6 over 100.0, each give or take 0.05
+    synth._set(spec.exposure, "Total Par", 1, "USD 100.0m")
+    synth._set(spec.exposure, "Weighted Average Price", 1, "98.650")
+    assert not any("stated NAV over the stated par" in p for p in problems(spec))
+
+
+def test_the_average_price_far_from_nav_over_par_is_still_reported():
+    spec = synth.clean()
+    synth._set(spec.exposure, "NAV", 1, "USD 98.6m")
+    synth._set(spec.exposure, "Total Par", 1, "USD 100.0m")
+    synth._set(spec.exposure, "Weighted Average Price", 1, "99.500")
+    assert any("stated NAV over the stated par" in p for p in problems(spec))
+
+
+# --- M-8: Ã is mojibake only before a continuation byte ------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["SÃO PAULO TRANSPORTE", "Ãlvaro Corp", "ÃRVORE SA"])
+def test_a_name_with_a_capital_a_tilde_is_not_mojibake(name):
+    assert pe.MOJIBAKE.search(name) is None
+
+
+@pytest.mark.parametrize("name", ["CafÃ© SA", "ZÃ¼rich AG", "Ã€ Corp", "Sociâ€™s", "Ã\u0081 Corp"])
+def test_utf8_read_as_latin_1_is_mojibake(name):
+    assert pe.MOJIBAKE.search(name) is not None
