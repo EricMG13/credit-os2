@@ -30,7 +30,7 @@ export type FigureKind = LeadKind;
 /** The bottom line as the module wrote it: the passage's first paragraph, else its summary. */
 export type BottomLineSource =
   | { kind: "passage"; block: TextBlock; rest: TextBlock[] }
-  | { kind: "summary"; text: string; rest: string; line: number }
+  | { kind: "summary"; text: string; line: number }
   | null;
 
 /** A reader section drawn on the page: its prose, and the typed tables drawn with it. */
@@ -61,8 +61,20 @@ function bottomLineOf(entry: OutputEntry, passage: Section | undefined): BottomL
   if (first) return { kind: "passage", block: first, rest };
   const summary = entry.output.summary;
   if (!summary || containsReference(summary.bottomLine)) return null;
-  const limitation = containsReference(summary.limitation) ? "" : summary.limitation;
-  return { kind: "summary", text: summary.bottomLine, rest: limitation, line: summary.line };
+  return { kind: "summary", text: summary.bottomLine, line: summary.line };
+}
+
+/**
+ * The module's own summary limitation, for the Limitations tile, where the page drew its summary
+ * as the bottom line (the Bottom line passage held no paragraph). One that cites a source is left
+ * to Evidence.
+ */
+function summaryLimitation(entry: OutputEntry, bottomLine: BottomLineSource) {
+  const summary = entry.output.summary;
+  if (bottomLine?.kind !== "summary" || !summary) return undefined;
+  const text = summary.limitation.trim();
+  if (!text || containsReference(text)) return undefined;
+  return { text, line: summary.line };
 }
 
 const wordCount = (paragraphs: TextBlock[]) =>
@@ -84,6 +96,7 @@ function proseSection(
   section: Section,
   role: string,
   typedTables: boolean,
+  pathway?: string | null,
 ): ProseSection | null {
   if (heldInEvidence(section.heading, role)) return null;
   // The handoff's own section: the finding blocks leave out a coded section's plain tables.
@@ -93,7 +106,7 @@ function proseSection(
   if (typed.length !== tables.length) return null;
   const paragraphs = role === "registers" ? [] : textBlocks(section).filter(readable);
   if (!paragraphs.length && !typed.length) return null;
-  const title = readableTitle(section.heading, "Untitled section");
+  const title = readableTitle(section.heading, "Untitled section", pathway);
   return { section, title, paragraphs, typed, words: wordCount(paragraphs) };
 }
 
@@ -103,7 +116,7 @@ const KIND_OF_DRAWING: [RegExp, FigureKind][] = [
 ];
 
 /** Drawing sections with prose and no table: the module's words for a visual it did not draw. */
-function drawingGaps(entry: OutputEntry): DrawingGap[] {
+function drawingGaps(entry: OutputEntry, pathway?: string | null): DrawingGap[] {
   return classifySections(entry.sections).flatMap(({ section, role }) => {
     if (role !== "drawing" || section.blocks.some((block) => block.type === "table")) return [];
     const blocks = textBlocks(section).filter(readable);
@@ -111,7 +124,7 @@ function drawingGaps(entry: OutputEntry): DrawingGap[] {
     const kind = KIND_OF_DRAWING.find(([prefix]) => prefix.test(section.heading))?.[1] ?? "figures";
     return [
       {
-        title: readableTitle(section.heading, "Untitled figure"),
+        title: readableTitle(section.heading, "Untitled figure", pathway),
         kind,
         blocks,
         line: section.line,
@@ -216,7 +229,13 @@ export function moduleFrame(
   {
     figureTableLines = [],
     typedTables = true,
-  }: { figureTableLines?: readonly number[]; typedTables?: boolean } = {},
+    pathway,
+  }: {
+    figureTableLines?: readonly number[];
+    typedTables?: boolean;
+    /** The run's pathway, which names its modules. */
+    pathway?: string | null;
+  } = {},
 ) {
   const slots = passages(entry.sections);
   const slotLines = new Set(slots.map(({ line }) => line));
@@ -245,7 +264,8 @@ export function moduleFrame(
   const prose = found
     .filter((section) => !slotLines.has(section.line))
     .flatMap(
-      (section) => proseSection(entry, section, roles.get(section.line) ?? "", typedTables) ?? [],
+      (section) =>
+        proseSection(entry, section, roles.get(section.line) ?? "", typedTables, pathway) ?? [],
     );
   const charts = drawingLines(entry, figureTableLines);
   const charted = slots
@@ -265,7 +285,8 @@ export function moduleFrame(
       }),
     ) as Partial<Record<(typeof PASSAGE_NAMES)[number], Section>>,
     prose,
-    drawingGaps: drawingGaps(entry),
+    drawingGaps: drawingGaps(entry, pathway),
+    summaryLimitation: summaryLimitation(entry, bottomLine),
     basis: basisOf(entry),
     missing: missingPassages(entry, bottomLine ? [...drawn, "Bottom line"] : drawn),
     parseError: entry.output.parseError,

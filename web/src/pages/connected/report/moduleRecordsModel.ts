@@ -5,6 +5,7 @@ import {
   classifySections,
   containsReference,
   readerText,
+  withoutReferences,
   displayColumns,
   methodNote,
   type Block,
@@ -108,7 +109,7 @@ function sectionNotes(section: Section) {
  * The module's tables for its records region, by kind, in handoff order; and the registers held
  * in Evidence. Every table of a reader section lands in exactly one of the two.
  */
-export function moduleRecords(entry: OutputEntry) {
+export function moduleRecords(entry: OutputEntry, pathway?: string | null) {
   const charted = drawingLines(entry);
   const titles = descriptorTitles(entry);
   const tables: RecordTable[] = [];
@@ -118,7 +119,7 @@ export function moduleRecords(entry: OutputEntry) {
     if (section.screen) continue;
     const own = section.blocks.filter((block): block is Table => block.type === "table");
     const drawn = registerBlocks(section, entry);
-    const title = readableTitle(section.heading);
+    const title = readableTitle(section.heading, undefined, pathway);
     for (const table of own) {
       const kind = charted.has(table.line)
         ? "charts"
@@ -132,7 +133,7 @@ export function moduleRecords(entry: OutputEntry) {
       const named = titles.get(table.line);
       tables.push({
         kind,
-        title: named === undefined ? title : readableTitle(named),
+        title: named === undefined ? title : readableTitle(named, undefined, pathway),
         section,
         table,
         notes: sectionNotes(section),
@@ -186,7 +187,7 @@ const CITATION = new RegExp(
  * before a conjunction or verb, an empty bracket, a space or a second mark after punctuation, a
  * stray possessive, or a sentence that opens on punctuation. */
 const UNCLEAN =
-  /\b(?:in|per|see|from|of|by|at|to|and|or|with|on|under|cf|not|no|nor|only|both|than|unlike|excluding|including|because|between)\s*(?=[,;:.!?)]|$)|\b(?:in|per|see|from|of|by|at|to|with|on|under)\s+(?:and|or|but|so|is|are|was|were)\b|\(\s*\)|\s[,;:.!?]|[,;:]\s*[.;:!?]|(?:^|\s)['\u2019]|^[,;:.]/gi;
+  /\b(?:in|per|see|from|of|by|at|to|and|or|with|on|under|cf|not|no|nor|only|both|than|unlike|excluding|including|because|between|is|are|was|were|be|been|has|have|had)\s*(?=[,;:.!?)]|$)|\b(?:in|per|see|from|of|by|at|to|with|on|under)\s+(?:and|or|but|so|is|are|was|were)\b|\(\s*\)|\s[,;:.!?]|[,;:]\s*[.;:!?]|(?:^|\s)['\u2019]|^[,;:.]/gi;
 /** Whether the cut added a mark of a broken sentence the module's own text did not have. */
 const brokenBy = (cut: string, text: string) =>
   [...cut.matchAll(UNCLEAN)].length > [...text.matchAll(UNCLEAN)].length;
@@ -199,7 +200,7 @@ export const holdsCode = (text: string) => ANY_CODE.test(text);
  * with its bracket or the word that cites it. Empty, so the surface links to Evidence, where a
  * code stands in the sentence itself, where more than one in/from citation is cut, or where the
  * cut leaves no clean sentence. */
-export function proseWithoutMachinery(text: string) {
+export function proseWithoutMachinery(text: string, pathway?: string | null) {
   let located = 0;
   const codeless = text
     .replace(POSSESSIVE_CODE, "()")
@@ -216,7 +217,7 @@ export function proseWithoutMachinery(text: string) {
     .trim();
   if (!bare || containsReference(bare)) return "";
   const cut = unmask(bare);
-  return brokenBy(cut, text) ? "" : readerText(cut);
+  return brokenBy(cut, text) ? "" : readerText(cut, pathway);
 }
 
 /** A figure before a magnitude word ("P2.5 billion") reads to the page-citation test as a page. */
@@ -252,16 +253,51 @@ export function withoutReference(title: string) {
   return words.join(" ").replace(LOOSE_END, "");
 }
 
+/** A cell's own words where the page draws them without the source: its sentences that cite none
+ * (the rule a table's cell follows) or, for a sentence that cites only in a bracket ("Net leverage
+ * <= 4.5x (credit_agreement.pdf cl. 12)"), the sentence without that bracket. Empty where the cell
+ * is nothing but a reference. */
+export function cellWords(cell: string) {
+  if (!containsReference(cell)) return cell;
+  const sentences = withoutReferences(cell);
+  if (sentences) return sentences;
+  const bare = cell
+    .replace(PARENTHESISED, (group) => (containsReference(group) ? "" : group))
+    .replace(/\s{2,}/g, " ")
+    .replace(LOOSE_END, "")
+    .trim();
+  return containsReference(bare) ? "" : bare;
+}
+
+/** The table with each cell that cites a source inside words of its own holding those words alone,
+ * so the page draws them (the source is on the row's trace); a cell that is only a reference stays. */
+export function tableWithCellWords(table: Table): Table {
+  return {
+    ...table,
+    rows: table.rows.map((row) => ({
+      ...row,
+      cells: row.cells.map((cell) => {
+        if (!containsReference(cell) || withoutReferences(cell)) return cell;
+        return cellWords(cell) || cell;
+      }),
+    })),
+  };
+}
+
 /** A heading as the reader sees it: no drawing prefix or register code, module names for codes,
  * and the title's own words without the source it cites, which belongs in Evidence. */
-export function readableTitle(heading: string, untitled = "Untitled table") {
+export function readableTitle(
+  heading: string,
+  untitled = "Untitled table",
+  pathway?: string | null,
+) {
   const plain = plainText(heading);
   const bare = MACHINE_KEY.test(heading.trim())
     ? heading.trim().replace(MACHINE_PREFIX, "").replace(/[_.]+/g, " ")
     : null;
   // The key's module prefix names where the table came from: "cp1_references" is that module's references.
   const from = /^cp(\d[a-z0-9]*|dr)?(?=[._])/.exec(heading.trim().toLowerCase());
-  const owner = from ? moduleCodeName(`CP-${(from[1] ?? "").toUpperCase()}`) : null;
+  const owner = from ? moduleCodeName(`CP-${(from[1] ?? "").toUpperCase()}`, pathway) : null;
   const key =
     bare === null
       ? null
@@ -277,17 +313,17 @@ export function readableTitle(heading: string, untitled = "Untitled table") {
   // A title left after its code begins with a capital ("TDR.3 limitations" → "Limitations") where
   // its first word is all lower-case ("iPhone revenue" stays);
   // drawingTitle takes the code too, so the test reads the heading without its drawing prefix.
-  const coded = wordsOfIds(
+  const capitalised =
     (lead || REGISTER_CODE.test(plainText(heading).replace(DRAWING_PREFIX, ""))) &&
-      /^[a-z]+(?=\s|$)/.test(stripped)
+    /^[a-z]+(?=\s|$)/.test(stripped)
       ? stripped.charAt(0).toUpperCase() + stripped.slice(1)
-      : stripped,
-  );
+      : stripped;
   // A leading name such as "P3 programme" reads to the page-citation test as "p 3": a name, not
-  // a source, when the rest of the title cites none.
-  const name = LEADING_NAME.exec(coded)?.[0] ?? "";
-  const rest = coded.slice(name.length);
-  const title = readerText(name + withoutReference(rest)).trim();
+  // a source, when the rest of the title cites none. The cited source goes before the ids are
+  // worded, so "credit_agreement.pdf" is removed whole and not left as "credit agreement.pdf".
+  const name = LEADING_NAME.exec(capitalised)?.[0] ?? "";
+  const rest = capitalised.slice(name.length);
+  const title = readerText(wordsOfIds(name + withoutReference(rest)), pathway).trim();
   return title && !containsReference(title.slice(name.length)) ? title : untitled;
 }
 
@@ -572,12 +608,12 @@ export function barExclusions(table: Table, title = "") {
 const WHY = { total: "totals and rows below them", marked: "not additive" } as const;
 
 /** The line under a barred table: one scale per column, and the rows without a bar by reason. */
-export function scaleNote(table: Table, title = "") {
+export function scaleNote(table: Table, title = "", pathway?: string | null) {
   const left = excluded(table, title);
   const parts = (["total", "marked"] as const).flatMap((reason) => {
     const names = left
       .filter((item) => item.reason === reason && item.name)
-      .map(({ name }) => readerText(name));
+      .map(({ name }) => readerText(name, pathway));
     return names.length ? [` No bar (${WHY[reason]}): ${names.join(", ")}.`] : [];
   });
   return `Bars: one scale per column.${parts.join("")}`;

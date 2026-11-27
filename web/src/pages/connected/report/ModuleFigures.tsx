@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { cx } from "@/utils/cx";
 import { evidencePath, type OutputEntry, type PublishedRun } from "../publishedReport";
+import { readableTitle } from "./moduleRecordsModel";
 import { runMoneyUnit, type ReportView } from "../reportView";
 import { LegacyVisuals } from "../visuals";
 import { BreakPoints, breakPointView } from "./BreakPoints";
@@ -57,11 +58,13 @@ function drawingCell(
   folder: string,
   slot: "charts" | "events" | "maps",
   descriptor: Record<string, unknown> & { table: number },
+  pathway?: string | null,
 ): Cell {
   const named = [descriptor.title, descriptor.lane, descriptor.name].find(
     (value) => typeof value === "string",
   );
-  const title = typeof named === "string" ? named : "Figure";
+  // A drawing's name is the module's own words, without the file or page it cites.
+  const title = readableTitle(typeof named === "string" ? named : "Figure", "Figure", pathway);
   const output = {
     ...entry.output,
     charts: [],
@@ -99,11 +102,12 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
  * list, across the row, so the same dates never look like two different things on two modules.
  */
 function laneCell(entry: OutputEntry, run: PublishedRun, lane: string, table: number): Cell {
-  const title = Object.hasOwn(LANE_TITLES, lane)
+  const named = Object.hasOwn(LANE_TITLES, lane)
     ? (LANE_TITLES[lane] ?? lane)
     : /dates$/i.test(lane)
       ? capital(lane)
       : `${capital(lane)} dates`;
+  const title = readableTitle(named, "Dated events", run.pathway);
   return {
     key: `events-${String(table)}`,
     node: () => (
@@ -121,7 +125,7 @@ function laneCell(entry: OutputEntry, run: PublishedRun, lane: string, table: nu
 
 /** A relationship map the lead does not draw, as the leads draw theirs: the chain and its table. */
 function mapCell(entry: OutputEntry, run: PublishedRun, name: string, table: number): Cell {
-  const title = capital(name);
+  const title = readableTitle(capital(name), "Relationship map", run.pathway);
   return {
     key: `maps-${String(table)}`,
     node: () => (
@@ -173,7 +177,9 @@ function typedCells(
         ]
       : []),
     // The portfolio limits are drawn only when attested against the mandate; LegacyVisuals says so.
-    ...limits.map((descriptor) => drawingCell(entry, run.folder, "charts", descriptor)),
+    ...limits.map((descriptor) =>
+      drawingCell(entry, run.folder, "charts", descriptor, run.pathway),
+    ),
   ];
 }
 
@@ -203,14 +209,14 @@ export function ModuleFigures({
       ? drawable(entry, entry.output.events).map((item) =>
           typeof item.lane === "string"
             ? laneCell(entry, run, item.lane, item.table)
-            : drawingCell(entry, run.folder, "events", item),
+            : drawingCell(entry, run.folder, "events", item, run.pathway),
         )
       : []),
     ...(kinds.has("maps")
       ? drawable(entry, entry.output.maps).map((item) =>
           typeof item.name === "string"
             ? mapCell(entry, run, item.name, item.table)
-            : drawingCell(entry, run.folder, "maps", item),
+            : drawingCell(entry, run.folder, "maps", item, run.pathway),
         )
       : []),
     // A drawing section the module wrote as prose with no table carries the module's own reason:
@@ -219,7 +225,13 @@ export function ModuleFigures({
       key: `gap-${String(gap.line)}`,
       short: true,
       node: (span: 6 | 12) => (
-        <DrawingGapTile gap={gap} entry={entry} folder={run.folder} span={span} />
+        <DrawingGapTile
+          gap={gap}
+          entry={entry}
+          folder={run.folder}
+          span={span}
+          pathway={run.pathway}
+        />
       ),
     })),
   ];

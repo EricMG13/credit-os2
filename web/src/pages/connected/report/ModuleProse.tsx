@@ -131,11 +131,13 @@ export function DrawingGapTile({
   entry,
   folder,
   span,
+  pathway,
 }: {
   gap: DrawingGap;
   entry: OutputEntry;
   folder: string;
   span: 6 | 12;
+  pathway?: string | null;
 }) {
   return (
     <Tile
@@ -145,10 +147,10 @@ export function DrawingGapTile({
       title={<span className="first-letter:uppercase">{gap.title}</span>}
     >
       {gap.blocks.map((block) => {
-        const text = proseWithoutMachinery(readParagraph(block.text).body);
+        const text = proseWithoutMachinery(readParagraph(block.text).body, pathway);
         // The module's words as written; hatched only where they state a gap.
         const words = text ? (
-          richParts(text, readerText)
+          richParts(text, (words) => readerText(words, pathway))
         ) : (
           <Button
             href={evidencePath(folder, entry, block.line)}
