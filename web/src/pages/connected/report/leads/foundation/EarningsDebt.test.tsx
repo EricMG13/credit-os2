@@ -93,14 +93,14 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
     expect(Number(tick?.getAttribute("x"))).toBeCloseTo(zero, 6);
   });
 
-  it("draws earnings blue and gross debt plum, with debt's own legend entry", () => {
+  it("draws earnings in category 3 and gross debt in category 4, with debt's own legend entry", () => {
     const tile = draw();
     const current = (label: string) =>
       tile.querySelector(`[data-row="${label}"] [data-current]`)?.getAttribute("class");
-    expect(current("Revenue")).toContain("fill-chart-1");
-    expect(current("EBITDA (Reported)")).toContain("fill-chart-1");
-    expect(current("Adjusted EBITDA")).toContain("fill-chart-1");
-    expect(current("Gross debt")).toContain("fill-chart-2");
+    expect(current("Revenue")).toContain("fill-category-3");
+    expect(current("EBITDA (Reported)")).toContain("fill-category-3");
+    expect(current("Adjusted EBITDA")).toContain("fill-category-3");
+    expect(current("Gross debt")).toContain("fill-category-4");
     expect(tile.textContent).toContain("FY2023");
     expect(tile.textContent).toContain("FY2024 earnings");
     expect(tile.textContent).toContain("FY2024 gross debt");
@@ -347,7 +347,7 @@ describe("Earnings and debt: three or more periods, gaps and absences", () => {
   });
 });
 
-describe("Dumbbell series (the one kit extension)", () => {
+describe("Dumbbell series and category (the two kit extensions)", () => {
   const periods = { prior: "FY2023", current: "FY2024" };
   const pair = { prior: { value: 1, text: "1" }, current: { value: 2, text: "2" } };
   it("draws a secondary row's current dot plum and marks it; a plain row stays blue and unmarked", () => {
@@ -369,6 +369,30 @@ describe("Dumbbell series (the one kit extension)", () => {
     expect(dot("B")?.getAttribute("class")).toContain("fill-chart-2");
     expect(dot("B")?.getAttribute("data-series")).toBe("secondary");
     expect(dot("C")?.getAttribute("class")).toContain("fill-chart-1");
+  });
+  it("draws a category row's current dot in that category and marks it; worse still wins", () => {
+    render(
+      <Dumbbell
+        width={640}
+        unit="US$m"
+        periods={periods}
+        rows={[
+          { label: "E", ...pair, category: 3 },
+          { label: "F", ...pair, series: "secondary", category: 4 },
+          { label: "G", ...pair, category: 5, tone: "worse", note: "up, worse" },
+          { label: "H", ...pair, series: "secondary" },
+        ]}
+      />,
+    );
+    const dot = (label: string) => document.querySelector(`[data-row="${label}"] [data-current]`);
+    expect(dot("E")?.getAttribute("class")).toContain("fill-category-3");
+    expect(dot("E")?.getAttribute("data-category")).toBe("3");
+    expect(dot("F")?.getAttribute("class")).toContain("fill-category-4");
+    expect(dot("F")?.getAttribute("data-series")).toBe("secondary");
+    expect(dot("G")?.getAttribute("class")).toContain("fill-warning-mark");
+    expect(dot("G")?.getAttribute("class")).not.toContain("category");
+    expect(dot("H")?.getAttribute("class")).toContain("fill-chart-2");
+    expect(dot("H")?.hasAttribute("data-category")).toBe(false);
   });
   it("keeps the signal colour for a worse row whatever its series", () => {
     render(
@@ -418,6 +442,51 @@ describe("a change prints only a year apart (L2)", () => {
       (cell) => cell.textContent,
     );
     expect(headers).toEqual(["Measure", "FY2022", "FY2024"]);
+  });
+});
+
+describe("earnings and debt colours in every layout (colour-signal-build ruling C6)", () => {
+  it("draws one period's bars in category 3 for earnings and 4 for gross debt", () => {
+    const tile = draw(relativeValueCp1Entry());
+    const bars = [...tile.querySelectorAll("rect[data-bar]")];
+    expect(bars.length).toBeGreaterThan(1);
+    for (const bar of bars) {
+      const debt = bar.getAttribute("data-bar") === "Gross debt";
+      expect(bar).toHaveClass(debt ? "fill-category-4" : "fill-category-3");
+    }
+    expect(bars.some((bar) => bar.getAttribute("data-bar") === "Gross debt")).toBe(true);
+    expect(bars.some((bar) => bar.getAttribute("data-bar") !== "Gross debt")).toBe(true);
+  });
+  // Synthetic: the accepted handoff with a third period added (fixtures/mutations.ts).
+  it("draws a several-period panel's line and points in category 3 or 4 by series", () => {
+    const tile = draw(threePeriodCp1());
+    const panels = [...tile.querySelectorAll("[data-panel]")];
+    expect(panels.length).toBeGreaterThan(1);
+    for (const panel of panels) {
+      const debt = panel.getAttribute("data-panel") === "Gross debt";
+      const [segment] = panel.querySelectorAll("[data-segment]");
+      const [point] = panel.querySelectorAll("[data-point]");
+      expect(segment).toHaveClass(debt ? "stroke-category-4" : "stroke-category-3");
+      expect(point).toHaveClass(debt ? "fill-category-4" : "fill-category-3");
+    }
+    expect(panels.some((panel) => panel.getAttribute("data-panel") === "Gross debt")).toBe(true);
+  });
+  it("draws the legend swatches in the same two categories", () => {
+    const swatches = (tile: HTMLElement) =>
+      [...tile.querySelectorAll("[data-legend] [data-swatch]")].map((node) =>
+        node.getAttribute("class"),
+      );
+    const two = swatches(draw());
+    expect(two).toContainEqual(expect.stringContaining("fill-category-3"));
+    expect(two).toContainEqual(expect.stringContaining("fill-category-4"));
+    cleanup();
+    const one = swatches(draw(relativeValueCp1Entry()));
+    expect(one).toContainEqual(expect.stringContaining("fill-category-3"));
+    expect(one).toContainEqual(expect.stringContaining("fill-category-4"));
+    cleanup();
+    const three = swatches(draw(threePeriodCp1()));
+    expect(three).toContainEqual(expect.stringContaining("stroke-category-3"));
+    expect(three).toContainEqual(expect.stringContaining("stroke-category-4"));
   });
 });
 
