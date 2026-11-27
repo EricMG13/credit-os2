@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Figure, Well } from "../report/overview/Tile";
 import { serviceText, type CustomEstimate } from "../api";
 import { shownCapText } from "./intake";
+import { CapBandKey, CapReading, Meter } from "../runMeter";
 import { ESTIMATE_LABEL } from "./customSelection";
 
 /** "A, B and C": module names run together as a sentence. */
@@ -21,12 +22,15 @@ export function EstimateFigures({
   sum,
   hold,
   cap,
+  ceiling = null,
   children,
 }: {
   sum: number;
   hold: number;
   /** Whole USD, or null when the table gives no ceiling to compute it against. */
   cap: number | null;
+  /** Whole USD, the most a custom run may spend; the meter is drawn only when it is above 0. */
+  ceiling?: number | null;
   /** What goes under the figures in the same region (the review's line for each module). */
   children?: ReactNode;
 }) {
@@ -62,9 +66,35 @@ export function EstimateFigures({
             </dd>
           </div>
         </dl>
+        {ceiling !== null && Number.isFinite(ceiling) && ceiling > 0 && (
+          <SpendMeter sum={sum} hold={hold} ceiling={ceiling} />
+        )}
       </Well>
       {children}
     </section>
+  );
+}
+
+/** Sum and hold, added in cents, against the most a custom run may spend. */
+function SpendMeter({ sum, hold, ceiling }: { sum: number; hold: number; ceiling: number }) {
+  const total = (Math.round(sum * 100) + Math.round(hold * 100)) / 100;
+  return (
+    <div className="grid gap-1.5">
+      <p className="text-caption text-text-secondary">
+        Sum and hold against the most a custom run may spend, {money(ceiling)}
+      </p>
+      <div className="flex items-center gap-2">
+        <Meter
+          value={total}
+          max={ceiling}
+          name="Estimate against the most a custom run may spend"
+          valueText={`${money(total)} of ${money(ceiling)}, the most a custom run may spend`}
+          limit
+        />
+        <CapReading value={total} max={ceiling} />
+      </div>
+      <CapBandKey />
+    </div>
   );
 }
 

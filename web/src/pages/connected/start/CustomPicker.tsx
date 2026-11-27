@@ -64,7 +64,12 @@ export function CustomPicker({ view }: { view: IntakeView }) {
         ))}
       </div>
       {total ? (
-        <EstimateFigures sum={total.sumCents / 100} hold={total.holdCents / 100} cap={total.cap}>
+        <EstimateFigures
+          sum={total.sumCents / 100}
+          hold={total.holdCents / 100}
+          cap={total.cap}
+          ceiling={ceiling}
+        >
           <p className="mt-2 text-caption text-text-secondary">{CAPTION}</p>
         </EstimateFigures>
       ) : (

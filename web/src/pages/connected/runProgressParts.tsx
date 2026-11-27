@@ -4,7 +4,7 @@ import type { PipelineNode, PipelineStage, PipelineState } from "@/components/pi
 import type { Figure as RunFigure, ModuleStep, ModuleWord } from "../run/slice-activity";
 import { Figure, GapNote, Well } from "./report/overview/Tile";
 import { byStage } from "./report/stages";
-import { Meter } from "./runMeter";
+import { CapBandKey, CapReading, Meter } from "./runMeter";
 
 const REPORT = "Report";
 
@@ -101,13 +101,17 @@ export function SpendBlock({
           <span className="text-small text-text-tertiary">{spend.note}</span>
         ) : (
           <>
-            <Meter
-              value={spend.bar.value}
-              max={spend.bar.max}
-              name="Spend against cap"
-              valueText={spend.bar.label}
-              limit
-            />
+            <div className="flex items-center gap-2">
+              <Meter
+                value={spend.bar.value}
+                max={spend.bar.max}
+                name="Spend against cap"
+                valueText={spend.bar.label}
+                limit
+              />
+              <CapReading value={spend.bar.value} max={spend.bar.max} />
+            </div>
+            <CapBandKey />
             {parts.settled !== null && parts.held !== null && (
               <dl className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-text-secondary">
                 {[
