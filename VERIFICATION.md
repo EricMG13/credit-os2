@@ -987,3 +987,10 @@ then 5; the narrow layout and the controls listed below.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
 
+## 2026-11-27 Credit OS2 development route
+
+- Local Codex used the ChatGPT subscription and resolved GPT-6.2 Astra at medium effort.
+  A disposable worker run reserved zero units, wrote the exact file in its own worktree and
+  passed acceptance. The approved base was cb0a438f, and the worker checkout was 42e4be2b.
+- Tests reject API-key billing, incompatible account types and a previously saved Astra high
+  route before a worker is admitted. The live Fable test requires Claude authentication.

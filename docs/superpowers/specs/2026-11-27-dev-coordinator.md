@@ -1,6 +1,10 @@
 # Credit OS2 development coordinator
 Revised operating specification · 27 November 2026 · pilot scope is software development in EricMG13/credit-os2. CP-OS continues to own paid issuer workflows. Project policy applies to the development coordinator in the initiating Claude or Codex session.
 
+Use subscription access for development workers and reviewers. Use Astra at medium effort on
+Codex and Fable at medium effort on Claude when those models are selected. If the approved
+subscription route cannot be verified or has no capacity, queue that work and report the reason.
+
 ## The user contract
 
 1. Type `/dev <outcome>` or “start the development loop”. The coordinator identifies repository, checkout, remote base, active spec, relevant rulings, current behavior and intended deliverable. If several projects or decisions fit, it names the ambiguity. Read-only research, design exploration and spec requests may end with their requested output. Ordinary questions do not start writers.

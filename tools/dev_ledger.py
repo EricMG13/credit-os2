@@ -29,7 +29,9 @@ def connect(path: Path) -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS runs (
             id TEXT PRIMARY KEY, spec TEXT NOT NULL, plan TEXT NOT NULL,
             cap INTEGER NOT NULL CHECK(cap >= 0), workers INTEGER NOT NULL CHECK(workers > 0),
-            revision INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL DEFAULT 'approved',
+            base_sha TEXT,
+            revision INTEGER NOT NULL DEFAULT 1,
+            state TEXT NOT NULL DEFAULT 'approved',
             created INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS dispatch_policies (
@@ -63,6 +65,9 @@ def connect(path: Path) -> sqlite3.Connection:
         );
         """
     )
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(runs)")}
+    if "base_sha" not in columns:
+        db.execute("ALTER TABLE runs ADD COLUMN base_sha TEXT")
     return db
 
 
@@ -84,7 +89,7 @@ def start_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         raise ValueError("cap must be non-negative and workers positive")
     db.execute("BEGIN IMMEDIATE")
     previous = db.execute(
-        """SELECT spec, plan, cap, workers, expires, policy, revision, state FROM runs
+        """SELECT spec, plan, cap, workers, expires, policy, base_sha, revision, state FROM runs
            LEFT JOIN deadlines ON deadlines.run=runs.id
            LEFT JOIN dispatch_policies ON dispatch_policies.run=runs.id WHERE runs.id=?""",
         (args.run,),
@@ -98,8 +103,9 @@ def start_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
             args.workers,
             getattr(args, "deadline", None),
             policy,
+            getattr(args, "base_sha", None),
         )
-        if tuple(previous)[:6] != identity:
+        if tuple(previous)[:7] != identity:
             raise ValueError("run ID already used with different approval")
         db.rollback()
         emit(
@@ -118,8 +124,16 @@ def start_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     elif args.cap > limits["cap"] or args.workers > limits["workers"]:
         raise ValueError("run exceeds approved project-wide limits")
     db.execute(
-        "INSERT INTO runs(id,spec,plan,cap,workers,created) VALUES(?,?,?,?,?,?)",
-        (args.run, args.spec, args.plan, args.cap, args.workers, int(time.time())),
+        "INSERT INTO runs(id,spec,plan,cap,workers,base_sha,created) VALUES(?,?,?,?,?,?,?)",
+        (
+            args.run,
+            args.spec,
+            args.plan,
+            args.cap,
+            args.workers,
+            getattr(args, "base_sha", None),
+            int(time.time()),
+        ),
     )
     if getattr(args, "deadline", None) is not None:
         if args.deadline <= int(time.time()):
@@ -127,7 +141,17 @@ def start_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         db.execute("INSERT INTO deadlines VALUES(?,?)", (args.run, args.deadline))
     if policy is not None:
         db.execute("INSERT INTO dispatch_policies VALUES(?,?)", (args.run, policy))
-    event(db, args.run, "start", "run", {"spec": args.spec, "plan": args.plan})
+    event(
+        db,
+        args.run,
+        "start",
+        "run",
+        {
+            "spec": args.spec,
+            "plan": args.plan,
+            "base_sha": getattr(args, "base_sha", None),
+        },
+    )
     db.commit()
     emit({"ok": True, "run": args.run, "revision": 1, "state": "approved"})
 
@@ -144,8 +168,8 @@ def approved_policy(args: argparse.Namespace) -> str | None:
     fields = {"client", "routes", "max_attempt_seconds", "unmetered"}
     if not isinstance(policy, dict) or set(policy) != fields:
         raise ValueError("invalid dispatch policy fields")
-    if policy["client"] not in ("codex", "claude") or type(policy["unmetered"]) is not bool:
-        raise ValueError("invalid billing mode or local client")
+    if policy["client"] not in ("codex", "claude") or policy["unmetered"] is not True:
+        raise ValueError("development dispatch requires a supported subscription client")
     if type(policy["max_attempt_seconds"]) is not int or policy["max_attempt_seconds"] < 1:
         raise ValueError("max_attempt_seconds must be a positive integer")
     routes = policy["routes"]
@@ -154,16 +178,19 @@ def approved_policy(args: argparse.Namespace) -> str | None:
         or not routes
         or not all(valid_route(route) for route in routes)
     ):
-        raise ValueError("provide an explicit allowlist of model and effort pairs")
+        raise ValueError("allowlist valid model and effort pairs, with medium for Astra and Fable")
     return json.dumps(policy, sort_keys=True)
 
 
 def valid_route(route: object) -> bool:
-    return (
+    if not (
         isinstance(route, dict)
         and set(route) == {"model", "effort"}
-        and all(isinstance(v, str) and bool(v.strip()) for v in route.values())
-    )
+        and all(isinstance(value, str) and bool(value.strip()) for value in route.values())
+    ):
+        return False
+    model_parts = re.split(r"[^a-z]+", route["model"].lower())
+    return route["effort"] == "medium" or not {"astra", "fable"}.intersection(model_parts)
 
 
 def approve_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
@@ -171,6 +198,11 @@ def approve_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     args.plan = hashlib.sha256(Path(args.plan).read_bytes()).hexdigest()
     if (args.spec, args.plan) != (args.shown_spec, args.shown_plan):
         raise ValueError("documents differ from the spec and plan presented for approval")
+    if not re.fullmatch(r"[a-fA-F0-9]{40,64}", args.base):
+        raise ValueError("approved base must be a full Git object ID")
+    if args.base.lower() != args.shown_base.lower():
+        raise ValueError("base differs from the revision presented for approval")
+    args.base_sha = args.base.lower()
     args.policy = approved_policy(args)
     start_run(db, args)
 
@@ -379,6 +411,7 @@ def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         "state": row["state"],
         "spec": row["spec"],
         "plan": row["plan"],
+        "base_sha": row["base_sha"],
         "cap": row["cap"],
         "workers": row["workers"],
         "deadline_unix": db.execute(
@@ -498,6 +531,7 @@ def approval_card(args: argparse.Namespace) -> None:
             "checkout": str(root),
             "ledger": str(args.db or project_database()),
             "candidate": git("rev-parse", "HEAD"),
+            "base_sha": git("rev-parse", "--verify", "origin/main"),
             "branch": git("branch", "--show-current"),
             "target": "origin/main",
             "cached_target": git("rev-parse", "--verify", "origin/main"),
@@ -524,6 +558,8 @@ def add_approval_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     approve = sub.add_parser("approve", parents=[start])
     approve.add_argument("--dispatch-policy", type=Path)
     approve.add_argument("--shown-policy")
+    approve.add_argument("--base", required=True)
+    approve.add_argument("--shown-base", required=True)
     approve.add_argument("deadline", type=int)
     approve.add_argument("shown_spec", help="SHA-256 in the approved spec and plan card")
     approve.add_argument("shown_plan", help="SHA-256 in the approved spec and plan card")

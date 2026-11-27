@@ -116,11 +116,27 @@ def test_approved_documents_pause_resume_and_read_only_explanation(tmp_path: Pat
     args = ("approve", "run", str(spec), str(plan), "100", "1")
     hashes = tuple(hashlib.sha256(p.read_bytes()).hexdigest() for p in (spec, plan))
     future = str(int(time.time()) + 3600)
-    assert call(db, *args, "1", *hashes).returncode == 2
-    assert call(db, *args, future, hashes[0], hashes[0]).returncode == 2
-    assert call(db, *args, future, *hashes).returncode == 0
-    assert json.loads(call(db, *args, future, *hashes).stdout)["replayed"]
-    assert call(db, *args, str(int(future) + 1), *hashes).returncode == 2
+    base = "0123456789abcdef0123456789abcdef01234567"
+    base_args = ("--base", base, "--shown-base", base)
+    assert call(db, *args, "1", *hashes, *base_args).returncode == 2
+    assert call(db, *args, future, hashes[0], hashes[0], *base_args).returncode == 2
+    assert call(db, *args, future, *hashes, *base_args).returncode == 0
+    assert json.loads(call(db, *args, future, *hashes, *base_args).stdout)["replayed"]
+    assert call(db, *args, str(int(future) + 1), *hashes, *base_args).returncode == 2
+    changed_base = "1123456789abcdef0123456789abcdef01234567"
+    assert (
+        call(
+            db,
+            *args,
+            future,
+            *hashes,
+            "--base",
+            changed_base,
+            "--shown-base",
+            changed_base,
+        ).returncode
+        == 2
+    )
     pause = ("decision", "run", "D-1", "1", '{"action":"pause","reason":"owner request"}')
     assert call(db, *pause).returncode == call(db, *pause).returncode == 0
     explanation = json.loads(call(db, "explain", "run", "D-1").stdout)
@@ -156,6 +172,10 @@ def test_approved_dispatch_policy_cannot_change_on_retry(tmp_path: Path) -> None
         str(int(time.time()) + 3600),
         digest,
         digest,
+        "--base",
+        "0123456789abcdef0123456789abcdef01234567",
+        "--shown-base",
+        "0123456789abcdef0123456789abcdef01234567",
         "--dispatch-policy",
         str(policy),
         "--shown-policy",
@@ -166,6 +186,26 @@ def test_approved_dispatch_policy_cannot_change_on_retry(tmp_path: Path) -> None
     policy.write_text(json.dumps(limits))
     assert call(db, *args, shown).returncode == 2
     assert call(db, *args, hashlib.sha256(policy.read_bytes()).hexdigest()).returncode == 2
+
+
+def test_existing_ledger_schema_adds_approved_base_without_losing_runs(tmp_path: Path) -> None:
+    import sqlite3
+
+    path = tmp_path / "old.sqlite"
+    with sqlite3.connect(path) as db:
+        db.execute(
+            """CREATE TABLE runs (
+               id TEXT PRIMARY KEY, spec TEXT NOT NULL, plan TEXT NOT NULL,
+               cap INTEGER NOT NULL, workers INTEGER NOT NULL,
+               revision INTEGER NOT NULL DEFAULT 1, state TEXT NOT NULL DEFAULT 'approved',
+               created INTEGER NOT NULL)"""
+        )
+        db.execute("INSERT INTO runs(id,spec,plan,cap,workers,created) VALUES('old','s','p',0,1,1)")
+    from tools.dev_ledger import connect
+
+    with connect(path) as db:
+        row = db.execute("SELECT id,base_sha FROM runs WHERE id='old'").fetchone()
+        assert tuple(row) == ("old", None)
 
 
 def test_failed_or_missing_worker_observation_blocks_acceptance(tmp_path: Path) -> None:
@@ -274,3 +314,33 @@ def test_merge_receipt_binds_accepted_tree_and_target(tmp_path: Path, monkeypatc
         call(db, "merged", "run-a", "w", candidate, git("rev-parse", "HEAD"), target).returncode
         == 2
     )
+
+
+def test_native_policy_enforces_subscription_and_medium_effort(tmp_path: Path) -> None:
+    import argparse
+    import hashlib
+
+    import pytest
+
+    from tools.dev_ledger import approved_policy
+
+    path = tmp_path / "policy.json"
+    policy = {"client": "codex", "max_attempt_seconds": 60}
+
+    def approve(model: str, effort: str, unmetered: bool = True) -> str | None:
+        policy["unmetered"] = unmetered
+        path.write_text(json.dumps({**policy, "routes": [{"model": model, "effort": effort}]}))
+        return approved_policy(
+            argparse.Namespace(
+                dispatch_policy=path, shown_policy=hashlib.sha256(path.read_bytes()).hexdigest()
+            )
+        )
+
+    for model in ("gpt-6.2-astra", "claude-fable-5-2", "Fable"):
+        assert approve(model, "medium") is not None
+        for effort in ("high", "xhigh", "max", "ultra"):
+            with pytest.raises(ValueError, match="medium for Astra and Fable"):
+                approve(model, effort)
+    assert approve("gpt-6-luna", "low") is not None
+    with pytest.raises(ValueError, match="subscription client"):
+        approve("gpt-6.2-astra", "medium", unmetered=False)

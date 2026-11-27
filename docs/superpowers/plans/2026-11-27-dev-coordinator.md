@@ -133,8 +133,13 @@ itself remain separate controls. [Negative and repaired fixture](https://github.
 
 ## Client availability
 
-On 27 November the authenticated local Codex Cloud CLI reported no available environments
-for this workspace when given `credit-os2`. In the web Codex Location picker, Cloud offered
-Default environment. Searching for `credit-os2` returned no match. A cloud qualification
-requires a read-only run against the named environment that reports its checkout and candidate.
-The local Claude client also needs an authenticated subscription session for a live worker test.
+The private `credit-os2` Codex Cloud environment was published on 27 November with only the
+Credit OS2 repository. Its setup checkout matched GitHub main and passed the recommendation
+table smoke test after installing locked Python and Node dependencies. Qualify coordinator
+dispatch separately on the rollout candidate. Local Claude authentication is unavailable, so
+a live Fable test is pending.
+
+Credit OS2 uses subscription access for development work. The plan and pre-merge review roles
+select Astra medium on Codex and Fable medium on Claude. Automatic route changes also honor
+the effort limit. A quota or identity failure pauses the affected work and produces a status
+update for the owner.

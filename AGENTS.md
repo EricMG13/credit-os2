@@ -137,6 +137,10 @@ Record confirmed finding and repair evidence, resolved model/effort, scope, time
 cost against the existing run. Treat unknown or mixed causation as ungraded for route changes.
 Apply only model routes within approved bounds and qualified for that client and environment.
 
+Use subscription access for development workers and reviewers. Use Astra at medium effort on
+Codex and Fable at medium effort on Claude when those models are selected. If the approved
+subscription route cannot be verified or has no capacity, queue that work and report the reason.
+
 ### Running the development coordinator locally
 
 Use the coordinator tools from the current approved checkout. All participating worktrees
@@ -148,8 +152,8 @@ is the primary checkout. Keep the database and local evidence there across sessi
    inspect applicable rulings, and show the resulting document digests in the approval card.
    Include the deadline, workers, cost cap and unit, and the permitted client, model and effort.
    Once the owner approves, call `tools/dev_ledger.py --db DB approve RUN SPEC_FILE PLAN_FILE
-   CAP WORKERS DEADLINE_UNIX SHOWN_SPEC_SHA256 SHOWN_PLAN_SHA256 --dispatch-policy POLICY_FILE
-   --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
+   CAP WORKERS DEADLINE_UNIX SHOWN_SPEC_SHA256 SHOWN_PLAN_SHA256 --base BASE_SHA
+   --shown-base SHOWN_BASE_SHA --dispatch-policy POLICY_FILE --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
    model and effort pairs, maximum attempt duration and billing mode. A changed file requires
    a new approval card. Use `start` with symbolic revision names only for disposable tests.
 2. At each milestone read `status RUN --text`. Record a progress update or an open question
