@@ -24,6 +24,7 @@ import {
 import {
   PortfolioBasisProvider,
   usePortfolioBasis,
+  usePortfolioBasisFailed,
   usePortfolioBasisLoading,
 } from "../report/PortfolioBasis";
 import { namedTable, type ReportView } from "../reportView";
@@ -1103,6 +1104,7 @@ function PortfolioExhibit({
 }) {
   const basis = usePortfolioBasis();
   const waiting = usePortfolioBasisLoading();
+  const failed = usePortfolioBasisFailed();
   const observed =
     basis?.folder === run.folder &&
     basis.asOf === run.asOf &&
@@ -1123,6 +1125,7 @@ function PortfolioExhibit({
       )
     : null;
   if (waiting) return <p role="status">Checking portfolio evidence…</p>;
+  if (!chart && failed) return <p>The portfolio basis could not be loaded.</p>;
   if (!chart) return <p>The portfolio exposure and limits chart is not shown in this report.</p>;
   return (
     <section className="grid min-w-0 gap-2">
