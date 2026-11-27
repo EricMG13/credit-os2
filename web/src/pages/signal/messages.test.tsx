@@ -77,7 +77,7 @@ describe("the message list", () => {
     list();
     expect(screen.getByText("10:15, edited")).toBeInTheDocument();
     expect(screen.getByText("10:02")).toBeInTheDocument();
-    expect(screen.getByText("This comment was removed by its author.")).toBeInTheDocument();
+    expect(screen.getByText("This comment was removed.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Jonas W/ })).toBeNull();
     expect(screen.queryByText("Jonas W", { selector: "button *" })).toBeNull();
   });

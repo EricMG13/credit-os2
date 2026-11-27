@@ -32,6 +32,7 @@ type Event =
   /** `at` is the view on screen when the answer arrived; null holds nothing against it. */
   | { type: "read"; slice: SignalSlice; asOf: string | null; query: string; at: ViewAt | null }
   | { type: "failed"; failure: Failure }
+  | { type: "write-unauthorized"; text: string }
   | { type: "retry" }
   | { type: "reveal"; at: ViewAt | null };
 
@@ -52,7 +53,19 @@ function reduce(state: State, event: Event): State {
         failure: null,
       };
     case "failed":
-      return { ...state, failure: event.failure };
+      return event.failure.unauthorized
+        ? { ...state, fresh: null, asOf: null, held: null, failure: event.failure }
+        : { ...state, failure: event.failure };
+    case "write-unauthorized":
+      return state.fresh?.scenes[0].snapshot.viewer.profileType === undefined
+        ? state
+        : {
+            ...state,
+            fresh: null,
+            asOf: null,
+            held: null,
+            failure: { kind: "request", text: event.text, reason: null, unauthorized: true },
+          };
     case "retry":
       return { ...state, failure: null };
     case "reveal":
@@ -126,7 +139,12 @@ function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
     write: (request) =>
       line.add(async (stop) => {
         const answer = await sendWrite(request, stop);
-        if (answer.refusal !== null) return answer;
+        if (answer.refusal !== null) {
+          if (answer.status === 401) {
+            dispatch({ type: "write-unauthorized", text: answer.refusal });
+          }
+          return answer;
+        }
         const read = await load(line, stop, dispatch, request.fresh !== true);
         return read ? answer : { ...answer, stale: true };
       }),

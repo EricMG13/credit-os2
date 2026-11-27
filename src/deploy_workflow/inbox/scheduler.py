@@ -321,7 +321,35 @@ class Scheduler:
         with self.lock:
             return next((r for r in self._records.values() if r.submission == sid), None)
 
-    def submit(self, sid: str, answers: Answers, approved_digest: str) -> Record:
+    def _accepted_submission(self, sid: str, actor: submissions.RunActor | None) -> Record | None:
+        """Return the one prior run unless this signed account is not its owner."""
+        record = next((item for item in self._records.values() if item.submission == sid), None)
+        if (
+            record is not None
+            and actor is not None
+            and record.account_id is not None
+            and record.account_id != actor.account_id
+        ):
+            raise submissions.Refused("this submission was already accepted by another account")
+        return record
+
+    def issue_summary(
+        self,
+        sid: str,
+        answers: Answers,
+        actor: submissions.RunActor | None = None,
+    ) -> dict[str, Any]:
+        """Issue an approved summary; acceptance synchronizes against sealing the draft."""
+        return submissions.summary(self.layout, sid, answers, actor)
+
+    def submit(
+        self,
+        sid: str,
+        answers: object,
+        approved_digest: str,
+        *,
+        actor: submissions.RunActor | None = None,
+    ) -> Record:
         """Start one run for an approved submission. Repeating a submission returns its record.
 
         ``Refused`` if the answers are not valid, the pathway is deactivated (the short credit
@@ -331,12 +359,11 @@ class Scheduler:
         and only then is the sealed folder renamed, so an interruption between them is finished
         by the next poll against the digest the record keeps."""
         with self.lock:
-            answers = submissions.validated(answers)
+            answers = submissions.validated(submissions.authorized_answers(answers, actor))
             if not isinstance(sid, str) or not _SID.fullmatch(sid):
                 raise submissions.Refused("unknown submission")
-            for record in self._records.values():
-                if record.submission == sid:
-                    return record
+            if record := self._accepted_submission(sid, actor):
+                return record
             if not self.model_available(answers["model"], answers["effort"]):
                 raise submissions.Refused(
                     "This model and effort are unavailable on the Copilot seat."
@@ -360,9 +387,9 @@ class Scheduler:
                     raise submissions.Refused(str(refused)) from refused
             if len(self._with_status("queued")) >= MAX_QUEUED:
                 raise submissions.Refused("too many runs are waiting; try again later")
-            sealed = submissions.seal(self.layout, sid)
+            sealed = submissions.seal(self.layout, sid, actor)
             try:
-                record = self._record_for(sid, answers, approved_digest, sealed)
+                record = self._record_for(sid, answers, approved_digest, sealed, actor)
             except BaseException:
                 submissions.unseal(self.layout, sid)
                 raise
@@ -370,13 +397,29 @@ class Scheduler:
             submissions.release(self.layout, sid)
             return record
 
-    def _record_for(self, sid: str, answers: Answers, approved_digest: str, sealed: Path) -> Record:
+    def _record_for(
+        self,
+        sid: str,
+        answers: Answers,
+        approved_digest: str,
+        sealed: Path,
+        actor: submissions.RunActor | None = None,
+    ) -> Record:
         """Check the sealed files against the issued approval, write ``context.json`` into them
         and save the queued record. Nothing has moved when this raises."""
-        # context.json is made here from the answers; a left-over one (an earlier cut-short
-        # attempt) is ours, since an upload may not carry that name.
-        (sealed / "context.json").unlink(missing_ok=True)
         approval = submissions.issued_approval(self.layout, sid)
+        if actor is not None:
+            if (approval.actor_id, approval.actor_name) != (actor.account_id, actor.analyst_name):
+                raise submissions.Refused(
+                    "this summary was approved by another account or name; review the summary again"
+                )
+        elif approval.actor_id is not None:
+            raise submissions.Refused(
+                "this summary was approved by another account; review the summary again"
+            )
+        # context.json is made here from the answers; a left-over one (an earlier cut-short
+        # attempt) is ours, since an upload may not carry that name. Verify actor consent first.
+        (sealed / "context.json").unlink(missing_ok=True)
         current = submissions.bound(submissions.digest(self.layout, sid, answers), approval.prior)
         context = answers["context"]
         custom = context["run"]["pathway"] == submissions.CUSTOM
@@ -423,6 +466,7 @@ class Scheduler:
             effort=answers["effort"],
             config=runs.config_for(answers["model"], answers["effort"]),
             submitted_by=answers["submitted_by"],
+            account_id=actor.account_id if actor is not None else None,
             digest=current,
             prior=approval.prior,
             cap=cap,

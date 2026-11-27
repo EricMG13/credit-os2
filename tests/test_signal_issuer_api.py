@@ -5,7 +5,6 @@ Every snapshot read here is checked by the real React reader. Nothing is fetched
 
 from __future__ import annotations
 
-import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -17,28 +16,33 @@ from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autous
 from deploy_workflow.signal import store
 
 WRITER, READER, OWNER = "Mara L", "Tobias O", "Ida Owner"
+COOKIES: dict[str, str] = {}
 ACME = {"name": "Acme Corp", "aliases": ["ACME"], "cik": "0000320193", "libraryKey": "id:acme"}
 
 
 def cookie(name: str) -> str:
-    return f"signal_name={urllib.parse.quote(name)}"
+    return f"credit_os_session={COOKIES[name]}"
 
 
 @pytest.fixture
 def root(tmp_path: Path) -> Path:
     db = store.open_db(tmp_path)
-    store.add_user(db, WRITER, "writer")
-    store.add_user(db, READER, "reader")
-    store.add_user(db, OWNER, "owner")
     db.close()
     return tmp_path
 
 
 @pytest.fixture
 def svc(root: Path) -> Iterator[Live]:
-    live = Live(root)
-    yield live
-    live.close()
+    live = Live(root, signed_in=True)
+    COOKIES.clear()
+    COOKIES[WRITER] = live.create_account_session(WRITER, "analyst")[1]
+    COOKIES[READER] = live.create_account_session(READER, "reader")[1]
+    COOKIES[OWNER] = live.create_account_session(OWNER, "admin")[1]
+    try:
+        yield live
+    finally:
+        live.close()
+        COOKIES.clear()
 
 
 def rows(root: Path, sql: str) -> list[tuple[Any, ...]]:
@@ -70,7 +74,7 @@ IDS = [f"{method} {path}" for method, path, _ in WRITES]
 @pytest.mark.parametrize(("method", "path", "body"), WRITES, ids=IDS)
 def test_every_issuer_route_needs_a_display_name(svc, method, path, body):
     status, _, reply = svc.call(method, path, body=body)
-    assert (status, reply) == (401, {"error": "choose a display name first"})
+    assert (status, reply) == (401, {"error": "sign in first"})
 
 
 @pytest.mark.parametrize(("method", "path", "body"), WRITES, ids=IDS)

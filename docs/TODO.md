@@ -7,14 +7,16 @@ An item leaves this list when its PR merges.
 
 Owner decisions, 2026-11-25:
 
-- The app is managed on a single machine. Other users only interact with offline pages.
+- One computer runs the app. Colleagues open it from their own PCs at a web address on the
+  office network and use the live app: reports, the library, Signal with posting, and paid runs
+  (2026-11-26; this replaces "single machine, other users only have offline pages").
 - Signal, the library and run start are one app in one process. Done: ericmg13/credit-os2#83,
   merged 2026-11-25.
 - Sign-in uses Microsoft Entra ID with OpenID Connect. The authorization-code flow with PKCE is
   the one described in the note the owner attached.
 - Token checking uses Microsoft's `msal` library, a new pinned dependency.
-- Entra proves who the user is. A passcode the owner sets chooses the profile type at
-  registration: Reader, Analyst (Signal's writer) or Admin (Signal's owner). Passcodes are
+- Entra proves who the user is. A first sign-in makes a Reader; a passcode the owner sets
+  makes the account an Analyst (Signal's writer) or an Admin (Signal's owner). Passcodes are
   stored as hashes only (`docs/rulings/2026-11-25-registration-passcodes.md`).
 - Users with offline pages get Signal as a read-only snapshot of stories only. Threads and
   comments stay in the running service.
@@ -23,12 +25,20 @@ Owner decisions, 2026-11-25:
 |---|---|---|---|
 | 1 | Landing page: one entry point for the library, run start and Signal, where sign-in is applied | This repository | Not started |
 | 2 | Entra sign-in in the Python service with `msal`: identity checked server-side, a session cookie, and every API route and report or source download protected, not only the page controls | This repository, proved against a stand-in identity provider only | Not started |
-| 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Not started |
-| 4 | Registration on first Entra sign-in: the passcode entered sets the profile type (Reader, Analyst, Admin); a wrong or missing passcode creates no account | This repository | Not started |
+| 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Slice 1 (store, passcodes, lockout, accounts command line): ericmg13/credit-os2#108; slice 2 (sessions, the one check, `/auth/me`): ericmg13/credit-os2#119 |
+| 4 | Registration on first Entra sign-in: a first sign-in creates a Reader; a valid passcode makes the account an Analyst or an Admin | This repository | Not started |
 | 5 | Replace Signal's display-name cookie (`deploy_workflow.signal.identity.current_user`) with the signed-in account, and move the owner's source and AI-cap powers into the browser | This repository | Not started |
-| 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting | This repository | Not started |
-| 7 | **Full Entra deployment: app registration limited to the organisation's own tenant, tenant and client ids, redirect address, and a sign-in with real work accounts** | **Work PC only** | Not started |
+| 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting. May not be needed now that colleagues use the live app; owner to confirm | This repository | Not started |
+| 7 | **Full deployment: Entra app registration limited to the organisation's own tenant, tenant and client ids, the network address, a certificate colleagues' browsers trust, any firewall rule, and a sign-in with real work accounts from a colleague's PC** | **Work PC only, with IT** | Not started |
 | 8 | Security audit of the sign-in code with `cloudflare/security-audit-skill` once items 2 to 5 exist | This repository | Not started |
+| 14 | Serve the app on the office network over HTTPS: a `--host` option refused unless sign-in is on and a certificate is configured, plus the per-address request limits. Proved here with a test certificate | This repository, then work PC with IT | Not started |
+| 15 | Before sign-in can switch on (slice 3): the account store's folder check on Windows and for access-control lists, which slice 1 leaves unchecked (ruling R17 in #108); a person whose display name and bracketed name are both taken cannot register, and display names have no cap while Signal cuts user names at 60 characters (#108 pre-merge review L1, L2) | This repository; Windows check on the work PC | Done in #119 (folder rules in `store.open_db`: Linux POSIX ACL refused, Windows folder inside `%LOCALAPPDATA%`; display names first free of three candidates, at most 60 characters). Left: run the Windows rule on the work PC; macOS ACLs stay unchecked |
+| 22 | **Before slice 3 ships:** `http_base` logs every request line with its query string at INFO, so `/auth/callback?code=…` would write the Entra authorization code to the log (#119 pre-merge review, Info A) | This repository | Fixed on the slice 3 branch. Shared HTTP logs retain safe request metadata and omit the query. The loopback regression passed for access, parser and service errors. |
+| 23 | The run-start server (`python -m deploy_workflow.run_start --root <shared> --host <address>`) serves the run routes with no sign-in on any address that is not a wildcard; slice 2 gates only the application server (#119 security review, P1; predates it). Decide before slice 7 | This repository | Owner's call |
+| 24 | Slice 2's parked Low and Info items, in one batch after the last slice: a test for the order of the start-up checks; a simulated case-variant test that runs on CI's Ubuntu runner; `sessions.last_used_at` holds the sign-in time (rename, or say so before slice 5 shows it); a deleted store is re-created by the next request; `BEFORE ACCOUNTS` accepted as a display name; the store checks its own folder and file, not their ancestors; a quoted, escaped cookie value decodes to the same token; `_is_inside` can raise if `--root` vanishes mid-check, and the raw-spelling identity check has no test; small test tidy-ups (T1 I1–I3, T2 I1) (#119) | This repository | Not started |
+| 25 | Slice 3's session cookie: no other cookie name may contain `credit_os_session` (any second occurrence signs the request out), and its attributes must settle cookie tossing from another localhost port, which can overwrite the session with an attacker's own valid token (#119 security review I2, I5) | This repository | Offline guard implemented in slice 3. The flow cookie uses a distinct name, and the ordinary HTTP launcher refuses configured sign-in. The loopback proof runs the real flow with an explicit test provider. Real activation on a dedicated HTTPS hostname is work-PC rollout, outside this build. |
+
+Items 2 to 5: draft spec `docs/superpowers/specs/2026-11-26-sign-in-and-accounts.md`.
 
 Until item 7 is done on the work PC, sign-in is proved only against a stand-in identity
 provider and must be labelled with that scope in VERIFICATION.md.
@@ -92,7 +102,16 @@ change or fall outside it.
 
 ## Open decisions
 
-- Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).
+- Where the HTTPS certificate is held: a path in the launching environment (needs a ruling) or
+  IT's own web server in front of the app.
+- Whether a sign-in with no client secret is allowed for a network address under the
+  organisation's Entra settings. To be confirmed on the work PC.
+
+- Passcode rotation and the limit on wrong attempts (left open by the passcode ruling): the sign-in
+  spec proposes five wrong attempts an hour and that a new passcode does not change existing
+  accounts. Owner to confirm.
+- The account store's folder (`CREDIT_OS_ACCOUNTS_DIR`): a folder on the machine's own disk,
+  not the shared folder. Owner to name it on the work PC.
 - Whether a Copilot hold should cover two model requests in one call. Today one call that the
   runtime turns into two can settle above its hold; the ledger now records the real sum and the run
   stops, but the cap can be passed by that one call.

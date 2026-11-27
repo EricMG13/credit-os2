@@ -20,6 +20,8 @@ export type SignalAnswer = {
   reply: unknown;
   /** The service accepted the write but the re-read after it failed: the slice on screen predates it. */
   stale?: true;
+  /** HTTP status for a refusal, used to refresh authorization state after 401/403. */
+  status?: number;
 };
 
 /** What a page says when the service accepted a write but the read after it failed (`stale`). */

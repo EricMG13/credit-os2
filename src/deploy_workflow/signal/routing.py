@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
+from deploy_workflow.accounts.store import Account
 from deploy_workflow.http_base import Reply, refuse
 from deploy_workflow.signal import ai_gate, identity
 
-NEEDS_NAME = "choose a display name first"
+NEEDS_NAME = "sign in first"
 ID = "([0-9]{1,18})"  # ASCII digits only (a str pattern's \d also matches other scripts)
 
 
@@ -63,7 +64,7 @@ class Incoming:
     method: str
     path: str  # the ``/signal`` prefix already removed; a path not under ``/api/`` is a 404
     query: str  # raw, as it came after the ``?``
-    cookie: str | None  # the ``Cookie`` header's value
+    account: Account | None  # the account already checked by the application's request gate
     body: Callable[[], dict[str, Any]]  # the required JSON object, or the transport's refusal
     optional_body: Callable[[], dict[str, Any]]  # the same, {} when the request carries none
 
@@ -73,4 +74,4 @@ class Route:
     method: str
     pattern: re.Pattern[str]
     handler: Callable[[Req], Reply]
-    open_to_all: bool = False  # only /api/me, /api/status and /api/snapshot need no display name
+    open_to_all: bool = False  # only /api/me, /api/status and /api/snapshot need no account

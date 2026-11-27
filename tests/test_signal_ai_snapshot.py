@@ -50,8 +50,6 @@ def guard(tmp_path: Path) -> ai_call.Guard:
 @pytest.fixture
 def db(tmp_path: Path) -> Any:
     held = store.open_db(tmp_path)
-    store.add_user(held, "Mara L", "writer")
-    store.add_user(held, "Tobias O", "reader")
     for name, kind in (
         ("Harbour Wire", "news"),
         ("Regulatory Gazette", "regulator"),

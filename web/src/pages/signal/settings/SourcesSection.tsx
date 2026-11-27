@@ -11,7 +11,8 @@ import { StatusBadge } from "@/components/status/StatusBadge";
 import { SourceLogo } from "../parts/SourceLogo";
 import { WeekBars } from "../parts/WeekBars";
 import type { SignalSource } from "../slice";
-import { useSignalActions } from "../actions";
+import { usePageWrite, useSignalActions } from "../actions";
+import { useSignalViewer } from "../viewer";
 import { useOpener } from "../parts/focus";
 import { FormDialog, type FormField } from "../parts/FormDialog";
 import { KINDS, writes } from "../writes";
@@ -135,20 +136,26 @@ export function SourcesSection({
   sources,
   weeksHeading,
   more,
+  writer,
 }: {
   sources: SignalSource[];
   weeksHeading: string;
   /** The service's sentence for a cut list, drawn under the table; null when the list is whole. */
   more: string | null;
+  writer: boolean;
 }) {
   const [sort, setSort] = useState<SortDescriptor | undefined>();
+  const page = usePageWrite();
+  const actions = useSignalActions();
+  const { profileType } = useSignalViewer();
+  const canModerate = profileType === "admin" && page !== null;
   const tiles = sources.some((source) => source.logo);
   return (
     <Section
       wide
       title="Sources"
-      hint="Stories come only from approved sources. Anyone who writes can propose one; the owner approves."
-      action={<Propose />}
+      hint="Stories come only from approved sources. Anyone who writes can propose one; an Admin approves."
+      action={writer ? <Propose /> : undefined}
     >
       <SampleReason id={REASON_ID}>Sample data: sources cannot be proposed here.</SampleReason>
       {sources.length === 0 ? (
@@ -189,6 +196,7 @@ export function SourcesSection({
                 {/* Its own column only from 1536px, where five columns fit beside the section list. */}
                 <Table.Head id="check" className="max-2xl:hidden" label="Last check and item" />
                 <Table.Head id="weeks" label={weeksHeading} />
+                {canModerate ? <Table.Head id="actions" label="Admin actions" /> : null}
               </Table.Header>
               <Table.Body items={order(sources, sort)}>
                 {(source) => (
@@ -222,6 +230,42 @@ export function SourcesSection({
                     <Table.Cell>
                       {source.weeks.length === 0 ? null : <WeekBars weeks={source.weeks} />}
                     </Table.Cell>
+                    {canModerate ? (
+                      <Table.Cell>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            color="secondary"
+                            size="sm"
+                            isDisabled={source.state === "Approved"}
+                            onPress={() => {
+                              void page.send(writes.approveSource(source.id)).then((answer) => {
+                                if (answer.status === 401 || answer.status === 403)
+                                  actions?.refresh();
+                                if (answer.refusal === null && answer.stale !== true)
+                                  page.note("Source approved.");
+                              });
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            color="secondary"
+                            size="sm"
+                            isDisabled={source.state === "Paused"}
+                            onPress={() => {
+                              void page.send(writes.pauseSource(source.id)).then((answer) => {
+                                if (answer.status === 401 || answer.status === 403)
+                                  actions?.refresh();
+                                if (answer.refusal === null && answer.stale !== true)
+                                  page.note("Source paused.");
+                              });
+                            }}
+                          >
+                            Pause
+                          </Button>
+                        </div>
+                      </Table.Cell>
+                    ) : null}
                   </Table.Row>
                 )}
               </Table.Body>

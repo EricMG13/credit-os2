@@ -44,9 +44,10 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol, cast
 
 from deploy_workflow import http_base
+from deploy_workflow.accounts.store import Account
 from deploy_workflow.http_base import Reply, refuse
 from deploy_workflow.signal import ai_run, service, store
 from deploy_workflow.signal.routing import Incoming
@@ -83,6 +84,10 @@ _NO_ENVIRONMENT: Mapping[str, str] = MappingProxyType({})
 log = logging.getLogger(__name__)
 
 
+class _AccountHandler(Protocol):
+    account: Account | None
+
+
 def ai_environ(environ: Mapping[str, str]) -> Mapping[str, str]:
     """The environment the hosted loop's AI gate reads: `environ` itself when it sets
     ``CREDIT_OS_SIGNAL_AI`` to exactly ``1``, else an empty one that cannot be written to."""
@@ -106,11 +111,12 @@ class SignalHost:
         if len(query) > MAX_QUERY or not _QUERY.fullmatch(query):
             raise refuse(400, "the query string is not valid")
         data = _body(handler)
+        account = cast(_AccountHandler, handler).account
         request = Incoming(
             handler.command,
             url.path.removeprefix("/signal"),  # Signal's own routes start at /api/
             query,
-            handler.headers.get("Cookie"),
+            account,
             body=lambda: _json_object(data, required=True),
             optional_body=lambda: _json_object(data, required=False),
         )
