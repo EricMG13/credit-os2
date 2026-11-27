@@ -227,8 +227,8 @@ function styleOf(measure: Measure, drawn: MeasureCase[], item: MeasureCase) {
   const at = Math.max(0, drawn.indexOf(item));
   const slot = Math.min(Math.max(0, measure.cases.indexOf(item)), SERIES.length - 1);
   return {
-    stroke: SERIES[slot] ?? SERIES[SERIES.length - 1],
-    fill: DOTS[slot] ?? DOTS[DOTS.length - 1],
+    stroke: SERIES[slot] ?? "stroke-category-8",
+    fill: DOTS[slot] ?? "fill-category-8",
     dash: DASHES[at % DASHES.length],
     key: keyOf(drawn, item),
   };

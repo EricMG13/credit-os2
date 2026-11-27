@@ -37,7 +37,10 @@ export const AMOUNT = [
 ] as const;
 
 /** Two steps for a cell against its base: lower than base, higher than base. */
-export const DIVERGING = ["var(--color-scale-diverging-1)", "var(--color-scale-diverging-2)"] as const;
+export const DIVERGING = [
+  "var(--color-scale-diverging-1)",
+  "var(--color-scale-diverging-2)",
+] as const;
 
 /** The eight category colours, in the order DESIGN.md gives them. */
 export const SECTOR = [
