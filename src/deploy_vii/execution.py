@@ -431,15 +431,29 @@ def listed_issues[T](
     return tuple(clipped(render(item)) for item in shown)
 
 
+# The count lines `listed_issues` callers emit (`n further issues`, live.tools UNREAD_PAGE and
+# UNBACKED_ABSENCE rests); the prefixes mirror live.tools, which imports this module.
+COUNT_LINE = re.compile(
+    r"(?:(?:Cited page not read through read_pages|Absence claim without a recorded search): )?"
+    r"([0-9]+) further (?:issues|cited pages|absence claims) not listed",
+    re.ASCII,
+)
+
+
 def bounded_issues(issues: Sequence[str]) -> tuple[str, ...]:
     """At most 20 lines of at most 600 characters, then a count of the lines left out.
 
     Issue text can quote caller content (a citation locator, a field name), so no issue
-    list reaches a snapshot unbounded.
+    list reaches a snapshot unbounded. The first 20 lines are kept as they are (shortened);
+    each cut line counts 1, or N when it is a count line, so composed lists and re-bounding
+    keep the full count.
     """
+    hidden = 0
+    for line in issues[MAX_ISSUES:]:
+        counted = COUNT_LINE.fullmatch(line) if len(line) <= MAX_ISSUE_CHARS else None
+        hidden += 1 if counted is None else int(counted[1])
     shown = tuple(shortened(line) for line in issues[:MAX_ISSUES])
-    rest = len(issues) - MAX_ISSUES
-    return (*shown, f"{rest} further issues not listed") if rest > 0 else shown
+    return (*shown, f"{hidden} further issues not listed") if hidden else shown
 
 
 def malformed_issues(error: ValidationError) -> tuple[str, ...]:

@@ -15,6 +15,7 @@ from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
 from deploy_vii.display import format_value
+from deploy_vii.financial_series import numbered_labels
 from deploy_vii.report_view import scale_label
 
 PointRole = Literal["value", "total"]
@@ -28,11 +29,12 @@ _CP3C = "CP-3C"
 # The axis of a chart when no amount of its module states a currency: the parent's label.
 _AXIS = "US$ m"
 _CR2_SERIES = "Cash bridge"
+_NO_MATURITIES_REASON = "No facility maturities are supplied."
 _CR2_NOTE = (
     "Steps are CP-2D's settled cash bridge: cash at the balance date, run-rate net cash flow "
     "over the horizon, scheduled amortisation, maturities, and cash at horizon end before "
     "refinancing. The design bridge (accessible liquidity plus inflow less mandatory uses less "
-    "discretionary capex, rbot-fp-04 :39) is not drawn: CP-2D settles no lease or capex split."
+    "discretionary capex) is not drawn: CP-2D settles no lease or capex split."
 )
 _HORIZON = ("T2E.3.r03", "T2E.3.r04")
 # (fact id, role, companion fact ids) of the five steps, in drawing order.
@@ -140,15 +142,16 @@ def cp2d_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
     """CR.2: the settled cash bridge, five steps from the CP-2D head (Q-C3)."""
     facts = _facts(module, _CP2D)
     points = []
-    for fact_id, role, companions in _CR2_STEPS:
-        fact = _fact(facts, fact_id, _CP2D)
+    steps = [(_fact(facts, fact_id, _CP2D), fact_id, role, c) for fact_id, role, c in _CR2_STEPS]
+    categories = numbered_labels([fact.label for fact, *_ in steps])
+    for (fact, fact_id, role, companions), category in zip(steps, categories, strict=True):
         for companion in companions:
             _fact(facts, companion, _CP2D)
         value = _amount(fact)
         points.append(
             LiquidityPoint(
                 series=_CR2_SERIES,
-                category=fact.label,
+                category=category,
                 fact_id=fact_id,
                 companion_fact_ids=companions,
                 shown=_shown(fact, value),
@@ -178,10 +181,11 @@ def cp3c_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
     """CR.3: principal payable and resources at maturity, one category per T3D.1 facility row."""
     facts = _facts(module, _CP3C)
     table = next((item for item in module.tables if item.table_id == "T3D.1"), None)
-    if table is None or not table.rows:
+    if table is None:
         raise ValueError("CP-3C chart needs the T3D.1 register, which the module does not carry")
     points = []
-    for row in table.rows:
+    categories = numbered_labels([row.label for row in table.rows])
+    for row, category in zip(table.rows, categories, strict=True):
         companions = tuple(f"T3D.1.{row.row_id}.{field}" for field in _CR3_COMPANIONS)
         date_fact = _fact(facts, companions[0], _CP3C)
         _fact(facts, companions[1], _CP3C)
@@ -193,7 +197,7 @@ def cp3c_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
             points.append(
                 LiquidityPoint(
                     series=series,
-                    category=row.label,
+                    category=category,
                     fact_id=fact_id,
                     companion_fact_ids=companions,
                     shown=_shown(fact, value),
@@ -203,6 +207,8 @@ def cp3c_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
             )
     drawn = tuple(points)
     kind, reason = _kind_and_reason(drawn, facts, "grouped")
+    # A register with no facility row has no point to state a limitation of: the frame says so.
+    reason = reason or (None if drawn else _NO_MATURITIES_REASON)
     return (
         LiquidityFigureSeries(
             fig_id="CR.3",

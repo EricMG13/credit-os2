@@ -54,8 +54,9 @@ def _nice(maximum: float) -> float:
 
 
 def _bounds(values: list[float], headroom: float = 1.12) -> tuple[float, float]:
-    high = _nice(max([*values, 0.0]) * headroom)
-    low = -_nice(abs(min([*values, 0.0])) * headroom) if min(values) < 0 else 0.0
+    top = max([*values, 0.0])
+    high = _nice(top * headroom) if top > 0 else 0.0 if min(values, default=0.0) < 0 else 1.0
+    low = -_nice(abs(min(values)) * headroom) if min(values, default=0.0) < 0 else 0.0
     return low, high
 
 
@@ -797,12 +798,12 @@ def _bullet(  # noqa: PLR0912 - pre-existing 13 branches at base
         for m in spec.marks
         if m.value is not None and m.series in {threshold_series, current_series}
     ]
-    high = _nice(max(anchors) * 1.1) if anchors else 1.0
+    low, high = _bounds(anchors, 1.1) if anchors else (0.0, 1.0)
 
     def x_of(value: float) -> float:
-        return left + (width - left - right) * value / high
+        return left + (width - left - right) * (value - low) / (high - low)
 
-    for tick in (ticks := _ticks(0.0, high, 4)):
+    for tick in (ticks := _ticks(low, high, 4)):
         _el(
             root,
             "line",
@@ -810,7 +811,7 @@ def _bullet(  # noqa: PLR0912 - pre-existing 13 branches at base
             x2=_n(x_of(tick)),
             y1=_n(top),
             y2=_n(height - bottom),
-            class_="grid",
+            class_="grid zero" if tick == 0 else "grid",
         )
         _el(
             root,
@@ -853,15 +854,23 @@ def _bullet(  # noqa: PLR0912 - pre-existing 13 branches at base
                     _el(
                         group,
                         "rect",
-                        x=_n(left),
+                        x=_n(min(x_of(0.0), e)),
                         y=_n(yy - 6),
-                        width=_n(max(1.0, e - left)),
+                        width=_n(max(1.0, abs(e - x_of(0.0)))),
                         height="12",
                         **_fill(m, c, chart_id),
                     )
 
-                _mark_group(root, current, _label(current), (left + end) / 2, y, draw_bar)
-                _el(root, "text", current.text, x=_n(end + 6), y=_n(y + 4), class_="lb small")
+                _mark_group(root, current, _label(current), (x_of(0.0) + end) / 2, y, draw_bar)
+                # A negative bar's label sits right of zero, so it stays inside the plot.
+                _el(
+                    root,
+                    "text",
+                    current.text,
+                    x=_n(max(x_of(0.0), end) + 6),
+                    y=_n(y + 4),
+                    class_="lb small",
+                )
         if threshold is not None:
             if threshold.value is None:
                 _na_slot(root, left + 14, y - 10)

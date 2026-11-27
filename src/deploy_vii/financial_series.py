@@ -238,7 +238,8 @@ def _numeric(fact: Fact, money: bool) -> None:
 
 
 def _quarter_number(period: _Period) -> str:
-    return _text(period.row["fiscal_quarter"]).removeprefix("Q")
+    """The stated quarter without its `Q`, whichever the case of the letter."""
+    return _text(period.row["fiscal_quarter"]).upper().removeprefix("Q")
 
 
 def _check_quarters(periods: tuple[_Period, ...]) -> None:
@@ -251,7 +252,10 @@ def _check_quarters(periods: tuple[_Period, ...]) -> None:
     if any(_quarter_number(p) not in {"1", "2", "3", "4"} for p in quarters):
         raise ValueError("Ambiguous QUARTER identities")
     dated = [p for p in quarters if p.end is not None]
-    labels = [(_text(p.row["fiscal_year"]), _quarter_number(p)) for p in dated]
+    years = [fiscal_year_number(_text(p.row["fiscal_year"])) for p in dated]
+    if None in years:
+        raise ValueError("Ambiguous QUARTER identities")
+    labels = [(year, _quarter_number(p)) for year, p in zip(years, dated, strict=True)]
     if any(a >= b for a, b in pairwise(labels)):
         raise ValueError("Ambiguous QUARTER identities")
     ends = [p.end for p in dated if p.end is not None]
@@ -286,6 +290,18 @@ def _category(period: _Period, prefix: str) -> str:
     if period.end is None:
         return f"{prefix} {fiscal_year} (no end date)"
     return f"{prefix} {period.end.isoformat()}"
+
+
+def numbered_labels(labels: Sequence[str]) -> list[str]:
+    """The labels, a repeated one numbered (1), (2) in order of appearance: a chart point is its
+    series and category, so equal labels must not share one. A unique label is left as it is."""
+    totals = Counter(labels)
+    placed: Counter[str] = Counter()
+    out = []
+    for label in labels:
+        placed[label] += 1
+        out.append(f"{label} ({placed[label]})" if totals[label] > 1 else label)
+    return out
 
 
 def _distinct(columns: Sequence[_Column]) -> tuple[_Column, ...]:
@@ -606,24 +622,31 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
     snapshots = tuple(p for p in periods if p.kind in _SNAPSHOT_KINDS and p.end is not None)
     if snapshots:
         latest = max(p.end for p in snapshots if p.end is not None)
-        # Every period ending on the latest date, of any kind, is one snapshot (its aliases),
-        # read in priority order: a reported quarter, then its FY, then a PERIOD_END, then any
-        # other kind; by period id within a kind; never by value or label.
+        # Every reported period ending on the latest date is one snapshot (its aliases), read
+        # in priority order: a reported quarter, then its FY, then a PERIOD_END, then any other
+        # kind; by period id within a kind; never by value or label. A pro forma period is no
+        # alias of the reported snapshot (`financial_reconciliation._debt`).
         current = tuple(
             sorted(
-                (p for p in periods if p.end == latest),
+                (p for p in periods if p.end == latest and p.kind != "PF"),
                 key=lambda p: (_snapshot_rank(p.kind), p.identity),
             )
         )
         title = f"Maturity wall — principal at {latest.isoformat()} (not a forecast)"
         unplotted = frozenset(p.identity for p in periods if p.end is None)
         indexed = _facility_rows(rows, {p.identity for p in periods}, unplotted)
-        # The snapshot is every facility with a row at a period of the latest date. It is
+        # The snapshot is every facility with a row at a reported period of the latest date. It is
         # complete when each facility the debt total sums (not a lease, or a DEBT ADJUSTMENT)
-        # with a row at any period, dated or not, is in it (`financial_reconciliation._debt`).
+        # with a row at any period, dated or not, is in it; a facility whose rows all sit in
+        # same-date pro forma periods belongs to those scenarios and is not required.
         at_date = {p.identity for p in current}
+        same_date_pro_forma = {p.identity for p in periods if p.end == latest and p.kind == "PF"}
         present = {fid for fid, pid in indexed if pid in at_date}
-        required = {_text(row["facility_id"]) for row in rows if _in_debt(row)}
+        required = {
+            _text(row["facility_id"])
+            for row in rows
+            if _in_debt(row) and _text(row["period_id"]) not in same_date_pro_forma
+        }
         if present and required <= present:
             points, reason, left_out = _maturity_points(indexed, current, tuple(sorted(present)))
             note = _MATURITY_LEASES_NOTE if left_out and points else None
