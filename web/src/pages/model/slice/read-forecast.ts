@@ -266,6 +266,15 @@ export function checkForecast(page: ForecastPage, cases: readonly CaseCard[], pa
     fail(`${paths}.series`, `expected ${plural(cases.length, "line")}, one per case`);
   }
   distinct(series, (s) => s.name, `${paths}.series`, "name", "line");
+  series.forEach((line, k) => {
+    const name = cases[k]?.name ?? "";
+    const actualThenCase =
+      k === 0 &&
+      (line.name === `Actual, then ${name}` || line.name === `Actual, then ${name.toLowerCase()}`);
+    if (line.name !== name && !actualThenCase) {
+      fail(`${at(`${paths}.series`, k)}.name`, `expected a legend name for "${name}"`);
+    }
+  });
   checkBlock(
     page.ebitda,
     series,

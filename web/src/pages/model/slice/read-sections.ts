@@ -154,6 +154,14 @@ function checkPosition(value: number, axisEnd: number, path: string): void {
     fail(path, `expected a position within the axis (at most ${String(axisEnd)})`);
 }
 
+function isUnsignedBridgeAmount(text: string): boolean {
+  const firstDigit = text.search(/\p{Nd}/u);
+  // A sign or an accounting parenthesis before the amount rules out the optional plus.
+  return (
+    firstDigit !== -1 && !/[+﹢＋\p{Dash}]/u.test(text) && !/[(（]/u.test(text.slice(0, firstDigit))
+  );
+}
+
 function checkStep(s: BridgeStep, axisEnd: number, path: string): void {
   if (s.kind === "missing") return;
   checkPosition(s.from, axisEnd, `${path}.from`);
@@ -202,9 +210,17 @@ export function checkBridge(b: Bridge, cases: readonly CaseCard[], path: string)
     const where = `${at(`${path}.rows`, r)}.cells`;
     exactly(row.cells, cases.length, where, "cells, one per case");
     row.cells.forEach((cell, k) => {
-      const missing = b.caseSteps[k]?.[r]?.kind === "missing";
+      const step = b.caseSteps[k]?.[r];
+      const missing = step?.kind === "missing";
       if ((cell === null) !== missing) {
         fail(at(where, k), "expected null exactly where the step is missing");
+      }
+      if (step === undefined || step.kind === "missing" || cell === null) return;
+      // The chart marks increases with an explicit plus that the table may omit.
+      const unsignedIncrease =
+        step.kind === "up" && step.text === `+${cell}` && isUnsignedBridgeAmount(cell);
+      if (cell !== step.text && !unsignedIncrease) {
+        fail(at(where, k), "expected the text of the corresponding chart step");
       }
     });
   });

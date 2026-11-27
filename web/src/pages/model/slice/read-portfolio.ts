@@ -266,10 +266,11 @@ export function checkPortfolioFit(page: PortfolioFitPage, path: string): void {
   checkStrips(page.strips, child(path, "strips"));
   const named = [page.limits, page.ratings, page.scatter, page.strips].map((c, i) => ({
     name: isGap(c) ? c.gap.title : c.title,
+    include: isGap(c) || c.trace !== null,
     where: child(
       path,
       `${["limits", "ratings", "scatter", "strips"][i] ?? ""}${isGap(c) ? ".gap" : ""}.title`,
     ),
   }));
-  distinctTraceControlNames(named);
+  distinctTraceControlNames(named.filter((item) => item.include));
 }
