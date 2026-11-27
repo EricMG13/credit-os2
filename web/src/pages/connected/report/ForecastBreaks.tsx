@@ -177,7 +177,7 @@ function LiquidityPart({
   return (
     <Part title={title} detail={`By forecast year, as the model publishes it · ${measure.label}`}>
       <FigureList
-        tone="primary"
+        tone="secondary"
         items={cells.map((cell) => ({
           key: cell.period,
           label: cell.period,
@@ -227,9 +227,10 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
 }
 
 /**
- * A covenant test drawn as value against limit: the current figure as a bar from zero and the
- * level as a dashed mark, on the test's own scale. Position only: the figures are the words under
- * it, as the module writes them. A current figure the module does not give draws the level alone.
+ * A covenant test drawn as value against limit: the current figure as a solid mark and the
+ * level as a dashed mark (ruling R1: two marks on one scale, no fill from
+ * zero), on the test's own scale. Position only: the figures are the words under it, as the module
+ * writes them. A current figure the module does not give draws the level alone.
  */
 function LimitBar({ current, level }: { current: number | null; level: number }) {
   // Room past the larger of the two, so the level's mark never sits on the track's end.
@@ -244,8 +245,8 @@ function LimitBar({ current, level }: { current: number | null; level: number })
       {current !== null && (
         <span
           data-current={at(current)}
-          className="block h-full rounded-ds-full bg-chart-1"
-          style={{ width: at(current), minWidth: "2px" }}
+          className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-ds-full border-2 border-surface-card bg-text-primary"
+          style={{ left: at(current) }}
         />
       )}
       <span
@@ -316,6 +317,10 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
           </li>
         ))}
       </ul>
+      <p className="text-caption text-text-secondary">
+        Each scale has two marks: the solid dot is where the test stands now, the dashed line is its
+        level; the words under it carry the figures and the module&apos;s headroom.
+      </p>
       <p className="text-caption text-text-secondary">
         This forecast&apos;s figures are not set against the covenant tests above.
       </p>
