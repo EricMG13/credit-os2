@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Coverage, Fact, Issuer } from "../coverageData";
 import { BETTER, NEUTRAL, POSITION, WORSE } from "../visuals/signal/scales";
 import { Monitor } from "./Monitor";
+import { endDirection, written } from "./monitorMath";
 
 const fields = [
   ["cp-1/leverage/total-debt-ebitda", "Total debt / EBITDA"],
@@ -119,6 +120,176 @@ function fact(
 }
 
 describe("Monitor", () => {
+  it("formats exact x, percent, and currency units", () => {
+    const { issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    expect(written(fact(issuer, fields[0][0], "FY2025", "5.0", "x", 1))).toBe("5.0x");
+    expect(written(fact(issuer, fields[0][0], "FY2025", "3.2", "%", 1))).toBe("3.2%");
+    expect(written(fact(issuer, fields[0][0], "FY2025", "1,234.50", "USD millions", 1))).toBe(
+      "$1,234.50m",
+    );
+    expect(written(fact(issuer, fields[0][0], "FY2025", "1,234.50", "EUR millions", 1))).toBe(
+      "€1,234.50m",
+    );
+  });
+
+  it("colors only adjacent directional ending observations", () => {
+    expect(endDirection(fields[0][0], [null, "5"])).toBeNull();
+    expect(endDirection(fields[0][0], ["6", "5"])).toBe("better");
+    expect(endDirection(fields[3][0], ["5", "6"])).toBeNull();
+  });
+
+  it("shows the tightest issuer-local covenant pair and refuses cross-issuer ranking", () => {
+    const { data, issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    const current = fact(issuer, "cp-4/covenant-headroom/current", "FY2025", "3.0", "x", 900);
+    const threshold = {
+      ...fact(issuer, "cp-4/covenant-headroom/threshold", "FY2025", "4.0", "x", 900),
+      direction: "Passes below",
+    };
+    render(
+      <Monitor
+        data={{ ...data, facts: [...data.facts, current, threshold] }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /not ranked/ })).toBeDisabled();
+    expect(
+      screen.getByRole("cell", { name: /Alpha plc, tightest covenant test/ }),
+    ).toHaveTextContent("Covenant: 3.0x / 4.0x; headroom 1x");
+  });
+
+  it("chooses covenant headroom within the most common unit and keeps source order on ties", () => {
+    const { data, issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    const pairs = [
+      ["3", "4", "x", 900],
+      ["5", "6", "x", 901],
+      ["100", "100.1", "USD millions", 902],
+    ] as const;
+    const covenantFacts = pairs.flatMap(([currentValue, thresholdValue, unit, line]) => [
+      fact(issuer, "cp-4/covenant-headroom/current", "FY2025", currentValue, unit, line),
+      {
+        ...fact(issuer, "cp-4/covenant-headroom/threshold", "FY2025", thresholdValue, unit, line),
+        direction: "Passes below",
+      },
+    ]);
+    render(
+      <Monitor
+        data={{ ...data, facts: [...data.facts, ...covenantFacts] }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("cell", { name: /Alpha plc, tightest covenant test/ }),
+    ).toHaveTextContent("3x / 4x; headroom 1x");
+  });
+
+  it("marks ambiguous duplicate covenant counterparts unavailable", () => {
+    const { data, issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    const current = fact(issuer, "cp-4/covenant-headroom/current", "FY2025", "3", "x", 900);
+    const duplicate = { ...current, text: "2", at: 2 };
+    const threshold = {
+      ...fact(issuer, "cp-4/covenant-headroom/threshold", "FY2025", "4", "x", 900),
+      direction: "Passes below",
+    };
+    render(
+      <Monitor
+        data={{ ...data, facts: [...data.facts, current, duplicate, threshold] }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    const cell = screen.getByRole("cell", { name: /Alpha plc, tightest covenant test/ });
+    expect(cell).toHaveTextContent("Unavailable");
+    expect(within(cell).getByText("Unavailable")).toHaveAttribute(
+      "title",
+      "Ambiguous duplicate covenant row; unavailable",
+    );
+  });
+
+  it("labels negative covenant headroom as beyond the limit", () => {
+    const { data, issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    const current = fact(issuer, "cp-4/covenant-headroom/current", "FY2025", "5", "x", 900);
+    const threshold = {
+      ...fact(issuer, "cp-4/covenant-headroom/threshold", "FY2025", "4", "x", 900),
+      direction: "Passes below",
+    };
+    render(
+      <Monitor
+        data={{ ...data, facts: [...data.facts, current, threshold] }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("cell", { name: /Alpha plc, tightest covenant test/ }),
+    ).toHaveTextContent("beyond the limit −1x");
+  });
+
+  it("shows source-bound selected issuer values and the cohort count and median", () => {
+    const { data, issuers } = fixture();
+    render(<Monitor data={data} issuers={issuers} selected="issuer-0" onSelect={vi.fn()} />);
+    expect(screen.getByRole("region", { name: "Monitor cohort summary" })).toHaveTextContent(
+      "5 of 5 issuers qualify",
+    );
+    expect(screen.getByRole("region", { name: "Monitor cohort summary" })).toHaveTextContent(
+      "Median (computed): 5x",
+    );
+    expect(screen.getByRole("region", { name: "Selected issuer details" })).toHaveTextContent(
+      "Difference from FY2024: −1x",
+    );
+    expect(
+      screen.getByRole("region", { name: "Selected issuer details" }).querySelectorAll("a"),
+    ).toHaveLength(8);
+  });
+
+  it("preserves distinct field-qualified exclusion reasons for the same issuer", () => {
+    const { data, issuers } = fixture();
+    const issuer = issuers[0] as Issuer;
+    const facts = data.facts
+      .filter(
+        (item) =>
+          !(item.issuer === issuer.key && item.field === fields[7][0] && item.period === "FY2025"),
+      )
+      .map((item) =>
+        item.issuer === issuer.key && item.field === fields[3][0]
+          ? { ...item, unit: "USD millions" }
+          : item,
+      );
+    render(
+      <Monitor data={{ ...data, facts }} issuers={issuers} selected={null} onSelect={vi.fn()} />,
+    );
+    const leftOut = screen.getByRole("region", {
+      name: "Issuers left out of one or more measures",
+    });
+    expect(leftOut).toHaveTextContent("Alpha plc: Cash: other unit");
+    expect(leftOut).toHaveTextContent("Debt maturing: other period");
+  });
+
+  it("uses the reader label when retained field metadata is absent", () => {
+    const { data, issuers } = fixture();
+    const field = fields[7][0];
+    render(
+      <Monitor
+        data={{ ...data, fields: data.fields.filter((item) => item.id !== field) }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText("Debt maturing").length).toBeGreaterThan(0);
+    expect(screen.queryByText(field)).toBeNull();
+  });
+
   it("shows only a written value and sparkline in a qualified cell with exact trace", () => {
     const { data, issuers } = fixture();
     render(<Monitor data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
@@ -126,6 +297,9 @@ describe("Monitor", () => {
     const cell = screen.getByRole("cell", { name: /Alpha plc, Total debt \/ EBITDA/ });
     expect(cell).toHaveTextContent("5.0x");
     expect(within(cell).getByRole("img")).toHaveAccessibleName(/Alpha plc.*FY2024.*FY2025/);
+    expect(within(cell).getByRole("img").querySelector("[data-end]")).toHaveStyle({
+      fill: BETTER[1],
+    });
     expect(
       within(screen.getByRole("row", { name: /Alpha plc/ })).getByRole("link", {
         name: "Open run",
@@ -201,6 +375,12 @@ describe("Monitor", () => {
     expect(cell).not.toHaveStyle({ backgroundColor: BETTER[2] });
     expect(cell).not.toHaveStyle({ backgroundColor: POSITION[1] });
     expect(cell).toHaveAttribute("title", expect.stringContaining("no cohort band"));
+    expect(screen.getByRole("region", { name: "Monitor cohort summary" })).toHaveTextContent(
+      "2 of 2 issuers qualify",
+    );
+    expect(screen.getByRole("region", { name: "Monitor cohort summary" })).toHaveTextContent(
+      "Median (computed): —",
+    );
   });
 
   it("does not draw a difference or sparkline across unorderable periods", () => {
@@ -215,8 +395,9 @@ describe("Monitor", () => {
       ),
     };
     render(<Monitor data={transformed} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    expect(screen.getByLabelText("Period")).toHaveValue("Earlier filing");
     const cell = screen.getByRole("cell", { name: /Alpha plc, Total debt \/ EBITDA/ });
-    expect(cell).toHaveTextContent("5.0x");
+    expect(cell).toHaveTextContent("6.0x");
     expect(cell).not.toHaveAttribute("title", expect.stringContaining("difference from"));
     expect(within(cell).queryByRole("img")).toBeNull();
   });

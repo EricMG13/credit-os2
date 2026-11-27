@@ -1,6 +1,7 @@
 import type { Coverage, Fact } from "../coverageData";
 import { writtenUnit } from "../moneyUnits";
-import type { Dec } from "./coverageMath";
+import { difference, type Dec } from "./coverageMath";
+import { verdict } from "./direction";
 
 const LABELS: Readonly<Record<string, string>> = {
   "cp-1/leverage/total-debt-ebitda": "Total debt / EBITDA",
@@ -21,7 +22,32 @@ export function fieldLabel(data: Coverage, field: string): string {
 
 /** Keep the source's exact decimal text and append only its written unit. */
 export function written(fact: Fact): string {
-  return writtenUnit(fact.text, fact.unit);
+  return writtenText(fact.text, fact.unit);
+}
+
+export function writtenText(text: string, unit?: string): string {
+  return writtenUnit(text.replace(/^-/, "−"), unit);
+}
+
+export function endDirection(
+  field: string,
+  values: readonly (Dec | null)[],
+): "better" | "worse" | "none" | null {
+  let last = -1;
+  let current: Dec | null = null;
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const value = values[index];
+    if (typeof value === "string") {
+      last = index;
+      current = value;
+      break;
+    }
+  }
+  if (last <= 0) return null;
+  const previous = values[last - 1];
+  if (typeof current !== "string" || typeof previous !== "string") return null;
+  const change = difference(current, previous);
+  return change === null ? null : verdict(field, current, change);
 }
 
 /** Convert exact decimal position to a bounded pixel fraction without overflowing on large inputs. */

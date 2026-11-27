@@ -799,7 +799,7 @@ test("Coverage opens Monitor by default and keeps named analytics regions honest
   ).toHaveAttribute("href", "/report/beta-run");
   expect(
     screen.getByRole("region", { name: "Issuers left out of one or more measures" }),
-  ).toHaveTextContent("Alpha plc: no figure");
+  ).toHaveTextContent("Alpha plc: Total debt / EBITDA: no figure");
   expect(screen.getByRole("heading", { name: "Monitor" })).toBeInTheDocument();
   expect(
     screen.getByText(

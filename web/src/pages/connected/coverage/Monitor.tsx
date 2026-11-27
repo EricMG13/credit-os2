@@ -12,9 +12,11 @@ import { BETTER, NEUTRAL, POSITION, WORSE, step } from "../visuals/signal/scales
 import { band, compare, difference, type Dec } from "./coverageMath";
 import { cohort, series, type Cohort, type Member } from "./cohort";
 import { verdict } from "./direction";
-import { fieldLabel as label, fraction, written } from "./monitorMath";
+import { endDirection, fieldLabel as label, fraction, written, writtenText } from "./monitorMath";
 import { LeftOut } from "./LeftOut";
 import { Sparkline } from "../visuals/signal/Sparkline";
+import { MonitorDetails } from "./MonitorDetails";
+import { headroom } from "./direction";
 
 export const MONITOR_GROUPS: readonly { name: string; fields: readonly string[] }[] = [
   {
@@ -38,6 +40,7 @@ export const MONITOR_GROUPS: readonly { name: string; fields: readonly string[] 
 ];
 
 const MEASURE_FIELDS = MONITOR_GROUPS.slice(0, 5).flatMap((group) => group.fields);
+const COVENANT_FIELDS = MONITOR_GROUPS[5]?.fields ?? [];
 const BANDS = [
   "bottom quartile",
   "lower middle half",
@@ -54,6 +57,8 @@ type Measure = {
   changes: Map<string, Dec | null>;
   maxChange: Dec;
 };
+type CovenantPair = { fact: Fact; threshold: Fact; room: Dec };
+type CovenantReading = { pair?: CovenantPair; ambiguous: boolean };
 
 function readFor(cohortValue: Cohort, issuer: Issuer): Reading | null {
   const member = cohortValue.members.find((item) => item.issuer.key === issuer.key);
@@ -81,21 +86,26 @@ export function Monitor({
   const dataByField = useMemo(
     () =>
       new Map(
-        MEASURE_FIELDS.map((field) => [
+        [...MEASURE_FIELDS, ...COVENANT_FIELDS].map((field) => [
           field,
           { ...data, facts: data.facts.filter((fact) => fact.field === field) },
         ]),
       ),
     [data],
   );
-  const periods = useMemo(() => {
+  const periodData = useMemo(() => {
     const indexedData = dataByField.get(firstField);
-    return periodsFor(indexedData ?? data, issuers, firstField);
+    return {
+      periods: periodsFor(indexedData ?? data, issuers, firstField),
+      ordered: periodsOrdered(indexedData ?? data, issuers, firstField),
+    };
   }, [data, dataByField, issuers, firstField]);
+  const periods = periodData.periods;
   const [periodPick, setPeriodPick] = useState("");
   const [tint, setTint] = useState<Tint>("difference");
   const [sort, setSort] = useState<{ field: string; descending: boolean } | null>(null);
-  const period = periods.includes(periodPick) ? periodPick : (periods.at(-1) ?? "");
+  const defaultPeriod = periodData.ordered ? periods.at(-1) : periods.at(0);
+  const period = periods.includes(periodPick) ? periodPick : (defaultPeriod ?? "");
   const measures = useMemo(
     () =>
       new Map(
@@ -142,7 +152,73 @@ export function Monitor({
     () => new Map([...measures].map(([field, measure]) => [field, measure.cohort])),
     [measures],
   );
-  const fieldsByGroup = MONITOR_GROUPS.slice(0, 5).flatMap((group) => group.fields);
+  const fieldsByGroup = MEASURE_FIELDS;
+  const axes = useMemo(
+    () => new Map([...measures].map(([field, measure]) => [field, measure.axis])),
+    [measures],
+  );
+  const covenantData = useMemo(() => {
+    const level = COVENANT_FIELDS[0];
+    const limit = COVENANT_FIELDS[1];
+    return new Map<string, CovenantReading>(
+      issuers.map((issuer): [string, CovenantReading] => {
+        const run = latestRun(issuer);
+        const current =
+          dataByField
+            .get(level ?? "")
+            ?.facts.filter((fact) => fact.issuer === issuer.key && fact.run === run?.key) ?? [];
+        const thresholds =
+          dataByField
+            .get(limit ?? "")
+            ?.facts.filter((fact) => fact.issuer === issuer.key && fact.run === run?.key) ?? [];
+        const signature = (fact: Fact) =>
+          JSON.stringify([fact.run, fact.line, fact.output, fact.unit, fact.period]);
+        const currentByRow = new Map<string, Fact[]>();
+        const thresholdByRow = new Map<string, Fact[]>();
+        for (const fact of current) {
+          const key = signature(fact);
+          currentByRow.set(key, [...(currentByRow.get(key) ?? []), fact]);
+        }
+        for (const fact of thresholds) {
+          const key = signature(fact);
+          thresholdByRow.set(key, [...(thresholdByRow.get(key) ?? []), fact]);
+        }
+        let ambiguous = false;
+        const pairs: CovenantPair[] = [];
+        for (const fact of current) {
+          const key = signature(fact);
+          const matches = thresholdByRow.get(key) ?? [];
+          if ((currentByRow.get(key)?.length ?? 0) !== 1 || matches.length > 1) {
+            ambiguous = true;
+            continue;
+          }
+          const threshold = matches[0];
+          if (!threshold || fact.gap || threshold.gap) continue;
+          const room = headroom(threshold, fact);
+          if (room !== null) pairs.push({ fact, threshold, room });
+        }
+        const units = new Map<string, number>();
+        for (const pair of pairs) {
+          const unit = pair.fact.unit;
+          if (unit !== undefined) units.set(unit, (units.get(unit) ?? 0) + 1);
+        }
+        let commonUnit: string | undefined;
+        let commonCount = 0;
+        for (const [unit, count] of units) {
+          if (count > commonCount) {
+            commonUnit = unit;
+            commonCount = count;
+          }
+        }
+        const comparable = pairs.filter((pair) => pair.fact.unit === commonUnit);
+        let tightest: CovenantPair | undefined;
+        for (const pair of comparable) {
+          if (!tightest || compare(pair.room, tightest.room) < 0) tightest = pair;
+        }
+        return [issuer.key, { pair: tightest, ambiguous }];
+      }),
+    );
+  }, [dataByField, issuers]);
   const sortedIssuers = useMemo(() => {
     if (!sort) return [...issuers];
     const target = measures.get(sort.field)?.cohort;
@@ -174,12 +250,13 @@ export function Monitor({
   const traceFor = (issuer: Issuer): { href: string } | null => {
     const run = latestRun(issuer);
     if (!run) return null;
-    const displayedMeasureFact = fieldsByGroup.flatMap((field) => {
-      const current = cohorts.get(field);
-      const member = current?.members.find((item) => item.issuer.key === issuer.key);
-      const out = current?.out.find((item) => item.issuer.key === issuer.key);
-      return member ? [member.fact] : out?.fact ? [out.fact] : [];
-    })[0];
+    const displayedMeasureFact =
+      fieldsByGroup.flatMap((field) => {
+        const current = cohorts.get(field);
+        const member = current?.members.find((item) => item.issuer.key === issuer.key);
+        const out = current?.out.find((item) => item.issuer.key === issuer.key);
+        return member ? [member.fact] : out?.fact ? [out.fact] : [];
+      })[0] ?? covenantData.get(issuer.key)?.pair?.fact;
     return {
       href: displayedMeasureFact
         ? evidenceLink(run, displayedMeasureFact)
@@ -226,6 +303,9 @@ export function Monitor({
     const change = measure.changes.get(issuer.key) ?? null;
     const position = c.stats ? band(member.value, c.stats) : null;
     const direction = change === null ? null : verdict(field, member.value, change);
+    const finalDirection = endDirection(field, values);
+    const endColour =
+      finalDirection === "better" ? BETTER[1] : finalDirection === "worse" ? WORSE[1] : undefined;
     const changeTint = direction === "better" ? BETTER : direction === "worse" ? WORSE : NEUTRAL;
     const magnitude =
       change === null || measure.maxChange === "0"
@@ -265,6 +345,7 @@ export function Monitor({
               values={pixelValues}
               width={42}
               height={14}
+              end={endColour}
               label={`${issuer.name}, ${label(data, field)}, ${axis.join(" to ")}`}
             />
           )}
@@ -273,8 +354,17 @@ export function Monitor({
     );
   };
 
-  const allOut = fieldsByGroup.flatMap((field) => cohorts.get(field)?.out ?? []);
+  const allOut = fieldsByGroup.flatMap((field) =>
+    (cohorts.get(field)?.out ?? []).map((item) => ({ field, ...item })),
+  );
   const uniqueOut = [...new Map(allOut.map((item) => [item.issuer.key, item])).values()];
+  const details = new Map<string, string[]>();
+  for (const item of allOut) {
+    const text = `${label(data, item.field)}: ${item.reason}`;
+    const list = details.get(item.issuer.key) ?? [];
+    if (!list.includes(text)) list.push(text);
+    details.set(item.issuer.key, list);
+  }
   return (
     <section aria-label="Monitor" className="grid gap-3">
       <div className="flex flex-wrap items-end gap-4">
@@ -311,6 +401,16 @@ export function Monitor({
           ))}
         </fieldset>
       </div>
+      <MonitorDetails
+        data={data}
+        issuers={issuers}
+        fields={fieldsByGroup}
+        cohorts={cohorts}
+        axes={axes}
+        indexedData={dataByField}
+        selected={selected}
+        period={period}
+      />
       <div className="overflow-x-auto rounded-ds-lg border border-border-subtle bg-surface-card">
         <table aria-label="Monitor" className="w-full border-collapse text-left">
           <thead>
@@ -318,7 +418,7 @@ export function Monitor({
               <th scope="col" rowSpan={2} className="sticky left-0 bg-surface-card px-2 py-2">
                 Issuer
               </th>
-              {MONITOR_GROUPS.slice(0, 5).map((group) => (
+              {MONITOR_GROUPS.map((group) => (
                 <th
                   key={group.name}
                   scope="colgroup"
@@ -352,6 +452,18 @@ export function Monitor({
                   </button>
                 </th>
               ))}
+              <th
+                scope="col"
+                className="border-b border-border-hairline px-2 py-1 text-caption font-medium"
+              >
+                <button
+                  type="button"
+                  disabled
+                  title="Issuer-specific covenant tests are not comparable across issuers."
+                >
+                  Tightest covenant test · not ranked
+                </button>
+              </th>
               <th
                 scope="col"
                 className="border-b border-border-hairline px-2 py-1 text-caption font-medium"
@@ -398,6 +510,28 @@ export function Monitor({
                     {issuer.name}
                   </th>
                   {fieldsByGroup.map((field) => cellFor(issuer, field))}
+                  <td
+                    className="px-2 py-1 text-small"
+                    aria-label={`${issuer.name}, tightest covenant test`}
+                  >
+                    {(() => {
+                      const reading = covenantData.get(issuer.key);
+                      const pair = reading?.pair;
+                      return pair ? (
+                        `${pair.fact.heading ?? pair.fact.row ?? "Covenant"}: ${written(pair.fact)} / ${written(pair.threshold)}; ${compare(pair.room, "0") < 0 ? "beyond the limit" : "headroom"} ${writtenText(pair.room, pair.threshold.unit)}`
+                      ) : (
+                        <span
+                          title={
+                            reading?.ambiguous
+                              ? "Ambiguous duplicate covenant row; unavailable"
+                              : "No comparable current and threshold pair"
+                          }
+                        >
+                          Unavailable
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-2 py-1">
                     {trace && (
                       <a
@@ -417,7 +551,7 @@ export function Monitor({
           </tbody>
         </table>
       </div>
-      <LeftOut out={uniqueOut} title="Issuers left out of one or more measures" />
+      <LeftOut out={uniqueOut} title="Issuers left out of one or more measures" details={details} />
     </section>
   );
 }
