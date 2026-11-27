@@ -291,4 +291,27 @@ describe("Refinancing synthetic reply", () => {
       "9007199254740993.1 USD millions",
     );
   });
+
+  it("shows duplicate committed resources but leaves their marks out", () => {
+    const { data, issuers } = syntheticReply();
+    const extra = fact(issuerAt(issuers, 0), RESOURCES, "FY2027", "900", "USD millions", 15);
+    render(
+      <Refinancing
+        data={{ ...data, facts: [...data.facts, extra] }}
+        issuers={issuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Period"), { target: { value: "FY2027" } });
+    const row = within(
+      screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
+    ).getByRole("row", { name: /Alpha/ });
+    expect(row).toHaveTextContent(
+      "Resources: multiple amounts left out (800 USD millions; 900 USD millions)",
+    );
+    expect(row.querySelector('[data-mark="debt maturing"]')).toBeInTheDocument();
+    expect(row.querySelector('[data-mark="committed resources"]')).not.toBeInTheDocument();
+    expect(within(row).getByText("Open source runs (3)")).toBeInTheDocument();
+  });
 });
