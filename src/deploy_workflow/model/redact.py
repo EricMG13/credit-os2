@@ -25,9 +25,10 @@ KEY_ENV_NAMES = (
 )
 # A key may follow "_" or any other non-key character, or a %XX escape (URL-encoded text); only a
 # preceding letter or digit marks the "sk-" (or a GitHub "ghp_"-style or "github_pat_" prefix) as
-# the tail of a longer word such as "risk-".
+# the tail of a longer word such as "risk-". A JSON/Python escape that ends in a letter or digit
+# (\n, \t, \xNN, \uXXXX, \UXXXXXXXX) is not a word: a key after it is a key.
 KEY_PATTERN = re.compile(
-    r"(?:(?<![A-Za-z0-9])|(?<=%[0-9A-Fa-f]{2}))(sk-(or|ant|proj)-[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{20,}"
+    r"(?:(?<![A-Za-z0-9])|(?<=%[0-9A-Fa-f]{2})|(?<=\\[nrtbf])|(?<=\\u[0-9A-Fa-f]{4})|(?<=\\x[0-9A-Fa-f]{2})|(?<=\\U[0-9A-Fa-f]{8}))(sk-(or|ant|proj)-[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{20,}"
     r"|gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})"
 )
 _KEY_PATTERN_BYTES = re.compile(KEY_PATTERN.pattern.encode("ascii"))

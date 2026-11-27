@@ -13,9 +13,11 @@ import hashlib
 import io
 import json
 import logging
+import posixpath
 import re
 import threading
 import time
+import zlib
 from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -28,6 +30,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote, urlsplit
 from uuid import uuid4
+from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
 
 from pydantic import TypeAdapter
@@ -43,7 +46,7 @@ from deploy_vii.inputs.csv_text import decode_csv_text
 from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell
 from deploy_vii.model.metrics import _ratio
-from deploy_vii.preparation import pdf_page_text, xlsx_content
+from deploy_vii.preparation import NS, REL, pdf_page_text, xlsx_content, xml_part
 from deploy_vii.registry import modules, purpose
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, BudgetError, OverrunStop, exact_multiply, exact_sum
@@ -90,6 +93,7 @@ from deploy_workflow.research.weblookup import (
     RunScope,
     Runtime,
     WebLookup,
+    _fetch_key,
     bare_host_problem,
     known_pages,
     names_web_source,
@@ -457,8 +461,14 @@ def _is_workbook(raw: bytes) -> bool:
 
 
 def _cell_label(span: Span) -> str:
-    """One stored cell as the model reads it: numbers as their exact stored lexeme, text quoted,
-    a formula with its stored cache (``[absent]``, never zero) and a non-General number format."""
+    """One stored cell as the model reads it, tagged `` hidden`` when it lies in a hidden sheet,
+    row or column."""
+    return _cell_value(span) + (" hidden" if span.hidden else "")
+
+
+def _cell_value(span: Span) -> str:
+    """One stored cell's value: numbers as their exact stored lexeme, text quoted, a formula
+    with its stored cache (``[absent]``, never zero) and a non-General number format."""
     address = span.locator.partition("!")[2]
     if span.formula is not None:
         formula = span.text.partition("\n")[0].removeprefix("Formula: ")
@@ -475,6 +485,82 @@ def _cell_label(span: Span) -> str:
     return f"{address}={value}" + (f" format={span.number_format!r}" if shown else "")
 
 
+def _part_path(base: str, target: str) -> str:
+    """A relationship target resolved against the part that holds it, as a package path."""
+    if target.startswith("/"):
+        return posixpath.normpath(target.lstrip("/"))
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base), target))
+
+
+# The errors a damaged package part raises, as prepare_source (deploy_vii/preparation.py) lists
+# them: zlib.error (damaged deflate), EOFError (truncated), RuntimeError (encrypted member) and
+# NotImplementedError (unsupported method) come from zipfile besides the XML and lookup errors.
+_PART_ERRORS = (
+    KeyError,
+    ValueError,
+    BadZipFile,
+    ET.ParseError,
+    zlib.error,
+    EOFError,
+    RuntimeError,
+    NotImplementedError,
+)
+
+
+def _comment_sheets(raw: bytes) -> dict[str, str]:
+    """The sheet name of each comments part, read from the package's relationship parts.
+    A part whose sheet cannot be resolved is left out (its own name is shown instead); one
+    damaged sheet part costs only that sheet's comment names."""
+    found: dict[str, str] = {}
+    try:
+        with ZipFile(io.BytesIO(raw)) as archive:
+            names = set(archive.namelist())
+            book = xml_part(archive, "xl/workbook.xml")
+            targets = {
+                item.attrib["Id"]: item.attrib["Target"]
+                for item in xml_part(archive, "xl/_rels/workbook.xml.rels")
+            }
+            for sheet in book.findall("s:sheets/s:sheet", NS):
+                try:
+                    path = _part_path("xl/workbook.xml", targets[sheet.attrib[REL]])
+                    rels = f"{posixpath.dirname(path)}/_rels/{posixpath.basename(path)}.rels"
+                    if rels not in names:
+                        continue
+                    for item in xml_part(archive, rels):
+                        if item.attrib.get("Type", "").endswith("/comments"):
+                            found[_part_path(path, item.attrib["Target"])] = sheet.attrib["name"]
+                except _PART_ERRORS as exc:
+                    log.warning(
+                        "comments of sheet %r show their part: %s: %s",
+                        sheet.get("name"),
+                        type(exc).__name__,
+                        exc,
+                    )
+    except _PART_ERRORS as exc:
+        log.warning(
+            "comment sheets could not be resolved, so comments show their part: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+    return found
+
+
+def _comment_lines(raw: bytes, spans: Sequence[Span]) -> list[str]:
+    """One line per cell comment, led by its sheet (else its comments part)."""
+    notes = [span for span in spans if span.locator.startswith("part:") and span.text]
+    if not notes:
+        return []
+    sheets = _comment_sheets(raw)
+    lines = []
+    for span in notes:
+        part, _, ref = span.locator.partition("!")
+        part = unquote(part.removeprefix("part:"))
+        lines.append(
+            f"{sheets.get(part, part)} {ref} by {span.note or 'unknown author'}: {span.text!r}"
+        )
+    return lines
+
+
 def _workbook_pages(raw: bytes) -> list[str]:
     """One page per sheet from the preparation reader's stored cells: exact lexemes, no
     recalculation, and work bounded by the cells actually stored, not the sheet's dimension."""
@@ -488,11 +574,13 @@ def _workbook_pages(raw: bytes) -> list[str]:
         row = address.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
         rows[sheet].setdefault(row, []).append(_cell_label(span))
     notes = "\n".join(extraction.limitations)
-    return [
+    pages = [
         f"Sheet {unquote(sheet.removeprefix('sheet:'))}\n{notes}\n"
         + "\n".join(" | ".join(cells) for cells in rows[sheet].values())
         for sheet in sheets
     ]
+    comments = _comment_lines(raw, extraction.spans)
+    return [*pages, "Cell comments\n" + "\n".join(comments)] if comments else pages
 
 
 # The page text of sources already read in this process, by the sha256 of their bytes and whether
@@ -697,6 +785,9 @@ class ModuleTools:
             result: str = getattr(self, name)(**args)
             return result
         except (TypeError, KeyError, ValueError, DecimalException) as exc:
+            # The model is told, as before; the cause is also logged so a fault in the checker or
+            # in I/O (not only a bad argument) is not lost after paid writes.
+            log.warning("%s failed with %s: %s", name, type(exc).__name__, exc, exc_info=True)
             return f"ERROR: {type(exc).__name__}: {exc}"
         except (OSError, ResearchError) as exc:
             if name not in LOOKUP_NAMES:
@@ -725,7 +816,13 @@ class ModuleTools:
         """Record one index row; a page already registered under its id (the same bytes at a
         second address) is not read again. A body that cannot be read is logged and recorded as
         unreadable, never raised: the row still counts and the caller moves on."""
-        if item.source_id not in self.web:
+        known = self.web.get(item.source_id)
+        if known is not None and _fetch_key(known.url) == _fetch_key(item.url):
+            # The id's own address, fetched or re-dated again: list_sources shows its latest row, as
+            # the checker (weblookup._latest_rows) judges it. self.web keeps the first row of an id
+            # (weblookup.known_pages does the same). The pages are not read again.
+            self.sources[item.source_id]["web"] = item
+        if known is None:
             try:
                 pages = lookup.page_text(item)
             except OSError as exc:

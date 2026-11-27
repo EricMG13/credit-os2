@@ -253,7 +253,18 @@ def covers_long_context(config_id: str) -> bool:
 _FRAMING_TOKENS = 4096  # the tool and runtime framing allowance added to every handoff bound
 
 
+# the ruled lower bound for direct Anthropic and OpenRouter configurations
+# (cases/pilot-fixes/limits.json bytes_per_token_lower_bound.anthropic and .openrouter)
+_ANTHROPIC_BYTES_PER_TOKEN = 1
+_OPENROUTER_BYTES_PER_TOKEN = 1
+
+
 def _bytes_per_token(config: str) -> int:
+    provider = CONFIG_PROVIDERS.get(config)
+    if provider == "anthropic":
+        return _ANTHROPIC_BYTES_PER_TOKEN
+    if provider == "openrouter":
+        return _OPENROUTER_BYTES_PER_TOKEN
     if config in {"copilot-opus-medium", "copilot-opus-high"}:
         return 1  # the retained Anthropic limits support one byte per token
     if covers_long_context(config):
