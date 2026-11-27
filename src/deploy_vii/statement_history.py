@@ -118,14 +118,28 @@ def _at(
     return [cells[pid] for pid in ordered if pid in period_ids and pid in cells]
 
 
+def _scoped(periods: tuple[FinancialPeriod, ...], own: str | None) -> tuple[FinancialPeriod, ...]:
+    """The periods whose balances are reported ones: a pro forma period's balance sheet reaches
+    only its own column (the scope of `facility_fx._conflict_scope`)."""
+    return tuple(p for p in periods if p.period_type != "PF" or p.period_id == own)
+
+
 def _closing(
     cells: dict[str, StatementCell], periods: tuple[FinancialPeriod, ...], spec: _Spec
 ) -> Cell:
     """Closing observations only; an unresolved same-date conflict blocks selection."""
     end = spec.column.end_date
     if end is None:
-        return Cell(None, "NOT_SOURCED", note="Closing date is unavailable")
-    matching = tuple(p.period_id for p in periods if p.end_date and p.end_date.isoformat() == end)
+        # No date to search by: the column's own period's balance, as the kernel reads it.
+        own = _at(cells, (spec.own,) if spec.own else (), spec.own)
+        if not any(c.normalized_amount is not None for c in own):
+            return Cell(None, "NOT_SOURCED", note="Closing date is unavailable")
+        return _select(own)
+    matching = tuple(
+        p.period_id
+        for p in _scoped(periods, spec.own)
+        if p.end_date and p.end_date.isoformat() == end
+    )
     return _select(_at(cells, matching, spec.own))
 
 
@@ -140,13 +154,21 @@ def _opening(
     the day before; an unresolved conflict at that date blocks selection."""
     opening = opening_date(spec.column)
     if opening is None:
-        return Cell(None, "NOT_SOURCED", note="Opening date is unavailable")
+        # No date to search by: the column's own period's opening cash, as the kernel reads it.
+        own = _at(cells, (spec.own,) if spec.own else (), spec.own)
+        if not any(c.normalized_amount is not None for c in own):
+            return Cell(None, "NOT_SOURCED", note="Opening date is unavailable")
+        return _select(own)
     starting = tuple(
         p.period_id
-        for p in periods
+        for p in _scoped(periods, spec.own)
         if p.start_date and (p.start_date - timedelta(days=1)).isoformat() == opening
     )
-    ending = tuple(p.period_id for p in periods if p.end_date and p.end_date.isoformat() == opening)
+    ending = tuple(
+        p.period_id
+        for p in _scoped(periods, spec.own)
+        if p.end_date and p.end_date.isoformat() == opening
+    )
     own = _at(cells, starting, spec.own)
     cell = _select([*own, *_at(closing, ending, None)])
     if cell.value is None or any(c.normalized_amount is not None for c in own):
