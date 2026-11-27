@@ -29,7 +29,8 @@ run per issuer, the working-page rule, and nothing written to the service.
 
 ## The five computations Coverage may make
 
-Each is exact decimal arithmetic on figures a module wrote, shown beside the figures it used.
+Each is exact decimal arithmetic on figures a module wrote or the run's RV book holds, shown
+beside the figures it used.
 
 1. **Difference.** The difference between two figures one module wrote for one issuer in one
    unit: one field and heading at two periods the page can put in order, or a level and its limit
@@ -52,10 +53,13 @@ Each is exact decimal arithmetic on figures a module wrote, shown beside the fig
    rating bucket, reference holdings and bands, and Coverage draws no second median for a bond.
    One exception (owner, 2026-11-27, asked "May a margin be compared with its ranking's cohort
    median?": "Yes, allow it"): on Relative value, an RV book instrument's margin (or its Mid 3Y
-   DM) may be compared with the median of the cohort's instruments of the same ranking, under
-   rule 2's qualification and its three-figure floor. It is labelled "cohort median by ranking,
-   computed", never "peer median" or a valuation, and it is not the Valuation score's bucket
-   median, which stays on Deliverables.
+   DM) may be compared with the median of the cohort's instruments of the same ranking. Here the
+   qualification is per instrument, not rule 2's one figure per issuer: each row of the newest
+   run's RV book with that ranking and a figure in the chosen column counts once. The column is
+   the unit: Margin and Mid 3Y DM are never mixed, and where the sheet has a currency column,
+   one currency at a time. An issuer may contribute several instruments, and fewer than three
+   gives no median. It is labelled "cohort median by ranking, computed", never "peer median" or
+   a valuation, and it is not the Valuation score's bucket median, which stays on Deliverables.
 4. **Sum.** The total of written amounts in one currency (maturities by year). Amounts written in
    different scales of one currency are rescaled by an exact power of ten and the chart says so.
    No currency conversion: each currency is its own chart.
@@ -71,8 +75,9 @@ Each is exact decimal arithmetic on figures a module wrote, shown beside the fig
   improving or deteriorating, and makes no recommendation. The calls of Security selection,
   Market-implied risk, Evidence validation and Committee decision stay withheld from Coverage, as
   they are today.
-- No data from outside the handoffs: no live price, benchmark, curve or holdings file. Market
-  figures are the ones Security selection and Market-implied risk wrote, with their dates.
+- No data from outside the handoffs and the run's RV book (section "A second source"): no live
+  price, benchmark, curve or holdings file. Market figures are the RV book's as entered, or those
+  Security selection and Market-implied risk wrote, each with its date.
 - No comparability decision. Coverage does not decide that two differently worded bases mean the
   same thing. Each row shows its Basis; the reader may leave an issuer out of the cohort (page
   state, drawn as "left out by you").
@@ -82,9 +87,9 @@ Each is exact decimal arithmetic on figures a module wrote, shown beside the fig
 The 2026-11-24 rule rests on `AGENTS.md` ("Analytical modules own analysis"; "Delivery adds no
 analysis"), so the ruling alone cannot be amended. Sentence added to the delivery bullet, after
 the recommendation exception: "A second exception (`docs/rulings/2026-11-26-coverage-analytics.md`):
-the Coverage page may draw five kinds of ruled arithmetic on module-written figures (difference,
-cohort statistics, distance from the cohort median, sum, selection), each labelled computed and
-shown with the figures it used."
+the Coverage page may draw five kinds of ruled arithmetic on module-written figures and the run's
+RV book (difference, cohort statistics, distance from the cohort median, sum, selection), each
+labelled computed and shown with the figures it used."
 
 ## Better and worse (added 2026-11-26)
 
