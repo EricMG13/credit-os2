@@ -53,6 +53,8 @@ export type Fact = {
   direction?: string;
   unit?: string;
   basis?: string;
+  /** The table's typed Quote date cell, kept distinct from the run's as-of date. */
+  quoteDate?: string;
   impact?: string;
   confidence?: string;
   line: number;

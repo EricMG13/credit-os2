@@ -810,13 +810,13 @@ test("Coverage opens Monitor by default and keeps named analytics regions honest
   fireEvent.click(screen.getByRole("button", { name: "Refinancing" }));
   expect(await screen.findByRole("table", { name: "Maturity wall totals" })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "Refinancing" })).toBeInTheDocument();
-  for (const view of ["Market"]) {
-    fireEvent.click(screen.getByRole("button", { name: view }));
-    expect(screen.getByRole("region", { name: view })).toHaveTextContent(
-      `${view} analysis is not available yet.`,
-    );
-    expect(screen.getByRole("combobox", { name: "Selected issuer" })).toHaveValue("beta");
-  }
+  fireEvent.click(screen.getByRole("button", { name: "Market" }));
+  expect(await screen.findByRole("table", { name: "Market observations" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Market" })).toHaveTextContent(
+    "This page could not read yields and maturities for 2 issuers.",
+  );
+  expect(screen.getByRole("button", { name: "Beta SA" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Headroom" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Headroom" }));
   expect(screen.getByRole("region", { name: "Headroom" })).toHaveTextContent(
     "This page could not read base and downside cases.",
