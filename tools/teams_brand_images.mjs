@@ -15,7 +15,7 @@ import { deflateSync } from "node:zlib";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const web = createRequire(resolve(ROOT, "web/package.json"));
-const { chromium } = createRequire(import.meta.url)("playwright");
+const { chromium } = web("playwright");
 const { renderToStaticMarkup } = web("react-dom/server");
 const React = web("react");
 const ICONS = web("@untitledui/icons");
