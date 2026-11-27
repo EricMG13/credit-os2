@@ -260,15 +260,45 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
       "SegmentsThis page could not read the segment schedule because Airframe net sales appears more than once for FY2024.",
     );
   });
-  it("draws the gap when no segment states an amount for the drawn period", () => {
+  it("shows the FY2024 gaps alongside the stated FY2023 segment amounts", () => {
     let data = cp1Entry();
     for (const row of [0, 1, 2])
       for (const column of ["Net sales", "EBITDA As Defined"])
         data = setCell(data, SCHEDULE, row, column, "Not supplied: withheld");
     const tile = draw(data);
-    expect(tile.textContent).toBe(
-      "Segments · $m, FY2024This page could not read an amount for any business unit in FY2024.",
+    fireEvent.click(within(tile).getByRole("button", { name: /Table view/ }));
+    const table = within(tile).getByRole("table", { name: "Segments, $m, by period" });
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Segment", "Measure", "FY2023", "FY2024"]);
+    const rows = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) =>
+        within(row)
+          .getAllByRole("cell")
+          .map((cell) => cell.textContent),
+      );
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        ["Power & Control", "Net sales", "3,316", "Not supplied: withheld"],
+        ["Power & Control", "EBITDA As Defined", "1,866", "Not supplied: withheld"],
+      ]),
     );
+    expect(
+      rows
+        .filter((row) => row[3] === "Not supplied: withheld")
+        .map(([segment, measure]) => [segment, measure]),
+    ).toEqual([
+      ["Power & Control", "Net sales"],
+      ["Power & Control", "EBITDA As Defined"],
+      ["Airframe", "Net sales"],
+      ["Airframe", "EBITDA As Defined"],
+      ["Non-aviation", "Net sales"],
+      ["Non-aviation", "EBITDA As Defined"],
+    ]);
   });
 });
 
