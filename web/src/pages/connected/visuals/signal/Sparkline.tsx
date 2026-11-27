@@ -30,7 +30,11 @@ function normalizedPositions(values: readonly (string | null)[]): (number | null
   const range = high - low;
   const precision = 1_000_000_000_000_000n;
   return scaled.map((value) =>
-    value === null ? null : range === 0n ? 0.5 : Number(((value - low) * precision) / range) / Number(precision),
+    value === null
+      ? null
+      : range === 0n
+        ? 0.5
+        : Number(((value - low) * precision) / range) / Number(precision),
   );
 }
 
