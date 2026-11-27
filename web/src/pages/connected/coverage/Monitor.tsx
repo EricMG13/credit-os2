@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
 import {
   evidenceLink,
   latestRun,
@@ -64,11 +63,7 @@ function readFor(cohortValue: Cohort, issuer: Issuer): Reading | null {
 }
 
 function periodsFor(data: Coverage, issuers: readonly Issuer[], field: string): string[] {
-  const periods = periodsOf(data, issuers, field);
-  if (periodsOrdered(data, issuers, field)) {
-    return [...periods].sort((a, b) => comparePeriodKeys(periodKey(a), periodKey(b)));
-  }
-  return [...periods];
+  return periodsOf(data, issuers, field);
 }
 
 export function Monitor({
