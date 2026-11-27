@@ -103,20 +103,26 @@ describe("the delta bar's changed part takes a direction's ink only when one is 
   it.each(["none", "flat"] as const)("draws a fall with tone %s in neutral ink", (tone) => {
     const part = draw(300, 275, tone);
     expect(part).toHaveClass("fill-surface-subtle", "stroke-border-gap");
-    expect(part?.getAttribute("class")).not.toMatch(/warning/);
+    expect(part?.getAttribute("class")).not.toMatch(
+      /warning|better-mark|worse-mark|scale-better|scale-worse/,
+    );
   });
 
-  it("draws a fall the caller states as worse in signal ink", () => {
-    expect(draw(300, 275, "worse")).toHaveClass("fill-warning-fill", "stroke-warning-mark");
+  it("draws a fall the caller states as worse in the worse mark", () => {
+    expect(draw(300, 275, "worse")).toHaveClass("fill-scale-worse-2", "stroke-worse-mark");
   });
 
-  it("draws a fall the caller states as better in the accent, never in signal ink", () => {
+  it("draws a fall the caller states as better in the better mark, never in the worse mark", () => {
     const part = draw(300, 275, "better");
-    expect(part).toHaveClass("fill-success-fill", "stroke-chart-1");
-    expect(part?.getAttribute("class")).not.toMatch(/warning/);
+    expect(part).toHaveClass("fill-scale-better-2", "stroke-better-mark");
+    expect(part?.getAttribute("class")).not.toMatch(/warning|worse/);
   });
 
-  it("draws a rise the caller states as worse in signal ink", () => {
-    expect(draw(275, 300, "worse")).toHaveClass("fill-warning-mark", "stroke-warning-mark");
+  it("draws a rise the caller states as worse in the worse mark", () => {
+    expect(draw(275, 300, "worse")).toHaveClass("fill-worse-mark", "stroke-worse-mark");
+  });
+
+  it("draws a rise the caller states as better in the better mark", () => {
+    expect(draw(275, 300, "better")).toHaveClass("fill-better-mark", "stroke-better-mark");
   });
 });

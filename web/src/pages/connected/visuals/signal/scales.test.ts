@@ -49,7 +49,7 @@ describe("scales", () => {
   });
 
   it("throws a RangeError for a NaN share and for an empty scale", () => {
-    expect(() => step(Number.NaN, POSITION)).toThrow(RangeError);
-    expect(() => step(0.5, [])).toThrow(RangeError);
+    expect(() => step(Number.NaN, POSITION)).toThrow(new RangeError("step: share is NaN"));
+    expect(() => step(0.5, [])).toThrow(new RangeError("step: scale is empty"));
   });
 });

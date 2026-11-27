@@ -501,7 +501,7 @@ One scale per meaning, never reused for another (`DESIGN.md` § "Colour as signa
 
 - C1: status never uses green, except cap band 1, told apart from a status by its form.
 - C2: better and worse are one level each, a mark plus a tint, always with the up or down glyph and the word; the direction comes only from `signal.ts`.
-- C6: the category palette is the eight colours in order; slots 1, 2 and 7 are left out where better/worse, status marks or blue chrome are present.
+- C6: the category palette is the eight colours in order; slots 1, 2 and 7 are left out where better/worse, status marks or blue chrome are present; further categories share slot 8 with their own words.
 
 | Scale | Step | Token | Hex | Contrast of text-primary on it |
 | :--- | :--- | :--- | :--- | :--- |

@@ -53,7 +53,7 @@ describe("headline year comparator", () => {
     );
     const lev = screen.getByText(/\+0\.2x vs FY2023/);
     expect(lev.textContent).toContain("worse");
-    expect(lev.className).toContain("text-error-text");
+    expect(lev.className).toContain("text-worse-mark");
     const cov = screen.getByText(/-0\.50x vs FY2023/);
     expect(cov.textContent).toContain("worse");
     const cash = screen.getByText(/-\$25m vs FY2023/);

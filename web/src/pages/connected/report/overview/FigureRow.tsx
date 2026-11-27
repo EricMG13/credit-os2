@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cx } from "@/utils/cx";
 import { parsePeriod } from "@/utils/periodOrder";
 import { blocked, evidencePath, type OutputEntry } from "../../publishedReport";
+import { BETTER, WORSE } from "../../visuals/signal/scales";
 import { changeSign, changeText, exactDifference, tone } from "../../signal";
 import { PublishedSource } from "../PublishedTrace";
 import { Key } from "./figureParts";
@@ -139,8 +140,12 @@ const spoken = (title: string, slots: Slot[]) =>
   `${title}: ${slots.map((slot) => (slot.value === null ? `no figure in ${slot.label}` : `${slot.text} in ${slot.label}`)).join(", ")}.`;
 
 const TONE_LOOK = {
-  better: { box: "border-success-edge bg-success-fill", text: "text-success-text" },
-  worse: { box: "border-warning-edge bg-warning-fill", text: "text-warning-text" },
+  better: {
+    box: "border-better-mark text-text-primary",
+    text: "text-better-mark",
+    fill: BETTER[1],
+  },
+  worse: { box: "border-worse-mark text-text-primary", text: "text-worse-mark", fill: WORSE[1] },
 } as const;
 
 /** Better or worse, by `tone()` only: a chip on a large tile, an inline word on a small one. */
@@ -152,9 +157,10 @@ function ToneChip({ reading, large }: { reading: Ready; large: boolean }) {
     <span
       className={cx(
         "flex flex-none items-center gap-1 text-caption whitespace-nowrap",
-        look.text,
-        large && cx("h-6 rounded-ds-xs border px-2", look.box),
+        large ? "h-6 rounded-ds-xs border px-2" : look.text,
+        large && look.box,
       )}
+      {...(large && { style: { backgroundColor: look.fill } })}
     >
       <Arrow aria-hidden="true" className="size-3" />
       {reading.tone === "worse" ? "Worse" : "Better"}

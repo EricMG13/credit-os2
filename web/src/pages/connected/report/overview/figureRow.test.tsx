@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun, Section, Snapshot } from "../../publishedReport";
 import type { ReportView } from "../../reportView";
+import { BETTER, WORSE } from "../../visuals/signal/scales";
 import { FigureRow } from "./FigureRow";
 import { outside, struck } from "./svgText.fixture";
 
@@ -219,7 +220,11 @@ describe("the latest figure is the latest period, never the last row", () => {
     for (const name of ["Total debt / EBITDA", "Net debt / EBITDA"]) {
       const tile = screen.getByRole("region", { name });
       expect(tile).not.toHaveTextContent(/Better|Worse/);
-      expect(tile.querySelector("[class*='success'], [class*='warning']")).toBeNull();
+      expect(
+        tile.querySelector(
+          "[class*='success'], [class*='warning'], [class*='better-mark'], [class*='worse-mark'], [class*='scale-better'], [class*='scale-worse'], [style*='scale-better'], [style*='scale-worse']",
+        ),
+      ).toBeNull();
     }
     expect(within(gross()).getByText(wholeLine("from 3.00x in FY2023 (-15.30x)"))).toBeVisible();
   });
@@ -352,6 +357,27 @@ describe("each figure's basis", () => {
     expect(within(tile).getByRole("link", { name: "Read the reason in Evidence" })).toBeVisible();
     expect(tile).not.toHaveTextContent(/notes_2024|page 88/);
     expect(within(tile).getByText("Better")).toBeVisible();
+  });
+
+  it("draws the large tile's chip on the step-1 tint, in primary text, with its mark-coloured edge", () => {
+    draw(
+      foundation(
+        chart(
+          "leverage",
+          LEVERAGE,
+          ["FY2023", "5.00", "4.50", "x", "Stated."],
+          ["FY2024", "4.00", "5.50", "x", "Stated."],
+        ),
+      ),
+    );
+    const better = within(gross()).getByText("Better");
+    expect(better).toHaveClass("text-text-primary", "border-better-mark");
+    expect(better.style.backgroundColor).toBe(BETTER[1]);
+    const worse = within(screen.getByRole("region", { name: "Net debt / EBITDA" })).getByText(
+      "Worse",
+    );
+    expect(worse).toHaveClass("text-text-primary", "border-worse-mark");
+    expect(worse.style.backgroundColor).toBe(WORSE[1]);
   });
 
   it("shows the latest figure's period on every small tile", () => {
@@ -526,6 +552,8 @@ describe("the small figure tiles", () => {
     const better = within(revenue).getByText("Better");
     expect(better).toHaveClass("whitespace-nowrap");
     expect(better).not.toHaveClass("border");
+    expect(better).toHaveClass("text-better-mark");
+    expect(better.style.backgroundColor).toBe("");
     const cash = screen.getByRole("region", { name: "Cash" });
     expect(within(cash).getByText("(-$25m)")).toHaveClass("whitespace-nowrap");
   });

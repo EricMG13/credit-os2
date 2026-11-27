@@ -40,7 +40,7 @@ it("shows recorded values as recorded and marks only a real difference, with wor
   expect(growth[1]?.textContent).toContain("0.08 each year");
   expect(growth[1]?.textContent).toContain("differs from base");
   expect(growth[1]).toHaveClass("bg-surface-selected");
-  expect(growth[1]?.className).not.toContain("warning");
+  expect(growth[1]?.className).not.toMatch(/warning|worse-mark|better-mark/);
   expect(growth[1]?.querySelector('[aria-hidden="true"]')).not.toBeNull();
   // 0.40 and 0.4 are the same recorded number; 0.04125 is not rounded to 4.13%.
   expect(texts(rowOf("EBITDA margin"))[1]).not.toContain("differs");

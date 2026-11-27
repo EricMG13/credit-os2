@@ -3,8 +3,8 @@ import { ToneMark } from "./ToneMark";
 import { changeSign, changeText, tone } from "../signal";
 
 const colour = {
-  better: "text-success-text",
-  worse: "text-error-text",
+  better: "text-better-mark",
+  worse: "text-worse-mark",
   flat: "text-text-secondary",
   none: "text-text-secondary",
 } as const;

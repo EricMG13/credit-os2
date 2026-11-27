@@ -30,7 +30,7 @@ export function figureName(key: string, name: string, figure: Figure | undefined
 }
 
 /** Better is the accent with its word, worse the signal colour with its word; never colour alone. */
-const TONE_TEXT = { better: "text-success-text", worse: "text-warning-text", flat: "" } as const;
+const TONE_TEXT = { better: "text-better-mark", worse: "text-worse-mark", flat: "" } as const;
 
 /**
  * One headline figure of a library row: the value in mono with its period, and the change from the

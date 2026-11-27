@@ -279,8 +279,8 @@ it("draws better in the accent and worse in the signal colour, each with its wor
     ],
     ["acme-2026"],
   );
-  expect(screen.getByText("better").parentElement).toHaveClass("text-success-text");
-  expect(screen.getByText("worse").parentElement).toHaveClass("text-warning-text");
+  expect(screen.getByText("better").parentElement).toHaveClass("text-better-mark");
+  expect(screen.getByText("worse").parentElement).toHaveClass("text-worse-mark");
 });
 
 it("opens to the figures the row does not show, as one stats strip with its own trace controls", () => {

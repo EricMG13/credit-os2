@@ -61,21 +61,28 @@ const plainNumber = (value: string | number) => {
   return /^-?\d+(?:\.\d+)?$/.test(text) ? Number(text) : null;
 };
 
+const POINT = {
+  better: "fill-better-mark",
+  worse: "fill-worse-mark",
+  flat: "fill-chart-1",
+  none: "fill-chart-1",
+} as const;
+
 /**
  * The mockup's two-point mark: the prior and current figures as written, from a zero baseline, the
- * current point in the signal colour where the change is worse. Nothing for a figure that is not a
+ * current point in the better or worse mark where the change has a tone. Nothing for a figure that is not a
  * plain non-negative number on both sides.
  */
 function TwoPoint({
   name,
   prior,
   current,
-  worse,
+  direction,
 }: {
   name: string;
   prior: { value: string; period: string };
   current: { value: string | number; period?: string | null };
-  worse: boolean;
+  direction: "better" | "worse" | "flat" | "none";
 }) {
   const before = plainNumber(prior.value);
   const after = plainNumber(current.value);
@@ -107,12 +114,7 @@ function TwoPoint({
         strokeWidth="1.5"
         className="fill-surface-card stroke-chart-3"
       />
-      <circle
-        cx="50"
-        cy={y(after)}
-        r="3"
-        className={worse ? "fill-warning-mark" : "fill-chart-1"}
-      />
+      <circle cx="50" cy={y(after)} r="3" className={POINT[direction]} />
     </svg>
   );
 }
@@ -142,12 +144,7 @@ function stat(
       <span className="flex items-end justify-between gap-2">
         {basis && <span className="text-caption text-text-tertiary">{basis}</span>}
         {figure.prior && (
-          <TwoPoint
-            name={name}
-            prior={figure.prior}
-            current={figure}
-            worse={direction === "worse"}
-          />
+          <TwoPoint name={name} prior={figure.prior} current={figure} direction={direction} />
         )}
       </span>
     ),

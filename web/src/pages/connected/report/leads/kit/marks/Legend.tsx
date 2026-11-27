@@ -5,13 +5,32 @@ import { BAR, SLIM } from "./text";
 /** What a legend entry draws: the mark itself, at swatch size. */
 export type LegendKind = "ring" | "dot" | "line" | "bar" | "slim" | "square" | "hatch";
 
+/** The eight category colours, `category-1` to `category-8`. */
+type CategoryColour = `category-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
+/** The five amount steps, `amount-1` (smallest) to `amount-5`. */
+type AmountColour = `amount-${1 | 2 | 3 | 4 | 5}`;
+
 /**
  * The colour of a legend entry, as the marks use it: `primary` blue (current), `secondary` plum,
- * `prior` grey, `worse` the signal colour, `increase` a blue outline on a blue tint, `decrease`
- * the signal outline on its tint, `neutral` the tertiary text colour.
+ * `prior` grey, `worse` the older signal orange (shared with the Waterfall "Not accepted" split
+ * and the leads kit Dumbbell, which keep it), `increase` a blue outline on a blue tint, `decrease`
+ * the signal outline on its tint, `neutral` the tertiary text colour. `better` and `worse-mark`
+ * are the better and worse marks (green and burnt orange) that `tone()` readings draw in;
+ * `category-1` to `category-8` are the category colours; `amount-1` to `amount-5` are the amount
+ * steps, outlined because the pale steps are close to the white ground.
  */
 export type LegendColour =
-  "primary" | "secondary" | "prior" | "worse" | "increase" | "decrease" | "neutral";
+  | "primary"
+  | "secondary"
+  | "prior"
+  | "worse"
+  | "increase"
+  | "decrease"
+  | "neutral"
+  | "better"
+  | "worse-mark"
+  | CategoryColour
+  | AmountColour;
 
 export type LegendEntry = {
   kind: LegendKind;
@@ -30,6 +49,21 @@ const FILL: Record<LegendColour, string> = {
   increase: "fill-surface-selected stroke-chart-1",
   decrease: "fill-warning-fill stroke-warning-mark",
   neutral: "fill-text-tertiary",
+  better: "fill-better-mark",
+  "worse-mark": "fill-worse-mark",
+  "category-1": "fill-category-1",
+  "category-2": "fill-category-2",
+  "category-3": "fill-category-3",
+  "category-4": "fill-category-4",
+  "category-5": "fill-category-5",
+  "category-6": "fill-category-6",
+  "category-7": "fill-category-7",
+  "category-8": "fill-category-8",
+  "amount-1": "fill-scale-amount-1 stroke-scale-amount-edge",
+  "amount-2": "fill-scale-amount-2 stroke-scale-amount-edge",
+  "amount-3": "fill-scale-amount-3 stroke-scale-amount-edge",
+  "amount-4": "fill-scale-amount-4 stroke-scale-amount-edge",
+  "amount-5": "fill-scale-amount-5 stroke-scale-amount-edge",
 };
 
 const STROKE: Record<LegendColour, string> = {
@@ -40,6 +74,21 @@ const STROKE: Record<LegendColour, string> = {
   increase: "stroke-chart-1",
   decrease: "stroke-warning-mark",
   neutral: "stroke-text-tertiary",
+  better: "stroke-better-mark",
+  "worse-mark": "stroke-worse-mark",
+  "category-1": "stroke-category-1",
+  "category-2": "stroke-category-2",
+  "category-3": "stroke-category-3",
+  "category-4": "stroke-category-4",
+  "category-5": "stroke-category-5",
+  "category-6": "stroke-category-6",
+  "category-7": "stroke-category-7",
+  "category-8": "stroke-category-8",
+  "amount-1": "stroke-scale-amount-edge",
+  "amount-2": "stroke-scale-amount-edge",
+  "amount-3": "stroke-scale-amount-edge",
+  "amount-4": "stroke-scale-amount-edge",
+  "amount-5": "stroke-scale-amount-edge",
 };
 
 /** A swatch's box: 12 px wide, 12 px tall. */
@@ -60,7 +109,7 @@ export function MarkSwatch({
   y: number;
 }) {
   const middle = y + SWATCH / 2;
-  const outlined = tone === "increase" || tone === "decrease";
+  const outlined = tone === "increase" || tone === "decrease" || tone.startsWith("amount-");
   switch (kind) {
     case "ring":
       return (

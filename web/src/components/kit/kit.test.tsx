@@ -24,7 +24,7 @@ it("draws a stat's value as written, its change with the direction word, and a g
   );
   const strip = screen.getByLabelText("Headline figures");
   expect(within(strip).getByText("2.25x")).toHaveClass("font-mono", "tabular-nums");
-  expect(within(strip).getByText("-0.75x better")).toHaveClass("text-success-text");
+  expect(within(strip).getByText("-0.75x better")).toHaveClass("text-better-mark");
   expect(within(strip).getByText(/from 3\.00x in FY2023/)).toBeInTheDocument();
   expect(within(strip).getByText("Not supplied: the measure is not stated")).toBeInTheDocument();
   expect(within(strip).queryByText("0")).toBeNull();
