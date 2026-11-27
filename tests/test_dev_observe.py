@@ -352,8 +352,19 @@ def test_approved_trial_starts_canary_promotes_and_owner_can_reverse(tmp_path: P
     add_trial(db, root, db_path, stages=("canary",))
     outstanding = make_event(root, task="unreviewed", event_id="missing-start")
     seed_worker_ledger(db_path, outstanding)
+    retained = make_event(
+        root,
+        task=outstanding.task_id,
+        attempt_id=outstanding.attempt_id,
+        event_id="retained-start",
+        trial_id="historical-replay",
+        trial_stage="incumbent_replay",
+        fixture="older",
+        route_evidence="retained-trial",
+    )
+    ingest(db, retained, evidence_file(root, retained))
     held = apply_completed_reviews(db, registry, root, policy)
-    assert len(held) == 1 and "missing start outcome" in held[0]
+    assert any("missing start outcome" in notice for notice in held)
     assert resolve_route(registry, COHORT)["route"] == INCUMBENT
     ingest(db, outstanding, evidence_file(root, outstanding))
     notices = apply_completed_reviews(db, registry, root, policy)
@@ -562,19 +573,45 @@ def test_overrun_holds_incumbent_or_stops_active_canary(tmp_path: Path, live: bo
         assert apply_completed_reviews(db, db_path, root, policy) == []
 
 
-def test_verified_high_escape_stops_live_canary(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "escaped,previous",
+    [
+        (CHALLENGER, None),
+        (INCUMBENT, None),
+        (INCUMBENT, {"model": "gpt-6-luna", "effort": "low"}),
+    ],
+)
+def test_verified_high_escape_stops_live_canary(
+    tmp_path: Path, escaped: dict[str, str], previous: dict[str, str] | None
+) -> None:
     db_path = tmp_path / "dev.sqlite"
     root = tmp_path / "evidence"
     with open_db(db_path) as db:
         policy = approved_policy(db_path)
+        if previous:
+            cohort_path = _write_json(tmp_path / "cohort.json", COHORT.model_dump(mode="json"))
+            owner_route(
+                db_path,
+                cohort_path,
+                _write_json(tmp_path / "previous.json", previous),
+                "D-PREVIOUS",
+                "previous route",
+            )
+            owner_route(
+                db_path,
+                cohort_path,
+                _write_json(tmp_path / "incumbent.json", INCUMBENT),
+                "D-INCUMBENT",
+                "current incumbent",
+            )
         add_trial(db, root, db_path, stages=("baseline", "incumbent_replay", "challenger_replay"))
         apply_completed_reviews(db, db_path, root, policy)
         event = make_event(
             root,
             task="canary",
             event_id="escaped",
-            route_requested_effort="high",
-            route_resolved_effort="high",
+            route_requested_effort=escaped["effort"],
+            route_resolved_effort=escaped["effort"],
             cause="implementation",
             first_grade="Bad",
             final_grade="Bad",
@@ -585,4 +622,7 @@ def test_verified_high_escape_stops_live_canary(tmp_path: Path) -> None:
         seed_worker_ledger(db_path, event, merged=True)
         ingest(db, event, evidence_file(root, event))
         assert "verified High escaped" in apply_completed_reviews(db, db_path, root, policy)[0]
-        assert resolve_route(db_path, COHORT)["canary_route"] is None
+        current = resolve_route(db_path, COHORT)
+        assert current["canary_route"] is None
+        assert current["route"] == (previous or INCUMBENT)
+        assert apply_completed_reviews(db, db_path, root, policy) == []

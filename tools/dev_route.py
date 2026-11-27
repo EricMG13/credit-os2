@@ -543,6 +543,29 @@ def owner_route(
         )
 
 
+def rollback_target(db: sqlite3.Connection, cohort: Cohort, expected: str | None) -> Route:
+    key = cohort_key(cohort)
+    if expected is None:
+        row = db.execute(
+            "SELECT previous FROM route_events WHERE cohort=? "
+            "ORDER BY created DESC,rowid DESC LIMIT 1",
+            (key,),
+        ).fetchone()
+    else:
+        current = resolve_route_db(db, cohort)
+        if expected not in (current["decision_id"], current["canary_decision_id"]):
+            raise ValueError("route decision changed before rollback")
+        row = db.execute(
+            "SELECT previous FROM route_events WHERE cohort=? AND decision_id=?", (key, expected)
+        ).fetchone()
+        if row is not None and row["previous"] is None and current["canary_decision_id"]:
+            # The initial incumbent has no predecessor. Cancel its live experiment.
+            return Route.model_validate(current["route"])
+    if row is None or row["previous"] is None:
+        raise ValueError("no prior route is recorded for this cohort")
+    return Route.model_validate_json(row["previous"])
+
+
 def rollback_route(
     registry: Path | AuthorizedRegistry,
     cohort_path: Path,
@@ -562,16 +585,7 @@ def rollback_route(
                     raise ValueError("conflicting rollback decision ID")
                 db.rollback()
                 return
-            row = db.execute(
-                "SELECT decision_id, previous FROM route_events WHERE cohort=? "
-                "ORDER BY created DESC, rowid DESC LIMIT 1",
-                (key,),
-            ).fetchone()
-            if row is None or row["previous"] is None:
-                raise ValueError("no prior route is recorded for this cohort")
-            if expected_decision is not None and row["decision_id"] != expected_decision:
-                raise ValueError("route decision changed before rollback")
-            route = Route.model_validate_json(row["previous"])
+            route = rollback_target(db, cohort, expected_decision)
             record_route(db, RouteUpdate(cohort, route, decision_id, "rollback", reason))
             db.commit()
         except (sqlite3.Error, ValueError):

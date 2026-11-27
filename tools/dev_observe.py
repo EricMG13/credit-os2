@@ -635,7 +635,7 @@ def apply_high_escape(
         decision_id,
         (
             f"{decision_id} applied. A verified High escaped on {event.merged_sha}. "
-            "The affected builder route returned to its previous setting."
+            "The coordinator applied the rollback and cleared any active canary."
         ),
     )
     with connect_registry(context.registry) as routes:
@@ -801,6 +801,7 @@ def check_route_authority(
             """SELECT payload FROM dev_observations WHERE cohort_key=? AND
                json_extract(payload,'$.run_id')=? AND json_extract(payload,'$.attempt_id')=?
                AND json_extract(payload,'$.first_review')=1
+               AND json_extract(payload,'$.route_evidence')='worker-ledger'
                ORDER BY recorded_at,event_id LIMIT 1""",
             (cohort_key(context.policy.cohort), start["run"], start["attempt"]),
         ).fetchone()
