@@ -13,6 +13,7 @@ from tempfile import TemporaryDirectory
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 PROJECT = Path(__file__).resolve().parents[1]
+CP1_ANSWER_KEY = "tests/fixtures/cp1-instruction-pr/answer-key.json"
 SOURCE_PATHS = (
     ".python-version",
     "AGENTS.md",
@@ -38,6 +39,7 @@ SOURCE_PATHS = (
     "pyproject.toml",
     "react_frontend",
     "src",
+    CP1_ANSWER_KEY,  # imported by a web TypeScript test in newer revisions
     "uv.lock",
     "web",
 )
@@ -106,7 +108,11 @@ def write_bundle(source: ZipFile, dist: Path, output: Path, revision: str) -> No
 
 def package(project: Path, revision: str, output: Path) -> str:
     commit = git(project, "rev-parse", "--verify", f"{revision}^{{commit}}").decode("ascii").strip()
-    source_bytes = git(project, "archive", "--format=zip", commit, "--", *SOURCE_PATHS)
+    fixture_type = git(project, "ls-tree", "--format=%(objecttype)", commit, "--", CP1_ANSWER_KEY)
+    paths: tuple[str, ...] = SOURCE_PATHS
+    if fixture_type.strip() != b"blob":
+        paths = tuple(path for path in paths if path != CP1_ANSWER_KEY)
+    source_bytes = git(project, "archive", "--format=zip", commit, "--", *paths)
     output.parent.mkdir(parents=True, exist_ok=True)
     with (
         TemporaryDirectory(prefix="credit-os2-build-") as workspace,

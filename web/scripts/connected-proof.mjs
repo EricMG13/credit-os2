@@ -1019,7 +1019,11 @@ async function checkCharts(report, artifacts, channel, page, run) {
   await section("Changes").click();
   await report.getByText("No earlier run to compare.", { exact: true }).waitFor();
   await section("Modules").click();
-  if (!desktopOnly) await checkCompactModules(report, page, channel);
+  if (!desktopOnly)
+    await checkCompactModules(report, page, async () => {
+      await page.waitForFunction(() => document.documentElement.scrollWidth === 390);
+      await page.screenshot({ path: path.join(artifacts, `${channel}-modules-mobile.png`) });
+    });
   // 891e6141 renamed the module navigator "Modules in this run".
   const modules = report.getByRole("navigation", { name: "Modules in this run", exact: true });
   await modules.getByRole("link", { name: /^Liquidity, Delivered/u }).waitFor();
@@ -1038,30 +1042,36 @@ async function checkCharts(report, artifacts, channel, page, run) {
   await checkReportEvidence(report, page, channel, run);
 }
 
-async function checkCompactModules(report, page, channel) {
+export async function checkCompactModules(report, page, captureMobile) {
   const desktop = page.viewportSize();
-  const select = report.getByRole("combobox", { name: "Module", exact: true });
-  const navigation = report.getByRole("navigation", { name: "Modules and sections" });
+  const navigation = report.getByRole("navigation", { name: "Modules in this run", exact: true });
+  const disclosure = navigation.locator("summary").filter({ hasText: /^Modules in this run ·/u });
+  const source = navigation.getByRole("link", { name: /^Source readiness, Delivered/u });
+  const current = navigation.locator('a[href="#modules/CP-0"][aria-current="page"]');
+
   await page.setViewportSize({ width: 390, height: 844 });
-  await select.selectOption("CP-1");
-  assert.equal(await navigation.isVisible(), false);
-  await report
-    .locator("summary")
-    .filter({ hasText: /^On this page$/u })
+  await disclosure.waitFor();
+  await source.waitFor({ state: "hidden" });
+  await disclosure.click();
+  await source.click();
+  await page.waitForURL(/#modules\/CP-0$/u);
+  await current.waitFor({ state: "attached" });
+  await current.waitFor({ state: "hidden" });
+  await disclosure.click();
+  await navigation
+    .getByRole("list", { name: "On this page", exact: true })
+    .getByRole("button", { name: "Bottom line", exact: true })
     .click();
-  const jump = report.getByRole("combobox", { name: "Jump to section" });
-  const first = await jump.locator("option").nth(1).getAttribute("value");
-  assert.ok(first);
-  await jump.selectOption(first);
-  await page.waitForFunction((id) => document.activeElement?.id === id, first);
-  await page.waitForFunction(() => document.documentElement.scrollWidth === 390);
-  await page.screenshot({ path: path.join(artifacts, `${channel}-modules-mobile.png`) });
-  await page.setViewportSize({ width: 1000, height: 844 });
-  assert.equal(await select.isVisible(), true);
-  assert.equal(await navigation.isVisible(), false);
-  await page.setViewportSize({ width: 1001, height: 844 });
-  assert.equal(await select.isVisible(), false);
-  assert.equal(await navigation.isVisible(), true);
+  await page.waitForFunction(() => document.activeElement?.id === "module-bottom-line");
+  await current.waitFor({ state: "hidden" });
+  await captureMobile();
+
+  await page.setViewportSize({ width: 1023, height: 844 });
+  await disclosure.waitFor();
+  await current.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 1024, height: 844 });
+  await disclosure.waitFor({ state: "hidden" });
+  await current.waitFor();
   await page.setViewportSize(desktop);
 }
 
@@ -1709,9 +1719,7 @@ function browserProofRecord({ channel, brand, browserVersion, run }) {
         downside: "downside break-point ranking, watch timing, and narrow layout",
         forecast:
           "Forecast section jumps, full mobile reading width, 44px traces and separated chart period labels",
-        modules: [
-          "compact module and first-section navigation at 390px with complementary 1000/1001px breakpoints",
-        ],
+        modules: ["module disclosure and first-section focus at 390px with 1023px/1024px layouts"],
       };
   return {
     ...provenance,
