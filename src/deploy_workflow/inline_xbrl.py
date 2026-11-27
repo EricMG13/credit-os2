@@ -6,13 +6,14 @@ are excluded from consolidated financial input rather than guessed.
 
 import hashlib
 import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, localcontext
 from html.parser import HTMLParser
 from typing import Any
 
-from deploy_workflow.html_text import decode_html
+from deploy_workflow.html_text import VOID, decode_html
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ class _Parser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.stack: list[str] = []
+        self.open_names: Counter[str] = Counter()  # open tag name -> count, keeps scans linear
         self.context: dict[str, Any] | None = None
         self.unit: dict[str, Any] | None = None
         self.active_facts: list[dict[str, Any]] = []
@@ -87,11 +89,12 @@ class _Parser(HTMLParser):
         self.table_index = -1
         self.ids: set[str] = set()
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         a = dict(attrs)
         local = tag.split(":")[-1]
-        if tag not in {"br", "img", "meta", "link", "input", "hr", "wbr", "area", "col"}:
+        if tag not in VOID:
             self.stack.append(tag)
+            self.open_names[tag] += 1
         if local == "context" and a.get("id"):
             if self.context is not None:
                 raise ValueError("nested source contexts")
@@ -111,20 +114,26 @@ class _Parser(HTMLParser):
         elif tag == "tr" and self.tables:
             self.tables[-1][1] += 1
         if tag == "ix:nonfraction":
-            self.active_facts.append({"attrs": a, "text": [], "table": self.tables[-1][0] if self.tables else None,
-                         "row": self.tables[-1][1] if self.tables else None})
+            self.active_facts.append(
+                {
+                    "attrs": a,
+                    "text": [],
+                    "table": self.tables[-1][0] if self.tables else None,
+                    "row": self.tables[-1][1] if self.tables else None,
+                }
+            )
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
         self.handle_endtag(tag)
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         local = self.stack[-1].split(":")[-1] if self.stack else ""
         if self.context is not None and local in {"identifier", "startdate", "enddate", "instant"}:
             self.context[local] = self.context.get(local, "") + data
         if self.unit is not None and local == "measure":
             self.unit["measures"].append(data.strip())
-        if "ix:exclude" not in self.stack:
+        if not self.open_names["ix:exclude"]:
             for fact in self.active_facts:
                 fact["text"].append(data)
 
@@ -177,8 +186,12 @@ class _Parser(HTMLParser):
             )
         if tag == "table" and self.tables:
             self.tables.pop()
-        if tag in self.stack:
-            del self.stack[len(self.stack) - 1 - self.stack[::-1].index(tag) :]
+        if self.open_names[tag]:
+            while True:
+                name = self.stack.pop()
+                self.open_names[name] -= 1
+                if name == tag:
+                    break
 
 
 def parse(raw: bytes) -> Document:
