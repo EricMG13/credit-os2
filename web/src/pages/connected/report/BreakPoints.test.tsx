@@ -68,7 +68,7 @@ it("reads the canonical ranking's shares, drawing zero and keeping the original 
   const origins = figure.querySelectorAll("[data-origin]");
   expect(origins).toHaveLength(1);
   expect(items(figure)[0]?.contains(origins[0] ?? null)).toBe(true);
-  expect(origins[0]).toHaveClass("w-1", "bg-chart-1");
+  expect(origins[0]).toHaveClass("w-1", "bg-category-3");
   // The axis ends at a round maximum at or above the largest break: 12.5% is itself one.
   expect(figure.querySelector('[data-decline="0.125"]')).toHaveStyle({ width: "100%" });
   expect(within(tile()).getByText("Fall in EBITDA")).toBeInTheDocument();
@@ -256,4 +256,44 @@ it("keeps a stated break above 100% as written and scales the axis to it", () =>
   expect(figure.querySelector('[data-decline="1.2"]')).toHaveStyle({ width: "96%" });
   expect(figure.querySelector('[data-decline="0.4"]')).toHaveStyle({ width: "32%" });
   expect(within(tile()).getByText("Fall in EBITDA")).toBeInTheDocument();
+});
+
+// Colour-signal-build ruling R2/C6: the cash-interest basis is the case, with its colour and words.
+it("draws each cash-interest basis in its own category colour, named in the legend", () => {
+  const data = breakPointView(entry("T2DS.6 Break points", RETAINED_HEADERS, RETAINED_ROWS));
+  if (!data) throw new Error("break points were rejected");
+  const { container } = render(<BreakPoints data={data} href={() => "#evidence"} />);
+  const legend = () => [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(legend().map((item) => item.textContent)).toEqual([
+    "Fall in EBITDA at the break, interest held",
+  ]);
+  expect(legend()[0]).toHaveAttribute("data-legend", "dot");
+  expect(legend()[0]?.querySelector("[data-swatch]")).toHaveClass("fill-category-3");
+  const bars = () => [...within(tile()).getByRole("img").querySelectorAll("[data-decline]")];
+  expect(bars().every((bar) => bar.classList.contains("bg-category-3"))).toBe(true);
+  fireEvent.click(within(tile()).getByRole("button", { name: "Cash-interest increase 5%" }));
+  expect(legend().map((item) => item.textContent)).toEqual([
+    "Fall in EBITDA at the break, cash-interest increase 5%",
+  ]);
+  expect(legend()[0]).toHaveAttribute("data-legend", "square");
+  expect(legend()[0]?.querySelector("[data-swatch]")).toHaveClass("fill-category-4");
+  expect(bars().every((bar) => bar.classList.contains("bg-category-4"))).toBe(true);
+  expect(bars().some((bar) => bar.classList.contains("bg-chart-1"))).toBe(false);
+  expect(tile().innerHTML).not.toMatch(/better-mark|worse-mark|scale-better|scale-worse|✕/);
+});
+
+it("names the break legend without a basis when the module wrote one basis", () => {
+  const data = breakPointView(
+    entry(
+      "T2B.7 First-break ranking",
+      ["Rank", "Break point", "Required EBITDA decline"],
+      [["Rank 1", "Cover falls to 1.25x", "0.10 (10%)"]],
+    ),
+  );
+  if (!data) throw new Error("ranking was rejected");
+  const { container } = render(<BreakPoints data={data} href={() => "#evidence"} />);
+  expect(
+    [...container.querySelectorAll('[data-part="legend"] li')].map((item) => item.textContent),
+  ).toEqual(["Fall in EBITDA at the break"]);
+  expect(container.querySelector("[data-decline]")).toHaveClass("bg-category-3");
 });

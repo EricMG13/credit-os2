@@ -775,10 +775,9 @@ it("colours each edge type in columns: 2 px connector, its own arrowhead, a line
     "stroke-category-4",
   ]);
   expect(paths.every((path) => path.getAttribute("stroke-width") === "2")).toBe(true);
-  expect(paths.map((path) => path.getAttribute("marker-end"))).toEqual(
-    paths.map((path) => expect.stringMatching(/^url\(#.+-category-[345]\)$/)),
-  );
-  expect(container.querySelectorAll("marker")).toHaveLength(4);
+  expect(
+    paths.map((path) => /-(category-\d)\)$/.exec(path.getAttribute("marker-end") ?? "")?.[1]),
+  ).toEqual(["category-5", "category-5", "category-3", "category-4"]);
   const chips = [...container.querySelectorAll("[data-route] svg line")];
   expect(chips).toHaveLength(4);
   expect(container.querySelectorAll("marker")).toHaveLength(4);

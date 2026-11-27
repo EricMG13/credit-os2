@@ -5,9 +5,18 @@ import { namedTable } from "../reportView";
 import { distinct, sharePosition, ticks as niceTicks } from "../visuals/visualData";
 import { canReadDownside, registerOrTitled, scenarioShareLabel, share } from "./Downside";
 import { sourceOf, writtenTable } from "./leads/written";
-import { Key } from "./overview/figureParts";
 import { Bento } from "./overview/Tile";
-import { BarRow, CompactGap, LeadFigure, Trace, type LeadTable } from "./leads/parts";
+import { Legend } from "./leads/kit/marks/Legend";
+import {
+  BAR_TONE,
+  BarRow,
+  caseStyle,
+  CompactGap,
+  LeadFigure,
+  Trace,
+  type BarTone,
+  type LeadTable,
+} from "./leads/parts";
 import { closed, readerCell } from "./leads/read";
 
 const RETAINED = "T2DS.6 Break points";
@@ -125,19 +134,31 @@ export type Rung = {
 const ROW =
   "grid grid-cols-[minmax(5rem,1fr)_minmax(0,auto)] items-center gap-x-3 gap-y-1 @md:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_9.5rem]";
 
-function Track({ rung, ticks }: { rung: Rung; ticks: readonly { at: number }[] }) {
+function Track({
+  rung,
+  ticks,
+  tone,
+}: {
+  rung: Rung;
+  ticks: readonly { at: number }[];
+  tone: BarTone;
+}) {
   const at = rung.at ?? 0;
   return (
     <BarRow
       end={at}
       ticks={ticks.map((tick) => tick.at).filter((tick) => tick !== 0)}
       zero={0}
+      tone={tone}
       bar={rung.bar}
       className="col-span-2 @md:order-2 @md:col-span-1"
     >
       {at === 0 && (
         // A stated zero keeps a mark at the origin: never read as a missing value.
-        <span data-origin className="absolute -inset-y-1 left-0 w-1 rounded-ds-xs bg-chart-1" />
+        <span
+          data-origin
+          className={`absolute -inset-y-1 left-0 w-1 rounded-ds-xs ${BAR_TONE[tone]}`}
+        />
       )}
       {rung.mark && (
         <span
@@ -160,6 +181,7 @@ export function Ladder({
   ticks,
   axis,
   ordered = false,
+  tone = "primary",
 }: {
   label: string;
   rungs: readonly Rung[];
@@ -167,6 +189,8 @@ export function Ladder({
   /** What the axis measures, under the tick labels ("Fall in EBITDA"). */
   axis?: string;
   ordered?: boolean;
+  /** The bars' and origin marks' colour; the primary blue unless a caller names a case's. */
+  tone?: BarTone;
 }) {
   const List = ordered ? "ol" : "ul";
   return (
@@ -191,7 +215,7 @@ export function Ladder({
                 {rung.words}
               </span>
             ) : (
-              <Track rung={rung} ticks={ticks} />
+              <Track rung={rung} ticks={ticks} tone={tone} />
             )}
           </li>
         ))}
@@ -256,6 +280,7 @@ export function BreakPointsTile({
 }) {
   const [index, setIndex] = useState(0);
   const basis = data.bases[index];
+  const style = caseStyle(index);
   const rows = basis ? breakRows(data.table, basis, data.test, data.ranked, data.status) : [];
   const chart = Boolean(
     basis && rows.some(({ value }) => value !== null) && distinct(rows.map(({ label }) => label)),
@@ -288,11 +313,15 @@ export function BreakPointsTile({
         endHeading: "Source",
       }
     : writtenTable(sourceOf(data.table), href);
+  const legendText = `Fall in EBITDA at the break${
+    data.bases.length > 1 && basis ? `, ${basis.name.toLowerCase()}` : ""
+  }`;
   const scale = declineAxis(rows.map(({ value }) => value));
   const figure = chart ? (
     <Ladder
       label={closed(`${TITLE}${basis ? `, ${basis.name.toLowerCase()}` : ""}: ${reading}`)}
       ordered={data.ranked}
+      tone={style.tone}
       ticks={scale.ticks}
       axis={scale.words}
       rungs={rows.map((row) => ({
@@ -315,7 +344,9 @@ export function BreakPointsTile({
       label={TITLE}
       title={TITLE}
       basis={choice ? undefined : basis?.name}
-      legend={chart && <Key tone="primary">Fall in EBITDA at the break</Key>}
+      legend={
+        chart && <Legend items={[{ kind: style.shape, tone: style.tone, text: legendText }]} />
+      }
       trace={trace}
       controls={choice}
       figure={figure}

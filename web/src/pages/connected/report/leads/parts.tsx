@@ -224,7 +224,7 @@ export function GapCell({
   );
 }
 
-const BAR_TONE = {
+export const BAR_TONE = {
   primary: "bg-chart-1",
   secondary: "bg-chart-2",
   prior: "bg-chart-3",
