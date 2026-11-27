@@ -17,6 +17,7 @@ import posixpath
 import re
 import threading
 import time
+import zlib
 from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -491,9 +492,25 @@ def _part_path(base: str, target: str) -> str:
     return posixpath.normpath(posixpath.join(posixpath.dirname(base), target))
 
 
+# The errors a damaged package part raises, as prepare_source (deploy_vii/preparation.py) lists
+# them: zlib.error (damaged deflate), EOFError (truncated), RuntimeError (encrypted member) and
+# NotImplementedError (unsupported method) come from zipfile besides the XML and lookup errors.
+_PART_ERRORS = (
+    KeyError,
+    ValueError,
+    BadZipFile,
+    ET.ParseError,
+    zlib.error,
+    EOFError,
+    RuntimeError,
+    NotImplementedError,
+)
+
+
 def _comment_sheets(raw: bytes) -> dict[str, str]:
     """The sheet name of each comments part, read from the package's relationship parts.
-    A part whose sheet cannot be resolved is left out (its own name is shown instead)."""
+    A part whose sheet cannot be resolved is left out (its own name is shown instead); one
+    damaged sheet part costs only that sheet's comment names."""
     found: dict[str, str] = {}
     try:
         with ZipFile(io.BytesIO(raw)) as archive:
@@ -504,25 +521,38 @@ def _comment_sheets(raw: bytes) -> dict[str, str]:
                 for item in xml_part(archive, "xl/_rels/workbook.xml.rels")
             }
             for sheet in book.findall("s:sheets/s:sheet", NS):
-                path = _part_path("xl/workbook.xml", targets[sheet.attrib[REL]])
-                rels = f"{posixpath.dirname(path)}/_rels/{posixpath.basename(path)}.rels"
-                if rels not in names:
-                    continue
-                for item in xml_part(archive, rels):
-                    if item.attrib.get("Type", "").endswith("/comments"):
-                        found[_part_path(path, item.attrib["Target"])] = sheet.attrib["name"]
-    except (KeyError, ValueError, BadZipFile, ET.ParseError) as exc:
-        log.warning("comment sheets could not be resolved, so comments show their part: %s", exc)
+                try:
+                    path = _part_path("xl/workbook.xml", targets[sheet.attrib[REL]])
+                    rels = f"{posixpath.dirname(path)}/_rels/{posixpath.basename(path)}.rels"
+                    if rels not in names:
+                        continue
+                    for item in xml_part(archive, rels):
+                        if item.attrib.get("Type", "").endswith("/comments"):
+                            found[_part_path(path, item.attrib["Target"])] = sheet.attrib["name"]
+                except _PART_ERRORS as exc:
+                    log.warning(
+                        "comments of sheet %r show their part: %s: %s",
+                        sheet.get("name"),
+                        type(exc).__name__,
+                        exc,
+                    )
+    except _PART_ERRORS as exc:
+        log.warning(
+            "comment sheets could not be resolved, so comments show their part: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
     return found
 
 
 def _comment_lines(raw: bytes, spans: Sequence[Span]) -> list[str]:
     """One line per cell comment, led by its sheet (else its comments part)."""
+    notes = [span for span in spans if span.locator.startswith("part:") and span.text]
+    if not notes:
+        return []
     sheets = _comment_sheets(raw)
     lines = []
-    for span in spans:
-        if not span.locator.startswith("part:") or not span.text:
-            continue
+    for span in notes:
         part, _, ref = span.locator.partition("!")
         part = unquote(part.removeprefix("part:"))
         lines.append(
