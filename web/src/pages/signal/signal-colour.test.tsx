@@ -43,8 +43,7 @@ describe("the kind dot", () => {
         const none =
           within(article).queryByRole("heading", { name: /^Market backdrop/ }) !== null ||
           within(article).queryByText("Digest") !== null;
-        // The byline is the first line of the card: the strength pips below it are not kind dots.
-        const dots = article.querySelectorAll(".mb-0\\.5 svg circle");
+        const dots = article.querySelectorAll("circle[class^='fill-category-']");
         expect(dots).toHaveLength(none ? 0 : 1);
         expect(article.innerHTML).not.toMatch(/category-(1|2|7)\b/);
       }
@@ -68,6 +67,12 @@ describe("the kind dot", () => {
     expect(container.querySelector("svg[aria-hidden='true'] circle")?.getAttribute("class")).toBe(
       "fill-category-6",
     );
+  });
+
+  it("throws for a kind that has no slot, and draws no fallback dot", () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<KindDot kind={"opinion" as never} />)).toThrow(/opinion/);
+    quiet.mockRestore();
   });
 
   it("draws nothing for a market post", () => {
@@ -148,11 +153,21 @@ describe("the key above a list", () => {
 
   it("draws no key in a group whose threads are all notes", () => {
     const slice = structuredClone(fixture.slice);
-    const group = slice.scenes[0]?.snapshot.groups[0];
-    if (group === undefined) throw new Error("a first group");
-    group.threads = group.threads.filter((t) => t.storyId === null);
+    const snapshot = slice.scenes[0]?.snapshot;
+    const group = snapshot?.groups[0];
+    if (snapshot === undefined || group === undefined) throw new Error("a first group");
+    const gone = new Set(group.threads.filter((t) => t.storyId !== null).map((t) => t.id));
+    group.threads = group.threads.filter((t) => !gone.has(t.id));
+    snapshot.threads = snapshot.threads.filter((t) => !gone.has(t.id));
+    for (const story of snapshot.feed.stories) {
+      if (story.threadRef !== null && gone.has(story.threadRef.threadId)) {
+        story.threadRef = null as never;
+        story.commentCount = null as never;
+      }
+    }
     expect(group.threads.length).toBeGreaterThan(0);
     show("/signal/main/group/leveraged-credit", slice);
+    expect(screen.getByRole("list", { name: "Shared in this group" })).toBeInTheDocument();
     expect(key()).toBeNull();
   });
 });

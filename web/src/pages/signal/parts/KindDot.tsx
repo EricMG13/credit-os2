@@ -22,7 +22,17 @@ const SLOT: Record<Dotted, Slot> = {
   filing: "category-8",
 };
 
-const slotOf = (kind: Kind): Slot | null => (kind === "market" ? null : SLOT[kind]);
+// A kind the table lacks is a fault in the slice reader, not a kind to draw in a default colour.
+function slotOf(kind: Kind): Slot | null {
+  if (kind === "market") return null;
+  const slot = (SLOT as Partial<Record<string, Slot>>)[kind];
+  if (slot === undefined) throw new Error(`the slice reader let through an unknown kind "${kind}"`);
+  return slot;
+}
+
+// Compile-time check: the kinds with a slot and the key's tab kinds are the same set.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+true satisfies Same<Dotted, (typeof KIND_TABS)[number][0]>;
 
 /** The dot as the legend draws it, so the card and the key show the same mark. Nothing for a market post. */
 export function KindDot({ kind }: { kind: Kind }) {
