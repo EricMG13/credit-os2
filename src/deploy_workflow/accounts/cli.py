@@ -63,31 +63,24 @@ def _parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="python -m deploy_workflow.accounts", allow_abbrev=False)
     parser.add_argument("--accounts-dir", default=None)  # text: Path("") would become "."
 
-    def leaf(commands: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
-        """A command that also takes --accounts-dir; SUPPRESS keeps the leading value unless the
-        later one is given, in which case the later one wins."""
-        command = commands.add_parser(name, allow_abbrev=False)
-        command.add_argument("--accounts-dir", default=argparse.SUPPRESS)
-        return command
-
-    def group(groups: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
-        """A command group that also takes --accounts-dir between it and the action."""
-        parsed = groups.add_parser(name, allow_abbrev=False)
+    def command(commands: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
+        """A group or command that also takes --accounts-dir; the rightmost one given wins."""
+        parsed = commands.add_parser(name, allow_abbrev=False)
         parsed.add_argument("--accounts-dir", default=argparse.SUPPRESS)
         return parsed
 
     groups = parser.add_subparsers(dest="group", required=True)
-    passcode = group(groups, "passcode").add_subparsers(dest="action", required=True)
-    set_cmd = leaf(passcode, "set")
+    passcode = command(groups, "passcode").add_subparsers(dest="action", required=True)
+    set_cmd = command(passcode, "set")
     set_cmd.add_argument("type", choices=passcodes.PASSCODE_TYPES)
-    accounts = group(groups, "accounts").add_subparsers(dest="action", required=True)
-    leaf(accounts, "list")
-    leaf(accounts, "disable").add_argument("id", type=_account_id)
-    leaf(accounts, "enable").add_argument("id", type=_account_id)
-    change = leaf(accounts, "type")
+    accounts = command(groups, "accounts").add_subparsers(dest="action", required=True)
+    command(accounts, "list")
+    command(accounts, "disable").add_argument("id", type=_account_id)
+    command(accounts, "enable").add_argument("id", type=_account_id)
+    change = command(accounts, "type")
     change.add_argument("id", type=_account_id)
     change.add_argument("type", choices=store.PROFILE_TYPES)
-    analyst_name = leaf(accounts, "analyst-name")
+    analyst_name = command(accounts, "analyst-name")
     analyst_name.add_argument("id", type=_account_id)
     analyst_name.add_argument("name", nargs="+")
     return parser

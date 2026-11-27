@@ -312,8 +312,10 @@ def open_db(folder: Path, *, create: bool = True) -> sqlite3.Connection:
     nothing is created: a missing folder or file is a StoreError, and the file is opened
     read-write without create, so one deleted after the check is never remade. StoreError for a
     relative folder, a store others can open or that another user owns, or one this build's
-    migrations did not make. On Windows the folder must be inside the user's %LOCALAPPDATA%; on
-    Linux a POSIX ACL on the folder or file is refused. macOS ACLs are not checked."""
+    migrations did not make. ``create=False`` never creates the folder or ``accounts.db``; SQLite's
+    own ``-wal``/``-shm`` files of an existing store are not counted as creating one. On Windows
+    the folder must be inside the user's %LOCALAPPDATA%; on Linux a POSIX ACL on the folder or
+    file is refused. macOS ACLs are not checked."""
     if not folder.is_absolute():
         raise StoreError(RELATIVE_FOLDER)
     if _IS_WINDOWS:
@@ -471,7 +473,8 @@ def _display_name(db: sqlite3.Connection, cleaned: str, email: str) -> str:
     )
     for tag in tags:
         candidate = _fitted(cleaned, tag)
-        if candidate.casefold() not in RESERVED_DISPLAY_NAMES and not _name_taken(db, candidate):
+        reads_as = "".join(ch for ch in candidate if ch not in _JOINERS).casefold()
+        if reads_as not in RESERVED_DISPLAY_NAMES and not _name_taken(db, candidate):
             return candidate
     raise Conflict(f"the display name {cleaned!r} and its two bracketed forms are taken")
 

@@ -801,6 +801,8 @@ def test_joiner_inside_a_name_is_kept(tmp_path: Path) -> None:
         ("BEFORE ACCOUNTS", "BEFORE ACCOUNTS (ba)"),
         ("Before Accounts", "Before Accounts (ba)"),
         ("before accounts", "before accounts (ba)"),
+        ("Before\u200d Accounts", "Before\u200d Accounts (ba)"),
+        ("be\u200cfore accounts", "be\u200cfore accounts (ba)"),
     ],
 )
 def test_reserved_name_matches_in_any_case(tmp_path: Path, name: str, expected: str) -> None:
@@ -840,6 +842,7 @@ def test_open_db_without_create_never_recreates_a_file_deleted_before_connect(
             target.unlink()
 
     monkeypatch.setattr(store_module, "_check_private", check_then_delete)
-    with pytest.raises(sqlite3.OperationalError):
+    # Linux's ACL check (listxattr) notices the deleted file first, so the type differs by platform.
+    with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
         open_db(folder, create=False)
     assert not (folder / "accounts.db").exists()

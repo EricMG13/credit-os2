@@ -615,8 +615,8 @@ class Server(service._Server):
 def _is_inside(folder: Path, root: Path) -> bool:
     """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
     the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
-    file as ``root``. Creates nothing. ``root`` is stat-ed once first: if it is gone the check has
-    nothing to compare with."""
+    file as ``root``. Creates nothing. ``root`` is stat-ed first, and again by each comparison: if
+    it is gone the check has nothing to compare with."""
     try:
         os.stat(root)
     except FileNotFoundError:
@@ -628,7 +628,10 @@ def _same_file(path: Path, root: Path) -> bool:
     try:
         return os.path.samefile(path, root)
     except FileNotFoundError:
-        # A path that does not exist, or vanished during the check, is not the shared folder.
+        # A path that does not exist, or vanished during the check, is not the shared folder;
+        # the shared folder itself going away leaves nothing to compare with.
+        if not root.exists():
+            raise ValueError("sign-in needs the shared folder to exist") from None
         return False
 
 

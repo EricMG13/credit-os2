@@ -72,7 +72,7 @@ def test_every_request_opener_passes_create_false(
 
     def recording(folder: Path, **kwargs: object) -> object:
         seen.append(kwargs)
-        return original(folder, **kwargs)  # type: ignore[arg-type]
+        return original(folder, **cast("dict[str, Any]", kwargs))
 
     monkeypatch.setattr("react_frontend.auth_gate.store.open_db", recording)
     assert send(on, "/auth/me", cookies=cookie(token))[0] == 200
@@ -123,6 +123,23 @@ def test_an_ancestor_that_vanishes_during_the_check_is_skipped(
 def test_a_missing_shared_folder_stops_the_identity_check(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="sign-in needs the shared folder to exist"):
         react_frontend._is_inside(tmp_path / "gone" / "store", tmp_path / "gone")
+
+
+def test_a_shared_folder_deleted_during_the_check_stops_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "shared"
+    root.mkdir()
+    folder = root / "a"
+
+    def samefile(first: Any, second: Any) -> bool:
+        # A simulation of a concurrent delete: the shared folder goes between stat and compare.
+        root.rmdir()
+        raise FileNotFoundError(str(first))
+
+    monkeypatch.setattr(os.path, "samefile", samefile)
+    with pytest.raises(ValueError, match="sign-in needs the shared folder to exist"):
+        react_frontend._is_inside(folder, root)
 
 
 @pytest.mark.usefixtures("no_scheduler")
