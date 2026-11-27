@@ -35,7 +35,11 @@ class InsecureUrl(TransportError):
     """Refused before any connection: not https."""
 
 
-class ConnectTimeout(TransportError):
+class ConnectFailed(TransportError):
+    """connect() failed (DNS, refusal, TLS handshake, timeout): no request byte was sent."""
+
+
+class ConnectTimeout(ConnectFailed):
     """No connection within ``connect_s``."""
 
 
@@ -166,7 +170,7 @@ class _BoundedSocket:
         return getattr(self._sock, name)
 
 
-def https_transport(
+def https_transport(  # noqa: C901, PLR0912, PLR0915 - pre-existing (over the limits at base)
     request: Request,
     *,
     clock: Callable[[], float] = time.monotonic,
@@ -192,7 +196,7 @@ def https_transport(
         except TimeoutError:
             raise ConnectTimeout(f"no connection within {request.connect_s} s") from None
         except OSError as error:
-            raise TransportError(f"connection failed: {type(error).__name__}") from None
+            raise ConnectFailed(f"connection failed: {type(error).__name__}") from None
         raw_sock = conn.sock
         per_read = deadline.per_read()
         raw_sock.settimeout(per_read)

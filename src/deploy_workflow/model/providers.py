@@ -24,6 +24,7 @@ from deploy_workflow.model.transport import (
     CONNECT_S,
     IDLE_S,
     OVERALL_S,
+    ConnectFailed,
     ConnectTimeout,
     IdleTimeout,
     InsecureUrl,
@@ -461,12 +462,17 @@ def error_from_transport(
 ) -> Turn | ProviderError:
     """A transport failure as a classified error.
 
-    Only a refusal before any connection is NotSent; every other failure (a watchdog or
-    deadline OverallTimeout included) may have reached the provider and is SentChargeUnknown.
+    Only a refusal before any request byte is NotSent (a non-https URL, or a failure inside
+    connect: DNS, refusal, TLS, ConnectTimeout); every other failure (a watchdog or deadline
+    OverallTimeout included) may have reached the provider and is SentChargeUnknown.
     An Anthropic stream cut by a timeout whose last usage event arrived is settled from it
     (a Turn or a SentChargeUsage error), not unknown."""
     if isinstance(exc, InsecureUrl):
         return ProviderError(ErrorKind.NOT_SENT, "InsecureUrl", _snippet(redactor, str(exc)))
+    if isinstance(exc, ConnectFailed):
+        # Not "ConnectTimeout": that name is in the sent-unknown vocabulary (reply_classes), and a
+        # not_sent reply must carry a class outside it.
+        return ProviderError(ErrorKind.NOT_SENT, "ConnectFailed", _snippet(redactor, str(exc)))
     error_class = (
         type(exc).__name__
         if isinstance(exc, ConnectTimeout | IdleTimeout | OverallTimeout)
@@ -1131,7 +1137,13 @@ def _parse_anthropic(
             seen.extend(s + cut for s in [*strings, *partial.values()])
 
 
-def _anthropic_outcome(
+def _merge_usage(into: dict[str, Any], new: Mapping[str, Any] | None) -> None:
+    """Fold a usage object into the running one: a reported value replaces (the counts are
+    cumulative), a null never erases a count an earlier event reported."""
+    into.update({key: value for key, value in (new or {}).items() if value is not None})
+
+
+def _anthropic_outcome(  # noqa: C901, PLR0912, PLR0913, PLR0915 - pre-existing (over the limits at base)
     status: int,
     events: list[dict[str, Any]],
     cut: str | None,
@@ -1153,7 +1165,7 @@ def _anthropic_outcome(
             return _in_stream_error(event, status, message, redactor)
         if kind == "message_start" and isinstance(event.get("message"), dict):
             message = dict(event["message"])
-            usage_raw.update(_sub(message, "usage") or {})
+            _merge_usage(usage_raw, _sub(message, "usage"))
         elif kind == "content_block_start" and isinstance(index, int):
             block = event.get("content_block")
             if not isinstance(block, dict) or index in blocks:
@@ -1184,7 +1196,7 @@ def _anthropic_outcome(
             delta = event.get("delta")
             if isinstance(delta, dict):
                 stop_reason = _str_or_none(delta.get("stop_reason")) or stop_reason
-            usage_raw.update(_sub(event, "usage") or {})  # cumulative
+            _merge_usage(usage_raw, _sub(event, "usage"))  # cumulative
             saw_delta = True
     if cut is not None:
         raise _BadReply("an event's data is not JSON")
