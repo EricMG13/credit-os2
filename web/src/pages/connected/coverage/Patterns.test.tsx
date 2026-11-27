@@ -82,6 +82,8 @@ describe("Patterns", () => {
 
     expect(screen.getByLabelText("Measure")).toHaveValue(debt);
     expect(screen.getByLabelText("Period")).toHaveValue("FY2026");
+    const plot = screen.getByRole("img", { name: "Level against difference scatter chart" });
+    expect(plot.querySelector("p")?.textContent).toBe("Difference from prior (x)");
     const level = screen.getByRole("table", { name: "Level versus difference data" });
     const medianRow = within(level).getByRole("row", { name: /Median \(computed\)/ });
     expect(

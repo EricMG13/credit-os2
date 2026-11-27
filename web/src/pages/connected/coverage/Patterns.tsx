@@ -367,10 +367,11 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
             <div
               role="img"
               aria-label="Level against difference scatter chart"
-              className="h-56 w-full"
+              className="w-full"
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart margin={{ top: 12, right: 18, bottom: 16, left: 8 }}>
+              <p className="text-caption text-text-secondary">Difference from prior ({current?.unit || "unit not stated"})</p>
+              <ResponsiveContainer width="100%" height={224}>
+                <ScatterChart margin={{ top: 16, right: 44, bottom: 16, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     type="number"
@@ -402,11 +403,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                         : "";
                       return `${word ? `${word} ` : ""}${signed(endpoint, current?.unit ?? "")}`;
                     }}
-                    label={{
-                      value: `Difference from prior (${current?.unit || "unit not stated"})`,
-                      angle: -90,
-                      position: "insideLeft",
-                    }}
+                    width="auto"
                   />
                   {levelScale.reference !== null && (
                     <ReferenceLine
@@ -427,7 +424,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
               </ResponsiveContainer>
             </div>
           )}
-          <table aria-label="Level versus difference data" className="w-full text-small">
+          <table aria-label="Level versus difference data" className="w-full text-left text-small [&_td]:px-1.5 [&_th]:px-1.5">
             <thead>
               <tr>
                 <th>Issuer</th>
@@ -521,13 +518,15 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                 ? "Fewer than three qualifying issuers; exact facts are listed below, and the scatter is unavailable."
                 : "No issuers qualify on both measures; exact facts are listed below, and the scatter is unavailable."}
             </p>
-          ) : <div role="img" aria-label="Two measures scatter chart" className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 12, right: 18, bottom: 16, left: 8 }}>
+          ) : <div role="img" aria-label="Two measures scatter chart" className="w-full">
+            <p className="text-caption text-text-secondary">{secondCurrent?.heading || "Second measure"} ({secondCurrent?.unit || "unit not stated"})</p>
+            <ResponsiveContainer width="100%" height={224}>
+              <ScatterChart margin={{ top: 16, right: 44, bottom: 16, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   type="number"
                   dataKey="x"
+                  tickMargin={9}
                   domain={[0, 100]}
                   ticks={[0, 100]}
                   tickFormatter={(value) =>
@@ -551,17 +550,13 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       ? writtenText(twoYBounds[0], secondCurrent?.unit)
                       : writtenText(twoYBounds[1], secondCurrent?.unit)
                   }
-                  label={{
-                    value: `${secondCurrent?.heading || "Second measure"} (${secondCurrent?.unit || "unit not stated"})`,
-                    angle: -90,
-                    position: "insideLeft",
-                  }}
+                  width="auto"
                 />
                 <Scatter data={twoPoints} dataKey="y" shape={dots(selected, colours)} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>}
-          <table aria-label="Two measures data" className="w-full text-small">
+          <table aria-label="Two measures data" className="w-full text-left text-small [&_td]:px-1.5 [&_th]:px-1.5">
             <thead>
               <tr>
                 <th>Issuer</th>
