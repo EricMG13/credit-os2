@@ -23,6 +23,7 @@ from deploy_workflow.accounts.store import (
     account_by_id,
     account_by_identity,
     disable_account,
+    enable_account,
     list_accounts,
     open_db,
     register_reader,
@@ -696,3 +697,68 @@ def test_name_long_double_barrelled(db: sqlite3.Connection) -> None:
         "Konstantinopoulou (…tantinopoulou-papadimitriou@example.net)",
     ]
     assert all(len(x) <= 60 for x in got)
+
+
+# ---- review fixes, 2026-11-27 ----
+
+
+def _delete_mode_store(folder: Path, edit: str) -> Path:
+    folder.mkdir(mode=0o700)
+    path = folder / "accounts.db"
+    raw = sqlite3.connect(path)
+    raw.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    raw.execute(edit)
+    raw.commit()
+    raw.close()
+    path.chmod(0o600)
+    return path
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        "INSERT INTO meta VALUES ('schema_version', '99')",
+        "INSERT INTO meta VALUES ('schema_version', '1'), ('schema_hash', 'not-this-build')",
+    ],
+)
+def test_refused_store_keeps_its_journal_mode(tmp_path: Path, edit: str) -> None:
+    path = _delete_mode_store(tmp_path / "s", edit)
+    with pytest.raises(StoreError):
+        open_db(path.parent)
+    raw = sqlite3.connect(path)
+    try:
+        assert raw.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    finally:
+        raw.close()
+    assert not Path(f"{path}-wal").exists() and not Path(f"{path}-shm").exists()
+
+
+def test_valid_store_ends_in_wal(tmp_path: Path) -> None:
+    db = open_db(tmp_path / "s")
+    try:
+        assert db.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    finally:
+        db.close()
+
+
+def test_enable_account(db: sqlite3.Connection) -> None:
+    account = _reg(db)
+    disable_account(db, account.id)
+    enable_account(db, account.id)
+    reread = account_by_id(db, account.id)
+    assert reread is not None and reread.disabled is False
+    with pytest.raises(Missing):
+        enable_account(db, 999)
+
+
+def test_name_keeps_zero_width_joiners_only(db: sqlite3.Connection) -> None:
+    zwnj, zwj, bidi_override, zwsp = (chr(0x200C), chr(0x200D), chr(0x202E), chr(0x200B))
+    persian = "\u0646\u0627\u0645" + zwnj + "\u062e\u0627\u0646\u0648\u0627\u062f\u06af\u06cc"
+    kept = _reg(db, object_id="o-p", email="p@example.org", name=persian)
+    assert kept.display_name == persian
+    joined = _reg(db, object_id="o-j", email="j@example.org", name="A" + zwj + "B")
+    assert joined.display_name == "A" + zwj + "B"
+    bidi = _reg(db, object_id="o-b", email="b@example.org", name="A" + bidi_override + "B")
+    assert bidi.display_name == "AB"
+    space = _reg(db, object_id="o-z", email="z@example.org", name="C" + zwsp + "D")
+    assert space.display_name == "CD"
