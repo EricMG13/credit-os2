@@ -353,7 +353,8 @@ def _ltm_row(row: list[str], cols: dict[str, tuple[int, str]], loaded: Loaded) -
             "not checked", stated=stated, reason=f"T4.8 states no {missing} (missing, not zero)"
         )
     unit = units.pop()
-    claim = _Claim(where, bare(stated), values["LTM"], LTM_STEP, unit, LTM_FORMULA)
+    slack = sum(amounts[c].half for c in parts.values())  # a sum: its inputs' rounding adds up
+    claim = _Claim(where, bare(stated), values["LTM"], LTM_STEP, unit, LTM_FORMULA, slack=slack)
     return _judged(claim, loaded.tables)
 
 

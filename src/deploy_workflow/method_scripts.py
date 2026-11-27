@@ -782,6 +782,7 @@ class _Funding:
     stated: dict[str, str]  # result line -> its Amount cell as written
     unit: str
     halves: dict[str, float]  # `cash`, `fcf`, `instrument:<name>`, `facility:<name>` rounding
+    unread: tuple[str, ...] = ()  # a committed facility's cells the liquidity needs and lacks
 
 
 def _value(cell: str, tables: types.ModuleType, suffix: str = "") -> float | None:
@@ -832,6 +833,19 @@ def _facility(
     }
 
 
+def _unread_cells(facilities: list[dict[str, Any]]) -> tuple[str, ...]:
+    """The cells of each committed facility that the liquidity total needs and the table does not
+    state (the script would drop the facility, so the reduced total is not the model's)."""
+    needed = (("commitment", "Amount"), ("drawn", "Drawn"), ("years_to_expiry", "Years"))
+    return tuple(
+        f"`Facility: {f['facility']}` {column}"
+        for f in facilities
+        if f["committed"]
+        for key, column in needed
+        if f[key] is None
+    )
+
+
 def _instruments(text: str, scale: str, tables: types.ModuleType) -> list[dict[str, Any]]:
     table = register_table(text, "T3D.2")
     cols = table if isinstance(table, str) else _columns(table, WALL_COLUMNS, "T3D.2")
@@ -873,23 +887,25 @@ def _read_funding(text: str, tables: types.ModuleType) -> _Funding:
         row = rows.get(_label(line))
         return None if row is None else _value(row[cols[column]], tables, suffix)
 
+    facilities = [
+        _facility(k.split(":", 1)[1], r, cols, tables)
+        for k, r in rows.items()
+        if k.startswith("facility:")
+    ]
     payload = {
         "horizon_years": single("Horizon", "Years", "year"),
         "currency": currency,
         "cash": single("Cash", "Amount"),
         "forecast_fcf": single("Forecast free cash flow", "Amount"),
-        "facilities": [
-            _facility(k.split(":", 1)[1], r, cols, tables)
-            for k, r in rows.items()
-            if k.startswith("facility:")
-        ],
+        "facilities": facilities,
         "instruments": _instruments(text, scale, tables),
     }
     stated = {
         line: rows[_label(line)][cols["Amount"]] for line in FUNDING_RESULTS if _label(line) in rows
     }
     halves = _funding_halves(text, rows, cols, tables)
-    return _Funding(payload, stated, f"{currency} {scale}", halves)
+    unread = _unread_cells(facilities)
+    return _Funding(payload, stated, f"{currency} {scale}", halves, unread)
 
 
 def _cell_half(cell: str | None, tables: types.ModuleType) -> float:
@@ -964,6 +980,9 @@ def _funding_line(
     stated = funding.stated.get(line)
     if stated is None or blank(stated, tables):
         return where("not checked", stated=stated, reason=f"the handoff states no {line} figure")
+    if funding.unread and line != "Maturities due":
+        reason = f"the table states no {', '.join(funding.unread)}; {line} cannot be recomputed"
+        return where("not checked", stated=stated, reason=reason)
     recomputed = view[part].get(key)
     if recomputed is None:
         return where("not checked", stated=stated, reason=str(view[part].get("reason")))
