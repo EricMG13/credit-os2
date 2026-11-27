@@ -60,3 +60,50 @@ it("C4-2 keeps a same-unit restatement and a pure citation", () => {
     [5, 6637],
   ]);
 });
+
+// C4 round 2: pure citations keep the lead; signs agree; trailing marks; precision; short forms.
+it("C4-R2 keeps the lead of a bracket that is only a citation", () => {
+  expect(
+    valuesOf([
+      ["Net leverage (x)", "5.0 (CP-2A-CALC-02)", "5.0 (T4.18)", "F"],
+      ["Cover (x)", "5.0 (see Note 4)", "5.0 (CP-2A)", "F"],
+      ["Stressed FCF (USD millions)", "5.13 (CP-4-CALC-02)", "5.13 (RCF2025.pdf page 3)", "F"],
+    ]),
+  ).toEqual([
+    [5, 5],
+    [5, 5],
+    [5.13, 5.13],
+  ]);
+});
+
+it("C4-R3 takes no value where the bracket's sign disagrees", () => {
+  expect(
+    valuesOf([
+      ["Stressed FCF (USD millions)", "5.0 (-USD 5.0 million)", "-5.0 (USD 5.0 million)", "F"],
+    ]),
+  ).toEqual([[null, null]]);
+});
+
+it("C4-R4 keeps the lead past a trailing full stop or marker", () => {
+  expect(
+    valuesOf([["Net leverage (x)", "5.0 (annual_report.pdf p. 3).", "5.0 (p. 3) [E3]", "F"]]),
+  ).toEqual([[5, 5]]);
+});
+
+it("C4-R5 compares to the bracket's own precision", () => {
+  expect(valuesOf([["Net leverage (x)", "6.02 (6.0x)", "6.2 (6.0x)", "F"]])).toEqual([
+    [6.02, null],
+  ]);
+});
+
+it("C4-R6 reads the short forms of the row's currency and scale", () => {
+  expect(
+    valuesOf([
+      ["Stressed FCF (USD m)", "5.13 (USD 5.13m)", "5.13 (EUR 5.13m)", "F"],
+      ["Debt (EUR bn)", "2.5 (EUR 2.5bn)", "2.5 (EUR 2.5m)", "F"],
+    ]),
+  ).toEqual([
+    [5.13, null],
+    [2.5, null],
+  ]);
+});

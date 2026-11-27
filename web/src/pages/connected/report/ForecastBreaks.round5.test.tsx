@@ -120,3 +120,15 @@ it("C4-1 states a short bare value labelled stated, not drawn, in the notes", ()
   expect(text).toContain("control, FCF / debt: 0.0756.");
   expect(text).toContain("cost shock, FCF / debt: 0.0437.");
 });
+
+it("C4-R1 keeps a citing case's name before the reader sentence", () => {
+  const { container } = breaks(
+    downside(
+      [["All-in cover (x)", "3.10", "2.00", "F"]],
+      "Analyst Interpretation per credit_agreement.pdf p.12 basis",
+    ),
+  );
+  const text = container.textContent;
+  expect(text).toContain("cost shock: Reason recorded in model evidence.");
+  expect(text).not.toMatch(/credit_agreement|p\.12/u);
+});

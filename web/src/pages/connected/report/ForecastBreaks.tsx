@@ -24,7 +24,12 @@ import { gapLine } from "./gapLine";
 import { GapChip, ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
 import { cellWord, gapReading, stressNoteText } from "./overview/notes";
-import { downsidePanels, stressLabel, type DownsidePanel } from "./overview/stressData";
+import {
+  downsideNotes,
+  downsidePanels,
+  stressLabel,
+  type DownsidePanel,
+} from "./overview/stressData";
 import { Figure, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
 import type { ForecastSource } from "./ForecastRecord";
@@ -576,7 +581,7 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
     );
   const notes = [
     // The module's own classification and case names can cite a source: drawn by the page's rule.
-    ...data.assumptions.map(drawnNote),
+    ...(downsideNotes(entry) ?? []).map(({ lead, text }) => `${lead}${drawnNote(text)}`),
     ...data.panels.flatMap((panel) =>
       panel.cells.flatMap((cell, at) => {
         const scenario = data.cases[at]?.name ?? "";
@@ -626,8 +631,9 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
           )}
         />
         <ul className="grid gap-1 text-caption text-text-secondary">
-          {notes.map((note) => (
-            <li key={note}>{note}</li>
+          {notes.map((note, at) => (
+            // Two cases can state the same note: the index keeps the keys apart.
+            <li key={`${String(at)}:${note}`}>{note}</li>
           ))}
         </ul>
       </div>
