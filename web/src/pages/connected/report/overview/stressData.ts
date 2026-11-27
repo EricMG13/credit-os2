@@ -91,53 +91,54 @@ export type DownsidePanel = {
   line?: number;
 };
 
-const LEAD_NUMBER = /^(-?\d[\d,]*(?:\.\d+)?) \((.*)\)(?:\s*(?:\[[^\]]*\]|\.))*$/;
+/** "N (…)", then only more round or square brackets and at most one full stop. */
+const LEAD_NUMBER =
+  /^(-?\d[\d,]*(?:\.\d+)?) ((?:\([^()]*\)|\[[^\]]*\])(?:\s*(?:\([^()]*\)|\[[^\]]*\]))*)\.?$/;
+/** Where a citation's number ends: not before a decimal, a word, a share, a multiple or a scale. */
+const END = String.raw`(?![\w%]|[.,]\d|\s*(?:x|times|m|bn|millions?|billions?)\b)`;
 /**
- * A bracket that states a figure of its own (a unit, a currency, a comparison) is no citation. Each
- * alternative is bounded, so a register id ("CP-2A-CALC-02") or a file name ("RCF2025.pdf",
- * "3 xlsx") holds none.
+ * A citation `containsReference` does not name, holding only its own numbers: a page, note, table
+ * or section (one number, then whole numbers), a register row id, an evidence marker, a module or
+ * register code.
  */
-const OWN_FIGURE =
-  /(?<![\w.])\d[\d,]*(?:\.\d+)?\s*(?:x|%|m|bn|million|billion)(?!\w)|(?<![\w-])[A-Z]{3}\s?-?\d[\d,]*(?:\.\d+)?\s*(?:m|bn|million|billion)(?!\w)|(?<![\w-])[A-Z]{3}\s-?\d|[$€£]/;
-const COMPARISON = /\b(?:from|vs|versus|was|prior|restated)\b/i;
-/** A locator `containsReference` does not name: a table, note or section number, or a module code. */
-const LOCATOR =
-  /^(?:(?:see|per)\s+)?(?:(?:notes?|tables?|sections?|pages?|pp?\.?)\s*\d[\w., -]*|T\d+(?:\.\d+)*|CP-[A-Z0-9]+(?:\s+T\d+(?:\.\d+)*)?)$/i;
-const MONEY_UNIT = /^([A-Z]{3}) (million|billion|m|bn)s?$/;
-const MONEY_STATED = /^(-?)\s*([A-Z]{3}) (\d[\d,]*(?:\.\d+)?)\s*(million|billion|m|bn)$/;
-const SAME_UNIT = /^(-?\d[\d,]*(?:\.\d+)?)\s*(x|%)$/;
-/** "million" and "m" are one scale, "billion" and "bn" the other. */
-const scaleOf = (word: string) => (word.startsWith("b") ? "billion" : "million");
+const CITATION = new RegExp(
+  String.raw`\b(?:pp?\.|pages?|notes?|tables?|sections?)\s*\d+(?:\.\d+)*${END}(?:\s*(?:[,;&–-]|and)\s*\d+${END})*|\bT[A-Z0-9]{0,8}\.\d+(?:\.[A-Z0-9]+)*|\bE\d{1,4}[a-z]?\b|\bCP-[A-Z0-9]+(?:-[A-Z0-9]+)*`,
+  "gi",
+);
 
 /**
- * The leading figure of "N (bracket)": N only when the bracket is a pure citation
- * ("(annual_report.pdf pages 59, 153)"), carries no number at all ("(covenant breached)"), or
- * restates N, sign included, in the measure's own unit ("(-USD 5.13 million)" or "(-USD 5.13m)" in
- * a "USD millions" row, "(5.0x)" in an "x" row) to the bracket's own precision. A bracket that
- * states another figure (another currency or quantity, a comparison) leaves the cell stated and
- * not placed.
+ * The leading figure of "N (…)": the brackets' words are read with every citation set aside. N
+ * when no figure is left ("(annual_report.pdf pages 59, 153)", "(covenant breached)"), or when
+ * what is left is one figure that states the row's own currency and scale or multiple and restates
+ * N, sign included, to its own last decimal, point or comma ("(-USD 5.13 million)" in a "USD
+ * millions" row, "(5.0x)" in an "x" row). Anything else leaves the cell stated and not placed.
  */
 function leadValue(plain: string, unit: string): number | null {
   const match = LEAD_NUMBER.exec(plain);
   const lead = amount(match?.[1] ?? "");
-  const inner = (match?.[2] ?? "").trim();
   if (lead === null) return null;
-  if (!/\d/.test(inner)) return lead;
-  if (!OWN_FIGURE.test(inner) && !COMPARISON.test(inner))
-    return containsReference(inner) || LOCATOR.test(inner) ? lead : null;
-  const money = MONEY_UNIT.exec(unit);
-  const stated = money ? MONEY_STATED.exec(inner) : SAME_UNIT.exec(inner);
-  if (!stated) return null;
-  const figure = money ? stated[3] : stated[1];
-  if (
-    money
-      ? stated[2] !== money[1] || scaleOf(stated[4] ?? "") !== scaleOf(money[2] ?? "")
-      : stated[2] !== unit
-  )
-    return null;
-  const said = amount(money && stated[1] ? `-${figure ?? ""}` : (figure ?? ""));
-  const places = (figure ?? "").split(".")[1]?.length ?? 0;
-  return said !== null && Math.abs(lead - said) <= 0.5 * 10 ** -places * (1 + 1e-9) ? lead : null;
+  const left = (match?.[2] ?? "")
+    .replace(/[()[\]]/g, " ")
+    .replace(CITATION, " ")
+    .split(/\s+/)
+    .filter((word) => !containsReference(word))
+    .join(" ")
+    .replace(/^[\s,;:.]+|[\s,;:.]+$/g, "");
+  if (!/\d/.test(left)) return lead;
+  const currency = /^(-?)([A-Z]{3}) ?(?=\d)/.exec(left);
+  if (currency && currency[2] !== /^[A-Z]{3}(?= )/.exec(unit)?.[0]) return null;
+  const figure = currency ? `${currency[1] ?? ""}${left.slice(currency[0].length)}` : left;
+  const said = amount(figure, unit);
+  // A figure with no unit of its own ("(5.0)", "(USD 5.0)") says nothing of the lead's unit.
+  if (said === null || amount(figure) !== null) return null;
+  const digits = /\d[\d,.]*\d|\d/.exec(figure)?.[0] ?? "";
+  const point = /[.,](\d+)$/.exec(digits);
+  const decimal =
+    point &&
+    Number(`${digits.slice(0, point.index).replaceAll(",", "")}.${point[1] ?? ""}`) ===
+      Math.abs(said);
+  const places = decimal ? (point[1]?.length ?? 0) : 0;
+  return Math.abs(lead - said) <= 0.5 * 10 ** -places * (1 + 1e-9) ? lead : null;
 }
 const STATED_GAP = /^Not (?:supplied|calculated):\s*(\S.*)$/;
 
