@@ -3,7 +3,7 @@ import { GapSlot } from "./GapSlot";
 import { BAR, SLIM } from "./text";
 
 /** What a legend entry draws: the mark itself, at swatch size. */
-export type LegendKind = "ring" | "dot" | "line" | "bar" | "slim" | "square" | "hatch";
+export type LegendKind = "ring" | "dot" | "line" | "bar" | "slim" | "square" | "diamond" | "hatch";
 
 /** The eight category colours, `category-1` to `category-8`. */
 type CategoryColour = `category-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
@@ -166,6 +166,14 @@ export function MarkSwatch({
           className={FILL[tone]}
         />
       );
+    case "diamond":
+      return (
+        <path
+          data-swatch="diamond"
+          d={`M${String(x + 6)},${String(y + 0.5)} L${String(x + 11.5)},${String(middle)} L${String(x + 6)},${String(y + 11.5)} L${String(x + 0.5)},${String(middle)} Z`}
+          className={FILL[tone]}
+        />
+      );
     case "hatch":
       return <GapSlot x={x} y={y + 1} width={SWATCH} height={SWATCH - 2} />;
   }
@@ -173,7 +181,7 @@ export function MarkSwatch({
 
 /**
  * The one legend of the leads, for a tile head or above a figure: each entry its real mark shape
- * (a ring is a hollow circle, a dot a filled one, a line a short stroke, a bar or square a swatch,
+ * (a ring is a hollow circle, a dot a filled one, a line a short stroke, a bar or square a swatch, a diamond a rotated square,
  * a hatch the gap texture) and its words at 12 px, wrapping. Colour is never the only carrier:
  * every entry has its words.
  */
