@@ -2310,6 +2310,7 @@ def _block(  # noqa: PLR0913 - existing signature
         "numbered": spec.numbered,
         "pinned": spec.pinned,
     }
+    slots: list[_Slot] = []  # prose bindings carry no table, so no register limitation
     if shown and spec.kind == "prose":
         lines = _prose_lines(shown, view, refs)
         if lines:
@@ -2353,6 +2354,15 @@ def _block(  # noqa: PLR0913 - existing signature
                 for figure in figures
                 if figure.chart.reason
             )
+            # Every populated register's own limitation reaches the reader; a further register's
+            # is prefixed with its tab label, since its tab (rows) can carry no note.
+            further = (
+                f"{item.label}: {item.limitation}"
+                for item in slots
+                if item is not primary and item.rows and item.limitation
+            )
+            tail = _strip_note(block_id) if degraded else chart_note
+            note = "; ".join(t for t in (primary.limitation, *further, tail) if t)
             return Block(
                 **{**shape, "summary": _summary((), primary.rows) if spec.collapsed else None},
                 kind=kind,
@@ -2369,9 +2379,7 @@ def _block(  # noqa: PLR0913 - existing signature
                 figures=_na_strip(block_id, spec.owner, primary.scale, _strip_reason(block_id))
                 if degraded
                 else figures,
-                note=_strip_note(block_id)
-                if degraded
-                else "; ".join(t for t in (primary.limitation, chart_note) if t) or None,
+                note=note or None,
             )
     blocked_because = {
         code: module.limitations[0]
