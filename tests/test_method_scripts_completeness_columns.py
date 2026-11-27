@@ -105,3 +105,23 @@ def test_a_template_critical_column_is_scanned_for_placeholders() -> None:
     found = outcomes("CP-1B", text)[("T4.4", "placeholders")]
     assert found.status == "noted"
     assert "`FY2023`" in found.reason
+
+
+# --- C12F-3: a joined cell's parts do not shadow the header's own forms ---------------------------
+
+
+@pytest.mark.parametrize(
+    ("declared", "header", "others"),
+    [
+        ("EV/Revenue", ["EV", "EV/Revenue LTM", "EV/EBITDA LTM"], ["EV", "EV/EBITDA"]),
+        ("EV/EBITDA", ["EV", "EV/Revenue LTM", "EV/EBITDA LTM"], ["EV", "EV/Revenue"]),
+        ("EV/Revenue", ["EV", "EV/Revenue x"], ["EV"]),
+        ("EV/EBITDA", ["EV", "EV/EBITDA LTM (x)"], ["EV"]),
+        ("TV/Revenue", ["TV", "TV/Revenue LTM"], ["TV"]),
+        ("Seniority / Security", ["Total Seniority / Security"], ["Total"]),
+    ],
+)
+def test_a_joined_header_cell_holding_a_declared_name_is_present_as_on_base(
+    declared: str, header: list[str], others: list[str]
+) -> None:
+    assert mc._present(declared, header, others) is True

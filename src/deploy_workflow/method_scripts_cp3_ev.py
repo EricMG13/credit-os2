@@ -198,10 +198,27 @@ def _t410_multiple(
     return ev[0] / value, quotient_slack(ev[0], half(ev[1]), value, half_unit)
 
 
+def _without_bare_year(text: str) -> list[str]:
+    """The figures in ``text``; of two, a bare year (19xx/20xx, no currency or scale attached) is a
+    period when the other is not one, so it is set aside (`EBITDA 2024 USD 500m`)."""
+    hits = list(_FIGURE.finditer(text))
+    found = [h[0] for h in hits]
+    if len(hits) != 2:
+        return found
+    bare = [
+        h[0]
+        for h in hits
+        if re.fullmatch(rf"\(?{_Y}\)?", h[0])
+        and not _BEFORE_CURRENCY.search(text[: h.start()])
+        and not _ATTACHED_SCALE.match(text[h.end() :])
+    ]
+    return [f for f in found if f != bare[0]] if len(bare) == 1 else found
+
+
 def borrower_metric(cell: str, tables: types.ModuleType) -> tuple[float, int]:
     """T4.10's borrower metric: the one figure in its cell once a period (`FY2024`, `LTM Dec-2025`
     year) is set aside; `_NotChecked` when it is not one figure."""
-    found = _FIGURE.findall(_YEAR.sub(" ", _plain(cell)))
+    found = _without_bare_year(_YEAR.sub(" ", _plain(cell)))
     if len(found) != 1:
         raise _NotChecked(f"the borrower metric `{cell}` is not one figure")
     read = figure(found[0], tables)

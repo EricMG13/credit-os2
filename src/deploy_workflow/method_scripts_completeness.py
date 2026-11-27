@@ -167,7 +167,8 @@ def _present(declared: str, header: list[str], others: Sequence[str] = ()) -> bo
     forms = _cell_forms(header)
     cells = set().union(*forms) if forms else set()
     taken = set().union(*(_whole(o) for o in others)) if others else set()
-    shadow = frozenset(set().union(*(f for f in forms if f & taken)) if taken else ())
+    # A header is shadowed by its own whole forms only, never by the parts of a joined cell.
+    shadow = frozenset(set().union(*(_whole(h) for h in header if _whole(h) & taken)))
     if _holds(cells, _whole(declared), shadow):
         return True
     spelt = _spelt(declared)

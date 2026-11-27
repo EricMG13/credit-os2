@@ -202,3 +202,19 @@ def test_a_second_amount_after_a_year_like_figure_is_not_one_figure():
 def test_a_marked_period_is_still_set_aside(metric):
     out = sent_copies(with_metric(t410(), metric))
     assert [o.status for o in out] == ["agreed"] * 3
+
+
+# --- C12F-2: a bare year beside one currency figure is a period (CP-1C T4.10) ---------------------
+
+
+@pytest.mark.parametrize(
+    "metric", ["EBITDA 2024 USD 500m", "EBITDA USD 500m (2024)", "2024 EBITDA USD 500m"]
+)
+def test_cp1c_a_bare_year_beside_one_currency_figure_is_a_period(metric):
+    from tests.test_method_scripts_rest import cp1c, cp1c_by
+
+    text = cp1c().replace("EBITDA FY2024 USD 500m", metric)
+    assert text != cp1c()
+    found = cp1c_by(text)
+    for case in ("Low", "Base", "High"):
+        assert found[f"Implied EV {case}: EV/EBITDA trading comps"].status == "agreed", case
