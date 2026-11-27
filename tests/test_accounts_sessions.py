@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -151,3 +151,13 @@ def test_malformed_token_never_touches_store(tmp_path: Path, bad: str) -> None:
     conn.close()  # any use of a closed connection raises sqlite3.ProgrammingError
     assert session_account(conn, bad, now=T0) is None
     end_session(conn, bad)
+
+
+def test_zoned_now_in_another_offset_gives_the_same_answer(db: sqlite3.Connection) -> None:
+    plus5 = timezone(timedelta(hours=5))
+    token = mint_session(db, 1, now=T0)
+    expiry = T0 + timedelta(hours=12)
+    before = session_account(db, token, now=(expiry - timedelta(seconds=1)).astimezone(plus5))
+    assert before is not None
+    assert before == session_account(db, token, now=expiry - timedelta(seconds=1))
+    assert session_account(db, token, now=(expiry + timedelta(seconds=1)).astimezone(plus5)) is None

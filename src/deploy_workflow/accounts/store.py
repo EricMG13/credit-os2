@@ -303,12 +303,14 @@ def _check_windows_folder(folder: Path) -> None:
 
 
 def _check_no_acl(target: Path, label: str) -> None:
-    if target.exists() and _has_acl(target):
+    if _has_acl(target):
         raise StoreError(f"{label} {target} carries an access-control list; {_REMEDY}")
 
 
-def open_db(folder: Path) -> sqlite3.Connection:
-    """Open (creating if needed) `<folder>/accounts.db` and apply migrations; StoreError for a
+def open_db(folder: Path, *, create: bool = True) -> sqlite3.Connection:
+    """Open (creating if needed) `<folder>/accounts.db` and apply migrations. With `create=False`
+    nothing is created: a missing folder or file is a StoreError, and the file is opened
+    read-write without create, so one deleted after the check is never remade. StoreError for a
     relative folder, a store others can open or that another user owns, or one this build's
     migrations did not make. On Windows the folder must be inside the user's %LOCALAPPDATA%; on
     Linux a POSIX ACL on the folder or file is refused. macOS ACLs are not checked."""
@@ -316,17 +318,24 @@ def open_db(folder: Path) -> sqlite3.Connection:
         raise StoreError(RELATIVE_FOLDER)
     if _IS_WINDOWS:
         _check_windows_folder(folder)
-    _create_folder(folder)
     path = folder / "accounts.db"
+    if create:
+        _create_folder(folder)
+    elif not path.is_file():
+        raise StoreError(f"there is no account store in {folder}")
     if not _IS_WINDOWS:
         _check_private(folder, "the account store's folder")
         if sys.platform.startswith("linux"):
             _check_no_acl(folder, "the account store's folder")
-        _create_file(path)
+        if create:
+            _create_file(path)
         _check_private(path, "the account store")
         if sys.platform.startswith("linux"):
             _check_no_acl(path, "the account store")
-    db = sqlite3.connect(path, timeout=_BUSY_SECONDS)
+    if create:
+        db = sqlite3.connect(path, timeout=_BUSY_SECONDS)
+    else:
+        db = sqlite3.connect(f"{path.as_uri()}?mode=rw", uri=True, timeout=_BUSY_SECONDS)
     try:
         db.row_factory = sqlite3.Row
         # Before WAL, so a refused store keeps its journal mode.
@@ -351,7 +360,8 @@ def _clean(text: str) -> str:
     kept = "".join(
         ch for ch in spaced if ch in _JOINERS or unicodedata.category(ch) not in _UNPRINTABLE
     )
-    return " ".join(unicodedata.normalize("NFC", kept).split())
+    joined = " ".join(unicodedata.normalize("NFC", kept).split())
+    return joined if any(ch not in f"{_JOINERS} " for ch in joined) else ""
 
 
 def _account(row: sqlite3.Row) -> Account:
@@ -461,7 +471,7 @@ def _display_name(db: sqlite3.Connection, cleaned: str, email: str) -> str:
     )
     for tag in tags:
         candidate = _fitted(cleaned, tag)
-        if candidate not in RESERVED_DISPLAY_NAMES and not _name_taken(db, candidate):
+        if candidate.casefold() not in RESERVED_DISPLAY_NAMES and not _name_taken(db, candidate):
             return candidate
     raise Conflict(f"the display name {cleaned!r} and its two bracketed forms are taken")
 

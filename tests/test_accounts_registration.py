@@ -192,3 +192,10 @@ def test_wrong_then_locked_passcodes_retain_admin_role(db: sqlite3.Connection) -
     assert result == "wrong passcode"
     assert redeem_passcode(db, token, passcode=ANALYST, now=NOW) == "locked"
     assert store.account_by_id(db, account.id).profile_type == "admin"
+
+
+@pytest.mark.parametrize("name", ["\u200d", "\u200c\u200d", " \u200d "])
+def test_joiner_only_name_is_a_refused_sign_in(db: sqlite3.Connection, name: str) -> None:
+    with pytest.raises(RegistrationDenied, match="^this account cannot sign in here$"):
+        _register(db, name=name)
+    assert db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0

@@ -606,9 +606,11 @@ def test_linux_other_listxattr_error_propagates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     folder = tmp_path / "store"
-    _fake_listxattr(monkeypatch, {str(folder): OSError(errno.EACCES, "")})
+    boom = OSError(errno.EACCES, "")
+    _fake_listxattr(monkeypatch, {str(folder): boom})
     with pytest.raises(OSError) as err:
         open_db(folder)
+    assert err.value is boom
     assert err.value.errno == errno.EACCES
 
 
@@ -762,3 +764,82 @@ def test_name_keeps_zero_width_joiners_only(db: sqlite3.Connection) -> None:
     assert bidi.display_name == "AB"
     space = _reg(db, object_id="o-z", email="z@example.org", name="C" + zwsp + "D")
     assert space.display_name == "CD"
+
+
+# --- parked batch 2026-11-27 -------------------------------------------------------------------
+
+
+def _register(db: sqlite3.Connection, name: str, email: str = "x@example.org") -> Account:
+    return register_reader(
+        db,
+        tenant_id="t-1",
+        object_id=email,
+        name=name,
+        email=email,
+        given_name=None,
+        family_name=None,
+        now=T0,
+    )
+
+
+@pytest.mark.parametrize("name", ["\u200d", "\u200c\u200d", " \u200d "])
+def test_joiner_only_name_is_refused_and_writes_nothing(tmp_path: Path, name: str) -> None:
+    db = open_db(tmp_path / "store")
+    with pytest.raises(StoreError, match="the account has no name"):
+        _register(db, name)
+    assert db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0
+
+
+def test_joiner_inside_a_name_is_kept(tmp_path: Path) -> None:
+    db = open_db(tmp_path / "store")
+    assert _register(db, "A\u200dB").display_name == "A\u200dB"
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("BEFORE ACCOUNTS", "BEFORE ACCOUNTS (ba)"),
+        ("Before Accounts", "Before Accounts (ba)"),
+        ("before accounts", "before accounts (ba)"),
+    ],
+)
+def test_reserved_name_matches_in_any_case(tmp_path: Path, name: str, expected: str) -> None:
+    db = open_db(tmp_path / "store")
+    assert _register(db, name, "ba@example.org").display_name == expected
+
+
+def test_open_db_without_create_makes_nothing(tmp_path: Path) -> None:
+    folder = tmp_path / "store"
+    with pytest.raises(StoreError, match=f"^there is no account store in {folder}$"):
+        open_db(folder, create=False)
+    assert not folder.exists()
+    folder.mkdir(mode=0o700)
+    with pytest.raises(StoreError, match="there is no account store"):
+        open_db(folder, create=False)
+    assert list(folder.iterdir()) == []
+
+
+def test_open_db_without_create_opens_existing_store(tmp_path: Path) -> None:
+    folder = tmp_path / "store"
+    open_db(folder).close()
+    db = open_db(folder, create=False)
+    assert db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0] == 0
+    db.close()
+
+
+def test_open_db_without_create_never_recreates_a_file_deleted_before_connect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "store"
+    open_db(folder).close()
+    real = store_module._check_private
+
+    def check_then_delete(target: Path, label: str) -> None:
+        real(target, label)
+        if label == "the account store":
+            target.unlink()
+
+    monkeypatch.setattr(store_module, "_check_private", check_then_delete)
+    with pytest.raises(sqlite3.OperationalError):
+        open_db(folder, create=False)
+    assert not (folder / "accounts.db").exists()
