@@ -71,12 +71,12 @@ RATIO_STEP = 1e-9  # the script does not round its ratios
 _PART = re.compile(r"\s*/\s*")
 _NOT_ANNUAL = re.compile(
     r"\b(?:q[1-4]|h[12]|quarter|half|month|ytd)\b"  # `Q1 FY26`, `H1 FY26`
-    r"|\b(?:[1-4]q|[12]h)(?:\d{4}|\d{2})?\b"  # `1Q26`, `2Q2026`, `1H26`
-    r"|\b[1-9]m(?:\d{4}|\d{2})?\b"  # `9M`, `9M26`
+    r"|(?:\b|(?<=fy))(?:[1-4]q|[12]h)(?:\d{4}|\d{2})?[aef]?\b"  # `1Q26`, `1H26E`, `FY1H26`
+    r"|\b[1-9]m(?:\d{4}|\d{2})?[aef]?\b"  # `9M`, `9M26A`
 )
 _OTHER_BASIS = re.compile(
-    r"covenant|agency|\bratings?\b|lease[ -]?adjusted|ifrs ?16|pro ?forma|run[ -]?rate|principal|"
-    r"face value|average debt"
+    r"covenant|agency|(?<![a-z])ratings?(?![a-z])|lease[ -]?adjusted|ifrs ?16|pro ?forma|"
+    r"run[ -]?rate|principal|face value|average debt"
 )
 _EBITDA_OVER_INTEREST = re.compile(r"ebitda\s*(?:/|to|over)\s*(?:\(?cash\s+|net\s+)?interest")
 CP2G_NOTE = (

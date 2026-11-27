@@ -171,3 +171,55 @@ def test_an_affirmative_breach_still_reads_and_excuses():
         cp2h("maximum", "6.0x", "6.4x", "-0.4x", "Compliant (breach is not a trigger)")
     )
     assert excused["Status: Lev"] == "not checked"
+
+
+# --- S03 C12 fix round 2, dispatch A -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "period", ["1Q26E", "1H26E", "2Q2026E", "9M26A", "3Q26A", "4Q26F", "FY1H26"]
+)
+def test_interim_labels_with_an_estimate_suffix_are_not_annual(period):
+    # EBITDA 500 is part of a year: 4,900 / 500 = 9.8x must not be called a disagreement
+    assert gross_status(cp2g(period, ebitda="500"), period) == "not checked"
+
+
+@pytest.mark.parametrize("period", ["FY26E", "2026E", "FY2026A"])
+def test_annual_labels_with_a_suffix_stay_annual(period):
+    assert gross_status(cp2g(period, ebitda="500"), period) == "disagreed"  # 4,900 / 500 = 9.8x
+    assert gross_status(cp2g(period, ebitda="1,000"), period) == "agreed"  # 4.9x
+
+
+@pytest.mark.parametrize("definition", ["rating_adjusted_debt", "D_RATING_1", "Rating basis"])
+def test_underscore_joined_rating_id_is_an_other_basis(definition):
+    assert gross_status(cp2g(gross="4.5x", definition=definition)) == "not checked"
+
+
+def test_operating_ebitda_stays_checked_after_rating_boundary_change():
+    assert gross_status(cp2g(gross="4.5x", definition="Operating EBITDA")) == "disagreed"
+
+
+def test_between_leads_a_one_sided_unit_range_joined_by_and():
+    # range 5.0-5.5, value 5.2x: headroom -0.2x / 0.3x, Breached against the lower bound
+    found = cp2h_by(cp2h("maximum", "between 5.0 and 5.5x", "5.2x", "-0.2x / 0.3x", "Breached"))
+    assert found == {"Headroom: Lev": "agreed", "Status: Lev": "agreed"}
+
+
+def test_and_without_between_stays_a_single_bound_one_sided_unit():
+    found = cp2h_by(cp2h("maximum", "6.0x and 2 consecutive quarters", "5.2x", "0.8x", "Compliant"))
+    assert found == {"Headroom: Lev": "agreed", "Status: Lev": "agreed"}
+
+
+@pytest.mark.parametrize("status", ["Breaching", "Breaches", "Breaching covenant"])
+def test_breaching_and_breaches_read_as_breached(status):
+    found = cp2h_by(cp2h("maximum", "6.0x", "6.4x", "-0.4x", status))
+    assert found["Status: Lev"] == "agreed"
+    wrong = cp2h_by(cp2h("maximum", "6.0x", "5.2x", "0.8x", status))
+    assert wrong["Status: Lev"] == "disagreed"
+
+
+def test_negated_breaching_is_still_not_a_breach():
+    found = cp2h_by(cp2h("maximum", "6.0x", "6.4x", "-0.4x", "Compliant (not breaching)"))
+    assert found["Status: Lev"] == "disagreed"
+    risk = cp2h_by(cp2h("maximum", "6.0x", "5.2x", "0.8x", "Breach risk low"))
+    assert risk["Status: Lev"] == "agreed"

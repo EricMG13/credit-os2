@@ -85,7 +85,7 @@ _FISCAL = re.compile(
 )  # `FY25-26`: years, not bounds
 # An affirmative breach: the whole word, not negated (`no breach`, `not a breach`, `without
 # breach`) and not a risk assessment (`breach risk low`).
-_BREACH = re.compile(r"\bbreach(?:ed)?\b(?!\s+risk)", re.IGNORECASE)
+_BREACH = re.compile(r"\bbreach(?:ed|es|ing)?\b(?!\s+risk)", re.IGNORECASE)
 _NEGATED = re.compile(r"\b(?:no|not|without)\s+(?:\w+\s+)?$", re.IGNORECASE)
 _LOW_RISK = re.compile(r"^breach risk:?\s+(?:is\s+)?(?:low|remote|minimal|negligible|none)\b")
 _RANGE = re.compile(r"(?<=[\d%x×])\s*[-–—]\s*(?=\d)")
@@ -150,7 +150,7 @@ def _values(cell: str, tables: types.ModuleType) -> list[_Figure]:
 def _is_range(text: str, joined: re.Match[str], bounds: list[list[_Figure]], unit: str) -> bool:
     """Whether a joined pair of figures is a range: both sides in the trigger's unit, or both
     bare and not a fiscal-year pair; one bare side only after a range marker (`5.0-5.5x`), never
-    after `and` (`6.0x and 2 consecutive quarters`)."""
+    after `and` unless `between` leads it (`6.0x and 2 consecutive quarters` is one bound)."""
     kinds = [{f.unit for f in side} - {""} for side in bounds]
     units = kinds[0] | kinds[1]
     if unit and units and units != {unit}:  # a range is in the trigger's own unit
@@ -159,7 +159,9 @@ def _is_range(text: str, joined: re.Match[str], bounds: list[list[_Figure]], uni
         return True
     if not kinds[0] and not kinds[1]:
         return not _FISCAL.search(text[: joined.start(1)])
-    return not re.search(r"\band\b", text[joined.end(1) : joined.start(2)], re.IGNORECASE)
+    if not re.search(r"\band\b", text[joined.end(1) : joined.start(2)], re.IGNORECASE):
+        return True
+    return bool(re.search(r"\bbetween\s+$", text[: joined.start(1)], re.IGNORECASE))
 
 
 def _thresholds(cell: str, unit: str, tables: types.ModuleType) -> list[_Figure]:
