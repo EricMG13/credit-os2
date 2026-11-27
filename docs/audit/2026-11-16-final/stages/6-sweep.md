@@ -28,6 +28,12 @@ If the sweep skill is available, run it as `both`, scope `whole-repo`, through `
    protected behaviour (every existing test and golden, the calculation outputs, the handoff
    text, the public service routes, Signal), the gates that must exit 0, and finite caps: at most
    40 items, two attempts per item.
+   For a standalone sweep on main, fetch and pin the current `origin/main` commit
+   as the base. Before dispatching workers, build the pinned base and run
+   `npm --prefix web run proof:connected` with the default desktop scope and
+   synthetic inputs. Record the commit, exit status and artifact path in the
+   contract. If the proof fails, retain the failing assertion or setup error
+   so the integrated run can distinguish an existing failure from a regression.
 2. **Discover, measured only.**
    - Dead code: knip for `web/`; for Python, names with no importer or caller found by search
      and by the import graph (`.importlinter` layers, `ruff` F-rules). Confirm each candidate has
@@ -47,10 +53,13 @@ If the sweep skill is available, run it as `both`, scope `whole-repo`, through `
    Register every candidate in `output/6-sweep/register.md` with its evidence and a class:
    `confirmed defect`, `dead`, `duplicate`, `structural cost`, `performance cost`, `not acted on`.
 3. **Launch.** In Codex, use one fresh GPT-6 Luna (`gpt-6-luna`) implementer per
-   item or small batch of similar changes. Each implementer has its own worktree
+   bounded register item. Each implementer has its own worktree
    and explicit file ownership. Parallelise independent items with disjoint
    writes and sequence items that depend on each other or touch the same files.
-   A fresh read-only reviewer verifies each patch and its evidence before the
+   Before dispatch, give each worker a concrete acceptance check in its brief.
+   For an import cycle, name the cycle and the command that must show it is gone.
+   For a shared parser, specify example inputs and the exact outputs to preserve.
+   A fresh read-only reviewer checks the patch against that criterion before the
    controller integrates it. On the first Codex run, validate the dispatch and
    review handoff with one bounded item before dispatching the rest of the swarm.
    - A confirmed defect gets a failing test first, as in stage 5.
@@ -69,10 +78,14 @@ If the sweep skill is available, run it as `both`, scope `whole-repo`, through `
    `uv run python tools/quality_gate.py --base <repair-commit>` on the integrated
    sweep. If the frontend suite needs bounded shards, preserve the original
    test selection and enforce the original coverage threshold on the merged result.
+   Before merge, rebuild the combined candidate and repeat the baseline desktop
+   proof with the same fixtures and settings. Record the tested commit, exit
+   status and artifact path in the report. Require exit zero and both Chrome and
+   Edge records in `proof.json`. Repeat on the new candidate if its code changes.
 5. **After numbers.** Re-run the Stage 0 measurements. Attribute sweep changes
    using the matched repair baseline and sweep tree. Label any historical figures
    gathered with different tools or inputs.
-6. **Pull request.** When authorised, open a sweep-only PR into the repair branch.
+6. **Pull request.** When authorised, open a sweep-only PR into the target branch used for the baseline.
    The lead reviews it before Stage 7.
 
 ## Outputs
