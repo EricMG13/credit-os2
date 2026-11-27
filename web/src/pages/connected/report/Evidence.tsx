@@ -608,7 +608,7 @@ function HandoffIndex({
                 className="min-h-8 underline max-[480px]:min-h-11"
                 iconTrailing={ArrowRight}
               >
-                {handoffName(item)}
+                {handoffName(item, run.pathway)}
               </Button>
             </li>
           ))}
@@ -647,10 +647,12 @@ function AssumptionRegister({
   model,
   entries,
   folder,
+  pathway,
 }: {
   model: ForecastModel;
   entries: OutputEntry[];
   folder: string;
+  pathway?: string | null;
 }) {
   const register = model.register;
   if (!register) return null;
@@ -693,7 +695,7 @@ function AssumptionRegister({
                 <tr key={index} className="border-t border-border-hairline align-top">
                   {cells.map((cell, i) => (
                     <td key={i} className="px-3 py-2">
-                      {readerText(cell)}
+                      {readerText(cell, pathway)}
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -900,6 +902,7 @@ export function ReportEvidence({
                   model={model}
                   entries={entries}
                   folder={run.folder}
+                  pathway={run.pathway}
                 />
               ))}
             </Disclosure>
