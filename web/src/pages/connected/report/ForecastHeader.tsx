@@ -147,7 +147,9 @@ export function CaseFigure({
   if (!option) return null;
   const { name, rawGroup, period, periodStart, periodEnd, description, reason, units } = option;
   const recorded = description || caseRationale(handoff, rawGroup);
-  // A description or reason that cites a source, marker or note is not drawn: Evidence holds it.
+  // Dedupe on the recorded text; a description or reason that cites a source, marker or note
+  // is not drawn as written: Evidence holds it.
+  const showDescription = !recorded || !shownQualifications.includes(recorded);
   const described = recorded && cites(readerText(recorded)) ? CASE_NOTE_IN_EVIDENCE : recorded;
   const why = reason ? readerText(reason) : "";
   return (
@@ -185,7 +187,7 @@ export function CaseFigure({
           })}
         </dd>
       </dl>
-      {(!described || !shownQualifications.includes(described)) && (
+      {showDescription && (
         <p className="text-caption text-text-secondary">
           {described || "Case description not recorded."}
         </p>

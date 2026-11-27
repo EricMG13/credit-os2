@@ -48,3 +48,10 @@ it("C1b-R2 does not draw a reason that cites a marker or note", () => {
   expect(drawn).not.toContain("Note 4");
   expect(drawn).not.toContain("[E3]");
 });
+
+it("C1b-S1 dedupes a citing description that a shown qualification already carries", () => {
+  const text = "Base case is the central case [E3].";
+  const drawn = draw({ name: "Base", rawGroup: "Base", description: text }, [text]);
+  expect(drawn).not.toContain("The model's note on this case is in Evidence.");
+  expect(drawn).not.toContain("[E3]");
+});
