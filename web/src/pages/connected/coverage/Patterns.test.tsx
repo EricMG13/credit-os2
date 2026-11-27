@@ -177,6 +177,30 @@ describe("Patterns", () => {
       <Patterns data={unordered} issuers={issuers} selected={null} onSelect={vi.fn()} />,
     );
     expect(screen.getAllByText(/periods cannot be put in time order/i).length).toBeGreaterThan(0);
+    for (const regionName of [
+      "Issuers left out of cohort band ordering",
+      "Issuers left out of difference heat grid",
+    ]) {
+      const region = screen.getByRole("region", { name: regionName });
+      const alpha = within(region)
+        .getByText(/Alpha: periods cannot be ordered/, { exact: false })
+        .closest("li");
+      expect(alpha).not.toBeNull();
+      if (!alpha) throw new Error("unorderable issuer row is missing");
+      const periodEvidence = within(alpha).getByText("Period evidence (3)");
+      expect(periodEvidence).toBeVisible();
+      expect(periodEvidence.closest("details")).not.toHaveAttribute("open");
+      const traceLinks = within(alpha).getAllByRole("link", { hidden: true });
+      expect(traceLinks).toHaveLength(4);
+      for (const link of traceLinks) expect(link).not.toBeVisible();
+      expect(within(alpha).getByRole("link", { name: "Open run", hidden: true })).toHaveAttribute(
+        "href",
+        expect.stringContaining("/report/folder-0"),
+      );
+      expect(
+        within(alpha).getAllByRole("link", { name: "Evidence", hidden: true }),
+      ).toHaveLength(3);
+    }
     expect(screen.getByRole("table", { name: "Two measures data" })).toBeInTheDocument();
     const onePeriod = {
       ...data,
