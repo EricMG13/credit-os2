@@ -4,6 +4,7 @@ import { AMOUNT_BAR, AMOUNT_LEGEND, amountTone } from "./amountTone";
 describe("amountTone", () => {
   // step = floor(share x 5), capped at index 4; tone = index + 1.
   it.each([
+    [1.2, 3, "amount-3"], // exact 40% boundary belongs to the third of five steps
     [3941, 3941, "amount-5"], // share 1
     [3809, 3941, "amount-5"], // 0.9665 x 5 = 4.83
     [2236, 3941, "amount-3"], // 0.5674 x 5 = 2.84

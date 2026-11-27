@@ -12,7 +12,13 @@ export function amountTone(value: number, largest: number): AmountTone {
     throw new RangeError("amountTone: value or largest is infinite");
   }
   const share = largest === 0 ? 0 : Math.abs(value) / Math.abs(largest);
-  const colour = step(share, AMOUNT);
+  const scaled = share * AMOUNT.length;
+  const boundary = Math.round(scaled);
+  // IEEE division can put an exact decimal boundary just below its integer bin.
+  const stable = Math.abs(scaled - boundary) <= Number.EPSILON * Math.max(1, scaled) * 2
+    ? boundary / AMOUNT.length
+    : share;
+  const colour = step(stable, AMOUNT);
   return `amount-${String((AMOUNT as readonly string[]).indexOf(colour) + 1)}` as AmountTone;
 }
 
