@@ -287,6 +287,11 @@ it.each([
   ["before swaps", "after swaps", false],
   ["before swaps", "before swaps", true],
   ["after swaps", "after swaps", true],
+  ["excluding interest-rate swap settlements", "including interest-rate swap settlements", false],
+  ["before the effect of interest rate swaps", "after the effect of interest rate swaps", false],
+  ["before swaps", "excluding interest-rate swap settlements", true],
+  ["after swaps", "including interest-rate swap settlements", true],
+  ["excluding interest-rate swap settlements", "after the effect of interest rate swaps", false],
 ] as const)("compares cover only on like swap scope (%s and %s)", (prior, latest, compared) => {
   const basis = (scope: string) => `Reported EBITDA / net cash interest paid ${scope}.`;
   const input = coverInput([
@@ -307,7 +312,7 @@ it.each([
   expect(Boolean(periods.querySelector("[data-comparison]"))).toBe(compared);
 });
 
-it.each(["10K", "Source S7", "filing_2024.jsonl, pages 71 and 123"])(
+it.each(["10K", "10K filing", "Source S7", "filing_2024.jsonl, pages 71 and 123"])(
   "keeps a source-only annotation (%s) in Evidence without blocking a comparison",
   (locator) => {
     const basis = "Reported EBITDA / cash interest paid.";
@@ -402,3 +407,45 @@ it("keeps an inseparable source ID and ambiguous wording in Evidence", () => {
   ).toBeVisible();
   expect(tile).not.toHaveTextContent("Source S7");
 });
+
+it.each([
+  {
+    prior: "10K, restated",
+    latest: "restated",
+    visible: " · Detail is in Evidence.",
+    compared: false,
+  },
+  {
+    prior: "10K restated",
+    latest: "restated",
+    visible: " · Detail is in Evidence.",
+    compared: false,
+  },
+  { prior: "10K; restated", latest: "restated", visible: " (restated)", compared: true },
+  {
+    prior: "10K increase, restated",
+    latest: "10K increase, restated",
+    visible: " (10K increase, restated)",
+    compared: true,
+  },
+])(
+  "distinguishes a filing locator from a period qualifier ($prior)",
+  ({ prior, latest, visible, compared }) => {
+    const basis = "Reported EBITDA / cash interest paid.";
+    const input = coverInput([
+      [`FY2024 / 2024-09-30 (${prior})`, "3", "x", basis],
+      [`FY2025 / 2025-09-30 (${latest})`, "5", "x", basis],
+    ]);
+    render(<FoundationLead {...leadProps(input)} />);
+    const tile = screen.getByRole("region", { name: "Interest cover" });
+    expect(tile.querySelector('[data-part="change"]')?.textContent ?? null).toBe(
+      compared ? "FY2024 to FY2025: +2x, up, better" : null,
+    );
+    expect(Boolean(tile.querySelector('[data-part="link"]'))).toBe(compared);
+    const qualifier = `FY2024 / 2024-09-30${visible}`;
+    expect(within(tile).getByText(`${qualifier} · ${basis}`)).toBeVisible();
+    fireEvent.click(within(tile).getByRole("button", { name: /Table view/ }));
+    expect(within(tile).getByRole("row", { name: `${qualifier} 3 ${basis}` })).toBeVisible();
+    if (!visible.includes("10K")) expect(tile).not.toHaveTextContent("10K");
+  },
+);

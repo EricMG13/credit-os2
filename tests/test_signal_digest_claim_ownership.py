@@ -1,4 +1,4 @@
-"""Two connections interleave digest runs and startup recovery, with synthetic writers."""
+"""Two connections interleave digest runs and recovery, with synthetic writers."""
 
 import sqlite3
 from collections.abc import Callable
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from signal_ai_fakes import FakeModel, off_setup, ok, setup
+from signal_ai_fakes import CONFIG, LUNA_HOLD, FakeModel, off_setup, ok, setup
 from test_signal_digest import RecordingWriter, at, count, make, source, story
 
 from deploy_workflow.signal import ai_digest, ai_ledger, ai_run, digests, store
@@ -17,6 +17,8 @@ DUE = at("2026-11-27 07:00")
 RECOVERY = DUE + timedelta(minutes=40)
 NEXT_DUE = at("2026-12-04 07:00")
 REPLY = '{"points":[{"lead":"Plants","body":"A plant closed.","stories":["1"]}]}'
+MANUAL = DUE - timedelta(minutes=30)
+TICK = DUE + timedelta(minutes=2)
 
 
 class DelayedWriter(RecordingWriter):
@@ -156,6 +158,11 @@ def test_the_normal_pass_recovers_a_claim_left_young_at_startup(tmp_path):
 
         model = FakeModel([ok(REPLY)])
         ai_ledger.set_cap(other, Decimal(15), NEXT_DUE)
+        reserve_at = NEXT_DUE - timedelta(minutes=15)
+        ai_ledger.reserve(other, "stories", CONFIG, LUNA_HOLD, reserve_at, ruled_cap=Decimal(15))
+        ai_ledger.reserve(
+            other, "digest", CONFIG, LUNA_HOLD, reserve_at, ruled_cap=Decimal(15), owner="Rita"
+        )
         ran = ai_run.digest_pass(other, NEXT_DUE, setup(tmp_path, model, clock=NEXT_DUE))
 
         assert [(found, run.outcome) for found, run in ran] == [(ident, "written")]
@@ -168,6 +175,7 @@ def test_the_normal_pass_recovers_a_claim_left_young_at_startup(tmp_path):
             ("written by the AI pass", NEXT_DUE.isoformat()),
         ]
         assert len(model.requests) == 1
+        assert ai_ledger.totals(other, "2026-12").held == 2 * LUNA_HOLD
 
 
 def test_a_busy_issue_write_expires_and_clears_its_queued_request(tmp_path, monkeypatch):
@@ -222,3 +230,65 @@ def test_a_busy_issue_write_expires_and_clears_its_queued_request(tmp_path, monk
         )
         assert count(db, "digest_runs") == 1
         assert len(model.requests) == 1
+
+
+def test_the_recurring_pass_waits_for_an_unsettled_digest_reservation(tmp_path):
+    with closing(store.open_db(tmp_path)) as db, closing(store.open_db(tmp_path)) as other:
+        ident = _ready(db)
+        ai_ledger.set_cap(db, Decimal(15), MANUAL)
+        digests.request_run(db, "Mara L", ident, MANUAL)
+
+        def crashes(request):
+            raise KeyboardInterrupt
+
+        original = FakeModel(answer=crashes)
+        with pytest.raises(KeyboardInterrupt):
+            ai_run.digest_pass(db, MANUAL, setup(tmp_path, original, clock=MANUAL))
+        young = MANUAL + timedelta(minutes=1)
+        assert ai_run.recover(other, replace(off_setup(tmp_path), clock=lambda: young)) == (0, 0)
+
+        contender = FakeModel([ok(REPLY)])
+        assert not ai_run.digest_pass(other, TICK, setup(tmp_path, contender, clock=TICK))
+        assert not contender.requests
+        assert ai_ledger.totals(other, "2026-11").held == LUNA_HOLD
+        assert count(other, "digest_runs") == 0
+
+        expired = MANUAL + ai_ledger.STALE_AFTER + timedelta(seconds=1)
+        settings = setup(tmp_path, contender, clock=expired)
+        ai_run.digest_pass(other, expired, settings)
+        assert ai_ledger.switched_off(other) is not None
+        assert ai_ledger.totals(other, "2026-11").spent == LUNA_HOLD
+        ai_run.digest_pass(other, expired, settings)
+        assert db.execute("SELECT claimed_at FROM digests").fetchone()[0] is None
+        assert not contender.requests
+
+
+def test_an_expired_claim_does_not_discard_a_live_reservations_result(tmp_path, monkeypatch):
+    with closing(store.open_db(tmp_path)) as db, closing(store.open_db(tmp_path)) as other:
+        ident = _ready(db)
+        ai_ledger.set_cap(db, Decimal(15), MANUAL)
+        digests.request_run(db, "Mara L", ident, MANUAL)
+        clock = MANUAL
+        reserved = MANUAL + timedelta(minutes=2)
+        draft = ai_digest.Writer.draft
+
+        def starts_later(writer, scope):
+            nonlocal clock
+            clock = reserved
+            return draft(writer, scope)
+
+        monkeypatch.setattr(ai_digest.Writer, "draft", starts_later)
+        contender = FakeModel([ok(REPLY)])
+        observed = []
+
+        def intervenes(request):
+            observed.append(ai_run.recover(other, replace(off_setup(tmp_path), clock=lambda: TICK)))
+            observed.append(ai_run.digest_pass(other, TICK, setup(tmp_path, contender, clock=TICK)))
+            return ok(REPLY)
+
+        original = FakeModel(answer=intervenes)
+        ran = ai_run.digest_pass(db, MANUAL, setup(tmp_path, original, clock=lambda: clock))
+        assert observed == [(0, 0), []]
+        assert not contender.requests
+        assert [(found, run.outcome) for found, run in ran] == [(ident, "written")]
+        assert ai_ledger.totals(other, "2026-11").spent == Decimal("0.004")

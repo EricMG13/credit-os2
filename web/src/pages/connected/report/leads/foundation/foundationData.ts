@@ -1318,7 +1318,7 @@ const COVER_EBITDA_WORDS = new RegExp(EBITDA_WORDS.source, `${EBITDA_WORDS.flags
 const CASH_INTEREST_BASIS =
   /\b(?:(net|gross) cash interest\b|cash interest(?: paid)?,? (net|gross)\b)/gi;
 const CASH_INTEREST_SWAP_SCOPE =
-  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after)\s+(?:interest[- ]rate\s+)?swaps?\b/gi;
+  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after|excluding|including)\s+(?:(?:the\s+)?effect\s+of\s+)?(?:interest[- ]rate\s+)?swaps?\b/gi;
 
 /** Undefined means no explicit definition; null means conflicting definitions. */
 function oneBasis(definitions: string[]): string | null | undefined {
@@ -1336,8 +1336,8 @@ function coverBasis(basis: string) {
   const denominator = [...basis.matchAll(CASH_INTEREST_BASIS)].map(([, prefix, suffix]) =>
     (prefix ?? suffix ?? "").toLowerCase(),
   );
-  const swapScope = [...basis.matchAll(CASH_INTEREST_SWAP_SCOPE)].map(([, scope]) =>
-    (scope ?? "").toLowerCase(),
+  const swapScope = [...basis.matchAll(CASH_INTEREST_SWAP_SCOPE)].map(([, scope = ""]) =>
+    /^(?:before|excluding)$/i.test(scope) ? "excluding" : "including",
   );
   return {
     numerator: oneBasis(numerator),
@@ -1347,15 +1347,17 @@ function coverBasis(basis: string) {
 }
 
 const COVER_PERIOD_SOURCE =
-  /^(?:(?:the )?(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ]|prospectus|[\w.-]+\.[a-z]{2,5}))?\s*(?:\(?p(?:p|g|ages?)?\.?\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*(?:,\s*(?:and\s+)?|and\s+)\d+(?:\s*[-–]\s*\d+)?)*\)?)?\.?$/i;
+  /^(?:(?:the )?(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ](?:\s+filing)?|prospectus|[\w.-]+\.[a-z]{2,5}))?\s*(?:\(?p(?:p|g|ages?)?\.?\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*(?:,\s*(?:and\s+)?|and\s+)\d+(?:\s*[-–]\s*\d+)?)*\)?)?\.?$/i;
 const COVER_PERIOD_SOURCE_LABEL = /^(?:per\s+)?(?:Source S?\d+|(?:the )?SEC filing)\.?$/i;
 const COVER_PERIOD_SOURCE_ID = /\bSource S\d+\b/i;
 const COVER_PERIOD_ATTRIBUTION = /^(.*?)(?:\s+(?:per|from|according to)\s+|:\s+)(.+)$/i;
 
+// A leading quantity ("10K units") can resemble a filing, but a delimited "10K" is a locator.
+const LEADING_PERIOD_QUANTITY = /^["“'‘]?\d+[KMB]\b(?=\s+(?:increase|decrease|units?|shares?)\b)/i;
 const coverPeriodCitesSource = (text: string) =>
   COVER_PERIOD_SOURCE_LABEL.test(text.trim()) ||
   COVER_PERIOD_SOURCE_ID.test(text) ||
-  citesSource(text.trimStart().replace(/^["“'‘]?\d+[KMB]\b/i, ""));
+  citesSource(text.trimStart().replace(LEADING_PERIOD_QUANTITY, ""));
 
 function isCoverPeriodSource(text: string) {
   const candidate = text.trim().replace(/,\s*(?=\(?p(?:p|g|ages?)?\.? *\d)/i, " ");

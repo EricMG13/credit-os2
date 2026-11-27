@@ -1016,13 +1016,16 @@ def recover_claims(
 ) -> int:
     """Record unfinished claims older than `before` at startup or during a digest pass.
 
-    Preserve the period and mark. Clear pending requests in the same transaction so the next
-    attempt must wait for its scheduled slot. Younger claims may still belong to another worker.
+    An open digest reservation for the owner made at or after the claim may belong to this run.
+    Wait for its settlement because the ledger identifies owners, not individual digests.
+    Preserve the period and mark and clear pending requests in the same transaction.
     """
     run = Run("skipped", None, 0, EXPIRED if during_pass else INTERRUPTED)
     with _write_transaction(db):
         rows = db.execute(
-            "SELECT * FROM digests WHERE claimed_at IS NOT NULL AND claimed_at < ?",
+            "SELECT digests.* FROM digests WHERE claimed_at IS NOT NULL AND claimed_at < ?"
+            " AND NOT EXISTS (SELECT 1 FROM ai_usage WHERE purpose='digest' AND status='open'"
+            " AND ai_usage.owner=digests.owner AND reserved_at >= digests.claimed_at)",
             (_utc_text(before),),
         ).fetchall()
         for row in rows:
