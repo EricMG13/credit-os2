@@ -35,6 +35,7 @@ import {
 import {
   caseYears,
   cellsOf,
+  cites,
   COVER_ON_EBITDA,
   earningsBasis,
   forecastMeasure,
@@ -91,6 +92,8 @@ function recordedBridge(
   return { value, original, difference, unit, fcfLine: fcf.line, inflowLine: inflow.line };
 }
 
+const LIMIT_IN_EVIDENCE = "This limit carries a reference; read it in Evidence.";
+
 function BasisNote({
   model,
   handoff,
@@ -140,7 +143,9 @@ function BasisNote({
           </PublishedSource>
         </div>
       )}
-      <p className="reading-copy text-body">{readerText(limitation)}</p>
+      <p className="reading-copy text-body">
+        {cites(limitation) ? LIMIT_IN_EVIDENCE : readerText(limitation)}
+      </p>
     </section>
   );
 }

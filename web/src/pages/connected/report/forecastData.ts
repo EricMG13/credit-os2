@@ -74,7 +74,7 @@ const JUDGED = 160;
  * judged length is read in overlapping word windows, because drawnAmount returns null for it
  * whole; a window can only over-hide a reason, never let a citation through.
  */
-function cites(text: string) {
+export function cites(text: string) {
   const whole = text.trim();
   if (whole.length <= JUDGED) return whole !== "" && drawnAmount(whole) !== whole;
   const words = whole.split(/\s+/u);

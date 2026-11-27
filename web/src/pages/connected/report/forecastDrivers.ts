@@ -37,9 +37,12 @@ function recordedValues(raw: unknown): Recorded[] | null {
   if (typeof raw === "string" || typeof raw === "number") return [String(raw)];
   const values = record(raw).values;
   if (!Array.isArray(values)) return null;
-  return values.map((item: unknown) =>
+  const recorded = values.map((item: unknown) =>
     item === null || item === undefined ? null : word(item) || String(item as string | number),
   );
+  const blank = (text: Recorded) => text === null || text.trim() === "";
+  if (recorded.every(blank)) return null;
+  return recorded.map((text) => (blank(text) ? null : text));
 }
 
 /** A number written with an exponent as the same number in plain decimals, digit for digit. */
