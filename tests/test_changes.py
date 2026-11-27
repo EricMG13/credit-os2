@@ -832,7 +832,7 @@ def test_cp8_is_left_out_with_a_note_when_its_first_request_would_not_fit_the_ca
     )
     assert not [n for n in prepared.plan.sources if n.startswith("prior/")]
     # With a cap that holds it, CP-8 is planned.
-    big = prepare(context, folder, workspace / "runs/cur2", config="opus-medium", cap="10")
+    big = prepare(context, folder, workspace / "runs/cur2", config="opus-medium", cap="20")
     assert big.ordered[-1] == "CP-8"
     assert big.hold > Decimal(4)
 

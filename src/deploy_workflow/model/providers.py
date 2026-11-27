@@ -1143,6 +1143,13 @@ def _merge_usage(into: dict[str, Any], new: Mapping[str, Any] | None) -> None:
     into.update({key: value for key, value in (new or {}).items() if value is not None})
 
 
+def _final_output_tokens(into: dict[str, Any], delta_usage: Mapping[str, Any] | None) -> None:
+    """Output tokens come only from the message_delta (the final cumulative count); message_start
+    carries a placeholder, so a delta with none leaves the output unknown."""
+    into.pop("output_tokens", None)
+    _merge_usage(into, {"output_tokens": (delta_usage or {}).get("output_tokens")})
+
+
 def _anthropic_outcome(  # noqa: C901, PLR0912, PLR0913, PLR0915 - pre-existing (over the limits at base)
     status: int,
     events: list[dict[str, Any]],
@@ -1196,7 +1203,9 @@ def _anthropic_outcome(  # noqa: C901, PLR0912, PLR0913, PLR0915 - pre-existing 
             delta = event.get("delta")
             if isinstance(delta, dict):
                 stop_reason = _str_or_none(delta.get("stop_reason")) or stop_reason
-            _merge_usage(usage_raw, _sub(event, "usage"))  # cumulative
+            delta_usage = _sub(event, "usage")
+            _merge_usage(usage_raw, delta_usage)  # cumulative
+            _final_output_tokens(usage_raw, delta_usage)
             saw_delta = True
     if cut is not None:
         raise _BadReply("an event's data is not JSON")

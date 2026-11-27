@@ -46,3 +46,13 @@ def test_a_non_null_later_count_still_replaces_the_earlier_one() -> None:
     assert isinstance(turn, Turn)
     assert turn.usage.input_tokens == 12
     assert turn.usage.output_tokens == 7
+
+
+def test_a_null_delta_output_does_not_inherit_the_message_start_placeholder() -> None:
+    body = _sse(
+        _start({"input_tokens": 25, "output_tokens": 1}),
+        _delta({"output_tokens": None}),
+    )
+    turn = parse("anthropic", 200, body, {}, Redactor())
+    assert not isinstance(turn, Turn) or turn.usage.output_tokens is None
+    assert not (isinstance(turn, Turn) and turn.usage.output_tokens == 1)
