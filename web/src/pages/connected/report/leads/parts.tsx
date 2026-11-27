@@ -546,18 +546,19 @@ const EDGE_CLASS: Record<CaseTone, { stroke: string; fill: string; rule: string;
 type EdgeTones = ReadonlyMap<string, CaseTone>;
 
 /**
- * Each distinct edge type, sorted so its colour does not follow the order the rows were written,
- * mapped to a category colour; an edge with no type has none.
+ * Each distinct edge type (its spellings by case count as one, keyed in lower case), sorted in a
+ * fixed locale so its colour does not follow the order the rows were written or the reader's
+ * locale, mapped to a category colour; an edge with no type has none.
  */
 function edgeTones(edges: readonly Edge[]): EdgeTones {
-  const types = [...new Set(edges.flatMap((edge) => (edge.type ? [edge.type] : [])))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const types = [
+    ...new Set(edges.flatMap((edge) => (edge.type ? [edge.type.toLowerCase()] : []))),
+  ].sort((a, b) => a.localeCompare(b, "en"));
   return new Map(types.map((type, index) => [type, caseStyle(index).tone]));
 }
 
 const toneOf = (tones: EdgeTones | undefined, edge: Edge) =>
-  edge.type ? tones?.get(edge.type) : undefined;
+  edge.type ? tones?.get(edge.type.toLowerCase()) : undefined;
 
 /**
  * An element's measured content width, from the browser's ResizeObserver; null until measured, so
@@ -1191,8 +1192,13 @@ export function MapTile({
   // One type is keyed by its own chip (swatch and word), so a legend repeating it would add only
   // a second copy of the word; from two types on, the legend is the key to the colours.
   const tones = typeColours ? [...edgeTones(map.edges)] : [];
+  const written = new Map<string, string>();
+  for (const { type } of map.edges)
+    if (type && !written.has(type.toLowerCase())) written.set(type.toLowerCase(), type);
   const legend =
-    tones.length > 1 ? tones.map(([text, tone]) => ({ kind: "line" as const, tone, text })) : [];
+    tones.length > 1
+      ? tones.map(([key, tone]) => ({ kind: "line" as const, tone, text: written.get(key) ?? key }))
+      : [];
   return (
     <LeadFigure
       span={span}

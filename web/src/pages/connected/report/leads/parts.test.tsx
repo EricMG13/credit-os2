@@ -807,6 +807,31 @@ it("orders the type colours by the type's name, not by the order the rows were w
   expect(forward).toEqual(["stroke-category-3", "stroke-category-4", "stroke-category-5"]);
 });
 
+it("gives one type's spellings one colour and one legend word, the first as written", () => {
+  measured(1200);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(BOX);
+  const spellings = [
+    edge("Issuer", "Notes", 1, "Issues", "Debt"),
+    edge("Parent", "Notes", 2, "Guarantees", "Guarantee"),
+    edge("Sub", "Notes", 3, "Guarantees", "guarantee"),
+  ];
+  const { container } = render(mapTile(spellings, true));
+  const legend = [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(legend.map((item) => item.textContent)).toEqual(["Debt", "Guarantee"]);
+  const paths = [...container.querySelectorAll("[data-map-columns] svg > path")];
+  expect(paths.map((path) => path.getAttribute("class"))).toEqual([
+    "stroke-category-3",
+    "stroke-category-4",
+    "stroke-category-4",
+  ]);
+  // Each chip keeps its type's word as written.
+  expect([...container.querySelectorAll("[data-route]")].map((item) => item.textContent)).toEqual([
+    "IssuesDebt",
+    "GuaranteesGuarantee",
+    "Guaranteesguarantee",
+  ]);
+});
+
 it("colours the flow's left rule and the one-edge arrows by edge type", () => {
   measured(300);
   const flow = render(mapTile(TYPED.slice(0, 1).concat(TYPED.slice(2, 3)), true));
