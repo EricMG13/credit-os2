@@ -55,7 +55,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - S08 report leads (`1925062c..5b4995c1`) preserve stated units, periods, figures, qualifiers, gaps and source handling. Fidelity checks used retained fixtures and synthetic DOM cases. The staged lead and caller run passed 1,450 tests. The final bridge wording passed 57 focused tests on the merge and independent React rendering, with only authored amounts shown. The Foundation candidate remains local pending decisions on the Segments and Periods assertions.
 - Final branch review corrected CP-3 unit selection and locked Signal form inputs while a write is pending. The independent CP-3 audit checked 29 scenarios and the merged rerun passed 575 tests. Signal passed 214 focused tests and independent cancellation and stale-response checks. Scope was offline with synthetic handoffs and service responses.
 - The fast CI job selects all 77 review-added Python test files. The offline selection passed 10,601 tests, plus six new CP-3 cases, after shorter macOS temporary paths resolved five environment errors. The merged quality gate, four import contracts and 577 library tests passed. Shared ForecastBreaks fixtures preserved the tested inputs and assertions, and the web duplication check passed at 2.97%.
-- Not verified (so far): the complete Node 24 web coverage run, native Windows, real browser and live/provider execution, the weekly full suite, and the two pending Foundation assertions.
+- Node 24.16.0 passed lint, formatting, types, unused and duplicate checks, both production builds and all 79 script tests. The eight bounded web batches passed all 10,046 tests in 657 files. Merged V8 line coverage was 98.36% against the existing 80% threshold.
+- Not verified: native Windows, real browser and live/provider execution, the weekly full Python suite, and the two pending Foundation assertions.
 
 ## 2026-11-26 — Main-based TransDigm preview repairs
 
