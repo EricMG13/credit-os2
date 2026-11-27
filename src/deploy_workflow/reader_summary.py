@@ -14,15 +14,30 @@ def _cells(line: str) -> list[str]:
     return [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip()[1:-1])]
 
 
+# A separator or blank row: every cell empty or made of dashes with a colon or at least two dashes
+# (`---`, `:--:`); a single `-` is a cell's content.
+_RULE_CELL = re.compile(r"(?::-*:?|-+:|-{2,})?")
+# The row directly under a table's header is its delimiter when every cell is `:?-+:?` (`-` too).
+_DELIMITER_CELL = re.compile(r":?-+:?")
+
+
 def _tables(section: str) -> list[list[list[str]]]:
+    """The tables of a section; a separator or blank row never starts one."""
     tables: list[list[list[str]]] = []
     in_table = False
+    header_only = False  # the table so far is its header: the next row may be its delimiter
     for line in section.splitlines():
         is_row = line.lstrip().startswith("|") and line.rstrip().endswith("|")
-        if is_row and not in_table:
-            tables.append([])
-        if is_row and not set(line) <= set("|-: \t"):
-            tables[-1].append(_cells(line))
+        if is_row:
+            cells = _cells(line)
+            delimiter = header_only and all(_DELIMITER_CELL.fullmatch(cell) for cell in cells)
+            header_only = False
+            if delimiter or all(_RULE_CELL.fullmatch(cell) for cell in cells):
+                continue
+            if not in_table:
+                tables.append([])
+                header_only = True
+            tables[-1].append(cells)
         in_table = is_row
     return tables
 

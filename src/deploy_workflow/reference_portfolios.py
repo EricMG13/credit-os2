@@ -108,6 +108,15 @@ class PortfolioFileError(ValueError):
     """The files are not a portfolio that can be read; the message is worded for a reader."""
 
 
+class _NoNameColumn(PortfolioFileError):
+    """A header row that names three fields but not the holding's name; `data_rows` is the number
+    of non-empty rows under it."""
+
+    def __init__(self, message: str, data_rows: int = 0) -> None:
+        super().__init__(message)
+        self.data_rows = data_rows
+
+
 class StoreError(Exception):
     """A stored portfolio cannot be read; the message is worded for a reader."""
 
@@ -321,6 +330,8 @@ _NOT_FIELD: Mapping[str, frozenset[str]] = {
     "margin": frozenset({"duration"}),
     "maturity": frozenset({"yield"}),
     "par": frozenset({"price"}),
+    "mid_price": frozenset({"bid", "ask", "offer"}),
+    "borrower": frozenset({"type"}),
 }
 _NAMES = ("borrower", "instrument")
 _AMOUNTS = ("weight", "par", "market_value")
@@ -341,18 +352,33 @@ def _holds(words: Sequence[str], phrase: Sequence[str]) -> bool:
     return any(tuple(words[i : i + size]) == tuple(phrase) for i in range(len(words) - size + 1))
 
 
+def _says_mid(name: str, words: Sequence[str]) -> bool:
+    """A header that says `mid` is the mid price however many sides it also names
+    (`Mid Price (bid/ask average)`)."""
+    return name == "mid_price" and "mid" in words
+
+
 def _field_column(
-    cells: Sequence[tuple[str, ...]], name: str, phrases: Sequence[str], used: set[int]
+    cells: Sequence[tuple[str, ...]],
+    name: str,
+    phrases: Sequence[str],
+    used: set[int],
+    *,
+    whole: bool,
 ) -> int | None:
-    """The first unused cell that is one of `phrases` whole, else the first holding one."""
+    """The first unused cell that is one of `phrases` whole (`whole`), else the first holding
+    one."""
     refused = _NOT_FIELD.get(name, frozenset())
-    free = [i for i, words in enumerate(cells) if i not in used and not refused & set(words)]
-    for whole in (True, False):
-        for phrase in phrases:
-            wanted = tuple(phrase.split())
-            for index in free:
-                if cells[index] == wanted or (not whole and _holds(cells[index], wanted)):
-                    return index
+    free = [
+        i
+        for i, words in enumerate(cells)
+        if i not in used and not (refused & set(words) and not _says_mid(name, words))
+    ]
+    for phrase in phrases:
+        wanted = tuple(phrase.split())
+        for index in free:
+            if cells[index] == wanted or (not whole and _holds(cells[index], wanted)):
+                return index
     return None
 
 
@@ -360,13 +386,14 @@ def _map_columns(header: Sequence[str], known: Mapping[str, int]) -> dict[str, i
     """The column of each field `header` names, beside the columns already `known`."""
     cells = [_words(text) for text in header]
     found, used = dict(known), set(known.values())
-    for name, phrases in _FIELD_WORDS:
-        if name in found:
-            continue
-        index = _field_column(cells, name, phrases, used)
-        if index is not None:
-            found[name] = index
-            used.add(index)
+    for whole in (True, False):  # every field's exact header is taken before any loose match
+        for name, phrases in _FIELD_WORDS:
+            if name in found:
+                continue
+            index = _field_column(cells, name, phrases, used, whole=whole)
+            if index is not None:
+                found[name] = index
+                used.add(index)
     if "borrower" not in found and "instrument" in found:
         found["borrower"] = found["instrument"]  # one name column names both
     return found
@@ -377,7 +404,7 @@ class _Table:
     """A holdings table: the file's rows, its header row's number and each field's column.
     `whole`: every filled row under the header is a holding (the export's rule) unless it is a
     total or a note; otherwise see `_positions`. `far`: cells of the sheet left out for being far
-    to the right of the rest of their row."""
+    to the right of the rest of their row. `skipped`: the sheets of a workbook passed over."""
 
     file: str
     rows: Grid
@@ -386,6 +413,7 @@ class _Table:
     header: Sequence[str]
     whole: bool = False
     far: int = 0
+    skipped: tuple[str, ...] = ()  # sheets passed over, each with the reason
 
     @property
     def priced(self) -> bool:
@@ -432,6 +460,11 @@ def _export_table(files: Mapping[str, bytes]) -> _Table | None:
     return None
 
 
+def _data_rows(rows: Grid, header: int) -> int:
+    """The non-empty rows under the header row numbered `header`."""
+    return sum(1 for n, cells in rows if n > header and any(c.text.strip() for c in cells))
+
+
 def _header_table(file: str, rows: Grid) -> _Table | None:
     """The table under the first row naming at least `_HEADER_LEAST` fields, or None when no row
     does. A header with no name column, or with no weight, par or market value, is an error."""
@@ -440,14 +473,15 @@ def _header_table(file: str, rows: Grid) -> _Table | None:
         columns = _map_columns(header, {})
         if len(set(columns.values())) < _HEADER_LEAST:
             continue
-        lacking = None
         if not any(name in columns for name in _NAMES):
-            lacking = "the holding's name"
-        elif not any(name in columns for name in _AMOUNTS):
-            lacking = "a weight, par or market value"
-        if lacking is not None:
+            raise _NoNameColumn(
+                f"{file}: the header row (row {number}) has no column for the holding's name.",
+                _data_rows(rows, number),
+            )
+        if not any(name in columns for name in _AMOUNTS):
             raise PortfolioFileError(
-                f"{file}: the header row (row {number}) has no column for {lacking}."
+                f"{file}: the header row (row {number}) has no column for "
+                "a weight, par or market value."
             )
         return _Table(file, rows, number, columns, header)
     return None
@@ -460,10 +494,24 @@ def _workbook_table(file: str, raw: bytes) -> _Table:
     sheets = pe.workbook_sheets(raw)
     if not sheets:
         raise PortfolioFileError(f"{file} cannot be read as an Excel workbook.")
+    first: PortfolioFileError | None = None
+    skipped: list[str] = []
+    largest = 0  # data rows of the biggest sheet passed over
     for sheet in sheets:
-        table = _header_table(file, pe.sheet_rows(raw, sheet) or [])
+        rows = pe.sheet_rows(raw, sheet) or []
+        try:
+            table = _header_table(file, rows)
+        except _NoNameColumn as error:  # this sheet is not the holdings: try the next
+            first = first or error
+            largest = max(largest, error.data_rows)
+            skipped.append(f"Sheet '{sheet}' was not read as holdings: {error}")
+            continue
         if table is not None:
-            return replace(table, far=pe.far_cells(raw, sheet))
+            if first is not None and largest >= _data_rows(rows, table.start):
+                break  # a sheet passed over is as big: it may be the holdings, so refuse
+            return replace(table, far=pe.far_cells(raw, sheet), skipped=tuple(skipped))
+    if first is not None:
+        raise PortfolioFileError(str(first)) from first
     raise PortfolioFileError(_NO_HEADER.format(file))
 
 
@@ -882,14 +930,57 @@ def _mandate_date(export: pe.Export, order: DateOrder | None) -> _AsOf:
     return None, None
 
 
-def _stated_text(rows: Grid, *phrases: tuple[str, ...]) -> str | None:
-    """The value beside (or after the colon of) the first cell holding one of `phrases`."""
+_LABEL_WORDS = 4  # a label of more words must still end with its label phrase
+_TICKER = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")  # letters and digits, 10 characters at most
+_BRACKETED = re.compile(r"\(([^()]*)\)")
+_TICKER_BRACKETS = re.compile(r"[(\[]([^()\[\]]*)[)\]]")  # a ticker in round or square brackets
+_VALUE_WORDS = 3  # a ticker with an exchange or market code (`JNK US Equity`) is this many words
+
+
+def _is_label(label: str, phrases: Sequence[tuple[str, ...]]) -> bool:
+    """Whether `label` (a cell, or what is before its colon) is a label for one of `phrases`: it
+    holds the phrase and is short, or ends with it once a bracketed qualifier is left out."""
+    words = _words(label)
+    plain = _words(_BRACKETED.sub(" ", label))
+    for phrase in phrases:
+        if _holds(words, phrase) and (
+            len(words) <= _LABEL_WORDS or plain[max(0, len(plain) - len(phrase)) :] == tuple(phrase)
+        ):
+            return True
+    return False
+
+
+def ticker_in(value: str) -> str | None:
+    """The ticker a stated value holds: the value if it is one (`JNK`), else the bracketed one
+    (`SPDR ... ETF (JNK)`), else the first word of a short value (`JNK US`, in capitals); None
+    when none is letters and digits (with . and -) of at most 10 characters."""
+    text = value.strip()
+    if _TICKER.match(text.upper()):
+        return text
+    for inner in reversed(_TICKER_BRACKETS.findall(text)):
+        if _TICKER.match(str(inner).strip().upper()):
+            return str(inner).strip()
+    parts = text.split()
+    if 1 < len(parts) <= _VALUE_WORDS and _TICKER.match(parts[0]):
+        return parts[0]
+    return None
+
+
+def _stated_text(
+    rows: Grid, *phrases: tuple[str, ...], extract: Callable[[str], str | None] | None = None
+) -> str | None:
+    """The value beside (or after the colon of) the first cell that is a label holding one of
+    `phrases` (`_is_label`): the whole cell, or all of it before a colon, so a note that merely
+    mentions the words is not one. `extract` gives the part of a value to keep, or None to pass
+    the value over."""
     for text, beside in _labelled(rows, lambda words: any(_holds(words, p) for p in phrases)):
-        inline = _AFTER_COLON.search(text)
-        if inline is not None:
-            return inline[1].strip()
-        if beside is not None:
-            return beside.text
+        label, colon, after = text.partition(":")
+        if not _is_label(label, phrases):
+            continue
+        value = after.strip() if colon and after.strip() else beside.text if beside else None
+        found = value if extract is None or value is None else extract(value)
+        if found is not None:
+            return found
     return None
 
 
@@ -1010,6 +1101,7 @@ def _table_findings(table: _Table, read: _Rows) -> list[str]:
             "Below the holdings table and not read as positions: "
             f"{pe.count(len(read.below), 'row')} with text ({pe.rows_named(read.below)})."
         )
+    out.extend(table.skipped)
     if table.far:
         out.append(
             f"Cells more than {pe.FAR_COLUMNS} empty columns to the right of the cell before "
@@ -1056,7 +1148,7 @@ def _portfolio(
     as_of = _mandate_date(export, reference.date_order)
     if as_of == (None, None):
         as_of = _stated_date(above, reference.date_order)
-    ticker = _stated_text(above, ("ticker",), ("symbol",))
+    ticker = _stated_text(above, ("ticker",), ("symbol",), extract=ticker_in)
     used = {table.file} | {
         part.file for part in pe.parts(files) if part.role in ("mandate", "constraints")
     }
@@ -1444,12 +1536,18 @@ class Row:
     measure: Measure | None
 
 
-def _row(position: Position) -> Row:
+def _row(position: Position, read_as: AssetType | None = None) -> Row:
+    """`read_as`: the type an untyped position is read as (the instrument's). A bond is read on
+    its spread (margin column), a loan on its discount margin, else its margin; an untyped
+    position read as a bond with no spread but a discount margin keeps that, as it was before."""
+    kind = position.asset_type or read_as
     options: tuple[tuple[Measure, Decimal | None], ...] = (
         (("spread", position.margin),)
-        if position.asset_type == "bond"
+        if kind == "bond"
         else (("discount_margin", position.discount_margin), ("margin", position.margin))
     )
+    if kind == "bond" and position.asset_type is None:
+        options += (("discount_margin", position.discount_margin),)
     for measure, value in options:
         if value is not None:
             return Row(position, value, measure)
@@ -1461,14 +1559,16 @@ def rows(
     *,
     asset_type: AssetType | None = None,
     rating_bucket: str | None = None,
+    read_as: AssetType | None = None,
 ) -> tuple[Row, ...]:
     """The positions of `asset_type` in `rating_bucket` (one of `BUCKET_NAMES`), each with its
-    spread measure; None takes every asset type or bucket. Unpriced and flagged positions are
-    included: the caller decides what a median may rest on."""
+    spread measure; None takes every asset type or bucket. A position with no asset type is read
+    as `read_as` (a loan when None). Unpriced and flagged positions are included: the caller
+    decides what a median may rest on."""
     if rating_bucket is not None and rating_bucket not in BUCKET_NAMES:
         raise ValueError(f"{rating_bucket!r} is not a rating bucket ({', '.join(BUCKET_NAMES)})")
     return tuple(
-        _row(position)
+        _row(position, read_as)
         for position in portfolio.positions
         if asset_type in (None, position.asset_type)
         and rating_bucket in (None, position.rating_bucket)
@@ -1516,6 +1616,38 @@ def _basis(portfolio: Portfolio) -> tuple[Basis | None, Decimal]:
     return None, Decimal(0)
 
 
+_NAME_WORD = re.compile(r"[^\W_]+")  # letters and digits of any script, not ASCII alone
+
+
+# Legal forms in other scripts: words of their own (Russian) or joined to the name (Chinese,
+# Japanese), as `portfolio_export`'s Latin ones are. The longest first, so one is cut whole.
+_LEGAL_WORDS = frozenset({"пао", "оао", "зао", "ооо", "ао"})
+_LEGAL_JOINED = ("股份有限公司", "有限公司", "株式会社")
+
+
+def _without_joined_form(word: str) -> str:
+    for form in _LEGAL_JOINED:
+        if word != form and word.startswith(form):
+            return word[len(form) :]
+        if word != form and word.endswith(form):
+            return word[: -len(form)]
+    return word
+
+
+def _name_words(text: str) -> tuple[str, ...]:
+    """A name as its words (any script), without case, punctuation and the legal forms Inc, LLC,
+    The, ПАО, 株式会社 and the like; a name of nothing else keeps them. As
+    `portfolio_export.name_words`, whose ASCII-only words leave a name with no ASCII letter or
+    digit with none to compare."""
+    words = [_without_joined_form(word) for word in _NAME_WORD.findall(text.casefold())]
+    kept = tuple(
+        w
+        for w in words
+        if w and w not in pe._LEGAL and w not in _LEGAL_WORDS and w not in _LEGAL_JOINED
+    )
+    return kept or tuple(w for w in words if w)
+
+
 def _matches(
     positions: Sequence[Position], borrower: str, identifier: str
 ) -> tuple[list[Position], tuple[MatchedBy, ...]]:
@@ -1525,9 +1657,11 @@ def _matches(
     by_name = {i for i, p in enumerate(positions) if name and _name_key(p.borrower or "") == name}
     how: list[MatchedBy] = ["name"] if by_name else []
     if name and not by_name:
-        words = pe.name_words(borrower)
+        words = _name_words(borrower)
         by_name = {
-            i for i, p in enumerate(positions) if p.borrower and pe.name_words(p.borrower) == words
+            i
+            for i, p in enumerate(positions)
+            if words and p.borrower and _name_words(p.borrower) == words
         }
         how += ["name_without_legal_form"] if by_name else []
     by_code = {

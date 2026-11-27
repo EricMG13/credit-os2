@@ -1,7 +1,9 @@
 """A Word document's (.docx) text, for an issuer folder.
 
 Body paragraphs in document order, each table row as its cells joined by `` | ``, tabs and line
-breaks kept. Text a tracked change deleted (``w:delText``) is left out; headers, footers, footnotes
+breaks kept. A text box is read once (its ``mc:Choice``, else its fallback); a
+non-breaking hyphen is ``-``.
+Text a tracked change deleted (``w:del``, ``w:moveFrom``) is left out; headers, footers, footnotes
 and comments are not read. Standard library only, through the workbook reader's guarded XML parse
 (no DTD or entity declaration) and its expanded-size limit. Nothing in the file is run or followed.
 """
@@ -16,8 +18,11 @@ from zipfile import ZipFile
 from deploy_vii.preparation import MAX_EXPANDED_BYTES, xml_part
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+MC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
+_BOX = "\0"  # marks a text-box paragraph's edges; NUL cannot occur in parsed XML text
 _BREAKS = frozenset({f"{W}br", f"{W}cr"})
 # Paragraph and run properties hold formatting, including <w:tab> tab stops, never text.
+_DELETED = frozenset({f"{W}del", f"{W}moveFrom"})  # tracked-change deletions, read as absent
 _PROPERTIES = frozenset({f"{W}pPr", f"{W}rPr"})
 
 
@@ -29,6 +34,8 @@ def docx_text(raw: bytes) -> str:
             raise ValueError("duplicate ZIP members")
         if sum(info.file_size for info in infos) > MAX_EXPANDED_BYTES:
             raise ValueError("expanded document exceeds the extraction limit")
+        if "word/document.xml" not in archive.namelist():
+            raise ValueError("the file has no word/document.xml part")
         body = xml_part(archive, "word/document.xml").find(f"{W}body")
     if body is None:
         raise ValueError("the document has no body")
@@ -54,22 +61,56 @@ def _lines(parent: Element) -> Iterator[str]:
         elif child.tag == f"{W}tbl":
             for row in (r for r in _through(child) if r.tag == f"{W}tr"):
                 cells = [c for c in _through(row) if c.tag == f"{W}tc"]
-                yield " | ".join(" ".join(map(_paragraph, c.iter(f"{W}p"))) for c in cells)
+                yield " | ".join(" ".join(_paragraph(p) for p in _paragraphs(c)) for c in cells)
+
+
+def _paragraphs(node: Element) -> Iterator[Element]:
+    """The paragraphs under ``node`` that are not inside another paragraph, in document order
+    (a text box's paragraphs are read as part of the paragraph that holds the box)."""
+    pending = [iter(node)]
+    while pending:
+        for child in pending[-1]:
+            if child.tag == f"{W}p":
+                yield child
+            else:
+                pending.append(iter(child))
+                break
+        else:
+            pending.pop()
 
 
 def _paragraph(paragraph: Element) -> str:
+    """The paragraph's text. Paragraphs inside its text boxes are joined to the anchor text and to
+    each other by one space (none where whitespace is already there), so the host stays one line."""
     parts: list[str] = []
     _collect(paragraph, parts)
-    return "".join(parts)
+    text = ""
+    for piece in "".join(parts).split(_BOX):
+        if piece:
+            joined = text and not (text[-1].isspace() or piece[0].isspace())
+            text += (" " if joined else "") + piece
+    return text
 
 
 def _collect(node: Element, parts: list[str]) -> None:
     for child in node:
-        if child.tag == f"{W}t":
+        if child.tag in _DELETED:
+            continue
+        if child.tag == f"{W}p":
+            parts.append(_BOX)
+            _collect(child, parts)
+            parts.append(_BOX)
+        elif child.tag == f"{W}t":
             parts.append(child.text or "")
         elif child.tag == f"{W}tab":
             parts.append("\t")
         elif child.tag in _BREAKS:
             parts.append("\n")
+        elif child.tag == f"{W}noBreakHyphen":
+            parts.append("-")  # plain ASCII, as tabs and breaks are plain \t and \n
+        elif child.tag == f"{MC}AlternateContent":
+            # The Choice is the current rendering, the Fallback a copy of it for old readers.
+            chosen = child.find(f"{MC}Choice")
+            _collect(chosen if chosen is not None else child, parts)
         elif child.tag not in _PROPERTIES:
             _collect(child, parts)

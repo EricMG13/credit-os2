@@ -465,20 +465,6 @@ def _quartile(
 
 # --- T4.10 -------------------------------------------------------------------------------------
 
-_YEAR = re.compile(r"(?<![\d,.])(?:FY|CY|LTM|Q[1-4]\s*)?(?:19|20)\d{2}(?![\d,.])", re.IGNORECASE)
-
-
-def _borrower_metric(cell: str, tables: types.ModuleType) -> tuple[float, int]:
-    text = _YEAR.sub(" ", _plain(cell))
-    found = cp3_ev._FIGURE.findall(text)
-    if len(found) != 1:
-        raise _NotChecked(f"the borrower metric `{cell}` is not one figure")
-    read = figure(found[0], tables)
-    if isinstance(read, str):
-        raise _NotChecked(read)
-    return read
-
-
 # Words a T4.10 Method adds to the multiple it applies (`EV/EBITDA trading comps (T4.8)`);
 # a qualifier that changes the multiple (`transaction`, `ex-outliers`) is kept.
 _GENERIC = re.compile(
@@ -516,14 +502,14 @@ def _ev(
     """One T4.10 case against T4.6's multiple for it times the row's borrower metric."""
     (table, row), tables = t410, loaded.tables
     try:
-        cell, header = cp3_ev._t410_cell(table, row, case)
+        cell, header = cp3_ev._t410_cell(table, row, case, tables)
         if stated is None:
             raise _NotChecked("the Method names no single T4.6 multiple")
         multiple = stated.stats.get(EV_CASES[case], "")
         if blank(cell, tables) or said_none(cell) or blank(multiple, tables) or said_none(multiple):
             raise _NotChecked(f"no implied EV or T4.6 multiple is stated for {case}")
         metric_cell = row[core.column(table, "Borrower Metric", "T4.10")[0]]
-        metric = _borrower_metric(metric_cell, tables)
+        metric = cp3_ev.borrower_metric(metric_cell, tables)
         if _unit(multiple, "") != "x":
             raise _NotChecked(f"T4.6's `{stated.metric}` {EV_CASES[case]} is not a multiple (`x`)")
         m = _number(multiple, tables)

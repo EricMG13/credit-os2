@@ -213,18 +213,42 @@ def comment_opener(line: str) -> int | None:
     return None if opener < 0 else opener
 
 
+def refuse_structural_tail(tail: str, number: int, name: str) -> None:
+    """Refuse the text after a closing `-->` when it would open a table row, heading, fence or
+    setext underline mid-line; complete inline comments in it are removed first."""
+    text = re.sub(r"<!--.*?-->", "", tail).strip()
+    if text and (
+        text.startswith("|")
+        or heading_of(text)
+        or FENCE.match(text)
+        or re.fullmatch(r"=+|-+", text)
+    ):
+        raise ValueError(
+            f"{name}: line {number}: the text after --> would read as a table row, heading, "
+            "fence or underline; put it on its own line"
+        )
+
+
 def hide_comments(lines: list[str], name: str) -> list[str]:
     """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
     hide it, so no table or prose inside it is published; fenced text is left as written. A
     comment may open anywhere in a line; the opening line keeps the text before its `<!--` (blank
-    when that is only spaces). Line numbers are unchanged. A comment that is never closed would
-    hide the rest of the handoff: refused."""
+    when that is only spaces) and the closing line keeps the text after its `-->` (up to a later
+    `<!--`, by the same rule). Line numbers are unchanged. A comment that is never closed would
+    hide the rest of the handoff: refused. Text after `-->` that would read as a table row,
+    heading, fence or underline is refused (it belongs on its own line)."""
     shown, fenced, opened = [], False, 0
     for number, line in enumerate(lines, 1):
         if opened:  # Inside a comment: hidden through its `-->`, and another may open after it.
             _, closed, rest = line.partition("-->")
-            opened = (number if comment_opener(rest) is not None else 0) if closed else opened
-            shown.append("")
+            if not closed:
+                shown.append("")
+                continue
+            start = comment_opener(rest)
+            opened = number if start is not None else 0
+            kept = rest if start is None else rest[:start]
+            refuse_structural_tail(kept, number, name)
+            shown.append(kept if kept.strip() else "")
             continue
         found = heading_of(line)
         fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
@@ -448,6 +472,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
     lines = physical_lines(text)
     if tuple(line[3:] for line in lines if line.startswith("## ")) != HEADINGS:
         raise ValueError(f"{module_id}: the six handoff headings are required once, in order")
+    shown = hide_fenced(hide_comments(lines, module_id))  # sections and tables read as shown
     sha = hashlib.sha256(raw).hexdigest()
     source_id = module_id + "-handoff"
     source = Source(
@@ -532,14 +557,14 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         )
 
     def prose_rows(prefix: str, table_id: str, title: str) -> None:
-        found = [(i, line) for i, line in enumerate(lines, 1) if line.startswith(prefix)]
+        found = [(i, line) for i, line in enumerate(shown, 1) if line.startswith(prefix)]
         if len(found) != 1:
             raise ValueError(f"{module_id}: expected one {prefix}")
         i, line = found[0]
         add(table_id, title, ["Item", "Text"], [(i, line, [title, line])])
 
     if module_id == "CP-1":
-        headers, rows = table(section(lines, "T4.10 — Source-supported dashboard"))
+        headers, rows = table(section(shown, "T4.10 — Source-supported dashboard"))
         add(
             "evidence-trace",
             "Historical dashboard — USD millions; qualifications retained",
@@ -548,7 +573,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         )
         gap_id = "T4.12"
     elif module_id == "CP-1A":
-        headers, rows = table(section(lines, "Company, business and revenue model"))
+        headers, rows = table(section(shown, "Company, business and revenue model"))
 
         # Live handoffs may prefix these labels with stable evidence-row IDs.
         # Normalize only selection; add() retains the literal label and source line.
@@ -582,7 +607,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
             ("Transaction and capital allocation summary", "transaction_summary", True),
             ("Timeline and governance behavior (absorbed CP-2C)", "events_timeline", True),
         ):
-            headers, rows = table(section(lines, heading))
+            headers, rows = table(section(shown, heading))
             add(table_id, heading, headers, rows, prose=prose)
         gap_id = "gaps_ledger"
     else:
@@ -591,7 +616,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
             ("**Thesis —", "cp2.thesis", "Thesis"),
         ):
             prose_rows(prefix, table_id, title)
-        ranked = section(lines, "Ranked strengths, weaknesses and key risks")
+        ranked = section(shown, "Ranked strengths, weaknesses and key risks")
         direction = ""
         groups: dict[str, list[tuple[int, str, list[str]]]] = {"Strengths": [], "Weaknesses": []}
         for i, line in ranked:
@@ -607,7 +632,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         # is kept literally among the module's limitations rather than dropped.
         key_risks = [plain(line) for _, line in ranked if line.startswith("**Key risks")]
         gap_id = "T2.12"
-    headers, gaps = table(section(lines, "Gaps"))
+    headers, gaps = table(section(shown, "Gaps"))
     add(gap_id, "Gaps and restrictions from the handoff", headers, gaps)
     descriptor = next(m for m in modules() if m.module_id == module_id)
     return ModuleView(

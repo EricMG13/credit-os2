@@ -28,7 +28,7 @@ written as rows instead of columns, or not found as a table under its heading is
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from functools import cache
 from typing import Any
@@ -143,26 +143,37 @@ def _spelt(name: str) -> list[set[str]]:
     return [{p, f"{p} {tail}", f"{head} {p}"} for p in pieces if not ROUTING_COLUMN.search(p)]
 
 
-def _holds(cells: set[str], forms: set[str]) -> bool:
+def _holds(cells: set[str], forms: set[str], shadow: frozenset[str] = frozenset()) -> bool:
     """A header form is one of ``forms``, or starts or ends with one as whole words (`Principal
-    amount`, `Cash interest`)."""
+    amount`, `Cash interest`); a ``shadow`` form is another declared column's, so it is held only
+    whole."""
     return bool(forms & cells) or any(
-        c.startswith(f + " ") or c.endswith(" " + f) for f in forms for c in cells
+        c.startswith(f + " ") or c.endswith(" " + f) for f in forms for c in cells - shadow
     )
 
 
-def _present(declared: str, header: list[str]) -> bool:
+def _cell_forms(header: list[str]) -> list[set[str]]:
+    return [_whole(h) | _parts(h) for h in header]
+
+
+def _present(declared: str, header: list[str], others: Sequence[str] = ()) -> bool:
     """A declared column is in the header when a header cell, or a part of a joined one
     (`Currency and scale`), is it or holds it as whole words (`Principal amount`, `Cash
     interest`), or when a joined declared name's parts are each there (`evidence/date` as two
     columns, `gross/net leverage` as `Gross leverage` and `Net leverage`). A part that names a
-    routing record (`Export Record`) is not required."""
-    cells = set().union(*(_whole(h) | _parts(h) for h in header)) if header else set()
-    if _holds(cells, _whole(declared)):
+    routing record (`Export Record`) is not required. A header cell that is a whole form of one
+    of the register's ``others`` declared columns is that column's, so it is not held as a prefix
+    or suffix of this one (`Source Trace` is not `Source`)."""
+    forms = _cell_forms(header)
+    cells = set().union(*forms) if forms else set()
+    taken = set().union(*(_whole(o) for o in others)) if others else set()
+    # A header is shadowed by its own whole forms only, never by the parts of a joined cell.
+    shadow = frozenset(set().union(*(_whole(h) for h in header if _whole(h) & taken)))
+    if _holds(cells, _whole(declared), shadow):
         return True
     spelt = _spelt(declared)
     joined = len(re.split(r"/| and | or ", _norm(declared))) > 1
-    return joined and bool(spelt) and all(_holds(cells, forms) for forms in spelt)
+    return joined and bool(spelt) and all(_holds(cells, f, shadow) for f in spelt)
 
 
 # A cell in the transport's gap form: a gap word, or a null word with its reason after a colon.
@@ -184,23 +195,33 @@ def _gap_row(row: list[str]) -> bool:
 def tables(text: str, ident: str) -> list[Table] | str:
     """Every table between the register's heading and the next heading of its level or above
     (a register may be written as more than one table, under `####` sub-headings), or why none
-    is read."""
+    is read (the first reason a table could not be)."""
+    found, unread = _scan(text, ident)
+    return found or (unread[0] if unread else f"{ident} has no table under its heading")
+
+
+def _scan(text: str, ident: str) -> tuple[list[Table], list[str]]:
+    """The tables of the register read, and the reason each table that could not be read."""
     lines = core._unfenced(text)
     starts = [i for i, line in enumerate(lines) if core._register_start(ident).match(line)]
     if len(starts) != 1:
         why = register_table(text, ident)
-        return why if isinstance(why, str) else [why]
+        return ([], [why]) if isinstance(why, str) else ([why], [])
     start = starts[0]
     level = len(lines[start]) - len(lines[start].lstrip("#")) or 6  # a tag: any heading ends it
     found: list[Table] = []
+    unread: list[str] = []
     for i in range(start + 1, len(lines)):
         heading = core._HEADING.match(lines[i])
         if heading and len(lines[i]) - len(lines[i].lstrip("#")) <= level:
             break
         if lines[i].lstrip().startswith("|") and not lines[i - 1].lstrip().startswith("|"):
             table = core._table_after(lines, i - 1, ident)
-            found += [] if isinstance(table, str) else [table]
-    return found or f"{ident} has no table under its heading"
+            if isinstance(table, str):
+                unread.append(table)
+            else:
+                found.append(table)
+    return found, unread
 
 
 def _register(
@@ -209,15 +230,16 @@ def _register(
     """One required register against ``found``, the module's contract (its `registers[ident]`
     is this register's)."""
     spec = found["registers"][ident]
-    read = tables(text, ident)
-    if isinstance(read, str):
-        return [_where(module, ident, "columns", "not checked", read)]
+    read, unread = _scan(text, ident)
+    if not read:
+        why = unread[0] if unread else f"{ident} has no table under its heading"
+        return [_where(module, ident, "columns", "not checked", why)]
     rows = [row for _, body in read for row in body]
     if rows and all(_gap_row(row) for row in rows):
         why = f"every row of {ident} states a gap, so its columns are not judged"
         return [_where(module, ident, "columns", "not checked", why)]
     out = [_where(module, ident, "contract", "noted", e) for e in spec["contract_errors"]]
-    out.append(_columns(module, ident, spec, read, enforced))
+    out.append(_columns(module, ident, spec, (read, unread), enforced))
     if len(rows) < spec["minimum_body_rows"]:
         why = f"{len(rows)} body row(s); the method's minimum is {spec['minimum_body_rows']}"
         out.append(_where(module, ident, "rows", "noted", why))
@@ -233,19 +255,35 @@ def _register(
 
 
 def _columns(
-    module: str, ident: str, spec: dict[str, Any], read: list[Table], enforced: bool
+    module: str,
+    ident: str,
+    spec: dict[str, Any],
+    scan: tuple[list[Table], list[str]],
+    enforced: bool,
 ) -> Outcome:
-    """Whether every declared column (less a routing one) is in one of the register's tables."""
+    """Whether every declared column (less a routing one) is in one of the register's tables.
+    ``scan`` is the tables read and why each other was not: a column absent from the tables read is
+    not called missing while a table could not be read."""
+    read, unread = scan
     script = core._loaded(COMPLETENESS).script
     header = [cell for head, _ in read for cell in head]
     fixed = [c for c in spec["columns"] if not script.is_template_column(c)]
-    missing = [c for c in fixed if not ROUTING_COLUMN.search(c) and not _present(c, header)]
+    missing = [
+        c
+        for c in fixed
+        if not ROUTING_COLUMN.search(c) and not _present(c, header, [o for o in fixed if o != c])
+    ]
     if not missing:
         templated = len(fixed) < len(spec["columns"]) and len(read[0][0]) <= len(fixed)
         if templated:
             why = f"{ident} has no period column beside its declared columns"
             return _where(module, ident, "columns", "noted", why)
         return _where(module, ident, "columns", "agreed", "every declared column is present")
+    if unread:
+        why = (
+            f"{ident} has a table that could not be read ({unread[0]}); its columns are not judged"
+        )
+        return _where(module, ident, "columns", "not checked", why)
     labels = {_norm(row[0]) for _, body in read for row in body if row}
     if any(_whole(m) & labels for m in missing):
         why = f"{ident} is written as rows, not the declared columns; not read"
@@ -255,15 +293,52 @@ def _columns(
     return _where(module, ident, "columns", "missing" if enforced else "noted", reason)
 
 
+def _critical_indexes(spec: dict[str, Any], header: list[str]) -> list[int]:
+    """The header positions of the critical columns: a cell holding a declared name or one part of
+    a joined name (`Rate / Strike` as `Rate`, `Strike`); a template column (`Period 1…N`) is the
+    cells between the fixed columns declared before and after it, as the script reads them."""
+    script = core._loaded(COMPLETENESS).script
+    found: list[int] = []
+    for column in spec["critical_columns"]:
+        if script.is_template_column(column):
+            hits = _period_indexes(spec["columns"], header, script.is_template_column)
+        else:
+            hits = [i for i, cell in enumerate(header) if _critical_cell(column, cell)]
+        found += [i for i in hits if i not in found]
+    return sorted(found)
+
+
+def _period_indexes(
+    columns: list[str], header: list[str], is_template: Callable[[str], bool]
+) -> list[int]:
+    """The period cells between the fixed columns declared before a template column (the first
+    cells) and after it (the last), or none when the header does not hold them there."""
+    first = next((i for i, c in enumerate(columns) if is_template(c)), len(columns))
+    pre = [c for c in columns[:first] if not is_template(c)]
+    post = [c for c in columns[first:] if not is_template(c)]
+    fixed = pre + post
+    end = len(header) - len(post)
+    if len(header) <= len(fixed):
+        return []
+    at = [*range(len(pre)), *range(end, len(header))]
+    held = all(_present(c, [header[i]], [o for o in fixed if o != c]) for c, i in zip(fixed, at))
+    return list(range(len(pre), end)) if held else []
+
+
+def _critical_cell(column: str, cell: str) -> bool:
+    """A header cell holds a critical column's name, or one part of a joined name."""
+    if _present(column, [cell]):
+        return True
+    cells = set().union(*_cell_forms([cell]))
+    joined = len(re.split(r"/| and | or ", _norm(column))) > 1
+    return joined and any(_holds(cells, forms) for forms in _spelt(column))
+
+
 def _placeholders(spec: dict[str, Any], table: Table, found: Any) -> list[str]:
     """The critical cells of one table holding a placeholder the method's blocklist names."""
     header, rows = table
     exempt = {_norm(c) for c in spec["disqualifier_exempt_columns"]}
-    critical = [
-        i
-        for i, cell in enumerate(header)
-        if _norm(cell) not in exempt and any(_present(c, [cell]) for c in spec["critical_columns"])
-    ]
+    critical = [i for i in _critical_indexes(spec, header) if _norm(header[i]) not in exempt]
     return [
         f"row {n} `{header[i]}`: `{row[i]}`"
         for n, row in enumerate(rows, 1)

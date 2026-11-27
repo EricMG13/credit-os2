@@ -153,10 +153,10 @@ def printable(text: str) -> str:
 _A1 = re.compile(r"[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?")
 
 
-def finding_text(issue: Issue) -> str:
+def finding_text(issue: Issue, *, export: bool = False) -> str:
     """One finding on one line: a workbook's sheet and cell, or an export's file, part and row,
-    then what is wrong."""
-    if _A1.fullmatch(issue.cell):
+    then what is wrong. An export finding always names its file, whatever its cell looks like."""
+    if not export and _A1.fullmatch(issue.cell):
         return printable(f"{issue.sheet}!{issue.cell}: {issue.problem}")
     return printable(f"{issue.file}, {issue.sheet}, {issue.cell}: {issue.problem}")
 
@@ -169,7 +169,7 @@ def _result(book: Workbook) -> str:
     if book.report.ok:
         return f"{'The export' if book.export else f'`{book.source}`'} passes every check.\n"
     issues = book.report.issues
-    lines = [f"- {finding_text(issue)}" for issue in issues[:LISTED_AT_MOST]]
+    lines = [f"- {finding_text(issue, export=book.export)}" for issue in issues[:LISTED_AT_MOST]]
     if len(issues) > LISTED_AT_MOST:
         lines.append(f"- and {len(issues) - LISTED_AT_MOST} more findings, not listed here.")
     what = "The export" if book.export else f"`{book.source}`"

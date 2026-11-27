@@ -65,6 +65,19 @@ _COST = re.compile(
     r"amorti[sz]ation)\b",
     re.IGNORECASE,
 )
+# A line that is a profit, income, coverage or margin is no cost even where it names tax or
+# interest (`Net income after tax`, `Interest income`); `income tax` is itself a cost.
+_NOT_COST = re.compile(
+    r"\b(?:net\s+income|operating\s+income|gross\s+profit|(?:profit|profits|income|earnings)\s+"
+    r"(?:before|after)|(?:after|before)[- ]tax|interest\s+coverage|coverage|margin|"
+    r"retained\s+earnings|adjusted\s+ebitda)\b",
+    re.IGNORECASE,
+)
+# `Interest income` alone is income; a name that also says expense or cost is a cost line
+# (`Interest expense after interest income`).
+_INTEREST_INCOME = re.compile(r"\binterest\s+income\b", re.IGNORECASE)
+_EXPENSE_WORD = re.compile(r"\b(?:expenses?|costs?|paid|charges?)\b", re.IGNORECASE)
+_INCOME_TAX = re.compile(r"\bincome\s+tax(?:es)?\b", re.IGNORECASE)
 GROWTH_FORMULA = (
     "% Change = Current / Prior - 1, in percent; none on a zero prior (credit_metrics.py growth, "
     "which CP-1B's SKILL names for T4.4 and T4.6)"
@@ -134,7 +147,7 @@ _ANNOTATED = re.compile(
     rf"^\s*(?P<abs>{_NUMBER})\s*\(\s*(?P<pct>{_NUMBER}\s*%)\s*\){_QUALIFIER}", re.IGNORECASE
 )
 _ENDING = re.compile(
-    rf"^\s*(?:{_NUMBER}(?:\s*[;,/]\s*|\s+))?(?P<pct>\(?{_NUMBER}\s*%\)?){_QUALIFIER}",
+    rf"^\s*(?:(?P<abs>{_NUMBER})(?:\s*(?P<sep>[;,/])\s*|\s+))?(?P<pct>\(?{_NUMBER}\s*%\)?){_QUALIFIER}",
     re.IGNORECASE,
 )
 
@@ -225,7 +238,7 @@ def _check(pair: _Pair, loaded: Loaded) -> Outcome:
         if not states_figure(pair.stated):
             raise _NotChecked("the change states no figure where the script computes one")
         text = _stated(pair.stated)
-        if _COST.search(pair.name) and _sign(text) != (value >= 0):
+        if _is_cost(pair.name) and _sign(text) != (value >= 0):
             # A cost may carry either sign: the method fixes none (SKILL: "absolute and
             # percentage change"), so a cost's rise may be written as an unfavourable (10.0%).
             text = text.replace("(", "").replace(")", "").lstrip("-+ ")
@@ -235,6 +248,14 @@ def _check(pair: _Pair, loaded: Loaded) -> Outcome:
     slack = quotient_slack(current[0], half(current[1]), prior[0], half(prior[1]))
     claim = _Claim(where, text, value, 1e-6, "", GROWTH_FORMULA, slack=slack)
     return share(claim, tables)
+
+
+def _is_cost(name: str) -> bool:
+    """Whether a line is a cost, whose change the method fixes no sign for."""
+    if not _COST.search(name):
+        return False
+    income = bool(_INTEREST_INCOME.search(name)) and not _EXPENSE_WORD.search(name)
+    return not (income or _NOT_COST.search(_INCOME_TAX.sub("tax", name)))
 
 
 def _sign(text: str) -> bool:
@@ -318,20 +339,30 @@ def _joined(name: str, pair_cell: str, change_cell: str) -> _Pair:
         return replace(
             row, skip=f"the Prior/Current cell's unit words `{unit.strip()}` name two units"
         )
-    cell = _plain(change_cell)
-    if not_one := _not_one_percentage(cell, _change(found["prior"], found["current"])):
-        return replace(row, skip=f"the Abs/% cell {not_one}")
+    stated, skip = _abs_pct(_plain(change_cell), _change(found["prior"], found["current"]))
+    if skip:
+        return replace(row, skip=skip)
+    return replace(row, prior=found["prior"], current=found["current"], stated=stated)
+
+
+def _abs_pct(cell: str, change: float | None) -> tuple[str, str]:
+    """A joined `Abs/%` cell's one percentage as stated, and why it is not read (else ``""``)."""
+    if not_one := _not_one_percentage(cell, change):
+        return "", f"the Abs/% cell {not_one}"
     annotated, ending = _ANNOTATED.match(cell), _ENDING.match(cell)
     if annotated:
         own = annotated["pct"]  # a sign written inside the brackets is kept, else the figure's
         negative = _dash(annotated["abs"]).lstrip().startswith("-")
-        stated = own if re.match(r"[-+−–]", own) else ("-" if negative else "") + own
-    elif ending:
-        stated = ending["pct"]
-    else:
-        why = "holds no percentage" if "%" not in cell else "does not end in its one percentage"
-        return replace(row, skip=f"the Abs/% cell {why}")
-    return replace(row, prior=found["prior"], current=found["current"], stated=stated)
+        return own if re.match(r"[-+−–]", own) else ("-" if negative else "") + own, ""
+    if ending:
+        own = ending["pct"]  # after `;` or `,` the percentage takes the absolute figure's sign too
+        punctuated = ending["sep"] in (";", ",") or (ending["abs"] or "").endswith(",")
+        if punctuated and not re.match(r"[(\-+−–]", own):  # `(5.0%)` is the accounting negative
+            negative = _dash(ending["abs"]).lstrip().startswith("-")
+            return ("-" if negative else "") + own, ""
+        return own, ""
+    why = "holds no percentage" if "%" not in cell else "does not end in its one percentage"
+    return "", f"the Abs/% cell {why}"
 
 
 def _compact(label: str) -> str:
@@ -361,7 +392,7 @@ def _year_earlier(label: str, labels: list[str]) -> int | None:
     return same[0] if len(same) == 1 else None
 
 
-def _t44(text: str) -> list[_Pair] | str:
+def _t44(text: str, tables: types.ModuleType) -> list[_Pair] | str:
     table = register_table(text, "T4.4")
     if isinstance(table, str):
         return table
@@ -389,19 +420,34 @@ def _t44(text: str) -> list[_Pair] | str:
     latest, earlier = pairs[-1]
     out = []
     for row in table[1]:
-        stated = (
-            row[pct]
-            if pct is not None
-            else ([*re.split(r"\s+/\s+", _plain(row[int(joined or 0)])), ""])[1]
-        )
-        out.append(_Pair("T4.4", _plain(row[line]), row[earlier], row[latest], stated))
+        if pct is not None:
+            stated, skip = row[pct], ""
+        else:
+            stated, skip = _joined_yoy(row[int(joined or 0)], row[earlier], row[latest], tables)
+        out.append(_Pair("T4.4", _plain(row[line]), row[earlier], row[latest], stated, skip))
     return out
+
+
+def _joined_yoy(cell: str, prior: str, current: str, tables: types.ModuleType) -> tuple[str, str]:
+    """A T4.4 `YoY Abs/%` cell's percentage as stated, and why it is not read (else ``""``): the
+    `<abs> / <pct>` form, else T4.6's joined reading (`1355; 20.6%`, `+1,355 (20.6%)`)."""
+    text = _plain(cell)
+    parts = re.split(r"\s+/\s+", text)
+    if len(parts) > 1:
+        return parts[1], ""
+    if blank(text, tables):
+        return "", ""
+    ending = _ENDING.match(text)
+    spaced = ending and ending["abs"] and not ending["sep"] and not ending["abs"].endswith(",")
+    if spaced and not _ANNOTATED.match(text):  # BASE: an absolute figure and a percentage, a space
+        return "", "the Abs/% cell has no separator between its absolute figure and percentage"
+    return _abs_pct(text, _change(prior, current))
 
 
 def check(text: str, loaded: Loaded, _upstream: Upstream) -> list[Outcome]:
     """Each T4.6 % Change and T4.4 YoY %, recomputed by the script's `growth`."""
     out: list[Outcome] = []
-    for ident, read in (("T4.6", _t46(text)), ("T4.4", _t44(text))):
+    for ident, read in (("T4.6", _t46(text)), ("T4.4", _t44(text, loaded.tables))):
         if isinstance(read, str):
             where = _Where("CP-1B", CREDIT_METRICS, "% Change: all", ident)
             out.append(where("not checked", reason=read))
