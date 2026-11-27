@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "@untitledui/icons";
 import { Missing } from "@/components/gap/Missing";
 import { cx } from "@/utils/cx";
-import { BETTER, WORSE } from "../visuals/signal/scales";
 import { changeSign, changeText, tone } from "../signal";
 import { withUnit } from "../publishedReport";
 import { ToneMark } from "../report/ToneMark";
@@ -30,27 +29,8 @@ export function figureName(key: string, name: string, figure: Figure | undefined
   return stated && stated !== name ? stated : name;
 }
 
-/** The mark colour goes on the glyphs only (the arrow and the ToneMark shape); words stay in ink. */
-const ARROW = { better: "text-better-mark", worse: "text-worse-mark" } as const;
-const SHAPE_MARK = {
-  better: "**:data-shape:text-better-mark",
-  worse: "**:data-shape:text-worse-mark",
-  flat: "",
-} as const;
-const TINT = { better: BETTER[1], worse: WORSE[1] } as const;
-const CELL = "relative flex min-w-0 flex-col gap-1 rounded-ds-sm p-2 xl:pr-10";
-
-/**
- * What a figure's change draws: its tone (the owner's table, `signal.ts`), and the sign of the
- * change. Undefined when the figure has no prior value to change from.
- */
-export function figureChange(metricKey: string, figure: Figure | undefined) {
-  if (!stated(figure)) return undefined;
-  const prior = figure.prior?.value.trim() ? figure.prior : undefined;
-  const change = prior && figure.change != null ? figure.change : undefined;
-  if (!prior || change === undefined) return undefined;
-  return { kind: tone(metricKey, change), sign: changeSign(change), prior, change };
-}
+/** Better and worse are drawn in the better and worse marks, each with its word; never colour alone. */
+const TONE_TEXT = { better: "text-better-mark", worse: "text-worse-mark", flat: "" } as const;
 
 /**
  * One headline figure of a library row: the value in mono with its period, and the change from the
@@ -80,10 +60,10 @@ export function FigureMark({
     <div
       className={cx(
         "flex min-h-8 items-start justify-between gap-1 max-[480px]:min-h-11",
-        !showLabel && "xl:absolute xl:top-2 xl:right-2 xl:min-h-0",
+        !showLabel && "xl:absolute xl:top-0 xl:right-0 xl:min-h-0",
       )}
     >
-      <span className={cx("text-caption text-text-secondary", !showLabel && "xl:sr-only")}>
+      <span className={cx("text-caption text-text-tertiary", !showLabel && "xl:sr-only")}>
         {label}
       </span>
       {trace}
@@ -91,58 +71,43 @@ export function FigureMark({
   );
   if (!stated(figure))
     return (
-      <div data-tone="none" className={cx(CELL, className)}>
+      <div className={cx("relative flex min-w-0 flex-col gap-1 xl:pr-8", className)}>
         {head}
-        <span data-line="figure" className="font-mono text-body">
+        <span className="font-mono text-body">
           <Missing />
         </span>
-        <span data-line="change" className="text-caption text-gap-text">
-          Not shown here
-        </span>
+        <span className="text-caption text-gap-text">Not shown here</span>
       </div>
     );
-  const change = figureChange(metricKey, figure);
-  const kind = change?.kind ?? "none";
-  const Direction = change?.sign === 1 ? ArrowUp : ArrowDown;
-  const tinted = kind === "better" || kind === "worse";
+  const prior = figure.prior?.value.trim() ? figure.prior : undefined;
+  const change = prior && figure.change != null ? figure.change : undefined;
+  const kind = change === undefined ? "none" : tone(metricKey, change);
+  const sign = change === undefined ? null : changeSign(change);
   return (
-    <div
-      data-tone={kind}
-      style={tinted ? { backgroundColor: TINT[kind] } : undefined}
-      className={cx(CELL, className)}
-    >
+    <div className={cx("relative flex min-w-0 flex-col gap-1 xl:pr-8", className)}>
       {head}
-      <span data-line="figure" className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-body font-medium wrap-anywhere text-text-primary tabular-nums">
-          {withUnit(figure.value, figure.unit)}
-        </span>
-        {figure.period && <span className="text-caption text-text-secondary">{figure.period}</span>}
+      <span className="font-mono text-body font-medium wrap-anywhere text-text-primary tabular-nums">
+        {withUnit(figure.value, figure.unit)}
       </span>
-      {change ? (
-        <span
-          data-line="change"
-          className="flex min-w-0 flex-wrap items-center gap-x-1 text-caption text-text-secondary tabular-nums"
-        >
-          {(change.sign === 1 || change.sign === -1) && (
-            <Direction
-              aria-hidden
-              className={cx("size-3.5 shrink-0", tinted ? ARROW[kind] : "text-text-secondary")}
-            />
-          )}
-          <span className="font-mono">{changeText(change.change, figure.unit)}</span>
-          {kind !== "none" && (
-            <span className={SHAPE_MARK[kind]}>
-              <ToneMark tone={kind} />
-            </span>
-          )}
-          <span>
-            from {withUnit(change.prior.value, figure.unit)} in {change.prior.period}
+      {figure.period && <span className="text-caption text-text-secondary">{figure.period}</span>}
+      {change !== undefined && prior ? (
+        <>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1 text-caption text-text-secondary tabular-nums">
+            {sign === 1 && <ArrowUp aria-hidden className="size-3.5 shrink-0" />}
+            {sign === -1 && <ArrowDown aria-hidden className="size-3.5 shrink-0" />}
+            <span className="font-mono">{changeText(change, figure.unit)}</span>
+            {kind !== "none" && (
+              <span className={TONE_TEXT[kind]}>
+                <ToneMark tone={kind} />
+              </span>
+            )}
           </span>
-        </span>
+          <span className="text-caption text-text-tertiary">
+            from {withUnit(prior.value, figure.unit)} in {prior.period}
+          </span>
+        </>
       ) : (
-        <span data-line="change" className="text-caption text-text-secondary">
-          No prior period stated
-        </span>
+        <span className="text-caption text-text-tertiary">No prior period stated</span>
       )}
     </div>
   );
