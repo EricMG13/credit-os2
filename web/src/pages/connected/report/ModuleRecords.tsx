@@ -17,6 +17,7 @@ import { unitLabel } from "../moneyUnits";
 import { FindingParagraph, isOneLine, PublishedTable } from "../ReportContent";
 import { plainText, richParts } from "../richText";
 import { traceKey } from "../reportView";
+import { Legend, type LegendEntry } from "./leads/kit/marks";
 import { GapNote, Tile } from "./overview/Tile";
 import {
   amountColumns,
@@ -67,10 +68,31 @@ function amountsOf(bars: Map<number, AmountColumn>) {
           </span>
         ) : undefined;
       return (
-        <BarCell text={cell} share={share} tone={bar.negative(cell) ? "secondary" : "primary"} />
+        <BarCell text={cell} share={share} tone={bar.negative(cell) ? "secondary" : "amount"} />
       );
     },
   };
+}
+
+/** Whether a drawn bar column holds a negative figure that draws a bar (the cells' own test). */
+function drawsNegative(table: Table, bars: Map<number, AmountColumn>) {
+  return table.rows.some(({ cells, line }) =>
+    [...bars].some(([column, bar]) => {
+      const cell = cells[column] ?? "";
+      return bar.share(cell, line) !== null && bar.negative(cell);
+    }),
+  );
+}
+
+/** The bars' colours in words: a smaller to a larger amount, and a negative one where one is drawn. */
+function barLegend(negative: boolean): LegendEntry[] {
+  return [
+    { kind: "bar", tone: "amount-1", text: "Smaller amount" },
+    { kind: "bar", tone: "amount-5", text: "Larger amount" },
+    ...(negative
+      ? [{ kind: "bar" as const, tone: "secondary" as const, text: "Negative amount" }]
+      : []),
+  ];
 }
 
 /** A stated gap of the compact view: its leading words, the full text for every reader. */
@@ -288,7 +310,10 @@ function RecordDrawing({
         />
       )}
       {drawnBars.size > 0 && (
-        <p className="text-caption text-text-tertiary">{scaleNote(record.table, record.title)}</p>
+        <>
+          <Legend items={barLegend(drawsNegative(record.table, drawnBars))} />
+          <p className="text-caption text-text-tertiary">{scaleNote(record.table, record.title)}</p>
+        </>
       )}
       {referenced.map((column) => (
         <p key={column} className="text-caption text-text-tertiary">
