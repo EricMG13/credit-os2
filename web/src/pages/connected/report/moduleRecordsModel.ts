@@ -253,28 +253,94 @@ export function withoutReference(title: string) {
   return words.join(" ").replace(LOOSE_END, "");
 }
 
-/** A locator left as its own part of a citing bracket ("cl. 12", "note 5", "slide 3"), or a bare
- * page number that continues the reference before it ("pp. 40-41, 45"). */
-const LOCATOR =
-  /^(?:(?:p|pp|cl(?:ause)?|s|sec|page|para|note|table|schedule|annex|slide)s?\.?\s*)?\d[\w.()]*(?:\s*[\u2013-]\s*\d[\w.()]*)?$/i;
+/** A page or clause locator with its label ("cl. 12", "pp. 40-41", "note 5"). `p`, `pp` and `s`
+ * need a dot or a space before the digits, so a label such as "P50" or "S1" is not one. */
+const LOCATOR_PART =
+  String.raw`(?:(?:pp?|s)(?:\.\s*|\s+)|(?:cl(?:ause)?|sec|page|para|note|table|schedule|annex|slide)s?\.?\s*)` +
+  String.raw`\d[\w.()]*(?:\s*[\u2013-]\s*\d[\w.()]*)?`;
+const LOCATOR = new RegExp(`^${LOCATOR_PART}$`, "i");
+/** A part that ends in such a locator: what a bare page number after it may continue. */
+const ENDS_IN_LOCATOR = new RegExp(`(?:^|[\\s,;])${LOCATOR_PART}$`, "i");
+/** A bare page number or page range ("45", "40-41"); a year, a decimal or a quarter is not one. */
+const PAGE_NUMBER = /^\d{1,3}(?:\s*[\u2013-]\s*\d{1,3})?$/;
+/** What a citing part may hold besides words: file names, locators, register codes, hashes. */
+const CITATION_PARTS = new RegExp(
+  String.raw`(?<![\w.-])[\w-]+(?:\.[\w-]+)*\.[a-z]{2,5}\b|(?:^|(?<=[\s,;(]))${LOCATOR_PART}|\b(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?\b|\b[0-9a-f]{32,}\b`,
+  "gi",
+);
 /** A bracket that may hold one level of brackets of its own ("(credit_agreement.pdf cl. 12(b))"). */
 const BRACKET = /\s*\((?:[^()]|\([^()]*\))*\)/g;
 
+/** The text between a bracket's outer parentheses split at its top-level commas and semicolons
+ * (a comma inside a number, "1,234", or inside an inner bracket does not split); null where the
+ * brackets do not balance. */
+function topLevelParts(inner: string) {
+  const parts: string[] = [];
+  const marks: string[] = [];
+  let depth = 0;
+  let from = 0;
+  for (let at = 0; at < inner.length; at += 1) {
+    const char = inner.charAt(at);
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    if (depth < 0) return null;
+    const next = inner.charAt(at + 1);
+    if (depth === 0 && (char === "," || char === ";") && next !== "" && /[^\d]/.test(next)) {
+      const space = /^\s*/.exec(inner.slice(at + 1))?.[0] ?? "";
+      parts.push(inner.slice(from, at));
+      marks.push(char + space);
+      from = at + 1 + space.length;
+    }
+  }
+  if (depth !== 0) return null;
+  parts.push(inner.slice(from));
+  return { parts, marks };
+}
+
+/** Whether a citing part holds a figure besides its file name and locator. */
+const holdsFigure = (words: string) => /\d/.test(words.replace(CITATION_PARTS, " "));
+
+/** A part's inner brackets that cite, each without its citation; undefined where one cannot be cut
+ * exactly. A part with no inner bracket is returned as it is. */
+function partWithoutInnerReference(words: string): string | null | undefined {
+  let outside = words;
+  let rebuilt = words;
+  for (const group of words.match(BRACKET) ?? []) {
+    outside = outside.replace(group, "");
+    if (!containsReference(group)) continue;
+    const bare = bracketWithoutReference(group);
+    if (bare === undefined) return undefined;
+    rebuilt = rebuilt.replace(group, bare);
+  }
+  return containsReference(outside) ? null : rebuilt.replace(/\s{2,}/g, " ").trim();
+}
+
 /**
  * A bracket without the references it holds, its other words and their marks kept exactly
- * ("(restated, annual_report.pdf p. 40)" is "(restated)"). A part is split off only at a comma or
- * semicolon and a space, so "1,234" stays whole; a part that cites, and a locator of that
- * reference, go whole; "" where nothing else is left.
+ * ("(restated, annual_report.pdf p. 40)" is "(restated)"). A part is split off only at a top-level
+ * comma or semicolon, so "1,234" stays whole; a part that cites, a labelled locator of that
+ * reference and a bare page number right after one go whole; "" where nothing else is left. A
+ * reference inside an inner bracket is cut with that bracket alone. Undefined where the cut would
+ * lose a figure of a citing part or leave brackets unbalanced: the caller keeps the cell as written.
  */
-function bracketWithoutReference(group: string) {
+function bracketWithoutReference(group: string): string | undefined {
   const open = group.indexOf("(");
-  const pieces = group.slice(open + 1, group.lastIndexOf(")")).split(/([,;])\s+/);
+  const split = topLevelParts(group.slice(open + 1, group.lastIndexOf(")")));
+  if (!split) return undefined;
   let kept = "";
   let cut = false;
-  for (let at = 0; at < pieces.length; at += 2) {
-    const words = (pieces[at] ?? "").trim();
-    cut = containsReference(words) || (LOCATOR.test(words) && (cut || !/^\d/.test(words)));
-    if (!cut && words) kept += kept ? `${pieces[at - 1] ?? ","} ${words}` : words;
+  let located = false;
+  for (const [at, part] of split.parts.entries()) {
+    let words = part.trim();
+    const inner = partWithoutInnerReference(words);
+    if (inner === undefined) return undefined;
+    const cites = inner === null;
+    if (cites && holdsFigure(words)) return undefined;
+    if (inner !== null) words = inner;
+    const continues: boolean = located && PAGE_NUMBER.test(words);
+    cut = cites || LOCATOR.test(words) || continues;
+    located = cut && ENDS_IN_LOCATOR.test(words);
+    if (!cut && words) kept += kept ? `${split.marks[at - 1] ?? ", "}${words}` : words;
   }
   return kept ? `${group.slice(0, open)}(${kept})` : "";
 }
@@ -288,14 +354,18 @@ function cellWords(cell: string) {
   if (!containsReference(cell)) return cell;
   const sentences = withoutReferences(cell);
   if (sentences) return sentences;
+  const inexact: string[] = [];
   const bare = cell
-    .replace(BRACKET, (group) =>
-      containsReference(group) ? bracketWithoutReference(group) : group,
-    )
+    .replace(BRACKET, (group) => {
+      if (!containsReference(group)) return group;
+      const cut = bracketWithoutReference(group);
+      if (cut === undefined) inexact.push(group);
+      return cut ?? group;
+    })
     .replace(/\s{2,}/g, " ")
     .replace(LOOSE_END, "")
     .trim();
-  return containsReference(bare) ? "" : bare;
+  return !inexact.length && !containsReference(bare) ? bare : "";
 }
 
 /** The table with each cell that cites a source inside words of its own holding those words alone,
