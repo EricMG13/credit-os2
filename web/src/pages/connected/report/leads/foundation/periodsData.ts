@@ -1,6 +1,6 @@
 import { unitLabel, type OutputEntry } from "../../../publishedReport";
 import type { Reading } from "../kit/numbers";
-import { latestReported, type Period } from "../kit/tables";
+import { comparisonOf, latestReported, type Period } from "../kit/tables";
 import {
   cashLadder,
   earningsAgainstDebt,
@@ -67,6 +67,8 @@ const fromValues = (values: readonly PeriodCell[]): Cells =>
 type FigureCells = {
   figure: string;
   series: Cells[];
+  /** Stated figures that do not qualify for the comparison edge. */
+  coverageOnly?: Cells[];
   line: number;
   compare?: (from: string, to: string) => boolean;
 };
@@ -110,7 +112,8 @@ function figureCells(entry: OutputEntry): FigureCells[] {
       line: net.tableLine,
     });
   const segments = segmentView(entry);
-  if (segments)
+  if (segments) {
+    const comparison = comparisonOf(segments.periods);
     out.push({
       figure: "Segments",
       series: [
@@ -118,11 +121,12 @@ function figureCells(entry: OutputEntry): FigureCells[] {
           fromValues(segment.sales),
           fromValues(segment.ebitda),
         ]),
-        ...segments.mixedEbitda.map(({ values }) => fromValues(values)),
       ],
+      coverageOnly: segments.mixedEbitda.map(({ values }) => fromValues(values)),
       line: segments.tableLine,
-      compare: (from, to) => segments.comparison?.from === from && segments.comparison.to === to,
+      compare: (from, to) => comparison?.from === from && comparison.to === to,
     });
+  }
   const cover = interestCover(entry);
   if (cover)
     out.push({
@@ -195,8 +199,8 @@ function coveredComparison(comparison: PeriodStrip["comparison"], figures: Figur
 export function periodStrip(entry: OutputEntry): PeriodStrip {
   const stated = statedPeriods(entry);
   const found = figureCells(entry);
-  const figures: FigurePeriods[] = found.map(({ figure, series }) => {
-    const cells = series.flat();
+  const figures: FigurePeriods[] = found.map(({ figure, series, coverageOnly = [] }) => {
+    const cells = [...series, ...coverageOnly].flat();
     return {
       figure,
       states: Object.fromEntries(

@@ -8,8 +8,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 ## 2026-11-27 — Foundation and Signal integration
 
 - Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
-- Foundation and Modules passed 512 tests on Node 24.16.0. Older TransDigm CP-1 data and synthetic cases checked units, zero and gaps, definitions, date validity, authored qualifiers, and source locators in Evidence.
-- Signal passed 1,238 web tests and 115 targeted Python tests. Synthetic DOM tests checked draft ownership across Settings tabs, and two-connection SQLite fixtures checked claim ownership after startup recovery and ordinary failure or retry.
+- Foundation and Modules passed 524 tests on Node 24.16.0. Older TransDigm CP-1 data and synthetic cases checked units, zero and gaps, and like-for-like comparisons. PR review added cases for swap scope, source locators in Evidence, and comparable segment sales alongside mixed EBITDA.
+- Signal passed 1,238 web tests and 165 targeted Python tests. Synthetic DOM tests checked draft ownership across Settings tabs. Two SQLite connections checked claim ownership, recurring recovery after restart or a busy write, queued requests, and the next scheduled run.
 - Not verified: live issuer or provider execution and the weekly full Python suite.
 
 ## 2026-11-27 — Event timeline interaction fidelity

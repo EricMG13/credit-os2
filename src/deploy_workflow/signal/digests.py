@@ -1008,13 +1008,18 @@ def _run_scheduled(
 
 
 INTERRUPTED = f"{NOT_WRITTEN}the service stopped while its model call was in flight"
+EXPIRED = f"{NOT_WRITTEN}the run did not finish before its claim expired"
 
 
-def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> int:
-    """At start-up: every run claimed before `before` (its model call in flight then, so cut
-    short by a crash or a stop) that left no result is recorded as one whose paid call wrote no
-    issue (``INTERRUPTED``): its period stays, and it waits for its next scheduled time like any
-    failed write. Younger claims are left (another process may own them). How many."""
+def recover_claims(
+    db: sqlite3.Connection, before: datetime, now: datetime, *, during_pass: bool = False
+) -> int:
+    """Record unfinished claims older than `before` at startup or during a digest pass.
+
+    Preserve the period and mark. Clear pending requests in the same transaction so the next
+    attempt must wait for its scheduled slot. Younger claims may still belong to another worker.
+    """
+    run = Run("skipped", None, 0, EXPIRED if during_pass else INTERRUPTED)
     with _write_transaction(db):
         rows = db.execute(
             "SELECT * FROM digests WHERE claimed_at IS NOT NULL AND claimed_at < ?",
@@ -1024,7 +1029,8 @@ def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> i
             digest = _digest(db, row)
             claimed = datetime.fromisoformat(row["claimed_at"])
             scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
-            _close(db, scope, Run("skipped", None, 0, INTERRUPTED), row["claimed_by"], now)
+            _close(db, scope, run, row["claimed_by"], now)
+            db.execute("UPDATE digests SET run_requested_at=NULL WHERE id=?", (digest.id,))
     return len(rows)
 
 

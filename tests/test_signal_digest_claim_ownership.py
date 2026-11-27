@@ -3,16 +3,20 @@
 import sqlite3
 from collections.abc import Callable
 from contextlib import closing
+from dataclasses import replace
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 import pytest
+from signal_ai_fakes import FakeModel, off_setup, ok, setup
 from test_signal_digest import RecordingWriter, at, count, make, source, story
 
-from deploy_workflow.signal import digests, store
+from deploy_workflow.signal import ai_digest, ai_ledger, ai_run, digests, store
 
 DUE = at("2026-11-27 07:00")
 RECOVERY = DUE + timedelta(minutes=40)
 NEXT_DUE = at("2026-12-04 07:00")
+REPLY = '{"points":[{"lead":"Plants","body":"A plant closed.","stories":["1"]}]}'
 
 
 class DelayedWriter(RecordingWriter):
@@ -141,3 +145,80 @@ def test_storage_failure_rolls_back_and_records_the_still_owned_run(tmp_path):
         digest = digests.owned(db, "Mara L", ident)
         assert (digest.period_from, digest.next_run_at, digest.story_mark) == (DUE, NEXT_DUE, 2)
         assert db.execute("SELECT claimed_at FROM digests").fetchone()[0] is None
+
+
+def test_the_normal_pass_recovers_a_claim_left_young_at_startup(tmp_path):
+    with closing(store.open_db(tmp_path)) as db, closing(store.open_db(tmp_path)) as other:
+        ident = _ready(db)
+        _claim(db, ident, DUE)
+        started = DUE + timedelta(minutes=1)
+        assert ai_run.recover(other, replace(off_setup(tmp_path), clock=lambda: started)) == (0, 0)
+
+        model = FakeModel([ok(REPLY)])
+        ai_ledger.set_cap(other, Decimal(15), NEXT_DUE)
+        ran = ai_run.digest_pass(other, NEXT_DUE, setup(tmp_path, model, clock=NEXT_DUE))
+
+        assert [(found, run.outcome) for found, run in ran] == [(ident, "written")]
+        runs = other.execute("SELECT reason, period_end FROM digest_runs ORDER BY id").fetchall()
+        assert [tuple(row) for row in runs] == [
+            (
+                "no issue was written: the run did not finish before its claim expired",
+                DUE.isoformat(),
+            ),
+            ("written by the AI pass", NEXT_DUE.isoformat()),
+        ]
+        assert len(model.requests) == 1
+
+
+def test_a_busy_issue_write_expires_and_clears_its_queued_request(tmp_path, monkeypatch):
+    with closing(store.open_db(tmp_path)) as db, closing(store.open_db(tmp_path)) as other:
+        ident = _ready(db)
+        before = digests.owned(db, "Mara L", ident)
+        ai_ledger.set_cap(db, Decimal(15), DUE)
+        model = FakeModel([ok(REPLY), ok(REPLY)])
+        original = ai_digest.Writer.store
+
+        def busy(writer, database, scope, draft, now):
+            original(writer, database, scope, draft, now)
+            error = sqlite3.OperationalError("database is locked")
+            error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise error
+
+        with monkeypatch.context() as patched:
+            patched.setattr(ai_digest.Writer, "store", busy)
+            with pytest.raises(ai_run.DigestsLeftDue):
+                ai_run.digest_pass(db, DUE, setup(tmp_path, model, clock=DUE))
+        assert count(db, "digest_issues") == 0
+        waiting = DUE + timedelta(minutes=1)
+        digests.request_run(other, "Mara L", ident, waiting)
+
+        boundary = DUE + ai_ledger.CALL_BOUND
+        assert not ai_run.digest_pass(other, boundary, setup(tmp_path, model, clock=boundary))
+        assert digests.owned(other, "Mara L", ident).requested_at == waiting
+        assert count(db, "digest_runs") == 0
+
+        assert not ai_run.digest_pass(other, RECOVERY, setup(tmp_path, model, clock=RECOVERY))
+        recovered = digests.owned(other, "Mara L", ident)
+        assert (recovered.period_from, recovered.story_mark) == (
+            before.period_from,
+            before.story_mark,
+        )
+        assert recovered.requested_at is None and recovered.next_run_at == NEXT_DUE
+        receipt = db.execute("SELECT outcome, reason, period_end FROM digest_runs").fetchone()
+        assert tuple(receipt) == (
+            "skipped",
+            "no issue was written: the run did not finish before its claim expired",
+            DUE.isoformat(),
+        )
+        assert db.execute("SELECT claimed_at FROM digests").fetchone()[0] is None
+        assert len(model.requests) == 1
+        assert ai_ledger.totals(db, "2026-11").spent == Decimal("0.004")
+
+        after_cooldown = RECOVERY + timedelta(minutes=31)
+        with pytest.raises(store.Conflict, match="runs again at its next scheduled time"):
+            digests.request_run(other, "Mara L", ident, after_cooldown)
+        assert not ai_run.digest_pass(
+            other, after_cooldown, setup(tmp_path, model, clock=after_cooldown)
+        )
+        assert count(db, "digest_runs") == 1
+        assert len(model.requests) == 1

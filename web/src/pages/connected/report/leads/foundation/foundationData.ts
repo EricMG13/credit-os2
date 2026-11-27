@@ -1317,6 +1317,8 @@ const isoEnd = (period: Period) => / \/ (\d{4})-(\d{2}-\d{2})$/.exec(period.cell
 const COVER_EBITDA_WORDS = new RegExp(EBITDA_WORDS.source, `${EBITDA_WORDS.flags}g`);
 const CASH_INTEREST_BASIS =
   /\b(?:(net|gross) cash interest\b|cash interest(?: paid)?,? (net|gross)\b)/gi;
+const CASH_INTEREST_SWAP_SCOPE =
+  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after)\s+(?:interest[- ]rate\s+)?swaps?\b/gi;
 
 /** Undefined means no explicit definition; null means conflicting definitions. */
 function oneBasis(definitions: string[]): string | null | undefined {
@@ -1334,16 +1336,25 @@ function coverBasis(basis: string) {
   const denominator = [...basis.matchAll(CASH_INTEREST_BASIS)].map(([, prefix, suffix]) =>
     (prefix ?? suffix ?? "").toLowerCase(),
   );
-  return { numerator: oneBasis(numerator), denominator: oneBasis(denominator) };
+  const swapScope = [...basis.matchAll(CASH_INTEREST_SWAP_SCOPE)].map(([, scope]) =>
+    (scope ?? "").toLowerCase(),
+  );
+  return {
+    numerator: oneBasis(numerator),
+    denominator: oneBasis(denominator),
+    swapScope: oneBasis(swapScope),
+  };
 }
 
 const COVER_PERIOD_SOURCE =
-  /^(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ]|prospectus|[\w.-]+\.[a-z]{2,5})? *(?:\(?p(?:p|g|ages?)?\.? *\d+(?:[-–]\d+)?\)?)?\.?$/i;
-const COVER_PERIOD_SOURCE_LABEL = /^(?:per\s+)?(?:Source \d+|(?:the )?SEC filing)\.?$/i;
+  /^(?:(?:the )?(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ]|prospectus|[\w.-]+\.[a-z]{2,5}))?\s*(?:\(?p(?:p|g|ages?)?\.?\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*(?:,\s*(?:and\s+)?|and\s+)\d+(?:\s*[-–]\s*\d+)?)*\)?)?\.?$/i;
+const COVER_PERIOD_SOURCE_LABEL = /^(?:per\s+)?(?:Source S?\d+|(?:the )?SEC filing)\.?$/i;
+const COVER_PERIOD_SOURCE_ID = /\bSource S\d+\b/i;
 const COVER_PERIOD_ATTRIBUTION = /^(.*?)(?:\s+(?:per|from|according to)\s+|:\s+)(.+)$/i;
 
 const coverPeriodCitesSource = (text: string) =>
   COVER_PERIOD_SOURCE_LABEL.test(text.trim()) ||
+  COVER_PERIOD_SOURCE_ID.test(text) ||
   citesSource(text.trimStart().replace(/^["“'‘]?\d+[KMB]\b/i, ""));
 
 function isCoverPeriodSource(text: string) {
@@ -1353,15 +1364,14 @@ function isCoverPeriodSource(text: string) {
 
 /** Retain separated qualifications. An inseparable mix of source and meaning stays in Evidence. */
 function coverPeriodQualifier(text: string) {
+  if (isCoverPeriodSource(text)) return "";
   const attribution = COVER_PERIOD_ATTRIBUTION.exec(text);
-  if (attribution?.[2] && coverPeriodCitesSource(attribution[2])) {
-    if (!isCoverPeriodSource(attribution[2])) return null;
-    const qualifier = safeText(attribution[1] ?? "");
-    return qualifier !== IN_EVIDENCE && !coverPeriodCitesSource(qualifier) ? qualifier : null;
-  }
-  const visible = safeText(text);
-  if (visible !== IN_EVIDENCE && !coverPeriodCitesSource(visible)) return visible;
-  return isCoverPeriodSource(text) ? "" : null;
+  const source = attribution?.[2];
+  const sourceOnly = source !== undefined && isCoverPeriodSource(source);
+  if (source && !sourceOnly && coverPeriodCitesSource(source)) return null;
+  const qualifier = sourceOnly ? (attribution?.[1] ?? "") : text;
+  const visible = safeText(qualifier);
+  return visible !== IN_EVIDENCE && !coverPeriodCitesSource(visible) ? visible : null;
 }
 
 /** Keep standalone calculation IDs in Evidence and flag an inseparable mixed clause. */
@@ -1425,7 +1435,8 @@ function coverPeriodsDiffer(prior: CoverBasis, latest: CoverBasis) {
     from === null || to === null || Boolean(from && to && from !== to);
   if (
     differs(prior.definition.numerator, latest.definition.numerator) ||
-    differs(prior.definition.denominator, latest.definition.denominator)
+    differs(prior.definition.denominator, latest.definition.denominator) ||
+    differs(prior.definition.swapScope, latest.definition.swapScope)
   )
     return true;
   if (!yearApart(prior.period, latest.period)) return false;

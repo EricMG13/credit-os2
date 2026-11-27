@@ -282,3 +282,123 @@ it("does not compare an invalid explicit cover date that matches the earlier mon
   fireEvent.click(within(tile).getByRole("button", { name: /Table view/ }));
   expect(within(tile).getByRole("row", { name: `FY2025 / 2025-02-29 5 ${basis}` })).toBeVisible();
 });
+
+it.each([
+  ["before swaps", "after swaps", false],
+  ["before swaps", "before swaps", true],
+  ["after swaps", "after swaps", true],
+] as const)("compares cover only on like swap scope (%s and %s)", (prior, latest, compared) => {
+  const basis = (scope: string) => `Reported EBITDA / net cash interest paid ${scope}.`;
+  const input = coverInput([
+    ["FY2023", "Not supplied: ratio unavailable", "x", ""],
+    ["FY2024 / 2024-09-30", "3", "x", basis(prior)],
+    ["FY2025 / 2025-09-30", "5", "x", basis(latest)],
+  ]);
+  render(<FoundationLead {...leadProps(input)} />);
+  const tile = screen.getByRole("region", { name: "Interest cover" });
+  expect([...tile.querySelectorAll('[data-part="value"]')].map((part) => part.textContent)).toEqual(
+    ["3x", "5x"],
+  );
+  expect(tile.querySelector('[data-part="change"]')?.textContent ?? null).toBe(
+    compared ? "FY2024 to FY2025: +2x, up, better" : null,
+  );
+  expect(Boolean(tile.querySelector('[data-part="link"]'))).toBe(compared);
+  const periods = screen.getByRole("region", { name: "Periods" });
+  expect(Boolean(periods.querySelector("[data-comparison]"))).toBe(compared);
+});
+
+it.each(["10K", "Source S7", "filing_2024.jsonl, pages 71 and 123"])(
+  "keeps a source-only annotation (%s) in Evidence without blocking a comparison",
+  (locator) => {
+    const basis = "Reported EBITDA / cash interest paid.";
+    const input = coverInput([
+      ["FY2023", "Not supplied: ratio unavailable", "x", ""],
+      [`FY2024 / 2024-09-30 (${locator})`, "3", "x", basis],
+      ["FY2025 / 2025-09-30", "5", "x", basis],
+    ]);
+    render(<FoundationLead {...leadProps(input)} />);
+    const tile = screen.getByRole("region", { name: "Interest cover" });
+    expect(tile.querySelector('[data-part="change"]')).toHaveTextContent(
+      "FY2024 to FY2025: +2x, up, better",
+    );
+    expect(tile.querySelector('[data-part="link"]')).toBeVisible();
+    expect(tile).not.toHaveTextContent(locator);
+    const periods = screen.getByRole("region", { name: "Periods" });
+    expect(periods.querySelector("[data-comparison]")).toBeVisible();
+    fireEvent.click(within(tile).getByRole("button", { name: /Table view/ }));
+    expect(within(tile).getByRole("row", { name: `FY2024 3 ${basis}` })).toBeVisible();
+    expect(tile).not.toHaveTextContent(locator);
+  },
+);
+
+it.each([true, false])(
+  "checks segment sales independently of mixed EBITDA (sales: %s)",
+  (sales) => {
+    const gap = "Not supplied: value unavailable";
+    const input = entry(
+      "CP-1",
+      [],
+      [
+        section(
+          "Segment schedule",
+          10,
+          table(
+            11,
+            ["Segment", "FY2023", "FY2024", "FY2025", "Unit"],
+            [
+              ...(sales ? [["Division A Net sales", gap, "0", "40", "USD millions"]] : []),
+              ["Division A EBITDA As Defined", gap, "5", "6", "USD millions"],
+              ["Division A Reported EBITDA", gap, "4", gap, "USD millions"],
+            ],
+          ),
+        ),
+      ],
+    );
+    render(<FoundationLead {...leadProps(input)} />);
+    const periods = screen.getByRole("region", { name: "Periods" });
+    expect(within(periods).getByText("Figures show FY2024 and FY2025.")).toBeVisible();
+    expect(Boolean(periods.querySelector("[data-comparison]"))).toBe(sales);
+    const segments = screen.getByRole("region", { name: "Segments" });
+    expect(
+      within(segments).getByText("EBITDA definitions differ across the schedule."),
+    ).toBeVisible();
+    expect(within(segments).queryByRole("img")).toBeNull();
+    fireEvent.click(within(segments).getByRole("button", { name: /Table view/ }));
+    expect(
+      within(segments).getByRole("row", { name: `Division A EBITDA As Defined ${gap} 5 6` }),
+    ).toBeVisible();
+  },
+);
+
+it.each(["10K", "Source S7", "filing_2024.jsonl, pp. 70–72, 91, and 123"])(
+  "retains restatement when followed by the source-only attribution %s",
+  (locator) => {
+    const basis = "Reported EBITDA / cash interest paid.";
+    const input = coverInput([
+      [`FY2024 / 2024-09-30 (restated per ${locator})`, "3", "x", basis],
+      ["FY2025 / 2025-09-30 (restated)", "5", "x", basis],
+    ]);
+    render(<FoundationLead {...leadProps(input)} />);
+    const tile = screen.getByRole("region", { name: "Interest cover" });
+    expect(tile.querySelector('[data-part="change"]')).toHaveTextContent(
+      "FY2024 to FY2025: +2x, up, better",
+    );
+    expect(within(tile).getByText(`FY2024 / 2024-09-30 (restated) · ${basis}`)).toBeVisible();
+    expect(tile).not.toHaveTextContent(locator);
+  },
+);
+
+it("keeps an inseparable source ID and ambiguous wording in Evidence", () => {
+  const basis = "Reported EBITDA / cash interest paid.";
+  const input = coverInput([
+    ["FY2024 / 2024-09-30 (restated per Source S7, unaudited)", "3", "x", basis],
+    ["FY2025 / 2025-09-30 (restated)", "5", "x", basis],
+  ]);
+  render(<FoundationLead {...leadProps(input)} />);
+  const tile = screen.getByRole("region", { name: "Interest cover" });
+  expect(tile.querySelector('[data-part="change"]')).toBeNull();
+  expect(
+    within(tile).getByText(`FY2024 / 2024-09-30 · Detail is in Evidence. · ${basis}`),
+  ).toBeVisible();
+  expect(tile).not.toHaveTextContent("Source S7");
+});
