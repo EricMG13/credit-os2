@@ -52,8 +52,9 @@ Rules (docs/development/live-runner.md, "Statement extraction"):
 Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 
 - `more_values_than_header_years`: the line has more numeric cells than the table's header
-  lines hold four-digit years (the most on any one header line, so a title line naming the
-  years does not double them; none counted when the headers name no year). A footnote marker
+  lines hold four-digit years (read on the header line nearest the data that holds a four-digit
+  year, the column-header row; a title line above it naming the same or more years does not
+  count; none counted when the headers name no year). A footnote marker
   `(1)` two spaces before the values reads as a value of -1.
 - `label_ends_numeric`: the label's last token is a numeric cell (`1,234`, `$5`, `(12)`, a nil
   dash, a split `(12 )`) or a minus-signed number (`-120`, `\u2212120`), which stops the scan.
@@ -62,11 +63,13 @@ Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 - `ambiguous_separator`: a value is printed with one dot and exactly three digits after it
   (`1.234`) on a page whose data lines also print a whole number: the dot may be a thousands
   separator (1,234), so the value read (1.234) may be a thousand times too small.
-- `footnote_marker`: the header line with the most four-digit years holds N > 0 of them and the
+- `footnote_marker`: the header line nearest the data that holds a four-digit year (the
+  column-header row; a title line above it naming the same or more years does not count) holds
+  N > 0 of them and the
   line has N + 1 raw values whose first is `(n)`, or a bare `n` when a header line has a cell that
   is the word Note or Notes on its own, starting left of the leftmost year column (one or two
   digits, no `$`), and ends left of the column where the leftmost four-digit year of that same
-  line (the leftmost among tied lines) starts (both read after the pipe rewrite): that first cell
+  line starts (both read after the pipe rewrite): that first cell
   is a footnote marker, dropped from `raw_values` and `values` (the label is unchanged), and the
   line does not also get `more_values_than_header_years`. A note reference of several numbers (`7
   and 9`, `8, 9, 11 and 16`) is label text, two or more spaces after the label; under a Note or
@@ -362,7 +365,8 @@ def _label_candidates(
     header_indexes: Collection[int],
     omitted_indexes: Collection[int] = (),
 ) -> tuple[ExtractedLabelPart, ...]:
-    """Exact contiguous label fragments above and on a row, bounded by blank/header/data lines."""
+    """Exact contiguous label fragments above and on a row. The walk stops at a blank, header,
+    period-header, statement-title or data line, or an omitted line whose last cell is a number."""
     first = row_index
     while first > 0:
         previous_index = first - 1
@@ -458,17 +462,27 @@ def _flags(line: ExtractedLine, years: int, footnote: bool, integers: bool) -> t
 
 
 def _year_lines(headers: Sequence[str]) -> tuple[int, int | None]:
-    """The year-column count N and the column where the leftmost year starts: both read from the
-    header line(s) holding the most four-digit years, so a title line naming the same years
-    neither doubles N nor moves the column (the leftmost start among tied lines)."""
-    counted = [
-        (len(_YEAR.findall(text)), _YEAR.search(text))
-        for header in headers
-        for text in (_PIPE.sub("  ", header) if "|" in header else header,)
-    ]
-    most = max((count for count, _ in counted), default=0)
-    starts = [match.start() for count, match in counted if count == most and match is not None]
-    return most, min(starts, default=None)
+    """N and the column where the leftmost year starts, both read from the header line nearest
+    the data that holds a four-digit year (the column-header row); title lines above it do not
+    count."""
+    for header in reversed(headers):
+        text = _PIPE.sub("  ", header) if "|" in header else header
+        if first := _YEAR.search(text):
+            return len(_YEAR.findall(text)), first.start()
+    return 0, None
+
+
+def _is_number(token: str) -> bool:
+    return bool(_NUMERIC_CELL.fullmatch(token) or _UNREAD_NUMBER.fullmatch(token))
+
+
+def _value_shaped(line: str) -> bool:
+    """An omitted line whose last cell (two or more spaces, a pipe or a leader run before it) is a
+    number: a row of values, which bounds a label walk. A prose line ending in a number one space
+    after a word (`Senior notes due 2031`) is a label fragment."""
+    read = _strip_leader(_PIPE.sub("  ", line) if "|" in line else line)[0]
+    cells = [cell.group() for cell in _CELL.finditer(read)]
+    return bool(cells) and _is_number(cells[-1].replace(" ", ""))
 
 
 def _footnote_marker(
@@ -639,7 +653,7 @@ def extract_statement_lines(
         for index, text in enumerate(lines)
         if index not in kept and _is_omitted_candidate(text)
     )
-    omitted_at = {line.line_no - 1 for line in omitted}
+    omitted_at = {line.line_no - 1 for line in omitted if _value_shaped(lines[line.line_no - 1])}
     bounded = [
         _with_candidates(lines, printed, flagged_line, header_boundaries, omitted_at)
         for printed, flagged_line in zip(found, flagged, strict=True)

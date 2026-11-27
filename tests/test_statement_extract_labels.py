@@ -74,3 +74,104 @@ def test_title_line_without_years_is_unchanged() -> None:
     row = _row(extract_statement_lines(page, "page:1"), "Revenue")
     assert row.values == (500, 450)
     assert row.flags == ("footnote_marker",)
+
+
+def _candidates(table, label):
+    return [(p.line_no, p.text) for p in _row(table, label).label_candidates]
+
+
+def test_wrapped_label_ending_in_a_year_is_kept_as_a_candidate() -> None:
+    page = """BALANCE SHEET
+                                   2025        2024
+Senior secured notes due 2031
+  net of issuance costs              500         450
+Total debt                           500         450
+"""
+    table = extract_statement_lines(page, "p1")
+    assert _candidates(table, "net of issuance costs") == [
+        (3, "Senior secured notes due 2031"),
+        (4, "net of issuance costs"),
+    ]
+    assert [part.line_no for part in table.omitted] == [3]
+
+
+def test_one_value_row_above_bounds_the_label_walk() -> None:
+    page = """                      2026     2025
+Revenue  10  20
+Total equity  500
+Total assets  5  6"""
+    table = extract_statement_lines(page, "p1")
+    assert _candidates(table, "Total assets") == [(4, "Total assets")]
+
+
+def test_title_naming_the_years_left_of_the_columns_keeps_the_year_column() -> None:
+    page = """Balance sheet 2025 2024
+                                 Note    2025      2024
+Revenue                          5      1,000       900
+Cost of sales                   (300)  (280)"""
+    row = _row(extract_statement_lines(page, "p1"), "Revenue")
+    assert row.raw_values == ("1,000", "900")
+    assert row.flags == ("footnote_marker",)
+
+
+def test_title_naming_more_years_than_columns_does_not_set_the_year_count() -> None:
+    page = """CONSOLIDATED STATEMENT OF INCOME
+For the years ended December 31, 2026, 2025 and 2024
+
+                                   2026        2025
+Revenue                 (1)         500         400
+Cost of sales                      (300)       (280)"""
+    row = _row(extract_statement_lines(page, "p1"), "Revenue")
+    assert row.raw_values == ("500", "400")
+    assert row.flags == ("footnote_marker",)
+
+
+def test_indented_two_line_period_header_counts_the_year_line_columns() -> None:
+    page = """              Three months ended June 30,    Nine months ended June 30,
+                   2025      2024              2025      2024
+Revenue   (1)      1         2                 3         4"""
+    row = _row(extract_statement_lines(page, "p1"), "Revenue")
+    assert row.raw_values == ("1", "2", "3", "4")
+    assert row.flags == ("footnote_marker",)
+
+
+def test_page_without_headers_keeps_prose_wrap_and_bounds_by_value_rows() -> None:
+    page = """Revenue   (1)   500   400
+Senior notes due 2031
+  net of costs   10   20
+Cost  1.234  5"""
+    table = extract_statement_lines(page, "p1")
+    revenue = _row(table, "Revenue")
+    assert revenue.raw_values == ("(1)", "500", "400")
+    assert revenue.values == (-1, 500, 400)
+    assert revenue.flags == ()
+    assert _candidates(table, "net of costs") == [
+        (2, "Senior notes due 2031"),
+        (3, "net of costs"),
+    ]
+    assert _row(table, "Cost").flags == ("ambiguous_separator",)
+    assert [part.line_no for part in table.omitted] == [2]
+
+
+def test_prose_wraps_ending_in_numbers_stay_label_candidates() -> None:
+    coupon = """                      2026     2025
+Senior notes 6.75% 2031
+  net of costs    500    450"""
+    assert _candidates(extract_statement_lines(coupon, "p1"), "net of costs") == [
+        (2, "Senior notes 6.75% 2031"),
+        (3, "net of costs"),
+    ]
+    footnoted = """                      2026     2025
+Revenue (1)
+  net of returns    500    450"""
+    assert _candidates(extract_statement_lines(footnoted, "p1"), "net of returns") == [
+        (2, "Revenue (1)"),
+        (3, "net of returns"),
+    ]
+    percent = """                      2026     2025
+Senior notes, 6.75%
+  due 2031    500    450"""
+    assert _candidates(extract_statement_lines(percent, "p1"), "due 2031") == [
+        (2, "Senior notes, 6.75%"),
+        (3, "due 2031"),
+    ]
