@@ -1,14 +1,14 @@
-import { unitLabel, type OutputEntry, type Table } from "../../../publishedReport";
+import { displayColumns, unitLabel, type OutputEntry, type Table } from "../../../publishedReport";
 import { statedInProse } from "../read";
 import type { LeadProps } from "../types";
 import { FigureTile, GapTile } from "./LeadFrame";
 import { GapChip } from "./marks/GapSlot";
 import { readCell } from "./numbers";
-import { reasonText, safeText } from "./reader";
+import { IN_EVIDENCE, namesSource, reasonText, safeText } from "./reader";
 
 const PREFIX = "Chart data: ";
 /** Columns a stated-figures list does not draw: the unit is the kicker, the basis names sources. */
-const NOT_DRAWN = new Set(["reporting unit", "unit", "basis and limitation", "source", "sources"]);
+const NOT_DRAWN = new Set(["reporting unit", "unit", "basis and limitation"]);
 
 /** A chart heading's title as the store publishes it: the heading after "Chart data: ", first letter raised. */
 const titleOf = (heading: string) => {
@@ -27,16 +27,62 @@ export function chartTitles(entry: OutputEntry): string[] {
 type Cell = { header: string; text: string; gap: string | null };
 type Listed = { label: string; cells: Cell[]; line: number };
 
-/** The table's rows as stated: the first cell as the row's label, then every drawn column as written. */
+// A contaminated unit is recoverable only when the whole remaining label names a known unit.
+const CURRENCY_NAMES = new Intl.DisplayNames("en", { type: "currency", fallback: "none" });
+const KNOWN_UNIT =
+  /^(?:(?:([A-Z]{3})|US\$|[$€£¥])(?:\s?(?:thousands?|millions?|billions?|trillions?|bps|bn|mm|mn|[kmb])|\s+(?:0{3}s|cents?|per share)|\/share)?|%|x|bps?|basis points?|percentage points?|percent(?:age)?|per cent|times)$/;
+// Bare 10K can mean ten thousand. Require a filing spelling or a separate locator.
+const SOURCE_LABEL =
+  /\b(?:SEC filing|Source \d+|Form\s+10-?[KQ]|10-[KQ]|annual report|prospectus)\b|(?:^|[;(]\s*)Sources?\s*:/i;
+const SOURCE_CLAUSE_LABEL = /^Sources?\s*:/i;
+const SOURCE_NAME =
+  /^(?:the )?(?:SEC filing|Source \d+|(?:Form )?10-?[KQ]|(?:annual|quarterly|interim)(?: report)?|prospectus|\S+\.[a-z]{2,5})\.?$/i;
+const SOURCE_PAGE = /(?:^|[\s,]+)\(?p(?:p|g|ages?)?\.?\s*\d+(?:[-–]\d+)?\.?\)?$/i;
+const ATTRIBUTION = /^(.*)\s+(?:per|from|according to)\s+(.+)$/i;
+const SOURCE_CLAUSE = /^(.*?)[;,]\s+(.+)$/;
+const SOURCE_NOTE = /^(.*?)\s+\(((?:[^()]|\([^()]*\))*)\)$/;
+
+function unitSource(text: string) {
+  return SOURCE_LABEL.test(text) || namesSource(text);
+}
+
+function wholeUnitSource(text: string) {
+  const visible = safeText(text);
+  if (visible === "" || SOURCE_CLAUSE_LABEL.test(text)) return true;
+  const name = text.replace(SOURCE_PAGE, "").trim();
+  return unitSource(text) && (name === "" || SOURCE_NAME.test(name));
+}
+
+function visibleUnit(cell: string) {
+  const written = cell.trim();
+  const [, head, source] =
+    ATTRIBUTION.exec(written) ?? SOURCE_NOTE.exec(written) ?? SOURCE_CLAUSE.exec(written) ?? [];
+  if (head !== undefined && source && wholeUnitSource(source)) {
+    const kept = safeText(head);
+    const known = KNOWN_UNIT.exec(kept);
+    if (!known) return "";
+    const currency = known[1];
+    return currency && !CURRENCY_NAMES.of(currency) && currency !== "RMB" ? "" : unitLabel(kept);
+  }
+  const text = safeText(written);
+  return text !== IN_EVIDENCE && !unitSource(text) ? unitLabel(text) : "";
+}
+
+/** The table's rows as stated, with the first reader column as the row's label. */
 function listed(table: Table) {
-  const columns = table.headers.flatMap((header, at) =>
-    at > 0 && !NOT_DRAWN.has(header.trim().toLowerCase()) ? [{ header: header.trim(), at }] : [],
+  const headers = table.headers.map((header) => header.trim().toLowerCase());
+  const [labelAt, ...valuesAt] = displayColumns(table.headers, false, table.rows).filter(
+    (at) => !NOT_DRAWN.has(headers[at] ?? ""),
   );
-  const unitAt = table.headers.findIndex((header) => header.trim() === "Reporting unit");
-  const units = new Set(table.rows.map((row) => (row.cells[unitAt] ?? "").trim()));
-  const [unit] = [...units];
+  if (labelAt === undefined || !table.rows.length) return null;
+  const columns = valuesAt.map((at) => ({ header: (table.headers[at] ?? "").trim(), at }));
+  const reportingUnitAt = headers.indexOf("reporting unit");
+  const unitAt = reportingUnitAt >= 0 ? reportingUnitAt : headers.indexOf("unit");
+  const units = unitAt >= 0 ? table.rows.map((row) => visibleUnit(row.cells[unitAt] ?? "")) : [];
+  const distinct = new Set(units);
+  const [unit] = units;
   const rows = table.rows.map((row): Listed => ({
-    label: safeText(row.cells[0] ?? ""),
+    label: safeText(row.cells[labelAt] ?? ""),
     line: row.line,
     cells: columns.map(({ header, at }) => {
       const reading = readCell(row.cells[at] ?? "");
@@ -50,21 +96,22 @@ function listed(table: Table) {
     }),
   }));
   return {
+    labelHeader: safeText(table.headers[labelAt] ?? ""),
     columns: columns.map(({ header }) => safeText(header)),
     rows,
-    unit: unitAt >= 0 && units.size === 1 && unit ? unitLabel(unit) : null,
-    units: unitAt >= 0 ? table.rows.map((row) => unitLabel((row.cells[unitAt] ?? "").trim())) : [],
+    unit: distinct.size === 1 && unit ? unit : null,
+    units,
   };
 }
 
 function Unread({ lead, title, table }: { lead: LeadProps; title: string; table: Table | null }) {
-  if (!table || table.rows.length === 0)
+  const read = table ? listed(table) : null;
+  if (!table || !read)
     return (
       <GapTile span={6} label={title} kicker={title}>
         {`This page could not read ${title.charAt(0).toLowerCase()}${title.slice(1)}.`}
       </GapTile>
     );
-  const read = listed(table);
   const perRow = read.unit === null && read.units.length > 0;
   return (
     <FigureTile
@@ -77,7 +124,7 @@ function Unread({ lead, title, table }: { lead: LeadProps; title: string; table:
       source={title.toLowerCase()}
       table={{
         caption: title,
-        headers: [table.headers[0] ?? "", ...read.columns, ...(perRow ? ["Unit"] : [])],
+        headers: [read.labelHeader, ...read.columns, ...(perRow ? ["Unit"] : [])],
         rows: read.rows.map((row, at) => [
           row.label,
           ...row.cells.map((cell) => cell.text),
