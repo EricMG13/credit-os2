@@ -137,20 +137,44 @@ function BulletRow({ test, href, tone }: { test: LeadTest; href?: string; tone: 
       )}
       {geometry ? (
         <div role="img" aria-label={reading(test)} className="flex flex-col gap-1">
-          <BarRow
-            tone={tone}
-            start={Math.min(geometry.share.zero, geometry.share.current)}
-            end={Math.max(geometry.share.zero, geometry.share.current)}
-          >
+          {tone === "neutral" ? (
             <span
-              data-threshold
-              className={cx(
-                "absolute -inset-y-1 w-0.5 bg-text-primary",
-                inset(share(geometry.threshold)),
-              )}
-              style={{ left: `${String(share(geometry.threshold) * 100)}%` }}
-            />
-          </BarRow>
+              aria-hidden="true"
+              className="relative block h-3 min-w-0 rounded-ds-xs bg-surface-subtle"
+            >
+              <span
+                data-current
+                className={cx(
+                  "absolute -inset-y-0.5 w-0.5 bg-text-secondary",
+                  inset(share(geometry.current)),
+                )}
+                style={{ left: `${String(share(geometry.current) * 100)}%` }}
+              />
+              <span
+                data-threshold
+                className={cx(
+                  "absolute -inset-y-1 w-0.5 bg-text-primary",
+                  inset(share(geometry.threshold)),
+                )}
+                style={{ left: `${String(share(geometry.threshold) * 100)}%` }}
+              />
+            </span>
+          ) : (
+            <BarRow
+              tone={tone}
+              start={Math.min(geometry.share.zero, geometry.share.current)}
+              end={Math.max(geometry.share.zero, geometry.share.current)}
+            >
+              <span
+                data-threshold
+                className={cx(
+                  "absolute -inset-y-1 w-0.5 bg-text-primary",
+                  inset(share(geometry.threshold)),
+                )}
+                style={{ left: `${String(share(geometry.threshold) * 100)}%` }}
+              />
+            </BarRow>
+          )}
           <span
             aria-hidden="true"
             className="flex justify-between font-mono text-caption text-text-tertiary"

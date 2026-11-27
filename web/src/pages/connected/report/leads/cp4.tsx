@@ -4,7 +4,7 @@ import { Bento, Tile } from "../overview/Tile";
 import { basisNotes } from "../overview/figureData";
 import { Bullets, leadTests } from "./bullet";
 import { withDraws } from "./draws";
-import { MarkSwatch, SWATCH } from "./kit/marks/Legend";
+import { SWATCH } from "./kit/marks/Legend";
 import { Beside, KeyValues, LeadFigure, LeadGap, MapTile, Trace } from "./parts";
 import {
   chartOf,
@@ -100,7 +100,15 @@ function Headroom({
               aria-hidden="true"
               className="flex-none overflow-visible"
             >
-              <MarkSwatch kind="bar" tone="neutral" x={0} y={0} />
+              <line
+                data-swatch="current"
+                x1={SWATCH / 2}
+                x2={SWATCH / 2}
+                y1={2}
+                y2={SWATCH - 2}
+                strokeWidth={2}
+                className="stroke-text-secondary"
+              />
             </svg>
             Current
           </span>

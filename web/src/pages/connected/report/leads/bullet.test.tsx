@@ -227,7 +227,16 @@ it("draws the bar in the primary tone by default and in the tone it is given", (
   expect(bar).not.toHaveClass("bg-text-tertiary");
   rerender(<Bullets label="Tests" tests={TESTS} tone="neutral" />);
   expect(container.querySelector(".bg-chart-1")).toBeNull();
-  expect(container.querySelector(".bg-text-tertiary")).not.toBeNull();
+  expect(container.querySelector("[data-current]")).not.toBeNull();
+  expect(container.querySelector("[data-current]")).not.toHaveClass("bg-text-tertiary");
   // The threshold tick keeps the primary text colour.
   expect(container.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
+});
+
+it("shows covenant room as two marks without a bar from zero", () => {
+  const { container } = render(<Bullets label="Tests" tests={TESTS} tone="neutral" />);
+  const image = container.querySelector('[role="img"]');
+  expect(image?.querySelector("[data-current]")).not.toBeNull();
+  expect(image?.querySelector("[data-threshold]")).not.toBeNull();
+  expect(image?.querySelector("[data-bar]")).toBeNull();
 });

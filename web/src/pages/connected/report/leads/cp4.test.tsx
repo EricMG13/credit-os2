@@ -387,19 +387,18 @@ it("keys a map of several edge types with a legend of their words, in name order
 });
 
 // Colour-signal-build ruling R1: the covenant bar is a measured amount, not a direction or a case.
-it("draws the covenant bars neutral, keyed by a neutral Current swatch beside the threshold tick", () => {
+it("draws two neutral covenant marks and keys them beside the threshold tick", () => {
   const { container } = render(<LegalLead {...leadProps(synthetic())} />);
   const tile = screen.getByRole("region", { name: "Covenant headroom" });
-  const bars = [...tile.querySelectorAll("[role=img] > span > span:not([data-threshold])")].filter(
-    (node) => node.className.includes("rounded-ds-xs"),
-  );
-  expect(bars).toHaveLength(2);
-  for (const bar of bars) {
-    expect(bar).toHaveClass("bg-text-tertiary");
-    expect(bar).not.toHaveClass("bg-chart-1");
+  const images = [...tile.querySelectorAll("[role=img]")];
+  expect(images).toHaveLength(2);
+  for (const image of images) {
+    expect(image.querySelector("[data-current]")).toHaveClass("bg-text-secondary");
+    expect(image.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
+    expect(image.querySelector("[data-bar]")).toBeNull();
   }
-  const swatch = container.querySelector('svg [data-swatch="bar"]');
-  expect(swatch).toHaveClass("fill-text-tertiary");
+  const swatch = container.querySelector('svg [data-swatch="current"]');
+  expect(swatch).toHaveClass("stroke-text-secondary");
   expect(swatch?.closest("span")).toHaveTextContent("Current");
   expect(
     tile.querySelector("span.h-2\\.5.w-0\\.5.bg-text-primary")?.parentElement,
