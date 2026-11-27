@@ -248,6 +248,27 @@ it("draws only the Negative amount entry when every drawn bar is negative", () =
   expect(scoped.queryByText("Larger amount")).toBeNull();
 });
 
+it("names a colour only where a fill is drawn: a zero share is a tick, not an amount bar", () => {
+  // Synthetic table: one zero cell (a grey tick) beside two negative bars.
+  const mixed = table(
+    21,
+    ["Instrument", "Principal", "Maturity"],
+    [
+      ["Term loan I", "0", "2028"],
+      ["Term loan J", "(1,871)", "2031"],
+      ["Term loan K", "(3,742)", "2033"],
+    ],
+  );
+  draw(one("T4.18 Debt instruments", mixed));
+  openRecords();
+  const wide = screen.getByRole("region", { name: "Debt instruments" });
+  expect(wide.querySelectorAll('[style*="width"]')).toHaveLength(2);
+  const scoped = within(wide.parentElement as HTMLElement);
+  expect(scoped.getByText("Negative amount")).toBeInTheDocument();
+  expect(scoped.queryByText("Smaller amount")).toBeNull();
+  expect(scoped.queryByText("Larger amount")).toBeNull();
+});
+
 it("draws a source reference cell as an Evidence link, never as text", () => {
   const { entry } = draw();
   const wide = openDebt();

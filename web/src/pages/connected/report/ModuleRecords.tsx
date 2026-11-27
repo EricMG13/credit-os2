@@ -74,13 +74,15 @@ function amountsOf(bars: Map<number, AmountColumn>) {
   };
 }
 
-/** Which tones the drawn bars use, decided by the cells' own test: a share, then negative or not. */
+/** Which tones the drawn bars use, decided by the cells' own test: a share above zero (a fill), then negative or not. */
 function drawnTones(table: Table, bars: Map<number, AmountColumn>) {
   const tones = { amount: false, negative: false };
   for (const { cells, line } of table.rows)
     for (const [column, bar] of bars) {
       const cell = cells[column] ?? "";
-      if (bar.share(cell, line) === null) continue;
+      const share = bar.share(cell, line);
+      // BarCell draws a fill only for a share above zero; zero is a grey tick, NaN none.
+      if (share === null || !(share > 0)) continue;
       if (bar.negative(cell)) tones.negative = true;
       else tones.amount = true;
     }
