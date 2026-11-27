@@ -247,6 +247,7 @@ from credit_os.source import (
     sections_of,
     sha256,
     source_table_cells,
+    strict_loads,
     structured,
     table_block,
     text_block,
@@ -598,7 +599,7 @@ def recorded_revisions(run_dir: Path, issues: list[str]) -> list[tuple[str, str]
     ):
         try:
             raw = b"".join(regular_chunks(run_dir / name, follow=False))
-            earlier = json.loads(raw.decode("utf-8")).get(key)
+            earlier = strict_loads(raw.decode("utf-8")).get(key)
         except FileNotFoundError:
             continue
         except (OSError, ValueError, AttributeError, TypeError, RecursionError) as error:
@@ -611,7 +612,7 @@ def recorded_revisions(run_dir: Path, issues: list[str]) -> list[tuple[str, str]
 
 def delivery_json(folder: Path) -> dict[str, Any]:
     """folder/delivery.json read bounded and without following a link; raises when unreadable."""
-    loaded: dict[str, Any] = json.loads(
+    loaded: dict[str, Any] = strict_loads(
         b"".join(regular_chunks(folder / "delivery.json", follow=False)).decode("utf-8")
     )
     return loaded
@@ -628,7 +629,7 @@ def listed_view(folder: Path, delivery: dict[str, Any]) -> dict[str, Any]:
         raise UnreadableFile("view.json is not the plain file its delivery record lists")
 
     def read() -> dict[str, Any]:
-        view: dict[str, Any] = json.loads(raw.decode("utf-8"))
+        view: dict[str, Any] = strict_loads(raw.decode("utf-8"))
         return view_fields(view) if isinstance(view, dict) else view
 
     # The bytes have the listed hash, so what is read from them is that hash's.
@@ -1441,7 +1442,7 @@ def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, st
     """
     try:
         raw = b"".join(regular_chunks(run_dir / "workflow.json", follow=False))
-        manifest = json.loads(raw.decode("utf-8"))
+        manifest = strict_loads(raw.decode("utf-8"))
         return {key: value for key, value in manifest["run"].items() if isinstance(value, str)}
     except FileNotFoundError:
         return {}
@@ -1464,7 +1465,7 @@ def requested_modules(run_dir: Path) -> list[str] | None:
     cannot be read (`recorded_run` names an unreadable manifest in the issues)."""
     try:
         raw = b"".join(regular_chunks(run_dir / "workflow.json", follow=False))
-        asked = json.loads(raw.decode("utf-8"))["run"]["requested_modules"]
+        asked = strict_loads(raw.decode("utf-8"))["run"]["requested_modules"]
     except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, MemoryError):
         return None
     if isinstance(asked, list) and all(isinstance(module, str) for module in asked):

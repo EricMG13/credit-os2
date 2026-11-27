@@ -5,6 +5,7 @@ Part of the library's store (`credit_os.store`, which re-exports every name here
 
 import datetime
 import hashlib
+import json
 import os
 import re
 import stat
@@ -277,6 +278,16 @@ def sha256(path: Path) -> str:
     for chunk in regular_chunks(path):
         digest.update(chunk)
     return digest.hexdigest()
+
+
+def _refuse_constant(name: str) -> Any:
+    raise ValueError(f"non-finite number {name} is not accepted")
+
+
+def strict_loads(text: str | bytes) -> Any:
+    """json.loads that refuses ``NaN``, ``Infinity`` and ``-Infinity`` with a ValueError, so a run
+    file holding one is unreadable and named by its caller; no stand-in value is made up."""
+    return json.loads(text, parse_constant=_refuse_constant)
 
 
 def describe(error: BaseException) -> str:

@@ -25,6 +25,7 @@ HERE = Path(__file__).resolve().parent
 PACKAGED = (HERE / "src").is_dir()  # The Windows package keeps the engine's src beside this file.
 ROOT = HERE if PACKAGED else HERE.parents[1]
 
+from credit_os.source import strict_loads
 from credit_os.store import UnreadableFile, regular_chunks, workspace_store
 
 from deploy_vii.registry import plan
@@ -63,7 +64,13 @@ def relocate(value: Any) -> Any:
 
 def embedded_json(value: object) -> str:
     """JSON that cannot end its ``<script>`` element or open a comment inside it."""
-    return json.dumps(value, ensure_ascii=True, allow_nan=False).replace("<", "\\u003c")
+    try:
+        text = json.dumps(value, ensure_ascii=True, allow_nan=False)
+    except ValueError as error:
+        raise Refused(
+            f"Not written: the page data holds a value that is not a finite number ({error})"
+        ) from error
+    return text.replace("<", "\\u003c")
 
 
 def run_events(
@@ -90,7 +97,7 @@ def run_record(run_dir: Path, folder: str, issues: list[str]) -> dict[str, Any] 
     never started) with the times its event log states. Nothing is written, and no time is made
     up: a module with no event has none."""
     try:
-        raw = json.loads(b"".join(regular_chunks(run_dir / "workflow.json", follow=False)))
+        raw = strict_loads(b"".join(regular_chunks(run_dir / "workflow.json", follow=False)))
         requested = tuple(raw["run"]["requested_modules"])
         order = plan(requested)
     except FileNotFoundError:
@@ -157,7 +164,7 @@ def committee_hold(directory: Path, delivered: dict[str, Any]) -> str | None:
             f"{delivered['folder']}/report-view.json",
             delivered["files"].get("report-view.json"),
         )
-        report = json.loads(raw)
+        report = strict_loads(raw)
     except (OSError, ValueError, RecursionError):
         return None
     if not isinstance(report, dict) or report.get("schema_version") != "report-view/1":
@@ -237,7 +244,7 @@ def pack_of(workspace: Path, run: dict[str, Any]) -> tuple[dict[str, Any] | None
         return None, None
     path = pin["path"]
     try:
-        value = json.loads(read_pinned(workspace / "runs" / run["id"], path, pin["sha256"]))
+        value = strict_loads(read_pinned(workspace / "runs" / run["id"], path, pin["sha256"]))
     except Refused as error:
         return None, f"{path} could not be read ({error})"
     except ValueError:
@@ -372,7 +379,7 @@ def handoff_zip(folder: Path, workspace: Path, run: dict[str, Any], store: dict[
                 write_download(folder, folder / unquote(handoff["href"]), raw)
                 # A fixed date makes the same handoffs give the same zip.
                 archive.writestr(zipfile.ZipInfo(handoff["name"], (1980, 1, 1, 0, 0, 0)), raw)
-    recorded = json.loads(b"".join(regular_chunks(run_dir / "workflow.json", follow=False)))
+    recorded = strict_loads(b"".join(regular_chunks(run_dir / "workflow.json", follow=False)))
     for row in run["evidence"]["record"]["instructions"]:
         if row["href"]:
             path = recorded["instructions"][row["module"]]["path"]
