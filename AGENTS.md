@@ -152,7 +152,9 @@ is the primary checkout. Keep the database and local evidence there across sessi
    --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
    model and effort pairs, maximum attempt duration and billing mode. A changed file requires
    a new approval card. Use `start` with symbolic revision names only for disposable tests.
-2. At each milestone read `status RUN`. For “explain D-04”, use `explain RUN D-04` on the
+2. At each milestone read `status RUN --text`. Record a progress update or an open question
+   with `note RUN ID REVISION PAYLOAD`; the payload gives its kind (owner, applied or verified)
+   and a plain-English summary. A note preserves the current writer revision. For “explain D-04”, use `explain RUN D-04` on the
    ledger that issued the decision. Translate its consequence, reason and evidence into plain
    English. Record each redirect with its expected revision and a fresh decision ID. Preserve
    the original ID in the redirect payload. A pause or resume uses the corresponding `action`.

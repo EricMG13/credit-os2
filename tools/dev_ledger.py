@@ -13,6 +13,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -188,11 +189,13 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         raise TypeError("decision payload must be an object")
     db.execute("BEGIN IMMEDIATE")
     previous = db.execute(
-        "SELECT result FROM events WHERE run=? AND id=?",
+        "SELECT kind,result FROM events WHERE run=? AND id=?",
         (args.run, f"decision:{args.id}"),
     ).fetchone()
     if previous is not None:
-        if previous["result"] == json.dumps(payload, sort_keys=True):
+        if previous["kind"] == args.command and previous["result"] == json.dumps(
+            payload, sort_keys=True
+        ):
             db.rollback()
             emit({"ok": True, "replayed": True, "payload": payload})
             return
@@ -200,8 +203,10 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     row = db.execute("SELECT revision FROM runs WHERE id=?", (args.run,)).fetchone()
     if row is None or row["revision"] != args.expected_revision:
         raise ValueError("stale or unknown decision revision")
-    revision = args.expected_revision + 1
+    revision = args.expected_revision if args.command == "note" else args.expected_revision + 1
     action = payload.get("action")
+    if args.command == "note" and action is not None:
+        raise ValueError("a milestone note cannot change the run")
     if action in ("pause", "resume"):
         current, target = ("approved", "paused") if action == "pause" else ("paused", "approved")
         changed = db.execute(
@@ -214,7 +219,7 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         "INSERT INTO decisions VALUES(?,?,?,?)",
         (args.run, args.id, revision, json.dumps(payload, sort_keys=True)),
     )
-    event(db, args.run, f"decision:{args.id}", "decision", payload)
+    event(db, args.run, f"decision:{args.id}", args.command, payload)
     db.commit()
     emit({"ok": True, "revision": revision, "decision": args.id, "payload": payload})
 
@@ -251,10 +256,15 @@ def capacity_available(
            FROM attempts WHERE ? IS NULL OR run=?""",
         (run, run),
     ).fetchone()
-    return usage["active"] < workers and usage["committed"] + reserve <= cap
+    return int(usage["active"]) < workers and int(usage["committed"]) + reserve <= cap
 
 
-def launch_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+def launch_run(
+    db: sqlite3.Connection,
+    args: argparse.Namespace,
+    *,
+    admit: Callable[[sqlite3.Connection], None] | None = None,
+) -> None:
     if args.reserve < 0:
         raise ValueError("reservation must be non-negative")
     db.execute("BEGIN IMMEDIATE")
@@ -277,6 +287,8 @@ def launch_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         raise ValueError("run worker or budget limit reached")
     if not capacity_available(db, limits["cap"], limits["workers"], args.reserve, None):
         raise ValueError("worker or budget limit reached")
+    if admit is not None:
+        admit(db)
     db.execute(
         "INSERT INTO attempts VALUES(?,?,?,?,?,NULL)",
         (args.run, args.id, args.expected_revision, "active", args.reserve),
@@ -309,39 +321,54 @@ def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         "SELECT id, revision, state, reserved, settled FROM attempts WHERE run=? ORDER BY id",
         (args.run,),
     ).fetchall()
-    emit(
-        {
-            "run": row["id"],
-            "revision": row["revision"],
-            "state": row["state"],
-            "spec": row["spec"],
-            "plan": row["plan"],
-            "cap": row["cap"],
-            "workers": row["workers"],
-            "deadline_unix": db.execute(
-                "SELECT (SELECT expires FROM deadlines WHERE run=?)", (args.run,)
-            ).fetchone()[0],
-            "project_spend": dict(
-                db.execute(
-                    """SELECT coalesce(sum(settled),0) AS spent,
+    spend = dict(
+        db.execute(
+            """SELECT coalesce(sum(settled),0) AS spent,
                    coalesce(sum(CASE WHEN state='active' THEN reserved END),0) AS reserved
                    FROM attempts"""
-                ).fetchone()
-            ),
-            "attempts": [dict(item) for item in attempts],
-            "decisions": [
-                {
-                    "id": item["id"],
-                    "revision": item["revision"],
-                    "payload": json.loads(item["payload"]),
-                }
-                for item in db.execute(
-                    "SELECT id,revision,payload FROM decisions WHERE run=? ORDER BY revision",
-                    (args.run,),
-                )
-            ],
-        }
+        ).fetchone()
     )
+    choices = [
+        {
+            "id": item["id"],
+            "revision": item["revision"],
+            "payload": json.loads(item["payload"]),
+        }
+        for item in db.execute(
+            "SELECT id,revision,payload FROM decisions WHERE run=? ORDER BY revision",
+            (args.run,),
+        )
+    ]
+    report: dict[str, object] = {
+        "run": row["id"],
+        "revision": row["revision"],
+        "state": row["state"],
+        "spec": row["spec"],
+        "plan": row["plan"],
+        "cap": row["cap"],
+        "workers": row["workers"],
+        "deadline_unix": db.execute(
+            "SELECT (SELECT expires FROM deadlines WHERE run=?)", (args.run,)
+        ).fetchone()[0],
+        "project_spend": spend,
+        "attempts": [dict(item) for item in attempts],
+        "decisions": choices,
+    }
+    if args.text:
+        print(f"{row['id']} · {row['state']} · revision {row['revision']}")
+        print(f"Project usage: {spend['spent']} spent, {spend['reserved']} reserved.")
+        priority = {"owner": 0, "applied": 1, "verified": 2}
+        for decision in sorted(
+            choices, key=lambda d: priority.get(str(d["payload"].get("kind", "applied")), 1)
+        ):
+            payload = decision["payload"]
+            label = {"owner": "Needs your decision", "verified": "Verified"}.get(
+                str(payload.get("kind")), "Applied"
+            )
+            detail = payload.get("summary") or payload.get("choice") or payload.get("action")
+            print(f"{decision['id']} · {label} · {detail or json.dumps(payload, sort_keys=True)}")
+    else:
+        emit(report)
 
 
 def accept_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
@@ -424,7 +451,7 @@ def add_approval_commands(sub: argparse._SubParsersAction[argparse.ArgumentParse
     approve.add_argument("shown_plan", help="SHA-256 in the approved spec and plan card")
 
 
-def main() -> int:
+def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -436,11 +463,13 @@ def main() -> int:
     explain = sub.add_parser("explain")
     explain.add_argument("run")
     explain.add_argument("id")
-    decision = sub.add_parser("decision")
+    decision = argparse.ArgumentParser(add_help=False)
     decision.add_argument("run")
     decision.add_argument("id")
     decision.add_argument("expected_revision", type=int)
     decision.add_argument("payload")
+    sub.add_parser("decision", parents=[decision])
+    sub.add_parser("note", parents=[decision])
     attempt = sub.add_parser("launch")
     attempt.add_argument("run")
     attempt.add_argument("id")
@@ -448,7 +477,9 @@ def main() -> int:
     attempt.add_argument("reserve", type=int)
     attempt.add_argument("spec")
     attempt.add_argument("plan")
-    sub.add_parser("status").add_argument("run")
+    status = sub.add_parser("status")
+    status.add_argument("run")
+    status.add_argument("--text", action="store_true")
     settle = sub.add_parser("settle")
     settle.add_argument("run")
     settle.add_argument("id")
@@ -462,11 +493,16 @@ def main() -> int:
     accept.add_argument("run")
     accept.add_argument("id")
     accept.add_argument("expected_revision", type=int)
+    return parser.parse_args()
+
+
+def main() -> int:
     handlers = {
         "start": start_run,
         "approve": approve_run,
         "explain": explain_run,
         "decision": decision_run,
+        "note": decision_run,
         "launch": launch_run,
         "settle": settle_run,
         "reconcile": reconcile_run,
@@ -474,7 +510,7 @@ def main() -> int:
         "accept": accept_run,
     }
     try:
-        args = parser.parse_args()
+        args = arguments()
         if args.command == "card":
             approval_card(args)
             return 0

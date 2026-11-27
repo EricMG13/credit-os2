@@ -194,3 +194,28 @@ def test_narrower_run_keeps_its_own_limits_inside_shared_project_cap(tmp_path: P
     assert call(db, "launch", "small", "x", "1", "11", "s", "p").returncode == 2
     assert call(db, "launch", "small", "x", "1", "10", "s", "p").returncode == 0
     assert call(db, "launch", "small", "y", "1", "0", "s", "p").returncode == 2
+
+
+def test_text_status_ranks_owner_decisions_before_applied_choices(tmp_path: Path) -> None:
+    db = tmp_path / "run.sqlite"
+    start(db)
+    for index, kind in enumerate(("verified", "applied", "owner"), 1):
+        payload = json.dumps({"kind": kind, "summary": f"Item {index}"})
+        assert call(db, "note", "run-a", f"D-{index}", "1", payload).returncode == 0
+    lines = call(db, "status", "run-a", "--text").stdout.splitlines()
+    assert [line.split(" · ")[0] for line in lines if line.startswith("D-")] == [
+        "D-3",
+        "D-2",
+        "D-1",
+    ]
+
+
+def test_milestone_notes_keep_inflight_results_eligible(tmp_path: Path) -> None:
+    db = tmp_path / "run.sqlite"
+    start(db)
+    assert call(db, "launch", "run-a", "w", "1", "0", "spec-v1", "plan-v1").returncode == 0
+    payload = '{"kind":"verified","summary":"Fixture checked"}'
+    assert call(db, "note", "run-a", "D-1", "1", payload).returncode == 0
+    assert call(db, "decision", "run-a", "D-1", "1", payload).returncode == 2
+    assert call(db, "settle", "run-a", "w", "0").returncode == 0
+    assert call(db, "accept", "run-a", "w", "1").returncode == 0
