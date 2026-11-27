@@ -15,7 +15,7 @@ export function amountTone(value: number, largest: number): AmountTone {
   const scaled = share * AMOUNT.length;
   const boundary = Math.round(scaled);
   const stable =
-    Math.abs(scaled - boundary) <= Number.EPSILON * Math.max(1, scaled) * 2
+    Math.abs(scaled - boundary) < Number.EPSILON * Math.max(1, scaled)
       ? boundary / AMOUNT.length
       : share;
   const colour = step(stable, AMOUNT);

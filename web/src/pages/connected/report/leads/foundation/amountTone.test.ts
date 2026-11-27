@@ -12,7 +12,7 @@ describe("amountTone", () => {
     [190, 3941, "amount-1"], // 0.048 x 5 = 0.24
     [81, 3941, "amount-1"], // 0.021 x 5 = 0.10
     [6637, 12637, "amount-3"], // 0.5252 x 5 = 2.63
-    [4768, 12637, "amount-2"], // 0.3773 x 5 = 1.89
+    [0.3999999999999999, 1, "amount-2"], // just below 40% stays in the second bin
     [580, 12637, "amount-1"], // 0.046 x 5 = 0.23
     [-106, 212, "amount-3"], // abs 0.5 x 5 = 2.5
     [0, 0, "amount-1"], // largest 0: share 0
