@@ -4,6 +4,24 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Credit OS2 development coordinator pilot
+
+- Pilot base `0563bccc`. Claude initialization discovered `/dev`. Codex prompt inspection
+  included `$credit-os2-dev` and the shared project rules. Two active Codex chats adopted them.
+- Seventeen focused offline tests passed. They cover shared reservations, actual-cost overruns,
+  stale results, incompatible trial cohorts, repeated evidence and incomplete trials.
+- Hook payload fixtures exercised Claude edit input and both Codex patch representations with
+  real ESLint. All three fail an invalid TypeScript edit and pass its correction. Native event
+  delivery to the hook is pending.
+- Confidence review repaired overrun handling and trial evidence identity. Rewrite tournament
+  retained the SQLite reservation transaction and paired replay checks. The alternatives added
+  a cached counter, a precomputed result or more SQL without improving the tested contracts.
+- Existing connected desktop journeys passed in live Chrome 158.0.8127.88 and Edge
+  158.0.4370.33, with 37 recorded checks per browser and zero non-loopback requests.
+  Evidence is `proof-artifacts/run-TuJEPt/proof.json` from the rollout worktree build.
+  Coverage Monitor and a new rendered-state critique are pending.
+- Route evaluation is advisory. Client dispatch, cloud and protected-branch enforcement are pending.
+
 ## 2026-11-27 — Sign-in parked Low and Info batch (after slice 6)
 
 - Scope: 19 of the 29 parked sign-in Low/Info rows still open on `main` at `f300698c`, gathered
@@ -979,12 +997,3 @@ then 5; the narrow layout and the controls listed below.
   were not run.
 - `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
   approved mockups to keep it.
-
-## 2026-11-24 — Review fixes on the issuer front page and report exports
-
-- Scope: eleven of the thirteen findings of the review of this branch, then the medium and high findings of two spec reviews and one adversarial review of those fixes. All under `web/src/pages/connected/`. Synthetic fixtures only; no provider was called, no retained handoff was read and no browser was used.
-- A report sentence the delivery writes now says only what the document shows, and is tied to the same lookup as the exhibit it names. Module passages print whole: the cuts of amounts and qualifications, and a prefix capture that could stop inside a figure, are removed. A passage left out by the reference check is counted in its section. An unshown decision reads "not shown in this report" in the PDF and "not shown on this page" on Overview, which names the module page. A held decision's limitations are left out of the Overview list with a pointer to the module.
-- References: a slash after a space is no longer a path; any `scheme://`, `//server/share`, drive and `file:/` forms are. The print check reads each block on its own, so neighbouring cells no longer block a PDF, and a content block has its own message.
-- Also: specialist Overviews keep Key charts; unparsed debt terms show as written; cash and undrawn facilities stay when their basis cannot be shown; the differing-rating notice stays on Overview; a specialist card's finding is cached per publication.
-- Checks on the final tree: 1,977 connected-page tests, TypeScript, lint and format on the changed files. The Python gate was not run; no Python changed.
-- Not changed: the selectors written for one retained case, which need a module-side contract. Known limitations left as low: single-segment and bare relative paths are not caught as references; "P50" and similar read as page citations; some PDF text still says "available in Evidence"; a readable action output with no decision in it is still described as "this decision".

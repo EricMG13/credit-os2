@@ -108,3 +108,31 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   (docs/QUALITY-GATE.md); a failure there not in tests/known-failures.txt is new.
 - Keep one concise verification record. VERIFICATION.md stays under 1,000 lines (checked: tests/test_repo_rules.py); trim its oldest entries (git history keeps them). No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.
+
+## Credit OS2 development coordinator
+
+Use `/dev <outcome>` where the client exposes the project command. The Codex project skill is
+`$credit-os2-dev`. “Start the development loop” is the portable entry. Derive the repository,
+current base, intended outcome, applicable rulings and analyst-visible acceptance examples
+before proposing work. Research and explanation requests stay read-only.
+
+Follow the [development coordinator specification](docs/superpowers/specs/2026-11-27-dev-coordinator.md).
+Before dispatching writers, present the exact spec and plan for approval together with the delivery
+slices, ceiling, permitted model routes and owner merge authority. Apply these rules to ongoing
+approved work at its next decision or verification boundary. Preserve its existing scope and
+authorization. Keep one coordinator and use the existing answer keys, reviewers and fix limits.
+
+Use stable decision IDs in milestone updates. Show owner decisions first, reversible choices
+already applied second and verified progress third. Accept explanations and redirects by ID.
+Continue unaffected work. Reject a late result for a superseded decision. Escalate changes to
+financial meaning, permissions, ceilings, exhausted recovery and merge promptly.
+
+Complete analyst-visible work with the application running in a real browser on the candidate
+revision. Assert the visible behavior against independently specified examples and apply
+Impeccable to that rendered state. Include backend changes that affect the display. Missing
+browser or critique evidence leaves completion pending. Review and merge evidence must identify
+the tested candidate and base. The owner authorizes the merge.
+
+Record confirmed finding and repair evidence, resolved model/effort, scope, time and available
+cost against the existing run. Treat unknown or mixed causation as ungraded for route changes.
+Apply only model routes within approved bounds and qualified for that client and environment.
