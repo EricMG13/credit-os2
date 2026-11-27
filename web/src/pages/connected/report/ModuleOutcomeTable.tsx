@@ -9,15 +9,14 @@ const FAIL_WORDS = ["disagreed", "contradicted", "missing"];
 const CELL = "px-3 py-2 text-right align-top font-mono text-text-primary tabular-nums";
 
 /**
- * One status count, exact and in ink. A failing word's non-zero count sits in a cell outlined in
- * the error colour with the cross before it; a non-zero "not checked" count sits on the hatch; a
- * zero is the plain recorded 0.
+ * One status count, exact and in ink. A failing word's non-zero count carries its ink cross; a
+ * non-zero "not checked" count sits on the hatch; a zero is the plain recorded 0.
  */
 function CountCell({ status, count }: { status: string; count: number }) {
   if (count > 0 && FAIL_WORDS.includes(status))
     return (
-      <span className="inline-flex items-center gap-1 rounded-ds-xs border border-error-mark bg-surface-card px-1.5">
-        <XClose className="size-3 shrink-0 text-error-mark" aria-hidden="true" data-mark="fail" />
+      <span className="inline-flex items-center gap-1 rounded-ds-xs border border-border-hairline bg-surface-card px-1.5 text-text-primary">
+        <XClose className="size-3 shrink-0 text-text-primary" aria-hidden="true" data-mark="fail" />
         {count}
       </span>
     );

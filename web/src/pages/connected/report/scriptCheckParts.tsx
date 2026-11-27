@@ -85,8 +85,8 @@ const markOf = (status: string): CheckMark =>
 const HATCH = "gap-hatch inline-flex rounded-ds-xs border border-dashed border-border-gap p-0.5";
 
 /**
- * A status as a mark and its word, never colour alone: agreed an ink check, a failing word a red
- * cross (the error token) with the word in ink, "not checked" the word on the grey hatch, any
+ * A status as an ink mark and its word, never colour alone: agreed a check, a failing word a cross,
+ * "not checked" the word on the grey hatch, any
  * other word the neutral dash. The glyph is an `aria-hidden` icon, so the text is the word alone;
  * `glyphOnly` draws the glyph without the word, for a heading that already says it.
  */
@@ -103,7 +103,7 @@ export function CheckStatusMark({
     mark === "pass" ? (
       <Check className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
     ) : mark === "fail" ? (
-      <XClose className={cx(glyph, "text-error-mark")} aria-hidden="true" data-mark={mark} />
+      <XClose className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
     ) : mark === "other" ? (
       <Minus className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
     ) : null;

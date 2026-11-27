@@ -41,7 +41,7 @@ function table() {
   return within(screen.getByRole("table", { name: /Outcomes by module/ }));
 }
 
-it("draws a cross in the error token for a failing word and keeps ticks and words in ink", () => {
+it("draws every check mark and word in ink, without a status colour", () => {
   render(<ModuleOutcomeTable modules={MODULES} statuses={STATUSES} />);
   const view = table();
   for (const word of STATUSES)
@@ -50,9 +50,9 @@ it("draws a cross in the error token for a failing word and keeps ticks and word
     );
   const marks = (kind: string) => Array.from(document.querySelectorAll(`[data-mark="${kind}"]`));
   const header = view.getByRole("columnheader", { name: "disagreed" });
-  expect(header.querySelector("[data-mark='fail']")).toHaveClass("text-error-mark");
+  expect(header.querySelector("[data-mark='fail']")).toHaveClass("text-text-primary");
   expect(marks("fail").length).toBeGreaterThan(0);
-  for (const cross of marks("fail")) expect(cross).toHaveClass("text-error-mark");
+  for (const cross of marks("fail")) expect(cross).toHaveClass("text-text-primary");
   const tick = view.getByRole("columnheader", { name: "agreed" }).querySelector("[data-mark]");
   expect(tick).toHaveAttribute("data-mark", "pass");
   expect(tick).toHaveClass("text-text-primary");
@@ -75,14 +75,26 @@ it("sets the not-checked word and a non-zero count on the grey hatch", () => {
   expect(within(cp2).getAllByRole("cell")[2]?.querySelector(".gap-hatch")).toBeNull();
 });
 
-it("outlines a non-zero failing count in the error colour and leaves a zero plain", () => {
-  render(<ModuleOutcomeTable modules={MODULES} statuses={["agreed", "missing"]} />);
+it("keeps a non-zero failing count in ink and leaves a zero plain", () => {
+  render(
+    <ModuleOutcomeTable
+      modules={[...MODULES, ["CP-3", many("agreed")]]}
+      statuses={["agreed", "disagreed"]}
+    />,
+  );
   const [cp1] = within(table().getAllByRole("rowgroup")[1] as HTMLElement).getAllByRole("row");
   if (!cp1) throw new Error("row missing");
-  const [agreed, missing] = within(cp1).getAllByRole("cell");
-  expect(agreed).toHaveTextContent(/^1$/);
-  expect(missing).toHaveTextContent(/^0$/);
-  expect(missing?.querySelector("[data-mark]")).toBeNull();
+  const zeroRow = rowOf(2);
+  if (!zeroRow) throw new Error("zero row missing");
+  const zero = within(zeroRow).getAllByRole("cell")[1];
+  expect(zero).toHaveTextContent(/^0$/);
+  expect(zero?.querySelector("[data-mark]")).toBeNull();
+  const cp2 = rowOf(1);
+  if (!cp2) throw new Error("second module row missing");
+  const disagreement = within(cp2).getAllByRole("cell")[1]?.firstElementChild;
+  expect(disagreement).toHaveClass("text-text-primary");
+  expect(disagreement?.className).not.toMatch(/border-error|bg-error|text-error/);
+  expect(disagreement?.querySelector("[data-mark='fail']")).toHaveClass("text-text-primary");
 });
 
 it("counts each module and a Total row exactly as recorded, Total column last", () => {
