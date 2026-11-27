@@ -145,9 +145,7 @@ function IssueMark({
 
 /** A cell of an issue as words: its text, the stated gap, or the in-Evidence sentence. */
 function issueWords(value: Said) {
-  if (value.kind === "text") return value.text;
-  if (value.kind === "gap") return `Not supplied: ${value.reason}`;
-  return value.kind === "evidence" ? IN_EVIDENCE : null;
+  return saidText(value) || null;
 }
 
 function registerNote(name: string, state: string) {
@@ -400,7 +398,7 @@ function RemediationTile(props: LeadProps) {
               ) : (
                 <p className="text-small text-gap-text text-pretty wrap-anywhere">
                   {issue.action?.kind === "gap"
-                    ? `Action not supplied: ${issue.action.reason}`
+                    ? saidText(issue.action).replace(/^Not supplied\b/, "Action not supplied")
                     : issue.action?.kind === "evidence"
                       ? IN_EVIDENCE
                       : "This page could not read an action for this gap."}

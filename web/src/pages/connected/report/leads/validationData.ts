@@ -1,13 +1,7 @@
-import {
-  readParagraph,
-  readerText,
-  type OutputEntry,
-  type Row,
-  type Table,
-} from "../../publishedReport";
+import { readParagraph, type OutputEntry, type Row, type Table } from "../../publishedReport";
 import { bottomLine } from "../overview/read";
 import { readCell } from "./kit/numbers";
-import { IN_EVIDENCE, namesSource, reasonText, safeText as readerSafe } from "./kit/reader";
+import { IN_EVIDENCE, reasonText, safeText as readerSafe } from "./kit/reader";
 import { allTables } from "./kit/tables";
 
 /** A handoff's words for a working page; null when they name a source (the trace control has it). */
@@ -19,7 +13,7 @@ function safeText(text: string): string | null {
 /** One cell as a lead may draw it: words, the handoff's stated gap, a source citation, or nothing. */
 export type Said =
   | { kind: "text"; text: string }
-  | { kind: "gap"; reason: string }
+  | { kind: "gap"; reason: string; status?: string }
   | { kind: "evidence" }
   | { kind: "empty" };
 
@@ -27,7 +21,11 @@ export function said(cell: string | undefined): Said {
   const text = (cell ?? "").trim();
   if (text === "") return { kind: "empty" };
   const reading = readCell(text);
-  if (reading.kind === "gap") return { kind: "gap", reason: reasonText(reading.reason) };
+  if (reading.kind === "gap") {
+    const status = reading.text.slice(0, reading.text.indexOf(":"));
+    const reason = reasonText(reading.reason);
+    return status === "Not supplied" ? { kind: "gap", reason } : { kind: "gap", reason, status };
+  }
   const words = readerSafe(text);
   if (words === "") return { kind: "empty" };
   return words === IN_EVIDENCE ? { kind: "evidence" } : { kind: "text", text: words };
@@ -36,7 +34,10 @@ export function said(cell: string | undefined): Said {
 /** The words of a `Said` as a table view writes them. */
 export function saidText(value: Said): string {
   if (value.kind === "text") return value.text;
-  if (value.kind === "gap") return `Not supplied: ${value.reason}`;
+  if (value.kind === "gap") {
+    const status = value.status ?? "Not supplied";
+    return value.reason ? `${status}: ${value.reason}` : status;
+  }
   return value.kind === "evidence" ? IN_EVIDENCE : "";
 }
 
@@ -168,13 +169,14 @@ const reasonOf = (row: Row) => {
 function affectedOf(cell: string | undefined, whole = false): Issue["affected"] {
   const text = (cell ?? "").trim();
   if (text === "" || readCell(text).kind === "gap") return null;
-  if (namesSource(text)) return "evidence";
-  if (whole) return [readerText(text)];
-  return text
+  const words = readerSafe(text);
+  if (words === IN_EVIDENCE) return "evidence";
+  if (!words) return null;
+  if (whole) return [words];
+  return words
     .split(/[,;]/)
     .map((part) => part.trim())
-    .filter((part) => part !== "")
-    .map((text) => readerText(text));
+    .filter(Boolean);
 }
 
 function readRegister(entry: OutputEntry, specs: Spec[], kind: Issue["kind"]): Register {

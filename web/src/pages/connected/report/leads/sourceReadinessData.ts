@@ -78,7 +78,7 @@ const readable = (text: string, fallback: string) => safeText(text) || fallback;
 const OBJECTIVE = "Objective and profile";
 const OVERALL_HEADERS = ["Gate field", "Readiness boundary"];
 const OVERALL_STATE =
-  /^\s*`?(READY_WITH_LIMITATIONS|READY_WITH_LIMITATION|NOT_READY|CONDITIONAL|BLOCKED|READY)`?(?:\s+|$)(.*)$/i;
+  /^\s*`?(READY_WITH_LIMITATIONS|READY_WITH_LIMITATION|NOT_READY|CONDITIONAL|BLOCKED|READY)`?(?:\s+|(?=:)|$)(.*)$/i;
 
 /** The objective-level verdict in CP-0's gate; other readiness tables retain their own scope. */
 function overallReadiness(entry: OutputEntry) {
@@ -101,17 +101,24 @@ function overallReadiness(entry: OutputEntry) {
   const [, status = "", explanation = ""] = match ?? [];
   if (!match) return null;
   const state = readinessWord(status);
+  const context = safeText(explanation);
+  const writtenSeparator = /^([:–—]|-(?=\s|$))\s*/.exec(context);
+  const words = context.slice(writtenSeparator?.[0].length ?? 0);
+  const separator = writtenSeparator?.[1] ?? "—";
+  const boundaryText = words
+    ? `${state.word}${separator === ":" ? ": " : ` ${separator} `}${words}`
+    : state.word;
   return {
     kind: "overall" as const,
     line: one.table.line,
     word: state.word,
     mark: state.mark,
-    context: safeText(explanation.trim()),
+    context,
     headers: input < 0 ? OVERALL_HEADERS : ["Gate field", "Resolved input", "Readiness boundary"],
     cells:
       input < 0
-        ? [row.cells[field] ?? "", row.cells[boundary] ?? ""]
-        : [row.cells[field] ?? "", row.cells[input] ?? "", row.cells[boundary] ?? ""],
+        ? [OBJECTIVE, boundaryText]
+        : [OBJECTIVE, safeText(row.cells[input] ?? ""), boundaryText],
   };
 }
 

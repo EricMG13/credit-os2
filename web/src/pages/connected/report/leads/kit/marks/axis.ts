@@ -15,20 +15,25 @@ export type NiceAxis = {
 
 const EDGE = 1e-9;
 
-const decimalsOf = (step: number) => {
-  const text = String(Number(step.toPrecision(12)));
-  const dot = text.indexOf(".");
-  return dot < 0 ? 0 : text.length - dot - 1;
+const decimalsOf = (value: number) => {
+  const [mantissa = "", exponent = "0"] = String(value).split("e");
+  const fraction = mantissa.split(".")[1] ?? "";
+  return Math.min(100, Math.max(0, fraction.length - Number(exponent)));
 };
 
-function build(start: number, end: number, step: number, suffix: string): NiceAxis {
-  const digits = decimalsOf(step);
+// A step can come from subtracting adjacent ticks. Remove binary subtraction noise
+// before using its decimal precision, while keeping an explicit origin as given.
+const stepDecimals = (step: number) => decimalsOf(Number(step.toPrecision(12)));
+
+function build(start: number, rawEnd: number, step: number, suffix: string): NiceAxis {
+  const digits = Math.max(decimalsOf(start), stepDecimals(step));
   const round = (value: number) => Number(value.toFixed(digits)) + 0;
   const format = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
-  const count = Math.max(1, Math.round((end - start) / step));
+  const count = Math.max(1, Math.round((rawEnd - start) / step));
+  const end = round(rawEnd);
   const span = end - start || 1;
   return {
     start,
@@ -91,7 +96,7 @@ export function niceAxis(
   const step = stepFor(high - edge);
   const cut = Math.floor(edge / step + EDGE) * step;
   return cut > 0
-    ? from(Number(cut.toFixed(decimalsOf(step))), high, suffix)
+    ? from(Number(cut.toFixed(stepDecimals(step))), high, suffix)
     : throughZero(present, suffix);
 }
 

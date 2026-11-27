@@ -101,7 +101,7 @@ function ClampedText({
 
 /** A handoff cell as the ledger draws it: clamped words with the rest on demand, or its gap. */
 function SaidText({ value, lines, className }: { value: Said; lines: 1 | 2; className?: string }) {
-  if (value.kind === "gap") return <GapChip reason={`Not supplied: ${value.reason}`} />;
+  if (value.kind === "gap") return <GapChip reason={saidText(value)} />;
   if (value.kind === "empty") return <GapChip reason="This page could not read this." />;
   if (value.kind === "evidence")
     return <p className="text-small text-text-secondary">{IN_EVIDENCE}</p>;
@@ -219,8 +219,21 @@ function LedgerItem({ row }: { row: LedgerRow }) {
   );
 }
 
-function LedgerTile(props: LeadProps) {
-  const found = ledger(props.entry);
+function LedgerTile({
+  props,
+  found,
+  written,
+}: {
+  props: LeadProps;
+  found: ReturnType<typeof ledger>;
+  written: ReturnType<typeof writtenTable>;
+}) {
+  if (written)
+    return (
+      <Tile span={7} label="Challenged points" title="Challenged points" className="self-start">
+        <TableOrCards label="Challenged points" table={written} />
+      </Tile>
+    );
   const rows = found.state === "rows" ? found.rows : [];
   const visible = rows.slice(0, VISIBLE_ROWS);
   const rest = rows.slice(VISIBLE_ROWS);
@@ -230,18 +243,6 @@ function LedgerTile(props: LeadProps) {
       : found.state === "duplicate"
         ? "This page could not read the cross-examination because it appears more than once."
         : "This page could not read the cross-examination of the credit case.";
-  // The module's own cross-examination register under its own headings, as written.
-  const bear =
-    found.state === "absent"
-      ? registerTable(props.entry, "T6A.4", ["Bull Claim Attacked", "Bear Counter-Evidence"])
-      : undefined;
-  const written = bear && writtenTable(sourceOf(bear), leadHref(props));
-  if (written)
-    return (
-      <Tile span={7} label="Challenged points" title="Challenged points" className="self-start">
-        <TableOrCards label="Challenged points" table={written} />
-      </Tile>
-    );
   if (found.state !== "rows")
     return (
       <GapTile span={7} label="Challenged points" kicker="Challenged points">
@@ -309,7 +310,14 @@ function LedgerTile(props: LeadProps) {
  */
 function Committee(props: LeadProps) {
   const { entry } = props;
-  const nothing = stance(entry).state === "gap" && ledger(entry).state !== "rows";
+  const found = ledger(entry);
+  // The module's own cross-examination register under its own headings, as written.
+  const bear =
+    found.state === "absent"
+      ? registerTable(entry, "T6A.4", ["Bull Claim Attacked", "Bear Counter-Evidence"])
+      : undefined;
+  const written = bear && writtenTable(sourceOf(bear), leadHref(props));
+  const nothing = stance(entry).state === "gap" && found.state !== "rows" && !written;
   return (
     <LeadFrame props={props}>
       {nothing ? (
@@ -322,7 +330,7 @@ function Committee(props: LeadProps) {
             <StanceTile {...props} />
           </div>
           <div className="min-w-0 self-start lg:col-span-7">
-            <LedgerTile {...props} />
+            <LedgerTile props={props} found={found} written={written} />
           </div>
         </>
       )}

@@ -64,7 +64,7 @@ export function rowStarting(
 }
 
 /** A period label as the handoff writes it ("FY2024 / 2024-09-30" → "FY2024"). */
-export const periodLabel = (cell: string) => (cell.split(" / ")[0] ?? "").trim();
+const periodLabel = (cell: string) => (cell.split(" / ")[0] ?? "").trim();
 
 /**
  * A period as the change rule reads its label (`changePeriod`), with the whole `cell` where the

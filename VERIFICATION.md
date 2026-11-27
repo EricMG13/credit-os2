@@ -52,7 +52,10 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - S04 (CP-1/CP-2 owners, `07a69a04..da8ea88b`): reviewed the full allowlist, refused repayments above known opening debt and updated the owner-approved scale fixture to repay exactly USD 590m. The companion acceptance fix records the forecast refusal while the rest of the report still publishes. Independent audit and 326 merged-tree tests passed, plus the quality gate. Scope: deterministic synthetic CP-1/CP-2G outputs, T2H.6, and the report and completion event, with retired owner issues held.
 - S07 (library/tooling, `07a69a04..9cc8fffa`): recovered legacy holds and downloads, serialized the publication scan and install, localized malformed input issues, and repaired selected-revision packaging and proof navigation. The merged-tree gate, 211 Python tests, 578 Node library/resolver tests, production build and 79 script tests passed on Node 24.16.0. Scope: synthetic publication with actual macOS process contention and rollback, plus jsdom proof navigation. Native Windows concurrency and surviving BASE malformed nested-pack cases remain open.
 - S11 (shared web, `1925062c..10e6d9ac`): reviewed the full shared, Model, Run and Signal scope, preserved drafts across queued or stale writes, scoped digest read marks to the displayed issue, and matched chart legends and bridge labels to their data. The two owner-approved test updates cover paused digest reads and Portfolio Fit gap titles. Node 24.16.0 merged-tree checks passed (809 Model, 1,252 Signal and 298 Run tests, TypeScript and imports). Scope: synthetic DOM and checked-in fixtures, no browser or live service proof.
-- Not verified (so far): the weekly full suite, live and browser tests, the full Node 24 web job, and retained handoffs against the stricter number and header rules.
+- S08 report leads (`1925062c..5b4995c1`) preserve stated units, periods, figures, qualifiers, gaps and source handling. Fidelity checks used retained fixtures and synthetic DOM cases. The staged lead and caller run passed 1,450 tests. The final bridge wording passed 57 focused tests on the merge and independent React rendering, with only authored amounts shown. The Foundation candidate remains local pending decisions on the Segments and Periods assertions.
+- Final branch review corrected CP-3 unit selection and locked Signal form inputs while a write is pending. The independent CP-3 audit checked 29 scenarios and the merged rerun passed 575 tests. Signal passed 214 focused tests and independent cancellation and stale-response checks. Scope was offline with synthetic handoffs and service responses.
+- The fast CI job selects all 77 review-added Python test files. The offline selection passed 10,601 tests, plus six new CP-3 cases, after shorter macOS temporary paths resolved five environment errors. The merged quality gate, four import contracts and 577 library tests passed. Shared ForecastBreaks fixtures preserved the tested inputs and assertions, and the web duplication check passed at 2.97%.
+- Not verified (so far): the complete Node 24 web coverage run, native Windows, real browser and live/provider execution, the weekly full suite, and the two pending Foundation assertions.
 
 ## 2026-11-26 — Main-based TransDigm preview repairs
 
@@ -980,20 +983,3 @@ then 5; the narrow layout and the controls listed below.
   - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
-
-## 2026-11-24 — Frontend redesign: theme tokens and shell
-
-- Scope: `web/src/styles/theme.css` re-valued under the existing token names and
-  `web/src/shell/Shell.tsx` rebuilt as a top bar. No report, module, forecast or run page was
-  rebuilt; their layouts are unchanged and only take the new colours, type and radii. No handoff,
-  delivery or figure code changed, so no value, period, unit or source reference is affected.
-- Fidelity check: static build opened from disk in Chromium at 1440 and 390 px (`#/` and `#/kit`):
-  top bar, current-area tint and underline, buttons, badges, status marks, cards, metric tiles and
-  timeline draw in the new palette with no page errors. No report page was viewed with real run
-  data; the static build holds no report.
-- Web tests in four targeted runs: 320 files, 5,459 tests pass. One ConnectedApp run-start test
-  (leave-page prompt) failed once under load and passes alone, with and without this change.
-  Typecheck, knip, build and the 76 script tests pass. Full `npm run gates` and the Python suite
-  were not run.
-- `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
-  approved mockups to keep it.

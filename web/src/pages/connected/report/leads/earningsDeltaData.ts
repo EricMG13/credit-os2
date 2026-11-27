@@ -208,6 +208,8 @@ function statedChange(cell: string, unit: string): Change {
   return { text, basis: "stated", sign: null, magnitude: 0 };
 }
 
+const MISSING_UNIT = /^(?:[-–—]|0|n\/a|n\.a\.|not (?:applicable|available|stated|supplied))$/i;
+
 /**
  * The one change this page prints (kit `changeBetween`): the cell the module states for the change,
  * as written; else the exact difference of one measure between two periods of the same kind a
@@ -220,14 +222,15 @@ function changeOf(
   unit: string,
   statedCell: string | undefined,
 ): Change | null {
+  if (statedCell?.trim()) return statedChange(statedCell, unit);
+  if (!unit || MISSING_UNIT.test(unit) || namesSource(unit) || readCell(unit).kind === "gap")
+    return null;
   const figure = (one: Side) => (one.kind === "number" ? one.text : null);
   const made = changeBetween(
     { period: periods.prior ?? "", cell: figure(prior), unit },
     { period: periods.current ?? "", cell: figure(current), unit },
-    statedCell,
   );
   if (!made) return null;
-  if (made.stated) return statedChange(statedCell ?? "", unit);
   const abs = magnitudeOf(made.text);
   const sign = signOfAbs(abs, made.text.startsWith("-"));
   return { text: changeText(sign, abs, unit), basis: "computed", sign, magnitude: Number(abs) };
@@ -361,7 +364,9 @@ function byUnit(pairs: { unit: string; pair: Pair }[], amounts: boolean) {
 
 const period = (cell: string | undefined) => {
   const reading = readCell(cell ?? "");
-  const text = reading.kind === "text" ? safeText(reading.text) : "";
+  // Titled period cells also accept annual labels written as bare years.
+  const bareYear = /^\d{4}$/.test(cell?.trim() ?? "");
+  const text = reading.kind === "text" || bareYear ? safeText(reading.text) : "";
   return text && text !== IN_EVIDENCE ? text : null;
 };
 
