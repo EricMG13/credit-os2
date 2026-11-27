@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { StatusShape } from "@/components/status/shapes";
 import { StatsStrip, type Stat } from "@/components/kit/StatsStrip";
 import { TextLink } from "../../run/TextLink";
 import { reportPath, runPathway, withUnit, type CatalogueRun } from "../publishedReport";
@@ -13,13 +14,17 @@ import { stated } from "../reportView";
 import { CreditView } from "./CreditView";
 import { FigureMark, figureName } from "./FigureMark";
 import { useFigureTrace } from "./figureTrace";
-import type { IssuerGroup } from "./group";
+import type { IssuerGroup, SectorSlot } from "./group";
 import { useNextEvent, useSeen } from "./nextEvent";
 import { useScopedSnapshots } from "./rowSnapshot";
+import { SECTOR } from "../visuals/signal/scales";
 
 /** The columns of a row on a wide screen; below it a row stacks and each cell names itself. */
 export const ROW_COLUMNS =
   "xl:grid-cols-[minmax(15rem,1.6fr)_6.5rem_repeat(3,minmax(8rem,1fr))_minmax(10rem,1.1fr)_minmax(11rem,1.2fr)]";
+
+/** The three figures a row draws, left to right. */
+export const FIGURE_KEYS = ["net_leverage", "coverage", "cash"] as const;
 
 const CELL_LABEL = "text-caption text-text-tertiary xl:sr-only";
 const QUIET_LINK =
@@ -29,9 +34,18 @@ const QUIET_LINK =
 const isoDay = (date: string) => (/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined);
 
 function StateChip({ group }: { group: IssuerGroup }) {
-  if (group.state === "Test preview") return <Badge color="brand">Test preview</Badge>;
   if (group.state === "Delivered") return <StatusBadge set="Module state" state="Delivered" />;
-  return <Badge color="gray">No report published</Badge>;
+  // Caution, something to look at (a test preview); or nothing to open (a ring).
+  const preview = group.state === "Test preview";
+  return (
+    <Badge
+      color="gray"
+      icon={<StatusShape shape={preview ? "triangle" : "ring"} />}
+      className="gap-1 text-text-primary"
+    >
+      {group.state}
+    </Badge>
+  );
 }
 
 function Runs({ group }: { group: IssuerGroup }) {
@@ -170,10 +184,13 @@ function moreStats(catalogue: CatalogueRun, trace: ReturnType<typeof useFigureTr
 export function IssuerRow({
   group,
   coverageInHeader = false,
+  sectorSlot,
 }: {
   group: IssuerGroup;
   /** The Interest cover column header already carries the qualified label. */
   coverageInHeader?: boolean;
+  /** The sector's category slot (1 to 8) for its dot; none, no dot. */
+  sectorSlot?: SectorSlot;
 }) {
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -187,6 +204,7 @@ export function IssuerRow({
   // Published runs, as the run list the link opens counts them.
   const count = group.openable.size || entries.length;
   const runs = `${String(count)} ${count === 1 ? "run" : "runs"}`;
+  const [leverage, coverage, cash] = FIGURE_KEYS;
   const figure = (key: string, name: string, order: string) => {
     const shown = figureName(key, name, metrics[key]);
     const qualified = shown !== name;
@@ -237,7 +255,17 @@ export function IssuerRow({
             </h3>
             {(newest.ticker || newest.sector) && (
               <p className="text-small text-text-secondary">
-                {[newest.ticker, newest.sector].filter(Boolean).join(" · ")}
+                {newest.ticker}
+                {newest.ticker && newest.sector && " · "}
+                {newest.sector && sectorSlot !== undefined && (
+                  <span
+                    aria-hidden="true"
+                    data-sector-dot
+                    style={{ backgroundColor: SECTOR[sectorSlot - 1] }}
+                    className="mr-1.5 inline-block size-2 rounded-full align-middle"
+                  />
+                )}
+                {newest.sector}
               </p>
             )}
             {newest.period && newest.period !== newest.date && (
@@ -303,9 +331,9 @@ export function IssuerRow({
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3 xl:contents">
-          {figure("net_leverage", "Net leverage", "xl:order-3")}
-          {figure("coverage", "Interest cover", "xl:order-4")}
-          {figure("cash", "Liquidity (cash)", "xl:order-5")}
+          {figure(leverage, "Net leverage", "xl:order-3")}
+          {figure(coverage, "Interest cover", "xl:order-4")}
+          {figure(cash, "Liquidity (cash)", "xl:order-5")}
         </div>
         <div className="flex min-w-0 flex-col gap-1 xl:order-7">
           <span className={CELL_LABEL}>Next event</span>
