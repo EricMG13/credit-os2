@@ -8,6 +8,7 @@ import { EventAxis } from "../../visuals/EventAxis";
 import { PublishedSource } from "../PublishedTrace";
 import { GapNote, Tile, Well } from "../overview/Tile";
 import { GapWayOn } from "./kit/LeadFrame";
+import { Legend, MarkSwatch, type LegendKind } from "./kit/marks/Legend";
 import {
   axisAsOf,
   IN_EVIDENCE,
@@ -233,9 +234,36 @@ const BAR_TONE = {
   uses: "bg-waterfall-down",
   /** A waterfall step of zero: a mark at its place, neither a rise nor a fall. */
   flat: "bg-connector",
+  /** The category colours a named case or edge type takes (`caseStyle`); slots 3 to 6, then 8. */
+  "category-3": "bg-category-3",
+  "category-4": "bg-category-4",
+  "category-5": "bg-category-5",
+  "category-6": "bg-category-6",
+  "category-8": "bg-category-8",
+  /** A bar that is neither a case nor a direction: the tertiary text colour. */
+  neutral: "bg-text-tertiary",
 } as const;
 
 export type BarTone = keyof typeof BAR_TONE;
+
+/** The category colour of a case, as a bar tone and a legend colour at once. */
+type CaseTone = "category-3" | "category-4" | "category-5" | "category-6" | "category-8";
+
+const CASE_STYLES: readonly { tone: CaseTone; shape: LegendKind }[] = [
+  { tone: "category-3", shape: "dot" },
+  { tone: "category-4", shape: "square" },
+  { tone: "category-5", shape: "diamond" },
+  { tone: "category-6", shape: "ring" },
+];
+
+/**
+ * The colour and marker shape of the `index`th named case (register order): slots 3, 4, 5 and 6
+ * with a dot, square, diamond and ring; every further case shares slot 8 as a dot, told apart by
+ * its words (colour-signal-build ruling C6). Slots 1, 2 and 7 stay with status and direction.
+ */
+export function caseStyle(index: number): { tone: CaseTone; shape: LegendKind } {
+  return CASE_STYLES[index] ?? { tone: "category-8", shape: "dot" };
+}
 
 /** The one bar track of the leads: its height and radius. */
 const BAR = { track: "relative block h-3 min-w-0", bar: "rounded-ds-xs" } as const;
@@ -481,6 +509,56 @@ const NODE =
 const EDGE_TYPE =
   "rounded-ds-xs border border-border-hairline px-1.5 text-caption text-text-tertiary";
 
+/** The classes that draw one edge-type colour as a connector, an arrowhead, a rule and a glyph. */
+const EDGE_CLASS: Record<CaseTone, { stroke: string; fill: string; rule: string; text: string }> = {
+  "category-3": {
+    stroke: "stroke-category-3",
+    fill: "fill-category-3",
+    rule: "border-category-3",
+    text: "text-category-3",
+  },
+  "category-4": {
+    stroke: "stroke-category-4",
+    fill: "fill-category-4",
+    rule: "border-category-4",
+    text: "text-category-4",
+  },
+  "category-5": {
+    stroke: "stroke-category-5",
+    fill: "fill-category-5",
+    rule: "border-category-5",
+    text: "text-category-5",
+  },
+  "category-6": {
+    stroke: "stroke-category-6",
+    fill: "fill-category-6",
+    rule: "border-category-6",
+    text: "text-category-6",
+  },
+  "category-8": {
+    stroke: "stroke-category-8",
+    fill: "fill-category-8",
+    rule: "border-category-8",
+    text: "text-category-8",
+  },
+};
+
+type EdgeTones = ReadonlyMap<string, CaseTone>;
+
+/**
+ * Each distinct edge type, sorted so its colour does not follow the order the rows were written,
+ * mapped to a category colour; an edge with no type has none.
+ */
+function edgeTones(edges: readonly Edge[]): EdgeTones {
+  const types = [...new Set(edges.flatMap((edge) => (edge.type ? [edge.type] : [])))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  return new Map(types.map((type, index) => [type, caseStyle(index).tone]));
+}
+
+const toneOf = (tones: EdgeTones | undefined, edge: Edge) =>
+  edge.type ? tones?.get(edge.type) : undefined;
+
 /**
  * An element's measured content width, from the browser's ResizeObserver; null until measured, so
  * a layout that needs room is never drawn before the room is known.
@@ -519,11 +597,24 @@ const fits = (columns: number, width: number | null) =>
 const shortWords = (edge: Edge) => edge.relationship.length <= 20;
 
 /** An edge's words: its relationship as written and its edge type, both at every width. */
-function EdgeWords({ edge }: { edge: Edge }) {
+function EdgeType({ edge, tone }: { edge: Edge; tone: CaseTone | undefined }) {
+  if (!edge.type) return null;
+  if (!tone) return <span className={EDGE_TYPE}>{edge.type}</span>;
+  return (
+    <span className={cx(EDGE_TYPE, "inline-flex items-center gap-1")}>
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="flex-none">
+        <MarkSwatch kind="line" tone={tone} x={0} y={0} />
+      </svg>
+      {edge.type}
+    </span>
+  );
+}
+
+function EdgeWords({ edge, tone }: { edge: Edge; tone?: CaseTone | undefined }) {
   return (
     <>
       {edge.relationship && <span className="wrap-anywhere">{edge.relationship}</span>}
-      {edge.type && <span className={EDGE_TYPE}>{edge.type}</span>}
+      <EdgeType edge={edge} tone={tone} />
     </>
   );
 }
@@ -575,7 +666,7 @@ function useRoutes(edges: readonly Edge[]) {
  * The map in columns by depth, a connector and its words per edge; drawn only where the columns
  * fit the tile, so it is never wider than the tile.
  */
-function MapDrawing({ edges }: { edges: readonly Edge[] }) {
+function MapDrawing({ edges, tones }: { edges: readonly Edge[]; tones?: EdgeTones | undefined }) {
   const columns = mapLayout(edges);
   const arrow = useId();
   const { box, drawn } = useRoutes(edges);
@@ -603,6 +694,22 @@ function MapDrawing({ edges }: { edges: readonly Edge[] }) {
           viewBox={`0 0 ${String(drawn.width)} ${String(drawn.height)}`}
         >
           <defs>
+            {tones &&
+              [...new Set(tones.values())].map((tone) => (
+                <marker
+                  key={tone}
+                  id={`${arrow}-${tone}`}
+                  viewBox="0 0 8 8"
+                  refX="8"
+                  refY="4"
+                  markerWidth="8"
+                  markerHeight="8"
+                  markerUnits="userSpaceOnUse"
+                  orient="auto"
+                >
+                  <path d="M0,0 L8,4 L0,8 z" className={EDGE_CLASS[tone].fill} />
+                </marker>
+              ))}
             <marker
               id={arrow}
               viewBox="0 0 8 8"
@@ -615,15 +722,19 @@ function MapDrawing({ edges }: { edges: readonly Edge[] }) {
               <path d="M0,0 L8,4 L0,8 z" className="fill-connector" />
             </marker>
           </defs>
-          {drawn.routes.map((route) => (
-            <path
-              key={route.key}
-              d={route.path}
-              fill="none"
-              className="stroke-connector"
-              markerEnd={`url(#${arrow})`}
-            />
-          ))}
+          {drawn.routes.map((route) => {
+            const tone = toneOf(tones, route.edge);
+            return (
+              <path
+                key={route.key}
+                d={route.path}
+                fill="none"
+                className={tone ? EDGE_CLASS[tone].stroke : "stroke-connector"}
+                strokeWidth={tone ? 2 : undefined}
+                markerEnd={`url(#${tone ? `${arrow}-${tone}` : arrow})`}
+              />
+            );
+          })}
         </svg>
       )}
       {drawn.width > 0 &&
@@ -634,7 +745,7 @@ function MapDrawing({ edges }: { edges: readonly Edge[] }) {
             className="absolute flex w-32 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 bg-surface-card px-1 text-center text-caption leading-tight text-text-secondary"
             style={{ left: route.x, top: route.y }}
           >
-            <EdgeWords edge={route.edge} />
+            <EdgeWords edge={route.edge} tone={toneOf(tones, route.edge)} />
           </span>
         ))}
     </div>
@@ -653,13 +764,17 @@ export function NodeList({
   edges,
   gaps = [],
   href,
+  typeColours = false,
 }: {
   label: string;
   edges: readonly Edge[];
   gaps?: readonly MapGap[];
   href?: (line: number) => string;
+  /** Draw each edge type in its own category colour (a legend in words is the caller's). */
+  typeColours?: boolean;
 }) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>();
+  const tones = typeColours ? edgeTones(edges) : undefined;
   const nodes = [...new Map(edges.map((edge) => [nodeOf(edge), edge.from])).entries()];
   const [only] = edges;
   const layout =
@@ -672,7 +787,7 @@ export function NodeList({
   const twoColumns = layout === "flow" && nodes.length >= 6 && (width ?? 0) >= 900;
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
-      {layout === "columns" && <MapDrawing edges={edges} />}
+      {layout === "columns" && <MapDrawing edges={edges} tones={tones} />}
       {/* One edge reads in a line at its content's width: node → relationship · type → node. */}
       <ul
         aria-label={label}
@@ -699,33 +814,48 @@ export function NodeList({
             <ul className={cx("flex min-w-0", inline ? "flex-wrap" : "flex-col gap-1.5")}>
               {edges
                 .filter((edge) => nodeOf(edge) === node)
-                .map((edge) =>
-                  inline ? (
+                .map((edge) => {
+                  const tone = toneOf(tones, edge);
+                  const glyph = tone && EDGE_CLASS[tone].text;
+                  return inline ? (
                     <li
                       key={edge.line}
                       className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5"
                     >
                       <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-small text-text-secondary">
-                        <span aria-hidden="true">→</span>
+                        <span aria-hidden="true" className={glyph}>
+                          →
+                        </span>
                         {edge.relationship && (
                           <span className="wrap-anywhere">{edge.relationship}</span>
                         )}
                         {edge.relationship && edge.type && <span aria-hidden="true">·</span>}
-                        {edge.type && <span className={EDGE_TYPE}>{edge.type}</span>}
-                        <span aria-hidden="true">→</span>
+                        <EdgeType edge={edge} tone={tone} />
+                        <span aria-hidden="true" className={glyph}>
+                          →
+                        </span>
                       </span>
                       <span className={NODE}>{edge.to}</span>
                     </li>
                   ) : (
                     <li key={edge.line} className="flex min-w-0 flex-col gap-1.5 pl-3">
-                      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-l border-connector pl-3 text-small text-text-secondary">
-                        <span aria-hidden="true">↓</span>
-                        <EdgeWords edge={edge} />
+                      <span
+                        className={cx(
+                          "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pl-3 text-small text-text-secondary",
+                          tone
+                            ? cx("border-l-2", EDGE_CLASS[tone].rule)
+                            : "border-l border-connector",
+                        )}
+                      >
+                        <span aria-hidden="true" className={glyph}>
+                          ↓
+                        </span>
+                        <EdgeWords edge={edge} tone={tone} />
                       </span>
                       <span className={NODE}>{edge.to}</span>
                     </li>
-                  ),
-                )}
+                  );
+                })}
             </ul>
           </li>
         ))}
@@ -1033,6 +1163,7 @@ export function MapTile({
   title,
   href,
   absent,
+  typeColours = false,
 }: {
   map: MapRead;
   span: Span;
@@ -1041,6 +1172,8 @@ export function MapTile({
   title: ReactNode;
   href: (line?: number) => string;
   absent: string;
+  /** Colour each edge type (category colours, a legend in its words); off, the map is neutral. */
+  typeColours?: boolean;
 }) {
   if (map.state === "absent")
     return <LeadGap span={span} label={label} kicker={kicker} title={title} reason={absent} />;
@@ -1055,14 +1188,28 @@ export function MapTile({
         trace={map.line === undefined ? undefined : <Trace href={href(map.line)} name={label} />}
       />
     );
+  // One type is keyed by its own chip (swatch and word), so a legend repeating it would add only
+  // a second copy of the word; from two types on, the legend is the key to the colours.
+  const tones = typeColours ? [...edgeTones(map.edges)] : [];
+  const legend =
+    tones.length > 1 ? tones.map(([text, tone]) => ({ kind: "line" as const, tone, text })) : [];
   return (
     <LeadFigure
       span={span}
       label={label}
       kicker={kicker}
       title={title}
+      legend={legend.length > 0 ? <Legend items={legend} /> : undefined}
       trace={<Trace href={href(map.line)} name={label} />}
-      figure={<NodeList label={label} edges={map.edges} gaps={map.gaps} href={href} />}
+      figure={
+        <NodeList
+          label={label}
+          edges={map.edges}
+          gaps={map.gaps}
+          href={href}
+          typeColours={typeColours}
+        />
+      }
       table={edgeTable(map.edges, href)}
     />
   );

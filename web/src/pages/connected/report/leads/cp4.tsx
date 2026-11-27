@@ -187,6 +187,7 @@ export const LegalLead = withDraws(
           title={item.title}
           href={href}
           absent={`This page could not read ${item.noun}.`}
+          typeColours
         />
       );
     const deep = (item: (typeof maps)[number]) =>

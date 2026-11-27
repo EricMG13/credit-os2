@@ -359,3 +359,29 @@ it("states the baskets gap only for a basket register the page could not read", 
     ),
   ).toBeVisible();
 });
+
+// Colour-signal-build ruling R2/C6: CP-4's maps colour each edge type; a lone type is keyed by its
+// chip, several by a legend in words.
+it("colours each map's edge type with a line swatch in its category colour", () => {
+  render(<LegalLead {...leadProps(synthetic())} />);
+  for (const name of ["Legal entities", "Intercreditor"]) {
+    const tile = screen.getByRole("region", { name });
+    expect(tile.querySelector("[data-map] svg [data-swatch=line]")).toHaveClass(
+      "stroke-category-3",
+    );
+  }
+});
+
+it("keys a map of several edge types with a legend of their words, in name order", () => {
+  const deep = SYNTHETIC.replace(
+    "| Synthetic A | Synthetic link | Payment rank | Synthetic B | Synthetic p.1 |\n\n### T4C.5",
+    "| Synthetic A | Synthetic link | Payment rank | Synthetic B | Synthetic p.1 |\n| Synthetic B | Second link | Security rank | Synthetic C | Synthetic p.2 |\n\n### T4C.5",
+  );
+  const made = synthetic();
+  made.sections = sectionsOf(deep);
+  render(<LegalLead {...leadProps(made)} />);
+  const legend = screen
+    .getByRole("region", { name: "Intercreditor" })
+    .querySelectorAll('[data-part="legend"] li');
+  expect([...legend].map((item) => item.textContent)).toEqual(["Payment rank", "Security rank"]);
+});
