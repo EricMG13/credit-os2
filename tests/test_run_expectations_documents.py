@@ -91,3 +91,58 @@ def test_a_workbook_finding_is_unchanged() -> None:
     issue = Issue(file="w.xlsx", sheet="Limits", cell="B4", problem="blank", fix="x")
     assert finding_text(issue) == "Limits!B4: blank"
     assert finding_text(issue, export=False) == "Limits!B4: blank"
+
+
+# --- C10 fix round 2: regressions against BASE 030805f ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Executed_Credit_Agreement_summary.pdf",  # BASE: unrecognised
+        "TDG_Credit_Agreement_summary_executed.pdf",  # BASE: unrecognised
+        "Q3_Credit_Agreement_Compliance_Certificate.pdf",  # BASE: unrecognised
+        "Amendment_1_to_Credit_Agreement.pdf",  # BASE: unrecognised
+        "TDG_Second_Amendment_Credit_Agreement_executed.pdf",  # BASE: unrecognised
+        "TDG_Credit_Agreement_blackline.pdf",  # BASE: unrecognised
+    ],
+)
+def test_a_file_name_with_a_summary_or_amendment_word_is_not_a_primary_agreement(
+    name: str,
+) -> None:
+    assert guess_kind(name, [""]).kind == "unrecognised"
+
+
+def test_title_start_file_names_with_those_words_keep_their_base_reading() -> None:
+    assert guess_kind("Credit_Agreement_Memo.pdf", [""]).kind == "credit_agreement"  # BASE
+    assert guess_kind("Second_Amendment_to_Credit_Agreement.pdf", [""]).kind == "amendment"  # BASE
+    assert guess_kind("Notes_Indenture_2029.pdf", [""]).kind == "indenture"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "The first lien credit agreement permits incremental debt up to USD 100 million.",
+        "Senior notes indenture permits more debt",
+        "Term loan credit agreement requires hedging",
+        "FIRST LIEN CREDIT AGREEMENT among the Borrower",
+    ],
+)
+def test_a_prose_line_with_a_qualifier_is_not_a_title(line: str) -> None:
+    assert _kind("notes.txt", line) == "unrecognised"  # BASE: unrecognised
+
+
+@pytest.mark.parametrize(
+    ("line", "kind"),
+    [
+        ("FIRST LIEN CREDIT AGREEMENT dated as of June 1, 2024", "credit_agreement"),
+        (
+            "SECOND AMENDED AND RESTATED CREDIT AGREEMENT dated as of 12 June 2024",
+            "credit_agreement",
+        ),
+        ("THE SENIOR NOTES INDENTURE.", "indenture"),
+        ("The credit agreement permits more.", "credit_agreement"),  # BASE: title-start
+    ],
+)
+def test_a_qualified_title_with_a_date_or_dot_is_a_title(line: str, kind: str) -> None:
+    assert _kind("a.pdf", line) == kind

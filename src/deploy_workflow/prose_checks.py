@@ -909,7 +909,9 @@ class _Figure(NamedTuple):
 
 
 _CURRENCY_CODES = {"us$": "USD", "usd": "USD", "$": "USD", "eur": "EUR", "€": "EUR", "£": "GBP"}
-# A prefixed dollar (`A$`, `C$`, `HK$`) is its own currency, kept as written.
+# A prefixed dollar (`A$`, `HK$`, `USD$`) is a figure's currency as written, but its key is its ISO
+# code, so `A$250 million` and `AUD 250 million` are one currency (notation, not a loss).
+_DOLLAR_CODES = {"USD$": "USD", "A$": "AUD", "C$": "CAD", "HK$": "HKD", "NZ$": "NZD", "S$": "SGD"}
 _CURRENCY_WORD = re.compile(r"US\$|USD|(?-i:[A-Z]{1,3}\$)|\$|EUR|€|GBP|£", re.IGNORECASE)
 
 
@@ -941,11 +943,17 @@ _REFERENCE = re.compile(
     r"\b(?:notes?|pages?|pp?\.|rows?|items?|steps?|sections?|tables?)\s*$", re.IGNORECASE
 )
 _YEAR = re.compile(r"(?:19|20)\d\d")
+# ISO 4217 codes that are also English words (`TOP 10 lenders`, `TRY 5 times`): never read as a
+# currency, so a change of case or wording around them is not a lost value.
+_WORD_CODES = frozenset(
+    {"ALL", "AMD", "ANG", "BAM", "BOB", "COP", "CUP", "GEL", "MAD", "MOP", "PEN", "RUB", "SOS"}
+    | {"TOP", "TRY"}
+)
 # An ISO 4217 code counts only in capitals and right before the figure (`ALL lenders agreed 250
 # million` has none); a prefixed dollar is written as `A$`.
 _CURRENCY_BEFORE = re.compile(
     r"(?:US\$|USD|\$|EUR|€|GBP|£"
-    rf"|(?-i:(?<![A-Za-z])(?:[A-Z]{{1,3}}\$|{'|'.join(sorted(ISO_4217))})))\s?$",
+    rf"|(?-i:(?<![A-Za-z])(?:[A-Z]{{1,3}}\$|{'|'.join(sorted(ISO_4217 - _WORD_CODES))})))\s?$",
     re.IGNORECASE,
 )
 _PERIOD_BEFORE = re.compile(
@@ -1029,22 +1037,30 @@ def _is_note_on(found: re.Match[str], before: re.Match[str]) -> bool:
 
 
 _GLUED_BEFORE = re.compile(r"(?<![^\W\d])")  # not directly after a letter or underscore
-_LABEL_HYPHEN = re.compile(r"[A-Za-z]-\Z|\A-[A-Za-z]")
+_UNIT_SUFFIX = re.compile(r"(?i:x|mm|m|bn|b|bps|bp|pct|k)(?![A-Za-z])")
+_ORDINAL_SUFFIX = re.compile(r"(?i:st|nd|rd|th)(?![A-Za-z])")
 
 
 def _is_label_number(found: re.Match[str], base: str) -> bool:
-    """A number check 8 does not read as a figure: glued to letters (`2nd`, `A2`, `FY24x`), or
-    hyphen-joined to a letter either side (`B-1`, `10-K`, `12-month`). A currency code or symbol
-    right before it keeps it a figure (`USD1,250`)."""
+    """A number check 8 does not read as a figure: an integer with no unit that is an ordinal
+    (`2nd`), has a letter glued before it (`A2`, `2Q24`) or hyphen-joined to a letter either side
+    (`B-1`, `10-K`, `12-month`). A decimal, a unit (`10.5x`, `987mm`, `5%`) or a currency code or
+    symbol right before it keeps it a figure (`USD1,250`)."""
     start, end = found.start("n"), found.end("n")
-    if _ends_at(_CURRENCY_BEFORE, base, found.start("minus") if found["minus"] else start):
-        return False
     tail = base[end:]
+    if (
+        "." in found["n"]
+        or AFTER.match(tail)
+        or _UNIT_SUFFIX.match(tail)
+        or _ends_at(_CURRENCY_BEFORE, base, found.start("minus") if found["minus"] else start)
+    ):
+        return False
     return bool(
-        (tail[:1].isalpha() and AFTER.match(tail) is None)
+        _ORDINAL_SUFFIX.match(tail)
         or _GLUED_BEFORE.match(base, start) is None
-        or _LABEL_HYPHEN.search(base[max(start - 2, 0) : start])
-        or _LABEL_HYPHEN.search(tail[:2])
+        or re.search(r"[A-Za-z]-\Z", base[max(start - 2, 0) : start])
+        or tail.startswith("-")
+        and tail[1:2].isalpha()
     )
 
 
@@ -1117,7 +1133,8 @@ def _fidelity_problem(figure: _Figure, held: list[_Figure]) -> str | None:
 
 
 def _figure_key(figure: _Figure) -> tuple[str, bool, str | None, str | None]:
-    return figure.number, figure.negative, figure.unit, figure.currency
+    code = _DOLLAR_CODES.get(figure.currency or "", figure.currency)
+    return figure.number, figure.negative, figure.unit, code
 
 
 def _is_percent_of(figure: _Figure, held: list[_Figure]) -> bool:

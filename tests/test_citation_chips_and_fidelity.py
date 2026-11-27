@@ -4,6 +4,7 @@ currency codes, line numbering and label numbers (prose_checks). Expected values
 import hashlib
 import json
 
+import pytest
 from credit_os.source import parse_source
 
 from deploy_workflow.credit_os_chips import Pages, chips_for_output, inventory, quote_span
@@ -211,3 +212,51 @@ def test_a_currency_glued_figure_is_still_checked():
     held = "| ID | Value |\n| --- | --- |\n| C-1 | USD 1,250 million |"
     assert fidelity("Revenue was USD1,250 million.", held) == ()
     assert len(fidelity("Revenue was USD1,300 million.", held)) == 1
+
+
+# --- C10 fix round 2: regressions against BASE 030805f ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("passage", "count"),
+    [
+        ("Leverage is 9.87x-10.5x.", 2),  # BASE 2
+        ("Cover 9.87m-10.1m.", 2),  # BASE 2
+        ("Range 987bp-1,100bp.", 2),  # BASE 2
+        ("EBITDA-1.5x was seen.", 1),  # BASE 1
+        ("Net debt/EBITDA-4.0x was seen.", 1),  # BASE 1
+        ("Revenue 987mm.", 1),  # BASE 1
+        ("Revenue 987MM.", 1),  # BASE 1
+        ("Revenue 987B.", 1),  # BASE 1
+        ("Rate 9.87pct.", 1),  # BASE 1
+        ("Revenue 987bn.", 1),  # BASE 1
+    ],
+)
+def test_a_figure_with_a_unit_or_decimal_is_always_checked(passage, count):
+    assert len(fidelity(passage)) == count
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("TOP 10 lenders hold 45%", "Top 10 lenders hold 45%"),  # BASE []
+        ("ALL 25 facilities", "All 25 facilities"),  # BASE []
+        ("ALL 250 lenders agreed", "All 250 lenders agreed"),  # BASE []
+        ("TRY 5 times", "Try 5 times"),  # BASE []
+        ("MAD 5 million drawn", "Morocco dirham 5 million drawn"),  # BASE []
+        ("USD$250 million", "USD 250 million"),  # BASE []
+        ("USD 250 million", "USD$250 million"),  # BASE []
+        ("A$250 million", "AUD 250 million"),  # BASE []
+        ("AUD 250 million", "A$250 million"),  # BASE []
+        ("HK$250 million", "HKD 250 million"),  # BASE []
+        ("C$250 million", "CAD 250 million"),  # BASE []
+    ],
+)
+def test_word_codes_and_notation_only_currency_changes_lose_nothing(old, new):
+    assert lost(old, new) == []
+
+
+def test_a_prefixed_dollar_to_another_currency_is_still_lost():
+    assert lost("Debt A$250 million", "Debt $250 million") == [("A$ 250 million", 1)]
+    assert lost("Debt NZ$250 million", "Debt $250 million") == [("NZ$ 250 million", 1)]
+    assert lost("Debt CAD 250 million", "Debt AUD 250 million") == [("CAD 250 million", 1)]
