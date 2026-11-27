@@ -1,4 +1,4 @@
-import { AMOUNT, step } from "../../visuals/signal/scales";
+import { AMOUNT, SECTOR, step } from "../../visuals/signal/scales";
 import { evidencePath, unitLabel, type PublishedRun, type Snapshot } from "../../publishedReport";
 import type { ReportView } from "../../reportView";
 import { figureSource, unitOf, type Cell, type FigureSource } from "./figureData";
@@ -42,7 +42,7 @@ const DEBT_STACK = "Debt stack";
 /** The undated legend swatch: the amber with the edge-coloured hatch the mark draws. */
 const HATCH_SWATCH = {
   backgroundImage:
-    "repeating-linear-gradient(45deg, transparent 0 3px, var(--color-scale-amount-edge) 3px 4px)",
+    "repeating-linear-gradient(45deg, transparent 0 3.5px, var(--color-scale-amount-edge) 3.5px 4.5px, transparent 4.5px 8px)",
 } as const;
 
 type WallMark = ReturnType<typeof wallGeometry>["marks"][number];
@@ -51,7 +51,9 @@ type WallMark = ReturnType<typeof wallGeometry>["marks"][number];
  * of the largest stated amount (colour-signal-build ruling C4). */
 function WallMarkShape({ mark, bar, largest }: { mark: WallMark; bar: number; largest: number }) {
   const x = mark.centre - bar / 2;
-  if (mark.height === null)
+  const value = mark.cell?.value ?? null;
+  const { height } = mark;
+  if (value === null || height === null)
     return (
       <rect
         data-gap={mark.label}
@@ -66,7 +68,7 @@ function WallMarkShape({ mark, bar, largest }: { mark: WallMark; bar: number; la
       />
     );
   // A stated zero is a figure: a rule on the axis, never the gap mark.
-  if (mark.height === 0)
+  if (value <= 0)
     return (
       <line
         data-bar={mark.label}
@@ -78,16 +80,17 @@ function WallMarkShape({ mark, bar, largest }: { mark: WallMark; bar: number; la
         className="stroke-scale-amount-edge"
       />
     );
-  const amount = step((mark.cell?.value ?? 0) / largest, AMOUNT);
+  // Rounded to 12 places first: 1.2 / 3 is 0.39999999999999997 and would floor a bin down.
+  const amount = step(Number((value / largest).toPrecision(12)), AMOUNT);
   if (!mark.undated)
     return (
       <rect
         data-bar={mark.label}
         x={x}
-        y={WALL.base - mark.height}
+        y={WALL.base - height}
         width={bar}
-        height={mark.height}
-        rx={Math.min(3, mark.height / 2)}
+        height={height}
+        rx={Math.min(3, height / 2)}
         strokeWidth="1"
         style={{ fill: amount }}
         className="stroke-scale-amount-edge"
@@ -96,9 +99,9 @@ function WallMarkShape({ mark, bar, largest }: { mark: WallMark; bar: number; la
   // After the axis break: the amount's step underneath, the hatch over it.
   const place = {
     x: x + 0.75,
-    y: WALL.base - mark.height + 0.75,
+    y: WALL.base - height + 0.75,
     width: bar - 1.5,
-    height: Math.max(0.5, mark.height - 0.75),
+    height: Math.max(0.5, height - 0.75),
     rx: 2.5,
   };
   return (
@@ -269,9 +272,9 @@ function MaturityWall({ source, href }: { source: Ready; href: NoteHref }) {
               patternTransform="rotate(45)"
             >
               <line
-                x1="0"
+                x1="4"
                 y1="0"
-                x2="0"
+                x2="4"
                 y2="8"
                 strokeWidth="1"
                 className="stroke-scale-amount-edge"
@@ -416,14 +419,15 @@ function StackSegment({ segment, fill }: { segment: Segment; fill: string }) {
   );
 }
 
-/** Each segment's colour: one per claim group (secured, not secured, not stated), taken in the
- * order the groups first appear in rank order (colour-signal-build ruling C6). */
+/** Each segment's colour: one per stated claim group (secured, not secured), taken in the order
+ * the groups first appear among segments that state an amount; a group not stated is always the
+ * slate slot, which no word names (colour-signal-build ruling C6). */
 function groupFills(segments: Segment[]) {
-  const groups: (boolean | null)[] = [];
-  return segments.map((segment) => {
-    if (!groups.includes(segment.secured)) groups.push(segment.secured);
-    return categoryAt(groups.indexOf(segment.secured));
-  });
+  const order: boolean[] = [];
+  for (const { secured, amount } of segments)
+    if (secured !== null && amount.value !== null && !order.includes(secured)) order.push(secured);
+  return ({ secured }: Segment) =>
+    secured === null ? SECTOR[7] : categoryAt(order.indexOf(secured));
 }
 
 function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
@@ -432,7 +436,7 @@ function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
   if (!rows) return <FigureGap reason="The debt stack states no amount for any facility." />;
   const { segments, height } = stackGeometry(rows);
   const width = STACK.width + STACK_LABEL.bracket;
-  const fills = groupFills(segments);
+  const fillOf = groupFills(segments);
   return (
     <>
       <div className="flex items-start gap-2">
@@ -448,7 +452,7 @@ function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
             <GapPattern id="stack-gap" />
           </defs>
           {segments.map((segment, at) => (
-            <StackSegment key={at} segment={segment} fill={fills[at] ?? ""} />
+            <StackSegment key={at} segment={segment} fill={fillOf(segment)} />
           ))}
           {segments.map((segment, at) => (
             <StackBracket key={at} segment={segment} />

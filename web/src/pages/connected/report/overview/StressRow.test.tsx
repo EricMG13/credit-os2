@@ -925,3 +925,25 @@ it("draws one colour a case, the same in every panel, with a swatch beside each 
   );
   for (const gap of tile.querySelectorAll("[data-gap]")) expect(fill(gap)).toBe("");
 });
+
+it("colours a bar by its case, so a gap in the middle case leaves the other two their own colours", () => {
+  render(
+    <StressRow
+      {...rowProps([
+        downsideWith([
+          ["All-in cover (x)", "3.10", "2.00", "1.40", "Filing p.1"],
+          ["Net leverage (x)", "1.25", "Not calculated: net debt is missing", "1.40", "Filing p.1"],
+        ]),
+      ])}
+    />,
+  );
+  const fill = (element: Element) => (element as SVGElement).style.fill;
+  const panel = (name: string) =>
+    [...downsideTile().querySelectorAll(`[data-panel="${name}"] [data-bar]`)].map(fill);
+  expect(panel("All-in cover (x)")).toEqual([
+    "var(--color-category-1)",
+    "var(--color-category-3)",
+    "var(--color-category-4)",
+  ]);
+  expect(panel("Net leverage (x)")).toEqual(["var(--color-category-1)", "var(--color-category-4)"]);
+});
