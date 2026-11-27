@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { evidencePath, type OutputEntry } from "../../publishedReport";
 import { PublishedTable } from "../../ReportContent";
-import { unitCells } from "../moduleRecordsModel";
+import { unitCells } from "../../moneyUnits";
 import { PublishedSource } from "../PublishedTrace";
 import { GapNote, Tile } from "../overview/Tile";
 import type { PassageItem } from "./model";

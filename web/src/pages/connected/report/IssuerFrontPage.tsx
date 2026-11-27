@@ -5,7 +5,7 @@ import { printableBasis, printableTable, redactArchivedLocator } from "../export
 import { moduleName } from "../api";
 import { heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
-import { unitCells } from "./moduleRecordsModel";
+import { unitCells } from "../moneyUnits";
 import {
   containsReference,
   evidenceHref,
