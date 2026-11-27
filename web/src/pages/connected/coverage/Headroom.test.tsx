@@ -161,8 +161,10 @@ describe("Headroom", () => {
     expect(rows[2]).toHaveTextContent("+2x");
     expect(rows[3]).toHaveTextContent("Missing level");
     expect(rows[3]).toHaveTextContent("not computed");
+    expect(within(rows[3] as HTMLElement).getByText("Not supplied: unavailable")).toBeVisible();
     expect(rows[4]).toHaveTextContent("Missing limit");
     expect(rows[4]).toHaveTextContent("not computed");
+    expect(within(rows[4] as HTMLElement).getByText("Not supplied: unavailable")).toBeVisible();
     expect(rows[5]).toHaveTextContent("Ambiguous");
     expect(rows[5]).toHaveTextContent("ambiguous");
     expect(rows[5]).toHaveTextContent("2x; 3x");
