@@ -157,7 +157,9 @@ is the primary checkout. Keep the database and local evidence there across sessi
    and a plain-English summary. A note preserves the current writer revision. For “explain D-04”, use `explain RUN D-04` on the
    ledger that issued the decision. Translate its consequence, reason and evidence into plain
    English. Record each redirect with its expected revision and a fresh decision ID. Preserve
-   the original ID in the redirect payload. A pause or resume uses the corresponding `action`.
+   the original ID in the redirect payload. On restart use `recover RUN` to settle any
+   terminal unmetered workers whose accounting was interrupted. Keep reservations for
+   workers with unknown outcomes while checking their native session and worktree. A pause or resume uses the corresponding `action`.
    Identify the affected work when explaining why an earlier result cannot be integrated.
 3. A model route needs recorded, independent outcomes for its client and task family. Feed
    completed reviews and confirmed escapes into the local coordinator at milestone boundaries.

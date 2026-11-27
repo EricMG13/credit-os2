@@ -219,3 +219,26 @@ def test_milestone_notes_keep_inflight_results_eligible(tmp_path: Path) -> None:
     assert call(db, "decision", "run-a", "D-1", "1", payload).returncode == 2
     assert call(db, "settle", "run-a", "w", "0").returncode == 0
     assert call(db, "accept", "run-a", "w", "1").returncode == 0
+
+
+def test_restart_settles_only_proven_terminal_unmetered_attempts(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "run.sqlite"
+    start(db)
+    for worker in ("finished", "unknown"):
+        assert call(db, "launch", "run-a", worker, "1", "0", "spec-v1", "plan-v1").returncode == 0
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "INSERT INTO dispatch_policies VALUES('run-a',?)", (json.dumps({"unmetered": True}),)
+        )
+        conn.execute(
+            "INSERT INTO events VALUES('run-a','observed:finished','worker-result',?,0)",
+            (json.dumps({"returncode": 125}),),
+        )
+    assert json.loads(call(db, "recover", "run-a").stdout) == {
+        "settled": ["finished"],
+        "awaiting_terminal_evidence": ["unknown"],
+    }
+    assert json.loads(call(db, "recover", "run-a").stdout)["settled"] == []
+    assert call(db, "accept", "run-a", "finished", "1").returncode == 2

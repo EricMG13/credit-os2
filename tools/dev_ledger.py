@@ -313,6 +313,40 @@ def settle_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     emit({"ok": True, "attempt": args.id, "actual": args.actual})
 
 
+def recover_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    """Reconcile interrupted settlement from a recorded terminal worker observation."""
+    db.execute("BEGIN IMMEDIATE")
+    run = db.execute(
+        """SELECT policy FROM runs LEFT JOIN dispatch_policies ON runs.id=dispatch_policies.run
+           WHERE runs.id=?""",
+        (args.run,),
+    ).fetchone()
+    if run is None:
+        raise ValueError("unknown run")
+    unmetered = run["policy"] is not None and json.loads(run["policy"])["unmetered"] is True
+    rows = db.execute(
+        """SELECT a.id,a.reserved,e.result FROM attempts a LEFT JOIN events e ON
+           e.run=a.run AND e.id='observed:'||a.id AND e.kind='worker-result'
+           WHERE a.run=? AND a.state='active' ORDER BY a.id""",
+        (args.run,),
+    ).fetchall()
+    settled = []
+    unresolved = []
+    for row in rows:
+        result = json.loads(row["result"]) if row["result"] is not None else {}
+        if not unmetered or row["reserved"] != 0 or type(result.get("returncode")) is not int:
+            unresolved.append(row["id"])
+            continue
+        db.execute(
+            "UPDATE attempts SET state='settled',settled=0 WHERE run=? AND id=?",
+            (args.run, row["id"]),
+        )
+        event(db, args.run, f"settle:{row['id']}", "settle", {"actual": 0, "recovered": True})
+        settled.append(row["id"])
+    db.commit()
+    emit({"settled": settled, "awaiting_terminal_evidence": unresolved})
+
+
 def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     row = db.execute("SELECT * FROM runs WHERE id=?", (args.run,)).fetchone()
     if row is None:
@@ -477,6 +511,7 @@ def arguments() -> argparse.Namespace:
     attempt.add_argument("reserve", type=int)
     attempt.add_argument("spec")
     attempt.add_argument("plan")
+    sub.add_parser("recover").add_argument("run")
     status = sub.add_parser("status")
     status.add_argument("run")
     status.add_argument("--text", action="store_true")
@@ -506,6 +541,7 @@ def main() -> int:
         "launch": launch_run,
         "settle": settle_run,
         "reconcile": reconcile_run,
+        "recover": recover_run,
         "status": status_run,
         "accept": accept_run,
     }
