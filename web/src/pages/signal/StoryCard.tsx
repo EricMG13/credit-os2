@@ -65,7 +65,7 @@ const shareLabelOf = (story: SignalStory) => `Share to group: ${story.headline}`
 
 /** The kind, source and time line above the headline. */
 function Byline({ story }: { story: SignalStory }) {
-  const gap = story.kind === "market" ? undefined : DOTTED;
+  const gap = story.kind === "market" ? "" : DOTTED;
   return (
     <div className={BYLINE}>
       {story.ai?.kind === true ? (

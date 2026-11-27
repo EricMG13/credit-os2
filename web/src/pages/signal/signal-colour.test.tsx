@@ -2,7 +2,6 @@
 // the strength pips. Expected classes and words are written by hand, never read from the code.
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import fixture from "../../../fixtures/signal.json";
-import { Rating } from "./parts/Rating";
 import { KindDot } from "./parts/KindDot";
 import { change, show } from "./test-helpers";
 
