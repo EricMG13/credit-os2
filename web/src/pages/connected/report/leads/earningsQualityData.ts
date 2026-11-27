@@ -1,7 +1,7 @@
 import { readerText, type OutputEntry, type Table } from "../../publishedReport";
 import { namesSource, reasonText, safeText } from "./kit/reader";
 import { difference, group, readCell, signOf, sum } from "./kit/numbers";
-import { allTables, tableWith } from "./kit/tables";
+import { allTables, normalLabel, tableName, tableWith } from "./kit/tables";
 
 /*
  * Reads what the CP-1D contract names (src/deploy_vii/bindings/cp1d.py, src/deploy_workflow/owners/cp1d.py):
@@ -80,15 +80,17 @@ export type BridgeGap = {
 };
 
 function stepTable(entry: OutputEntry): { table: Table; heading: string } | null | "several" {
-  const found = allTables(entry).filter(
-    ({ table }) => table.headers.includes("Step") && table.headers.includes("Amount"),
-  );
-  if (found.length <= 1) return found[0] ?? null;
-  // Two different bridges (earnings and debt) are not one bridge twice: the heading names which is which.
-  const bridges = found.filter(({ heading }) => /bridge/i.test(heading));
-  if (bridges.length === 1) return bridges[0] ?? null;
-  const earnings = bridges.filter(({ heading }) => /ebitda|earnings/i.test(heading));
-  return earnings.length === 1 ? (earnings[0] ?? null) : "several";
+  const found = allTables(entry).filter(({ table, heading }) => {
+    if (!table.headers.includes("Step") || !table.headers.includes("Amount")) return false;
+    const name = tableName(heading);
+    return (
+      /^(?:(?:quality[- ]adjusted |adjusted |reported )?ebitda|earnings(?:[- ]quality)?) bridge\b/i.test(
+        name,
+      ) ||
+      (!/^chart data:/i.test(heading) && table.headers.includes("Cumulative EBITDA"))
+    );
+  });
+  return found.length > 1 ? "several" : (found[0] ?? null);
 }
 
 /** The currency and scale the module states for its monetary amounts ("USD millions"), or "". */
@@ -334,6 +336,26 @@ function readExplicitBridge(entry: OutputEntry, table: Table, heading: string): 
   };
 }
 
+function namesBridgeLevel(label: string) {
+  const name = normalLabel(label);
+  return (
+    /(?:^| )subtotal$/.test(name) ||
+    /^(?:conditional )?(?:(?:management(?: financing case)?|issuer) )?(?:(?:reported|(?:quality )?adjusted|supported(?: only)?(?: analytical)?|analytical) )?ebitda(?: as defined)?$/.test(
+      name,
+    )
+  );
+}
+
+function isBridgeSensitivity(step: Step | undefined) {
+  if (!step) return false;
+  return (
+    /^sensitivity\b/i.test(step.label) ||
+    ((step.sign === "+" || step.amount.startsWith("-")) &&
+      /^conditional\b/i.test(step.label) &&
+      !namesBridgeLevel(step.label))
+  );
+}
+
 /** The add-back bridge, reconciled; or the gap, with the stated steps to list as words. */
 export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   const found = stepTable(entry);
@@ -390,12 +412,16 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
       stated,
       heading,
     );
-  const steps = table.rows.map((row) => ({
-    label: safeText(row.cells[0] ?? ""),
-    // A stated increase may carry its plus sign ("+15").
-    reading: readCell((row.cells[amountAt] ?? "").replace(/^\s*\+/, "")),
-    line: row.line,
-  }));
+  const steps = table.rows.map((row) => {
+    const cell = (row.cells[amountAt] ?? "").trim();
+    const plus = /^\+(?=\s*\d)/.test(cell);
+    return {
+      label: safeText(row.cells[0] ?? ""),
+      reading: readCell(plus ? cell.slice(1) : cell),
+      sign: plus ? ("+" as const) : ("" as const),
+      line: row.line,
+    };
+  });
   const bad = steps.find((step) => step.reading.kind !== "number");
   if (bad)
     return gapOf(
@@ -410,6 +436,7 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
     return {
       label: step.label,
       amount: step.reading.text,
+      sign: step.sign,
       value: step.reading.value,
       line: step.line,
     };
@@ -417,52 +444,49 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   const [opening, ...tail] = read;
   if (!opening || tail.length === 0)
     return gapOf("This page could not read two steps of the bridge.", stated, heading);
-  // The closing is the last row that is exactly the opening plus the steps before it; rows after it
-  // (a stated sensitivity) are listed as the module wrote them. With none, the last row is tried.
+  // In the legacy bridge, only a stated sensitivity can follow the closing level.
   let closingAt = tail.length - 1;
-  // A row equal to the running total before it is a subtotal, never the closing; when the table's
-  // final row is the opening plus every step that is not a subtotal, that row is the closing.
-  const isSubtotal = (at: number) => {
-    const before = sum([opening.amount, ...tail.slice(0, at).map((step) => step.amount)]);
-    return before !== null && signOf(difference(tail[at]?.amount ?? "", before)) === 0;
-  };
-  const subtotals = new Set(
-    tail.flatMap((_, at) => (at < tail.length - 1 && isSubtotal(at) ? [at] : [])),
-  );
-  const total = sum([
-    opening.amount,
-    ...tail.slice(0, -1).flatMap((step, at) => (subtotals.has(at) ? [] : [step.amount])),
-  ]);
-  const finalReconciles =
-    subtotals.size > 0 &&
-    total !== null &&
-    signOf(difference(tail.at(-1)?.amount ?? "", total)) === 0;
-  for (let at = tail.length - 1; at >= 0 && !finalReconciles; at -= 1) {
-    const made = sum([opening.amount, ...tail.slice(0, at).map((step) => step.amount)]);
-    if (made !== null && signOf(difference(tail[at]?.amount ?? "", made)) === 0) {
-      closingAt = at;
-      break;
+  while (closingAt > 0 && isBridgeSensitivity(tail[closingAt])) closingAt -= 1;
+  const closing = tail[closingAt];
+  if (
+    !closing ||
+    isBridgeSensitivity(closing) ||
+    (closingAt < tail.length - 1 && closing.sign === "+" && !namesBridgeLevel(closing.label))
+  )
+    return gapOf("This page could not identify the stated closing bridge amount.", stated, heading);
+  const rest: Step[] = [];
+  const subtotalNotes: string[] = [];
+  for (const step of tail.slice(0, closingAt)) {
+    if (!step.sign && namesBridgeLevel(step.label)) {
+      const before = sum([opening.amount, ...rest.map((change) => change.amount)]);
+      if (before === null || signOf(difference(step.amount, before)) !== 0)
+        return gapOf(
+          `This page could not reconcile ${step.label} (${group(step.amount)}) to the preceding bridge steps.`,
+          stated,
+          heading,
+        );
+      subtotalNotes.push(`${step.label} ${group(step.amount)}`);
+    } else {
+      rest.push(step);
     }
   }
-  const closing = tail[closingAt];
-  const rest = tail.slice(0, closingAt).filter((_, at) => !(finalReconciles && subtotals.has(at)));
-  const subtotalNotes = finalReconciles
-    ? [...subtotals].map((at) => `${tail[at]?.label ?? ""} ${group(tail[at]?.amount ?? "")}`)
-    : [];
+  const rebuilt = sum([opening.amount, ...rest.map((step) => step.amount)]);
+  if (rebuilt === null || signOf(difference(closing.amount, rebuilt)) !== 0)
+    return gapOf(
+      `This page did not draw the bridge because the steps between ${opening.label} (${group(opening.amount)}) and ${closing.label} (${group(closing.amount)}) do not add up.${
+        rebuilt === null
+          ? ""
+          : ` The bridge steps calculate to ${group(rebuilt)} in the stated reporting unit.`
+      }`,
+      stated,
+      heading,
+    );
   const after = tail.slice(closingAt + 1).map((step, at) => {
     const cells = table.rows[closingAt + 2 + at]?.cells ?? [];
     const basis = basisOf(cells);
     const amount = safeText(cells[amountAt] ?? step.amount);
     return { label: step.label, text: basis ? `${amount} (${basis})` : amount };
   });
-  if (!closing) return gapOf("This page could not read two steps of the bridge.", stated, heading);
-  const rebuilt = sum([opening.amount, ...rest.map((step) => step.amount)]);
-  if (rebuilt === null || signOf(difference(closing.amount, rebuilt)) !== 0)
-    return gapOf(
-      `This page did not draw the bridge because the steps between ${opening.label} (${group(opening.amount)}) and ${closing.label} (${group(closing.amount)}) do not add up.`,
-      stated,
-      heading,
-    );
   const names = assessmentByName(entry);
   const stanceAt = table.headers.findIndex(
     (header) => /support|reject|challeng/i.test(header) && !/evidence|cumulative/i.test(header),

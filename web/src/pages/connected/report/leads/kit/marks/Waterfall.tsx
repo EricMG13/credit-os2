@@ -17,9 +17,10 @@ import {
 /**
  * The same row in an earlier period, drawn as a thin bar beneath the row's mark with its figure
  * written beside it (a level from the axis start, a step from the earlier period's own running
- * total), or a stated gap with its reason.
+ * total), or a stated gap with its reason. Use `asWritten` to keep the prior step's authored sign
+ * independently of its bar's direction and of whether the current step was stated.
  */
-export type WaterfallPrior = { value: number; text: string } | { gap: string };
+export type WaterfallPrior = { value: number; text: string; asWritten?: boolean } | { gap: string };
 
 /**
  * One part of a step drawn as consecutive segments (e.g. an add-back's accepted and not accepted
@@ -168,7 +169,7 @@ function placePrior(rows: readonly WaterfallRow[]): (PriorPlaced | null)[] {
       running = null;
       return { kind: "value", total: false, from: null, to: null, text: prior.text };
     }
-    const text = stepText(row, prior.text, prior.value);
+    const text = prior.asWritten ? writtenText(prior.text) : stepText(row, prior.text, prior.value);
     if (running === null) return { kind: "value", total: false, from: null, to: null, text };
     const from: number = running;
     running = from + prior.value;

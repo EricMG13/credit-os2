@@ -129,7 +129,7 @@ export function CashLadderTile({ lead }: { lead: LeadProps }) {
       table={ladderTable(data)}
     >
       {drawn.map(({ each, rows }) =>
-        allGaps(rows) ? (
+        allGaps(rows) && !rows.some(({ prior }) => prior && "value" in prior) ? (
           <p
             key={each.current}
             data-ladder-gap={each.current}
