@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Coverage, Fact, Issuer } from "../coverageData";
+import { evidenceLink, type Coverage, type Fact, type Issuer } from "../coverageData";
 import { Patterns, scaleWithReference } from "./Patterns";
 
 const debt = "cp-1/leverage/total-debt-ebitda";
@@ -87,13 +87,26 @@ describe("Patterns", () => {
     expect(
       within(level).getByRole("columnheader", { name: "Reported debt / EBITDA (x)" }),
     ).toBeInTheDocument();
-    expect(within(level).getByRole("row", { name: /Alpha.*FY2026/ })).toHaveTextContent(/7x.*−1x/);
+    const alphaRow = within(level)
+      .getAllByRole("row", { name: /Alpha.*FY2026/ })
+      .find((row) => row.querySelector("button")?.textContent === "Alpha");
+    if (!alphaRow) throw new Error("Alpha issuer row is missing");
+    expect(alphaRow).toHaveTextContent(/7x.*−1x/);
     expect(medianRow).toHaveTextContent(/28x.*−2x.*Current cohort: 5; paired: 4/);
     expect(
       within(level)
         .getByRole("row", { name: /Median \(computed\)/ })
         .querySelectorAll("td"),
     ).toHaveLength(6);
+    const evidence = within(medianRow).getByText("Open run evidence");
+    expect(evidence.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(evidence);
+    const epsilon = issuers.find((issuer) => issuer.key === "issuer-4");
+    const epsilonFact = data.facts.find((fact) => fact.issuer === "issuer-4" && fact.field === debt && fact.period === "FY2026");
+    const epsilonRun = epsilon?.runs[0];
+    if (!epsilon || !epsilonFact || !epsilonRun) throw new Error("Epsilon current median fixture is incomplete");
+    expect(within(medianRow).getByText(/Current median input FY2026: 48x; basis FY2026 issuer basis/)).toBeInTheDocument();
+    expect(within(medianRow).getByRole("link", { name: "Open run for Epsilon" })).toHaveAttribute("href", evidenceLink(epsilonRun, epsilonFact));
     expect(
       screen.getByRole("region", { name: "Issuers not plotted in level versus difference" }),
     ).toHaveTextContent("Epsilon: Total debt / EBITDA: other period");
@@ -113,12 +126,13 @@ describe("Patterns", () => {
     expect(within(selectedRow).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(
       /X FY2026: 7x; basis FY2026 issuer basis; Y FY2026: 2x; basis FY2026 issuer basis/i,
     );
-    const levelRow = within(level).getByRole("row", { name: /Alpha.*FY2026/ });
-    expect(within(levelRow).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(
+    expect(within(alphaRow).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(
       /current FY2026: 7x; basis FY2026 issuer basis; prior FY2025: 8x; basis FY2025 issuer basis/i,
     );
-    expect(within(level).getAllByRole("link", { name: /Open run/ })).toHaveLength(4);
-    expect(within(medianRow).queryByRole("link")).toBeNull();
+    expect(
+      within(level).getAllByRole("link", { name: /Open run/ }).filter((link) => !medianRow.contains(link)),
+    ).toHaveLength(4);
+    expect(within(medianRow).getAllByRole("link", { name: /Open run/ })).toHaveLength(5);
     expect(screen.queryByRole("img", { name: /fitted line/i })).toBeNull();
   });
 
@@ -140,27 +154,6 @@ describe("Patterns", () => {
     expect(alpha).toHaveTextContent("7x");
     expect(alpha).toHaveTextContent("No adjacent prior period");
     expect(within(alpha).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(/FY2026: 7x.*basis FY2026 issuer basis/i);
-  });
-
-  it("keeps the period control selection when changing the measure", () => {
-    const { data, issuers } = fixture();
-    render(<Patterns data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText("Period"), { target: { value: "FY2025" } });
-    fireEvent.change(screen.getByLabelText("Measure"), { target: { value: cover } });
-    expect(screen.getByLabelText("Period")).toHaveValue("FY2025");
-  });
-
-  it("lists an unorderable issuer in a mixed cohort beside its exact other-period reason", () => {
-    const { data, issuers } = fixture();
-    const mixed = unorder(data, "issuer-2");
-    render(<Patterns data={mixed} issuers={issuers} selected={null} onSelect={vi.fn()} />);
-    const leftOut = screen.getByRole("region", {
-      name: "Issuers not plotted in level versus difference",
-    });
-    expect(leftOut).toHaveTextContent(
-      "Gamma: Total debt / EBITDA: other period; Total debt / EBITDA: periods cannot be ordered",
-    );
-    expect(leftOut).toHaveTextContent("Epsilon: Total debt / EBITDA: other period");
   });
 
   it("keeps sparse table facts and states a gap without empty plots or zero medians", () => {

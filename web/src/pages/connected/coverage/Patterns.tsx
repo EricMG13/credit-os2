@@ -342,12 +342,10 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
             Level against difference{" "}
             <span className="text-caption text-text-tertiary">computed</span>
           </h3>
-          {previousPeriod ? (
+          {previousPeriod && (
             <p className="text-caption text-text-secondary">
               {period} versus {previousPeriod}
             </p>
-          ) : (
-            <p className="text-caption text-gap-text">No adjacent prior period is available.</p>
           )}
           {!issuers.length ? (
             <p role="status" className="text-small text-gap-text">
@@ -479,7 +477,21 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                   <td>
                     Current cohort: {current?.members.length || "none"}; paired: {levelPoints.length || "none"}
                   </td>
-                  <td>Current and paired figures are listed in their issuer rows.</td>
+                  <td>
+                    <details>
+                      <summary>Open run evidence</summary>
+                      <div>
+                        {current?.members.map((member) => (
+                          <p key={member.issuer.key}>
+                            {operand("Current median input", member)};{" "}
+                            <a href={evidenceLink(member.run, member.fact)}>
+                              Open run for {member.issuer.name}
+                            </a>
+                          </p>
+                        ))}
+                      </div>
+                    </details>
+                  </td>
                 </tr>
               )}
             </tbody>
