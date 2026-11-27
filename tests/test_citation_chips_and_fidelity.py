@@ -137,6 +137,15 @@ def test_a_prefixed_dollar_is_not_read_as_us_dollars():
     assert lost("Debt HK$250 million", "Debt C$250 million") == [("HK$ 250 million", 1)]
 
 
+def test_an_iso_code_before_a_dollar_sign_is_the_same_currency_as_the_code_alone():
+    assert lost("Debt CAD$250 million", "Debt CAD 250 million") == []
+    assert lost("Debt AUD$250 million", "Debt AUD 250 million") == []
+    assert lost("Debt R$250 million", "Debt BRL 250 million") == []
+    assert lost("Debt MX$250 million", "Debt MXN 250 million") == []
+    assert lost("Debt A$250 million", "Debt $250 million") == [("A$ 250 million", 1)]
+    assert lost("Debt CAD 250 million", "Debt AUD 250 million") == [("CAD 250 million", 1)]
+
+
 def test_a_code_word_not_next_to_a_figure_is_no_currency():
     # ALL is a currency code, but here a word; the figure carries no currency either way.
     assert lost("ALL lenders agreed 250 million", "Lenders agreed 250 million") == []

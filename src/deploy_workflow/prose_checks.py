@@ -911,7 +911,16 @@ class _Figure(NamedTuple):
 _CURRENCY_CODES = {"us$": "USD", "usd": "USD", "$": "USD", "eur": "EUR", "€": "EUR", "£": "GBP"}
 # A prefixed dollar (`A$`, `HK$`, `USD$`) is a figure's currency as written, but its key is its ISO
 # code, so `A$250 million` and `AUD 250 million` are one currency (notation, not a loss).
-_DOLLAR_CODES = {"USD$": "USD", "A$": "AUD", "C$": "CAD", "HK$": "HKD", "NZ$": "NZD", "S$": "SGD"}
+_DOLLAR_CODES = {
+    "USD$": "USD",
+    "A$": "AUD",
+    "C$": "CAD",
+    "HK$": "HKD",
+    "NZ$": "NZD",
+    "S$": "SGD",
+    "R$": "BRL",
+    "MX$": "MXN",
+}
 _CURRENCY_WORD = re.compile(r"US\$|USD|(?-i:[A-Z]{1,3}\$)|\$|EUR|€|GBP|£", re.IGNORECASE)
 
 
@@ -1133,7 +1142,10 @@ def _fidelity_problem(figure: _Figure, held: list[_Figure]) -> str | None:
 
 
 def _figure_key(figure: _Figure) -> tuple[str, bool, str | None, str | None]:
-    code = _DOLLAR_CODES.get(figure.currency or "", figure.currency)
+    written = figure.currency or ""
+    code = _DOLLAR_CODES.get(written, figure.currency)
+    if code == written and len(written) == 4 and written.endswith("$") and written[:3].isalpha():
+        code = written[:3]  # An ISO code before the dollar sign (`CAD$`) is that code.
     return figure.number, figure.negative, figure.unit, code
 
 
