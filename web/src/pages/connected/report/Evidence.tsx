@@ -100,6 +100,13 @@ function EvidenceLocation({
     );
   const title = titleLine(entry.sections);
   const sections = drawnSections(entry)
+    // CP-2G's forecast inputs are the model's raw JSON: drawn only when the address targets them.
+    .filter(
+      (section) =>
+        line !== undefined ||
+        entry.output.module !== "CP-2G" ||
+        section.heading !== FORECAST_INPUTS,
+    )
     // The title of a handoff is the module's code: with nothing under it, it heads nothing in the
     // whole view and the card names the module. A location that points at it still draws it.
     .filter((section) => section.line !== title || section.blocks.length > 0 || line !== undefined);
