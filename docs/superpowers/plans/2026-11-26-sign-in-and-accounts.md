@@ -181,7 +181,9 @@ Files: `signal/identity.py`, `signal/service.py`, `signal/routing.py`, `signal/s
      `digest_issuers`, then `digests`), `users`, and proposed sources of the news kinds only;
    - kept, row counts unchanged: `stories` and their duplicates, approved and paused `sources`,
      every filing and market source whatever its state (issuers point at them), `topics`,
-     `issuers`, `story_ai`, `ai_usage` (the money ledger is never edited), settings and logos;
+     `issuers`, `story_ai`, `ai_usage` (the money ledger is never edited), settings and logos of
+     retained sources. When this upgrade removes a proposed source of a news kind, its logo row
+     is removed as the owner approved. That row remains in the verified pre-upgrade copy;
    - a kept row that names its typed creator (`topics.created_by`, `issuers.created_by`,
      `sources.proposed_by`) has that name replaced by the fixed text `before accounts`.
 

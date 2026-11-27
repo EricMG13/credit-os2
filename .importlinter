@@ -53,6 +53,14 @@ ignore_imports =
     ; Handoff executor calls CP-OS's _checked_handoff and types HandoffTask: pass the check in.
     deploy_workflow.model.handoff -> deploy_workflow.owners.cpos
 
+[importlinter:contract:accounts-never-import-signal]
+name = accounts never depends on Signal identity or services
+type = forbidden
+source_modules =
+    deploy_workflow.accounts
+forbidden_modules =
+    deploy_workflow.signal
+
 [importlinter:contract:owners-listed]
 ; Membership only: the contract above orders the owners modules. This one is exhaustive over the
 ; owners package, so a new owners module fails here until it is listed, here and in a layer of the

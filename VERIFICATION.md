@@ -4,6 +4,37 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 4, Signal account identity and store upgrade
+
+- Scope is slice 4, stacked on draft #129 at `d778e9ab` and earlier slices. Signal uses the
+  application gate's Account and maps Reader, Analyst and Admin to reader, writer and owner.
+  The typed cookie and `signal users add` are retired. Signed-in `POST /api/me` returns 405
+  with `Allow: GET` and no cookie. All 40 formerly named routes return `401 sign in first` when
+  sign-in is off, including with the retired cookie. The unsigned status and snapshot responses
+  remain available. The forbidden import contract covers accounts depending on Signal.
+- Signal schema v9 preserves scripts 1–8. An existing v8 store gets a verified standalone
+  `signal.db.before-accounts` under the write lock. An older admitted store reaches v8 first.
+  After the durable copy, children are removed before parents and version 9 is marked in that
+  transaction. A fresh store gets no copy. Tests exercised overlapping openers, committed WAL
+  data, invalid and stale copies, actual partial `backup()` failure, and retry after verified
+  publication with the same bytes, device and inode. Earlier scripts and the v8 hash match.
+- Independent before, after and backup queries verified the exact retention set, including AI
+  ledger, settings, filing and market data, and `before accounts` on retained creator fields.
+  The owner's approved exception removes a logo row only with its deleted news-kind proposal.
+  That row remains in the verified backup. A retained foreign-key reference aborts the upgrade.
+- Three broad macOS groups passed 2,459 offline tests. After the final backup comparison
+  refinement, 55 focused migration, store and digest tests passed. A full loopback MSAL flow
+  exercised Signal and passcode promotion, with positive log controls and no credential values
+  in captured logs. The existing deny-by-default, 64 KiB body, short body, origin and visibility
+  controls passed. The changed-code gate and all four import contracts passed.
+- Confidence review, post-edit rewrite tournament and changed-update sweep ran. The digest
+  verifies actual SQLite row IDs and metadata. Task, ordering and defensive security reviews
+  passed. GPT handled advisor and pre-merge architecture after the Opus 5.5 xhigh OAuth expired,
+  with owner approval. The pre-merge review confirmed the existing Unicode cleaner regressions.
+- Not verified: native Windows, real Entra and HTTPS deployment, and final GitHub checks on the
+  draft. This draft changes no pages. The old Signal name dialog is removed in slice 5. Live use
+  depends on the work-PC sign-in rollout.
+
 ## 2026-11-26 — Sign-in slice 3, offline Entra flow and registration
 
 - Scope: slice 3 and TODO item 22, stacked on #119 at `de2a5543` and #108. The owner authorized
@@ -958,25 +989,3 @@ then 5; the narrow layout and the controls listed below.
   in 1.3 s, no start after a bad reply, no call after its report.
 - Not verified: any live run above width 1; two sessions on one seat; Windows locks. The last
   fix round was checked against its four findings only, not by a further open review.
-
-## 2026-11-18 — Connected pages: first draw and report redraws
-
-- Scope: headless Chromium only, the two-run synthetic workspace, one shared Linux container.
-  No Chrome or Edge, no Windows, no real report, no run with an earlier run to compare.
-- Changed: the connected entry waits for the page's own file for at most 300 ms before the first
-  draw, so React's 300 ms fallback hold is not met when the file is already there, and asks for
-  the library index or the report once the file has loaded. The report page, its view, its
-  parts and the run charts are not redrawn when nothing they read has changed.
-- Medians of 5: report first content 497 to 306 ms, library 344 to 86 ms, the source highlight
-  switch on Forecast 234 to 17 ms. At four times CPU slowdown the report's file takes longer
-  than 300 ms and both builds take the same path (1,121 and 1,080 ms).
-- Fidelity check, by a second reviewer on fresh builds of both commits: text, titles, requests
-  and their order, alerts, console errors, tab order and PDF text are the same for the library
-  and both reports across every tab at 1440, 768 and 390 px, with the file delayed 0 to
-  1,500 ms, failing, and the first read failing nine ways. Generated element ids are one step
-  lower; every reference to one resolves. A first build that kept charts out of the page until
-  scrolled near, and one that kept library figure sources, failed the first review (chart text
-  not findable, stale sources) and were removed.
-- Commands: web `lint`, `format:check`, `typecheck`, `unused`, `duplication` exit 0; `npm test`
-  5,293 passed on the branch before the merge.
-- Not verified: Chrome and Edge on the work PC; a late portfolio basis in a browser.

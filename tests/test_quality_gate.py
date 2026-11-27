@@ -142,6 +142,7 @@ ENGINE_CONTRACT = (
 )
 LAYERS_CONTRACT = "deploy_workflow: services, orchestration, delivery, analytical, engine"
 OWNERS_CONTRACT = "every deploy_workflow.owners module is listed"
+SIGNAL_IDENTITY_CONTRACT = "accounts never depends on Signal identity or services"
 
 
 def _tree(tmp_path: Path, monkeypatch) -> Path:
@@ -176,6 +177,19 @@ def test_a_lower_layer_import_of_a_higher_one_breaks_the_gate(tmp_path, monkeypa
     low = root / "src/deploy_workflow/run_scopes.py"
     low.write_text(low.read_text(encoding="utf-8") + "\nimport deploy_workflow.library_index\n")
     assert _broken(root) == [("imports", ".importlinter", "BROKEN", f"name = {LAYERS_CONTRACT}")]
+
+
+def test_an_accounts_import_of_signal_breaks_the_gate(tmp_path, monkeypatch):
+    root = _tree(tmp_path, monkeypatch)
+    package = root / "src/deploy_workflow/accounts/__init__.py"
+    package.write_text(
+        package.read_text(encoding="utf-8") + "\nfrom deploy_workflow.signal import service\n",
+        encoding="utf-8",
+    )
+    assert _broken(root) == [
+        ("imports", ".importlinter", "BROKEN", f"name = {SIGNAL_IDENTITY_CONTRACT}")
+    ]
+    assert quality_gate.main(["--root", str(root), "--checks", "imports"]) == 1
 
 
 def test_a_new_module_fails_until_it_is_placed_in_a_layer(tmp_path, monkeypatch):

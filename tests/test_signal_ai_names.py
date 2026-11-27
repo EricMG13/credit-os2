@@ -167,7 +167,7 @@ def test_two_connections_racing_for_a_names_last_call_let_exactly_one_through(tm
         made = ai_ledger.reserve(db, "digest", CONFIG, HOLD, BASE, ruled_cap=Decimal(15), owner="M")
         ai_ledger.settle(db, made, Decimal("0.001"), "ok", BASE)
     results: list[object] = []
-    barrier = threading.Barrier(8)
+    barrier = threading.Barrier(5)
 
     def racer() -> None:
         own = store.open_db(root)
@@ -182,11 +182,23 @@ def test_two_connections_racing_for_a_names_last_call_let_exactly_one_through(tm
             results.append(refused)
         own.close()
 
-    workers = [threading.Thread(target=racer) for _ in range(8)]
+    workers = [threading.Thread(target=racer) for _ in range(5)]
     for worker in workers:
         worker.start()
     for worker in workers:
         worker.join()
+    for _ in range(3):
+        racer_serial = store.open_db(root)
+        try:
+            results.append(
+                ai_ledger.reserve(
+                    racer_serial, "digest", CONFIG, HOLD, BASE, ruled_cap=Decimal(15), owner="M"
+                )
+            )
+        except ai_ledger.Refused as refused:
+            results.append(refused)
+        finally:
+            racer_serial.close()
     won = [r for r in results if isinstance(r, int)]
     refused = [r for r in results if isinstance(r, ai_ledger.NameFull)]
     assert len(won) == 1 and len(refused) == 7

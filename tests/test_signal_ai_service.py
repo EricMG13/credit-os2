@@ -22,7 +22,6 @@ from deploy_workflow.signal.fetch import Fetched, FetchRefused
 from deploy_workflow.signal.service import Loop
 
 NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)  # the recorded feed's stories are from this day
-COOKIE = "signal_name=Mara%20L"
 
 
 def feed(url: str, etag: str | None, modified: str | None) -> Fetched:
@@ -46,7 +45,6 @@ def answer(request: TurnRequest) -> Any:
 
 def seed(root: Path, *, cap: bool = True) -> None:
     db = store.open_db(root)
-    store.add_user(db, "Mara L", "writer")
     source = store.propose_source(db, "Authority", "regulator", "https://a.org/f", "x")
     store.set_source_state(db, source, "approved")
     followed = topics.add_topic(db, "Reviews", ["review"], [], "Mara L")
@@ -82,9 +80,10 @@ def test_one_tick_ingests_labels_and_writes_the_due_digest_and_the_snapshot_show
     assert tuple(run) == ("written", 2)
     db.close()
     assert model.closed  # each job closes the adapter it was given
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    cookie = f"credit_os_session={live.create_account_session('Mara L', 'analyst')[1]}"
     try:
-        status, _, document = live.call("GET", "/api/snapshot", cookie=COOKIE)
+        status, _, document = live.call("GET", "/api/snapshot", cookie=cookie)
         assert status == 200 and react_refusal(document) is None
         snap = document["scenes"][0]["snapshot"]
         assert snap["settings"]["ai"]["state"] == "on"
@@ -96,7 +95,7 @@ def test_one_tick_ingests_labels_and_writes_the_due_digest_and_the_snapshot_show
             record["paused"] is None
             and record["issues"][0]["points"][0]["lead"] == "A review opens"
         )
-        status, _, body = live.call("POST", "/api/digests/1/run", cookie=COOKIE, body={})
+        status, _, body = live.call("POST", "/api/digests/1/run", cookie=cookie, body={})
         assert (status, body["outcome"]) == (200, "queued")  # no model call in the handler
         assert len(model.requests) == 2
     finally:
@@ -130,13 +129,14 @@ def test_with_no_ruling_the_service_makes_no_model_call_and_runs_as_before(tmp_p
     assert db.execute("SELECT COUNT(*) FROM ai_usage").fetchone()[0] == 0
     assert db.execute("SELECT outcome FROM digest_runs").fetchone()[0] == "skipped"
     db.close()
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    cookie = f"credit_os_session={live.create_account_session('Mara L', 'analyst')[1]}"
     try:
-        snap = live.call("GET", "/api/snapshot", cookie=COOKIE)[2]["scenes"][0]["snapshot"]
+        snap = live.call("GET", "/api/snapshot", cookie=cookie)[2]["scenes"][0]["snapshot"]
         assert snap["settings"]["ai"]["state"] == "off"
         assert snap["settings"]["ai"]["notice"]["text"].startswith("No standing ruling")
         assert "test-token" not in json.dumps(snap)
-        status, _, body = live.call("POST", "/api/digests/1/run", cookie=COOKIE, body={})
+        status, _, body = live.call("POST", "/api/digests/1/run", cookie=cookie, body={})
         assert (status, body["outcome"]) == (200, "nothing")  # run at once, no writer, no story
     finally:
         live.close()
@@ -156,7 +156,6 @@ def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(
     rulings = tmp_path / "rulings"
     write_ruling(rulings)
     db = store.open_db(root)
-    store.add_user(db, "Olga", "owner")
     with db:
         db.execute("UPDATE settings SET value='abc' WHERE key='ai_cap_usd'")
     db.close()
@@ -164,9 +163,11 @@ def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(
     loop = Loop(  # the ingest job's fetch is a stand-in: no test reaches the network
         root, fetch_fn=_offline, ai=ai_run.Setup(environ(tmp_path), rulings, lambda c, p: model)
     )
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    owner_cookie = f"credit_os_session={live.create_account_session('Olga', 'admin')[1]}"
+    reader_cookie = f"credit_os_session={live.create_account_session('Mara L', 'analyst')[1]}"
     try:
-        code, _, built = live.call("GET", "/api/snapshot", cookie="signal_name=Olga")
+        code, _, built = live.call("GET", "/api/snapshot", cookie=owner_cookie)
         assert code == 200 and react_refusal(built) is None
         ai = built["scenes"][0]["snapshot"]["settings"]["ai"]
         assert ai["state"] == "off"
@@ -174,9 +175,9 @@ def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(
             "The store's AI settings cannot be read, so the AI pass is off until the owner sets"
             " them again on the command line (signal ai cap, signal ai clear)."
         )
-        code, _, reader = live.call("GET", "/api/snapshot", cookie=COOKIE)
+        code, _, reader = live.call("GET", "/api/snapshot", cookie=reader_cookie)
         assert code == 200 and reader["scenes"][0]["snapshot"]["settings"]["ai"]["state"] == "off"
-        code, _, status = live.call("GET", "/api/status")
+        code, _, status = live.call("GET", "/api/status", cookie=owner_cookie)
         assert (code, status["ai_state"]) == (200, "off")
     finally:
         live.close()

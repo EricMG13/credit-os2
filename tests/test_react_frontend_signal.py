@@ -29,9 +29,11 @@ from typing import Any
 import pytest
 from signal_ai_fakes import FakeModel, write_ruling
 from signal_ai_fakes import environ as key_environ
-from signal_app import PAGE, short_folder, start_serving
+from signal_app import PAGE, Live, short_folder, start_serving
 
 import react_frontend
+from deploy_workflow.accounts import sessions as account_sessions
+from deploy_workflow.accounts import store as account_store
 from deploy_workflow.signal import ai_ledger, ai_run, digests, feedview, store, topics
 from deploy_workflow.signal import service as signal_service
 from deploy_workflow.signal.feeds import Entry
@@ -109,6 +111,55 @@ def react(
             thread.join()
 
 
+def mint_account(accounts_dir: Path, name: str, profile_type: str) -> str:
+    now = datetime.now(UTC)
+    db = account_store.open_db(accounts_dir)
+    try:
+        account = account_store.register_reader(
+            db,
+            tenant_id="00000000-0000-4000-8000-000000000001",
+            object_id="00000000-0000-4000-8000-000000000002",
+            name=name,
+            email="signal-test@example.org",
+            given_name=None,
+            family_name=None,
+            now=now,
+        )
+        if profile_type != "reader":
+            account_store.set_profile_type(db, account.id, profile_type)
+        return account_sessions.mint_session(db, account.id, now=now)
+    finally:
+        db.close()
+
+
+@contextmanager
+def authenticated_react(
+    root: Path,
+    web: Path,
+    *,
+    profile_type: str = "reader",
+    name: str = "Test Reader",
+    environ: Mapping[str, str] | None = None,
+) -> Iterator[tuple[Server, dict[str, str]]]:
+    """A hosted Signal server with a real local account and session cookie."""
+    with short_folder() as folder_name:
+        accounts_dir = Path(folder_name) / "accounts"
+        with make_server(
+            root,
+            web=web,
+            sign_in=True,
+            accounts_dir=accounts_dir,
+            environ={} if environ is None else environ,
+        ) as server:
+            token = mint_account(accounts_dir, name, profile_type)
+            thread = start_serving(server, daemon=False)
+            try:
+                yield server, {"Cookie": f"credit_os_session={token}"}
+            finally:
+                server.shutdown()
+                thread.join()
+
+
 def call(
     server: Server,
     path: str,
@@ -179,45 +230,47 @@ def rows(folder: Path, sql: str) -> list[tuple[object, ...]]:
 def test_name_round_trip_and_writes_reach_the_store_through_the_applications_port(
     seeded: Path, web: Path
 ) -> None:
-    with react(seeded, web) as server:
-        status, body, headers = call(server, "/signal/api/me")
-        assert (status, json.loads(body)) == (200, {"name": None})
-        assert header(headers, "Cache-Control") == "no-store"
-        assert header(headers, "Content-Type") == "application/json; charset=utf-8"
-        assert header(headers, "Set-Cookie") is None
-
-        status, body, headers = call(
-            server, "/signal/api/me", "POST", body=json.dumps({"name": "Dana  Reyes"})
+    with Live(seeded, signed_in=True) as app:
+        account, token = app.create_account_session("Test Reader", "reader")
+        cookie = f"credit_os_session={token}"
+        status, _, body = app.call("GET", "/api/me", cookie=cookie)
+        assert (status, body) == (200, {"name": "Test Reader", "role": "reader"})
+        status, headers, body = app.call(
+            "POST", "/api/me", body={"name": "Dana Reyes"}, cookie=cookie
         )
-        assert (status, json.loads(body)) == (200, {"name": "Dana Reyes", "role": "reader"})
-        assert header(headers, "Set-Cookie") == (
-            "signal_name=Dana%20Reyes; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly"
-        )
-        status, body, _ = call(server, "/signal/api/me", headers=DANA)
-        assert (status, json.loads(body)) == (200, {"name": "Dana Reyes", "role": "reader"})
+        assert (status, body) == (405, {"error": "method not allowed"})
+        assert headers.get("Allow") == "GET"
+        assert headers.get("Set-Cookie") is None
+        with react(seeded, web) as unsigned:
+            status, body, _ = call(
+                unsigned, "/signal/api/me", headers={"Cookie": "signal_name=Dana%20Reyes"}
+            )
+            assert (status, json.loads(body)) == (200, {"name": None})
 
         # A page that is not Signal's is refused by Signal's own 401, status and text intact.
-        status, body, _ = call(server, "/signal/api/topics")
-        assert (status, json.loads(body)) == (401, {"error": "choose a display name first"})
+        status, _, body = app.call("GET", "/api/topics")
+        assert (status, body) == (401, {"error": "sign in first"})
 
-        status, body, _ = call(server, "/signal/api/stories/1/save", "POST", headers=DANA)
-        assert (status, json.loads(body)) == (200, {"saved": True})
-        assert rows(seeded, "SELECT user_name, story_id FROM saves") == [("Dana Reyes", 1)]
-        status, body, _ = call(server, "/signal/api/stories/1/save", "DELETE", headers=DANA)
-        assert (status, json.loads(body)) == (200, {"saved": False})
+        status, _, body = app.call("POST", "/api/stories/1/save", cookie=cookie)
+        assert (status, body) == (200, {"saved": True})
+        assert rows(seeded, "SELECT user_name, story_id FROM saves") == [(account.display_name, 1)]
+        status, _, body = app.call("DELETE", "/api/stories/1/save", cookie=cookie)
+        assert (status, body) == (200, {"saved": False})
         assert rows(seeded, "SELECT user_name, story_id FROM saves") == []
 
-        status, body, _ = call(server, "/signal/api/topics/1/follow", "POST", headers=DANA)
-        assert (status, json.loads(body)) == (200, {"following": True})
-        assert rows(seeded, "SELECT user_name, topic_id FROM topic_follows") == [("Dana Reyes", 1)]
-        status, body, _ = call(server, "/signal/api/topics", headers=DANA)
+        status, _, body = app.call("POST", "/api/topics/1/follow", cookie=cookie)
+        assert (status, body) == (200, {"following": True})
+        assert rows(seeded, "SELECT user_name, topic_id FROM topic_follows") == [
+            (account.display_name, 1)
+        ]
+        status, _, body = app.call("GET", "/api/topics", cookie=cookie)
         assert status == 200
-        assert json.loads(body) == [{"id": 1, "name": "Remedy", "following": True, "stories": 1}]
-        status, body, _ = call(server, "/signal/api/stories/99/save", "POST", headers=DANA)
-        assert status == 404 and json.loads(body)["error"]
-        status, body, _ = call(server, "/signal/api/status")
+        assert body == [{"id": 1, "name": "Remedy", "following": True, "stories": 1}]
+        status, _, body = app.call("POST", "/api/stories/99/save", cookie=cookie)
+        assert status == 404 and body["error"]
+        status, _, body = app.call("GET", "/api/status", cookie=cookie)
         assert status == 200
-        assert json.loads(body) == {
+        assert body == {
             "last_pass_at": None,  # make_server started no loop: no pass has run
             "sources": {"approved": 1, "failing": 0},
             "loop_error": None,
@@ -227,22 +280,23 @@ def test_name_round_trip_and_writes_reach_the_store_through_the_applications_por
 
 
 def test_the_snapshot_is_served_for_a_named_reader(seeded: Path, web: Path) -> None:
-    with react(seeded, web) as server:
-        status, body, _ = call(server, "/signal/api/snapshot", headers=DANA)
+    with Live(seeded, signed_in=True) as app:
+        _, token = app.create_account_session("Test Reader", "reader")
+        status, _, document = app.call("GET", "/api/snapshot", cookie=f"credit_os_session={token}")
         assert status == 200
-        document = json.loads(body)
-        assert "Remedy accepted by the regulator" in body.decode("utf-8")
+        assert "Remedy accepted by the regulator" in json.dumps(document)
         assert isinstance(document["scenes"], list) and document["asOf"].startswith("20")
-        status, body, _ = call(server, "/signal/api/snapshot?format=3", headers=DANA)
-        assert (status, json.loads(body)) == (400, {"error": "format must be 1 or 2"})
+        status, _, body = app.call(
+            "GET", "/api/snapshot?format=3", cookie=f"credit_os_session={token}"
+        )
+        assert (status, body) == (400, {"error": "format must be 1 or 2"})
 
 
-NEEDS_NAME = "choose a display name first"
+NEEDS_NAME = "sign in first"
 # Each of Signal's own routes, asked with no name: what only Signal's route table answers.
 REACHING = [
     ("GET", "/signal/api/snapshot", 200, None),
     ("GET", "/signal/api/me", 200, None),
-    ("POST", "/signal/api/me", 400, "the request body is not valid JSON"),  # a POST of no bytes
     ("GET", "/signal/api/status", 200, None),
     ("GET", "/signal/api/feed", 401, NEEDS_NAME),
     ("GET", "/signal/api/feed/new", 401, NEEDS_NAME),
@@ -261,6 +315,10 @@ def test_the_service_routes_answer_under_the_signal_prefix(seeded: Path, web: Pa
             assert status == expected, (method, path)
             if error is not None:
                 assert json.loads(body) == {"error": error}, (method, path)
+        status, body, headers = call(server, "/signal/api/me", "POST")
+        assert (status, json.loads(body)) == (405, {"error": "method not allowed"})
+        assert header(headers, "Allow") == "GET"
+        assert header(headers, "Set-Cookie") is None
 
 
 REFUSED_PATHS = [
@@ -317,7 +375,7 @@ def test_other_methods_are_405_where_signal_is_hosted(seeded: Path, web: Path, m
     with react(seeded, web) as server:
         status, body, headers = call(server, "/signal/api/me", method)
         assert status == 405
-        assert header(headers, "Allow") == "GET, POST"  # the methods /api/me has
+        assert header(headers, "Allow") == "GET"  # POST /api/me was retired
         assert body == (b"" if method == "HEAD" else b'{"error": "method not allowed"}')
         status, _, headers = call(server, "/signal/api/stories/1/save", method)
         assert (status, header(headers, "Allow")) == (405, "POST, DELETE")
@@ -334,7 +392,7 @@ def test_other_methods_with_a_body_are_405_all_the_same(
     with react(seeded, web) as server:
         sent = b'{"name": "Dana"}'
         status, body, headers = call(server, "/signal/api/me", method, body=sent)
-        assert (status, header(headers, "Allow")) == (405, "GET, POST")
+        assert (status, header(headers, "Allow")) == (405, "GET")
         assert body == (b"" if method == "HEAD" else b'{"error": "method not allowed"}')
         status, _, headers = call(
             server, "/signal/api/stories/1/save", method, headers=DANA, body=sent
@@ -345,7 +403,7 @@ def test_other_methods_with_a_body_are_405_all_the_same(
         for length in ("65537", "many", "-1"):
             declared = {"Content-Length": length}
             status, _, headers = call(server, "/signal/api/me", method, headers=declared)
-            assert (status, header(headers, "Allow")) == (405, "GET, POST"), length
+            assert (status, header(headers, "Allow")) == (405, "GET"), length
         assert rows(seeded, "SELECT COUNT(*) FROM saves") == [(0,)]
 
 
@@ -367,7 +425,7 @@ def test_a_write_needs_the_pages_own_origin(seeded: Path, web: Path, method: str
     feedview.save(db, "Dana Reyes", 1)  # so a DELETE that got through would be seen too
     db.close()
     before = [("Dana Reyes", 1)]
-    with react(seeded, web) as server:
+    with authenticated_react(seeded, web, name="Dana Reyes") as (server, cookie):
         path = "/signal/api/stories/1/save"
         port = server.server_address[1]
         refused = [
@@ -379,16 +437,16 @@ def test_a_write_needs_the_pages_own_origin(seeded: Path, web: Path, method: str
             {"Sec-Fetch-Site": "same-site"},
         ]
         for sent in refused:
-            assert call(server, path, method, headers={**DANA, **sent})[0] == 403, sent
-        _, body, _ = call(server, path, method, headers={**DANA, "Origin": None})
+            assert call(server, path, method, headers={**cookie, **sent})[0] == 403, sent
+        _, body, _ = call(server, path, method, headers={**cookie, "Origin": None})
         assert json.loads(body) == {"error": "the request did not come from the service's own page"}
         assert rows(seeded, "SELECT user_name, story_id FROM saves") == before  # nothing changed
-        assert call(server, path, method, headers=DANA)[0] == 200  # the page's own origin passes
+        assert call(server, path, method, headers=cookie)[0] == 200  # the page's own origin passes
 
 
 def test_a_foreign_host_name_is_refused_before_signal_answers(seeded: Path, web: Path) -> None:
     """DNS rebinding: a page on evil.test that resolves to this machine sends Host: evil.test."""
-    with react(seeded, web) as server:
+    with authenticated_react(seeded, web) as (server, cookie):
         port = server.server_address[1]
         for host in ("evil.test", f"evil.test:{port}", f"127.0.0.1:{port + 1}"):
             for method in ("GET", "POST"):
@@ -405,7 +463,14 @@ def test_a_foreign_host_name_is_refused_before_signal_answers(seeded: Path, web:
             {"error": "the request came from another site"},
         )
         assert call(server, "/signal/api/me", headers={"Origin": "http://evil.test"})[0] == 403
-        assert call(server, "/signal/api/me", headers={"Host": f"localhost:{port}"})[0] == 200
+        assert (
+            call(
+                server,
+                "/signal/api/me",
+                headers={**cookie, "Host": f"localhost:{port}"},
+            )[0]
+            == 200
+        )
 
 
 def test_the_checks_run_before_any_signal_handler(
@@ -434,62 +499,72 @@ def test_the_checks_run_before_any_signal_handler(
 
 
 def test_a_body_is_read_on_a_post_only_and_bounded_at_64_kib(seeded: Path, web: Path) -> None:
-    with react(seeded, web) as server:
-        exact = b'{"name": "Dana", "pad": "' + b"x" * (64 * 1024 - 27) + b'"}'
+    with Live(seeded, signed_in=True) as app:
+        _, token = app.create_account_session("Test Analyst", "analyst")
+        cookie = f"credit_os_session={token}"
+        prefix = b'{"name":"New Authority","kind":"regulator","url":"https://b.org/feed","pad":"'
+        suffix = b'"} '
+        exact = prefix + b"x" * (64 * 1024 - len(prefix) - len(suffix)) + suffix
         assert len(exact) == 64 * 1024
-        status, body, _ = call(server, "/signal/api/me", "POST", body=exact)
-        assert (status, json.loads(body)) == (200, {"name": "Dana", "role": "reader"})
-        status, body, _ = call(server, "/signal/api/me", "POST", body=exact + b" ")
-        assert (status, json.loads(body)) == (413, {"error": "a request body is at most 64 KiB"})
+        status, _, body = app.call("POST", "/api/sources", raw=exact, cookie=cookie)
+        assert status == 200 and body == {"id": "2"}
+        status, _, body = app.call("POST", "/api/sources", raw=exact + b" ", cookie=cookie)
+        assert (status, body) == (413, {"error": "a request body is at most 64 KiB"})
 
         no_body = {"error": "this request takes no body"}
-        status, body, _ = call(
-            server, "/signal/api/me", "GET", headers={"Content-Length": "2"}, body=b"{}"
+        status, _, body = app.call(
+            "GET", "/api/me", raw=b"{}", headers={"Content-Length": "2"}, cookie=cookie
         )
-        assert (status, json.loads(body)) == (400, no_body)
-        status, body, _ = call(
-            server, "/signal/api/stories/1/save", "DELETE", headers=DANA, body=b"{}"
-        )
-        assert (status, json.loads(body)) == (400, no_body)
-        assert call(server, "/signal/api/me", headers={"Content-Length": "0"})[0] == 200
+        assert (status, body) == (400, no_body)
+        status, _, body = app.call("DELETE", "/api/stories/1/save", raw=b"{}", cookie=cookie)
+        assert (status, body) == (400, no_body)
+        assert app.call("GET", "/api/me", headers={"Content-Length": "0"}, cookie=cookie)[0] == 200
 
 
 def test_a_required_body_needs_content_length_and_an_optional_one_does_not(
     seeded: Path, web: Path
 ) -> None:
-    with react(seeded, web) as server:
-        missing = raw_post(server, "/signal/api/me")
+    with Live(seeded, signed_in=True) as app:
+        _, token = app.create_account_session("Test Analyst", "analyst")
+        cookie = f"credit_os_session={token}"
+        missing = raw_post(app.server, "/signal/api/sources", f"Cookie: {cookie}\r\n")
         assert b" 411 " in status_line(missing)
         assert json_of(missing) == {"error": "a body needs Content-Length"}
-        cookie = "Cookie: signal_name=Dana%20Reyes\r\n"
-        saved = raw_post(server, "/signal/api/stories/1/save", cookie)  # this route reads no body
+        saved = raw_post(app.server, "/signal/api/stories/1/save", f"Cookie: {cookie}\r\n")
         assert b" 200 " in status_line(saved) and json_of(saved) == {"saved": True}
-        status, body, _ = call(server, "/signal/api/stories/1/save", "POST", headers=DANA)
-        assert (status, json.loads(body)) == (200, {"saved": True})  # Content-Length: 0
+        status, _, body = app.call("POST", "/api/stories/1/save", cookie=cookie)
+        assert (status, body) == (200, {"saved": True})  # Content-Length: 0
 
 
 @pytest.mark.parametrize("sent", ["[1]", '"Dana"', "3", "null", "true"])
 def test_a_json_body_that_is_not_an_object_is_refused(seeded: Path, web: Path, sent: str) -> None:
-    with react(seeded, web) as server:
-        status, body, _ = call(server, "/signal/api/me", "POST", body=sent)
-        assert (status, json.loads(body)) == (
+    with Live(seeded, signed_in=True) as app:
+        _, token = app.create_account_session("Test Analyst", "analyst")
+        status, _, body = app.call(
+            "POST", "/api/sources", raw=sent.encode(), cookie=f"credit_os_session={token}"
+        )
+        assert (status, body) == (
             400,
             {"error": "the request body must be a JSON object"},
         )
 
 
 def test_a_body_that_is_not_json_or_ends_early_is_refused(seeded: Path, web: Path) -> None:
-    with react(seeded, web) as server:
+    with Live(seeded, signed_in=True) as app:
+        _, token = app.create_account_session("Test Analyst", "analyst")
+        cookie = f"Cookie: credit_os_session={token}\r\n"
         not_json = {"error": "the request body is not valid JSON"}
         for sent in (b"{", b"name=Dana", b"\xff\xfe"):
-            status, body, _ = call(server, "/signal/api/me", "POST", body=sent)
-            assert (status, json.loads(body)) == (400, not_json), sent
-        port = server.server_address[1]
+            status, _, body = app.call(
+                "POST", "/api/sources", raw=sent, cookie=f"credit_os_session={token}"
+            )
+            assert (status, body) == (400, not_json), sent
+        port = app.port
         short = (
-            f"POST /signal/api/me HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
-            f"Origin: http://127.0.0.1:{port}\r\nContent-Length: 50\r\n\r\n{{}}"
+            f"POST /signal/api/sources HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+            f"Origin: http://127.0.0.1:{port}\r\n{cookie}Content-Length: 50\r\n\r\n{{}}"
         )
-        early = raw_call(server, short.encode(), half_close=True)
+        early = raw_call(app.server, short.encode(), half_close=True)
         assert b" 400 " in status_line(early)
         assert json_of(early) == {"error": "the request body ended early"}
 
@@ -517,21 +592,26 @@ def test_a_request_line_cannot_smuggle_a_second_request_or_header(seeded: Path, 
 def test_a_query_goes_with_a_get_only_and_only_when_printable_and_short(
     seeded: Path, web: Path
 ) -> None:
-    with react(seeded, web) as server:
-        status, body, _ = call(server, "/signal/api/snapshot?format=2&topic=1", headers=DANA)
+    with authenticated_react(seeded, web, name="Dana Reyes") as (server, cookie):
+        status, body, _ = call(server, "/signal/api/snapshot?format=2&topic=1", headers=cookie)
         assert status == 200 and json.loads(body)["scenes"]
-        assert call(server, "/signal/api/snapshot?", headers=DANA)[0] == 200
+        assert call(server, "/signal/api/snapshot?", headers=cookie)[0] == 200
         # A write's query is not read: a value the same route refuses on a GET changes nothing.
-        status, body, _ = call(server, "/signal/api/stories/1/save?format=3", "POST", headers=DANA)
+        status, body, _ = call(
+            server, "/signal/api/stories/1/save?format=3", "POST", headers=cookie
+        )
         assert (status, json.loads(body)) == (200, {"saved": True})
-        status, _, _ = call(server, "/signal/api/stories/1/save?x=%ff", "DELETE", headers=DANA)
+        status, _, _ = call(server, "/signal/api/stories/1/save?x=%ff", "DELETE", headers=cookie)
         assert status == 200
         not_valid = {"error": "the query string is not valid"}
-        status, body, _ = call(server, "/signal/api/feed?q=" + "a" * 600, headers=DANA)
+        status, body, _ = call(server, "/signal/api/feed?q=" + "a" * 600, headers=cookie)
         assert (status, json.loads(body)) == (400, not_valid)
         port = server.server_address[1]
         for target in (b"/signal/api/feed?q=\xe2\x82\xac", b"/signal/api/feed?q=a\x01b"):
             data = b"GET " + target + b" HTTP/1.1\r\nHost: 127.0.0.1:%d\r\n\r\n" % port
+            data = data.replace(
+                b"\r\n\r\n", b"\r\nCookie: " + cookie["Cookie"].encode() + b"\r\n\r\n"
+            )
             answered = raw_call(server, data)
             assert answered.startswith(b"HTTP/1.0 400") and json_of(answered) == not_valid
 
@@ -542,17 +622,17 @@ def test_a_query_goes_with_a_get_only_and_only_when_printable_and_short(
 def test_every_signal_reply_carries_the_policy_and_the_frame_refusal(
     seeded: Path, web: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    with react(seeded, web) as server:
+    with authenticated_react(seeded, web) as (server, cookie):
         asked = [
-            (200, "GET", "/signal/api/me", {}),
-            (200, "POST", "/signal/api/stories/1/save", DANA),
+            (200, "GET", "/signal/api/me", cookie),
+            (200, "POST", "/signal/api/stories/1/save", cookie),
             (401, "GET", "/signal/api/topics", {}),
-            (404, "GET", "/signal/api/nothing", {}),
-            (404, "GET", "/signal/api", {}),
-            (405, "PUT", "/signal/api/me", {}),
-            (400, "GET", "/signal/api/snapshot?format=3", {}),
+            (404, "GET", "/signal/api/nothing", cookie),
+            (404, "GET", "/signal/api", cookie),
+            (405, "PUT", "/signal/api/me", cookie),
+            (400, "GET", "/signal/api/snapshot?format=3", cookie),
             (403, "POST", "/signal/api/me", {"Origin": "http://evil.test"}),
-            (403, "GET", "/signal/api/me", {"Host": "evil.test"}),
+            (403, "GET", "/signal/api/me", {**cookie, "Host": "evil.test"}),
         ]
         for expected, method, path, sent in asked:
             status, _, headers = call(server, path, method, headers=sent)
@@ -568,16 +648,16 @@ def test_every_signal_reply_carries_the_policy_and_the_frame_refusal(
 
         with monkeypatch.context() as patch:
             patch.setattr(store, "open_db", broken)
-            status, body, headers = call(server, "/signal/api/me")
+            status, body, headers = call(server, "/signal/api/me", headers=cookie)
         assert (status, json.loads(body)) == (500, {"error": "the service failed; see its log"})
         assert header(headers, "Content-Security-Policy") == POLICY
         assert header(headers, "X-Frame-Options") == "DENY"
 
         # The rest of the application keeps its own headers.
-        status, _, headers = call(server, "/connected/context")
+        status, _, headers = call(server, "/connected/context", headers=cookie)
         assert (status, header(headers, "Content-Security-Policy")) == (200, None)
         assert header(headers, "X-Frame-Options") is None
-        status, _, headers = call(server, "/signal")
+        status, _, headers = call(server, "/signal", headers=cookie)
         assert (status, header(headers, "Content-Security-Policy")) == (
             200,
             "frame-ancestors 'none'",
@@ -668,15 +748,15 @@ def test_a_large_json_reply_is_gzipped_for_a_browser_that_accepts_it(
         {"id": number, "name": f"Topic {number:02d}", "following": False, "stories": 0}
         for number in range(2, 22)
     ]
-    with react(seeded, web) as server:
+    with authenticated_react(seeded, web) as (server, cookie):
         status, packed, headers = call(
-            server, "/signal/api/topics", headers={**DANA, "Accept-Encoding": "gzip"}
+            server, "/signal/api/topics", headers={**cookie, "Accept-Encoding": "gzip"}
         )
         assert status == 200 and header(headers, "Content-Encoding") == "gzip"
         assert header(headers, "Vary") == "Accept-Encoding"
         assert header(headers, "Content-Security-Policy") == POLICY
         assert json.loads(gzip.decompress(packed)) == expected
-        status, plain, headers = call(server, "/signal/api/topics", headers=DANA)
+        status, plain, headers = call(server, "/signal/api/topics", headers=cookie)
         assert (status, json.loads(plain)) == (200, expected)
         assert header(headers, "Content-Encoding") is None
 
@@ -696,10 +776,9 @@ def test_answering_a_request_opens_no_outbound_connection(
         looked_up.append(host)
         return real_lookup(host, *args, **kwargs)
 
-    with react(seeded, web) as server:
+    with authenticated_react(seeded, web) as (server, cookie):
         asked = [
             ("GET", "/signal/api/me", None),
-            ("POST", "/signal/api/me", '{"name": "Dana Reyes"}'),
             ("GET", "/signal/api/status", None),
             ("GET", "/signal/api/snapshot?format=2", None),
             ("GET", "/signal/api/feed?view=latest", None),
@@ -713,10 +792,10 @@ def test_answering_a_request_opens_no_outbound_connection(
             patch.setattr(socket.socket, "connect", connect)
             patch.setattr(socket, "getaddrinfo", lookup)
             for method, path, body in asked:
-                assert call(server, path, method, headers=DANA, body=body)[0] in (200, 404), path
+                assert call(server, path, method, headers=cookie, body=body)[0] in (200, 404), path
         port = server.server_address[1]
-    # The only connections are this test's own ten, to the application's port.
-    assert connected == [("127.0.0.1", port)] * 10
+    # The only connections are this test's own requests, to the application's port.
+    assert connected == [("127.0.0.1", port)] * len(asked)
     assert set(looked_up) == {"127.0.0.1"}
 
 
@@ -1207,10 +1286,6 @@ def test_the_pages_see_the_pass_off_without_the_switch_and_on_with_it(
     root: Path, web: Path, tmp_path: Path
 ) -> None:
     keys, rulings = ready(root, tmp_path)
-    db = store.open_db(root)
-    store.add_user(db, "Mara L", "writer")
-    db.close()
-    mara = {"Cookie": "signal_name=Mara%20L"}
     plain_reasons = [
         "The provider key is missing from the service's environment.",
         "The Copilot runtime is missing from the service's environment.",
@@ -1220,10 +1295,15 @@ def test_the_pages_see_the_pass_off_without_the_switch_and_on_with_it(
         ({**keys, "CREDIT_OS_SIGNAL_AI": "true"}, "off", plain_reasons),
         ({**keys, "CREDIT_OS_SIGNAL_AI": "1"}, "on", []),
     ):
-        with react(root, web, environ=given) as server:
+        with authenticated_react(
+            root, web, name="Mara L", profile_type="analyst", environ=given
+        ) as (
+            server,
+            mara,
+        ):
             assert server.signal is not None
             factory = faked(server.signal, rulings)
-            status, body, _ = call(server, "/signal/api/status")
+            status, body, _ = call(server, "/signal/api/status", headers=mara)
             assert (status, json.loads(body)["ai_state"]) == (200, state)
             status, body, _ = call(server, "/signal/api/snapshot", headers=mara)
             assert status == 200
@@ -1242,17 +1322,20 @@ def test_run_once_now_builds_no_model_without_the_switch_and_only_queues_with_it
     with the switch it is queued for the loop, and still no model is built in the request."""
     keys, rulings = ready(root, tmp_path)
     db = store.open_db(root)
-    store.add_user(db, "Mara L", "writer")
     for name in ("Daily", "Morning"):
         form = digests.Form(name, ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
         digests.create(db, "Mara L", digests.spec_from_form(db, "Mara L", form), NOW)
     db.close()
-    mara = {"Cookie": "signal_name=Mara%20L"}
     for given, digest, outcome in (
         (keys, 1, "nothing"),
         ({**keys, "CREDIT_OS_SIGNAL_AI": "1"}, 2, "queued"),
     ):
-        with react(root, web, environ=given) as server:
+        with authenticated_react(
+            root, web, name="Mara L", profile_type="analyst", environ=given
+        ) as (
+            server,
+            mara,
+        ):
             assert server.signal is not None
             factory = faked(server.signal, rulings)
             path = f"/signal/api/digests/{digest}/run"
