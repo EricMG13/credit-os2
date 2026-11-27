@@ -97,6 +97,7 @@ describe("headline year comparator", () => {
     expect(count(lev, "worse")).toBe(1);
     expect(lev.querySelector('[data-shape="diamond"]')).not.toBeNull();
     expect(within(cov).getByText("better")).toBeVisible();
+    expect(cov.className).toContain("text-better-mark");
     expect(count(cov, "better")).toBe(1);
     expect(cov.querySelector('[data-shape="filled circle"]')).not.toBeNull();
     for (const el of [lev, cov]) expect(el.querySelector(".sr-only")).toBeNull();

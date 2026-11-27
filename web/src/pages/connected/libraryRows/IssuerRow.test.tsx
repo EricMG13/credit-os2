@@ -261,7 +261,7 @@ it("does not read a report for its dates before the row is in view or opened", (
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("draws better in the accent and worse in the signal colour, each with its word", () => {
+it("draws better and worse in the better and worse marks, each with its word", () => {
   draw(
     [
       run("acme-2026", "2026-03-31", {

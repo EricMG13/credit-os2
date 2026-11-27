@@ -29,7 +29,7 @@ export function figureName(key: string, name: string, figure: Figure | undefined
   return stated && stated !== name ? stated : name;
 }
 
-/** Better is the accent with its word, worse the signal colour with its word; never colour alone. */
+/** Better and worse are drawn in the better and worse marks, each with its word; never colour alone. */
 const TONE_TEXT = { better: "text-better-mark", worse: "text-worse-mark", flat: "" } as const;
 
 /**

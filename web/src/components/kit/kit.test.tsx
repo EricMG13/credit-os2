@@ -30,6 +30,18 @@ it("draws a stat's value as written, its change with the direction word, and a g
   expect(within(strip).queryByText("0")).toBeNull();
 });
 
+it("draws a worse change in the worse mark with its word", () => {
+  render(
+    <StatsStrip
+      label="Worse strip"
+      stats={[{ label: "Net leverage", value: "3.00x", delta: "+0.75x", tone: "worse" }]}
+    />,
+  );
+  expect(within(screen.getByLabelText("Worse strip")).getByText("+0.75x worse")).toHaveClass(
+    "text-worse-mark",
+  );
+});
+
 it("lays four figures two by two, then four across: never three with one alone on a row", () => {
   const stat = (label: string) => ({ label, value: "1.0x" });
   const { rerender } = render(<StatsStrip label="Four" stats={["A", "B", "C", "D"].map(stat)} />);

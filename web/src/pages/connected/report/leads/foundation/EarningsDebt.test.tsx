@@ -128,6 +128,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
     expect(slope.querySelector(".stroke-worse-mark")).not.toBeNull();
     expect(lev.querySelector("[data-change]")?.textContent).toBe("+0.26x · worse");
     expect(lev.querySelector("[data-tone]")?.getAttribute("data-tone")).toBe("worse");
+    expect(lev.querySelector("[data-change] [data-tone]")).toHaveClass("text-worse-mark");
     expect(tile.textContent).toContain("Leverage, worse");
   });
 
@@ -449,6 +450,9 @@ describe("the head: caption and legend (N4, N8)", () => {
     const swatch = tile.querySelector("[data-legend=line] [data-swatch=line]");
     expect(swatch).toHaveClass("stroke-better-mark");
     expect(tile.querySelector("[data-leverage] svg .stroke-better-mark")).not.toBeNull();
+    expect(tile.querySelector("[data-leverage] [data-change] [data-tone]")).toHaveClass(
+      "text-better-mark",
+    );
   });
   it("draws bars for one period and lines for three", () => {
     // One period: no change, so no "Leverage, worse" entry.
@@ -509,7 +513,7 @@ describe("a third period: the compared pair is named and carries the tone (round
         expect(segments[0]?.getAttribute("data-tone")).toBe("worse");
         expect(segments[0]?.getAttribute("class")).toContain("stroke-worse-mark");
         expect(segments[1]?.hasAttribute("data-tone")).toBe(false);
-        expect(segments[1]?.getAttribute("class")).not.toContain("stroke-worse-mark");
+        expect(segments[1]?.getAttribute("class")).not.toMatch(/warning-mark|worse-mark/);
       });
       it("names the pair beside every measure's change in the figure's reading", () => {
         const tile = draw(withLtm(where));

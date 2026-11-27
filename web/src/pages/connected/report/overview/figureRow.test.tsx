@@ -359,7 +359,7 @@ describe("each figure's basis", () => {
     expect(within(tile).getByText("Better")).toBeVisible();
   });
 
-  it("draws the large tile's chip on the step-1 tint, in primary text, with its mark-coloured edge", () => {
+  it("draws the large tile's chip on the step-2 tint, in primary text, with its mark-coloured edge", () => {
     draw(
       foundation(
         chart(

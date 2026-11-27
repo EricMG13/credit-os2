@@ -9,7 +9,7 @@ const swatch = (tone: LegendColour, kind: "dot" | "line" | "square" = "dot") => 
   return container.querySelector(`[data-swatch="${kind}"]`);
 };
 
-it("draws better and worse-mark in the better and worse marks, with their words", () => {
+it("draws better and worse-mark in the better and worse marks", () => {
   expect(swatch("better")).toHaveClass("fill-better-mark");
   cleanup();
   expect(swatch("worse-mark")).toHaveClass("fill-worse-mark");
