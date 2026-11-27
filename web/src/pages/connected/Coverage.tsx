@@ -33,6 +33,8 @@ import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
 import { IssuerDetail } from "./coverage/IssuerDetail";
 import { Matrix } from "./coverage/Matrix";
+import { Monitor } from "./coverage/Monitor";
+export { MONITOR_GROUPS } from "./coverage/Monitor";
 import { RankView } from "./coverage/Rank";
 import { named, STATE_WORDS } from "./coverage/shared";
 import { TrendView } from "./coverage/Trend";
@@ -683,7 +685,18 @@ function Dashboard({ data: served }: { data: Data }) {
         </p>
       )}
       <h2 className="font-display text-h3 text-text-primary">{heading}</h2>
-      {isAnalyticsView(view) ? (
+      {view === "monitor" ? (
+        shown.length === 0 ? (
+          <p className={card}>No issuers match these filters.</p>
+        ) : (
+          <Monitor
+            data={data}
+            issuers={shown}
+            selected={selectedIssuer}
+            onSelect={setSelectedIssuer}
+          />
+        )
+      ) : isAnalyticsView(view) ? (
         <section aria-label={viewName} className={card}>
           <label className="flex flex-wrap items-center gap-2 text-small text-text-secondary">
             Issuer

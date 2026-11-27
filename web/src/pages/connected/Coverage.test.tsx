@@ -783,20 +783,30 @@ test("a module code in a figure's label or stated heading is drawn as the module
 });
 
 test("Coverage opens Monitor by default and keeps named analytics regions honest", async () => {
+  window.history.replaceState(null, "", "/coverage");
   answer(data);
   render(<Coverage />);
-  expect(await screen.findByRole("region", { name: "Monitor" })).toHaveTextContent(
-    "Monitor analysis is not available yet.",
-  );
+  const monitor = await screen.findByRole("table", { name: "Monitor" });
+  expect(
+    within(within(monitor).getByRole("row", { name: /Alpha plc/ })).getByRole("link", {
+      name: "Open run",
+    }),
+  ).toHaveAttribute("href", "/report/alpha-run");
+  expect(
+    within(within(monitor).getByRole("row", { name: /Beta SA/ })).getByRole("link", {
+      name: "Open run",
+    }),
+  ).toHaveAttribute("href", "/report/beta-run");
+  expect(
+    screen.getByRole("region", { name: "Issuers left out of one or more measures" }),
+  ).toHaveTextContent("Alpha plc: no figure");
   expect(screen.getByRole("heading", { name: "Monitor" })).toBeInTheDocument();
   expect(
     screen.getByText(
       /Every figure and sentence is as its module wrote it, except those marked computed/,
     ),
   ).toBeInTheDocument();
-  fireEvent.change(screen.getByRole("combobox", { name: "Selected issuer" }), {
-    target: { value: "beta" },
-  });
+  fireEvent.click(screen.getByRole("row", { name: /Beta SA/ }));
   for (const view of ["Patterns", "Refinancing", "Headroom", "Market"]) {
     fireEvent.click(screen.getByRole("button", { name: view }));
     expect(screen.getByRole("region", { name: view })).toHaveTextContent(
