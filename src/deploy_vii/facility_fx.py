@@ -141,10 +141,10 @@ def normalize_facilities(book: FinancialBook) -> tuple[FacilityNormalization, ..
         raise ValueError("; ".join(issues))
     periods = {p.period_id: p for p in book.periods}
     conversions = {(c.facility_id, c.period_id): c for c in book.facility_fx_conversions}
-    rate_groups: dict[tuple[str, date | None], list[Observation]] = {}
+    rate_groups: dict[tuple[str, date | str, str | None], list[Observation]] = {}
     conflicts: dict[tuple[str, date | str, str | None, str], list[Observation]] = {}
     for quote in book.facility_fx_conversions:
-        key = quote.facility_id, quote.rate_date
+        key = quote.facility_id, *_conflict_scope(periods[quote.period_id])
         rate_groups.setdefault(key, []).append(quote.rate)
     for row in book.facilities:
         scope = _conflict_scope(periods[row.period_id])
@@ -181,7 +181,9 @@ def normalize_facilities(book: FinancialBook) -> tuple[FacilityNormalization, ..
             end = periods[row.period_id].end_date
             conversion = conversions.get((row.facility_id, row.period_id))
             rate = conversion.rate.amount if conversion else None
-            related_rates = rate_groups.get((row.facility_id, end), [])
+            related_rates = rate_groups.get(
+                (row.facility_id, *_conflict_scope(periods[row.period_id])), []
+            )
             rate_conflict = any(r.status == "conflicting" for r in related_rates)
             for field in MONETARY_FIELDS:
                 source: Observation = getattr(row, field)

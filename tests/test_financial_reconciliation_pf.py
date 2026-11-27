@@ -32,6 +32,7 @@ SPANS = {
     "fy-2024": ("FY", date(2024, 1, 1), date(2024, 12, 31)),
     "fy-2025": ("FY", date(2025, 1, 1), END),
     "pf-2025": ("PF", date(2025, 1, 1), END),
+    "pf-b-2025": ("PF", date(2025, 1, 1), END),
     "pf-h1-2025": ("PF", date(2025, 1, 1), date(2025, 6, 30)),
     "q3-2025": ("QUARTER", date(2025, 7, 1), date(2025, 9, 30)),
 }
@@ -356,3 +357,114 @@ def test_a_facility_held_only_in_an_earlier_pro_forma_period_is_named_missing_at
     missing = next(t for t in check.components if t.label == "notes2")
     assert missing.amount is None
     assert missing.reason == "Not supplied"
+
+
+def test_a_facility_held_only_in_another_same_date_pro_forma_period_is_no_part_of_this_one():
+    """`refi-notes` belongs to the other scenario `pf-b-2025`: the check is 100, not BLOCK."""
+    b = book(
+        periods=(period("fy-2025"), period("pf-2025"), period("pf-b-2025")),
+        accounts=(
+            AccountObservation(metric_id="total_debt", period_id="pf-2025", value=known("p", 100)),
+        ),
+        facilities=(
+            facility("notes", "pf-2025", 100),
+            facility("refi-notes", "pf-b-2025", 50),
+        ),
+    )
+    check = _debt(b, period("pf-2025"), {})
+    assert check.status != "BLOCK"
+    assert check.calculated_value == Decimal(100)
+    assert all(t.label != "refi-notes" for t in check.components)
+
+
+def test_a_facility_with_a_reported_row_stays_a_term_of_a_pro_forma_check():
+    """A facility that has any non-PF row keeps the existing behaviour: the reported row is read."""
+    b = book(
+        periods=(period("fy-2025"), period("pf-2025"), period("pf-b-2025")),
+        accounts=(
+            AccountObservation(metric_id="total_debt", period_id="pf-2025", value=known("p", 100)),
+        ),
+        facilities=(
+            facility("notes", "pf-2025", 100),
+            facility("refi-notes", "fy-2025", 50),
+            facility("refi-notes", "pf-b-2025", 50),
+        ),
+    )
+    check = _debt(b, period("pf-2025"), {})
+    term = next(t for t in check.components if t.label == "refi-notes")
+    assert term.amount == Decimal(50)
+    assert check.calculated_value == Decimal(150)
+
+
+def undated(period_id: str, kind: str) -> FinancialPeriod:
+    return period("fy-2025").model_copy(
+        update={
+            "period_id": period_id,
+            "period_type": kind,
+            "start_date": None,
+            "end_date": None,
+            "limitation": "Dates not stated.",
+        }
+    )
+
+
+def test_an_undated_pro_forma_period_is_not_a_same_date_period_of_an_undated_checked_one():
+    """Undated periods share no date, so `refi-notes` in `pf-u` stays a named gap of `fy-u`."""
+    b = book(
+        periods=(undated("fy-u", "FY"), undated("pf-u", "PF")),
+        accounts=(
+            AccountObservation(metric_id="total_debt", period_id="fy-u", value=known("d", 100)),
+        ),
+        facilities=(
+            facility("notes", "fy-u", 100),
+            facility("refi-notes", "pf-u", 50),
+        ),
+    )
+    check = _debt(b, undated("fy-u", "FY"), {})
+    missing = next(t for t in check.components if t.label == "refi-notes")
+    assert missing.amount is None
+    assert missing.reason == "Not supplied"
+    assert check.status == "BLOCK"
+
+
+def _acct(period_id: str, amount: int) -> AccountObservation:
+    return AccountObservation(
+        metric_id="total_debt", period_id=period_id, value=known(f"d.{period_id}", amount)
+    )
+
+
+def test_a_facility_in_an_earlier_pro_forma_and_another_same_date_one_is_a_named_gap():
+    """`acq-tl` has rows in `pf-h1-2025` (other date) and `pf-b-2025`: not only a sibling's."""
+    b = book(
+        periods=(period("pf-h1-2025"), period("pf-2025"), period("pf-b-2025")),
+        accounts=(_acct("pf-2025", 100),),
+        facilities=(
+            facility("notes", "pf-h1-2025", 100),
+            facility("notes", "pf-2025", 100),
+            facility("acq-tl", "pf-h1-2025", 50),
+            facility("acq-tl", "pf-b-2025", 50),
+        ),
+    )
+    check = _debt(b, period("pf-2025"), {})
+    missing = next(t for t in check.components if t.label == "acq-tl")
+    assert missing.amount is None
+    assert missing.reason == "Not supplied"
+    assert check.status == "BLOCK"
+
+
+def test_a_facility_in_an_earlier_pro_forma_and_a_sibling_is_a_named_gap_of_the_other_sibling():
+    """`notes` is in `pf-h1-2025` and `pf-2025`; the `pf-b-2025` check names it, not 50 alone."""
+    b = book(
+        periods=(period("pf-h1-2025"), period("pf-2025"), period("pf-b-2025")),
+        accounts=(_acct("pf-2025", 100), _acct("pf-b-2025", 50)),
+        facilities=(
+            facility("notes", "pf-h1-2025", 100),
+            facility("notes", "pf-2025", 100),
+            facility("acq-tl", "pf-b-2025", 50),
+        ),
+    )
+    check = _debt(b, period("pf-b-2025"), {})
+    missing = next(t for t in check.components if t.label == "notes")
+    assert missing.amount is None
+    assert missing.reason == "Not supplied"
+    assert check.calculated_value is None

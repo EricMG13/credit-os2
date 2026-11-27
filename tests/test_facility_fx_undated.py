@@ -11,6 +11,7 @@ from deploy_vii.contracts import Citation
 from deploy_vii.facility_fx import fx_conversion_issues, normalize_facilities
 from deploy_vii.financial_contracts import (
     Disclosure,
+    FacilityFxConversion,
     FacilityObservation,
     FinancialBook,
     FinancialPeriod,
@@ -180,3 +181,52 @@ def test_a_pro_forma_period_keeps_its_own_conflict():
 def test_a_reported_conflict_still_reaches_a_same_date_reported_alias():
     b = dated_book(("fy", KNOWN), ("fy-b", conflicting()), kinds={"fy": "FY", "fy-b": "FY"})
     assert carrying_of(b, "fy").reason == "Same-date source amount is conflicting"
+
+
+def quote(row: FacilityObservation, rate: Observation) -> FacilityFxConversion:
+    return FacilityFxConversion(
+        conversion_id=f"fx-{row.period_id}",
+        facility_id=row.facility_id,
+        period_id=row.period_id,
+        facility_sha256=row.content_hash(),
+        source_currency="EUR",
+        target_currency="USD",
+        rate_date=date(2025, 12, 31),
+        rate_kind="period_end_spot",
+        rate=rate,
+        rationale="Synthetic closing quote.",
+        citations=(CITE,),
+    )
+
+
+def quoted_book(pf_rate: Observation) -> FinancialBook:
+    b = dated_book(("fy", KNOWN), ("pf", KNOWN), kinds={"fy": "FY", "pf": "PF"})
+    fy_rate = Observation(
+        observation_id="fy.rate", status="known", amount=Decimal("1.1"), citations=(CITE,)
+    )
+    rows = {r.period_id: r for r in b.facilities}
+    return FinancialBook(
+        **{
+            **b.model_dump(),
+            "facility_fx_conversions": (quote(rows["fy"], fy_rate), quote(rows["pf"], pf_rate)),
+        }
+    )
+
+
+def conflicting_rate() -> Observation:
+    return conflicting().model_copy(update={"observation_id": "pf.rate"})
+
+
+def test_a_pro_forma_conflicting_rate_does_not_blank_the_reported_conversion():
+    b = quoted_book(conflicting_rate())
+    assert fx_conversion_issues(b) == ()
+    fy = carrying_of(b, "fy")
+    assert fy.reason is None
+    assert fy.amount == Decimal("11.0")
+    assert fy.input_observation_ids == ("b.carry", "fy.rate")
+
+
+def test_a_pro_forma_period_keeps_its_own_conflicting_rate():
+    pf = carrying_of(quoted_book(conflicting_rate()), "pf")
+    assert pf.reason == "Same-date FX rate is conflicting"
+    assert pf.amount is None

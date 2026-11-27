@@ -322,17 +322,19 @@ def _debt(
     """Use same-date carrying values, excluding both lease classes; no FX inference."""
     ids = _balance_period_ids(book, period.end_date, period.period_id)
     templates = {r.facility_id: r for r in book.facilities}
-    reported = {p.period_id for p in book.periods if p.period_type != "PF"}
-    reported_facilities = {r.facility_id for r in book.facilities if r.period_id in reported}
-    same_date_pro_forma = {
-        r.facility_id
-        for r in book.facilities
+    other_pro_forma = {
+        p.period_id
         for p in book.periods
-        if p.period_id == r.period_id and p.period_type == "PF" and p.end_date == period.end_date
+        if p.period_type == "PF"
+        and p.period_id != period.period_id
+        and period.end_date is not None
+        and p.end_date == period.end_date
     }
-    pro_forma_only = (
-        set() if period.period_type == "PF" else same_date_pro_forma - reported_facilities
-    )
+    # A facility whose rows all sit in other same-date pro forma periods belongs to those
+    # scenarios; a row anywhere else (reported, this period, another date) keeps it a term.
+    pro_forma_only = {r.facility_id for r in book.facilities if r.period_id in other_pro_forma} - {
+        r.facility_id for r in book.facilities if r.period_id not in other_pro_forma
+    }
     own_facilities = {r.facility_id for r in book.facilities if r.period_id == period.period_id}
     values_by_id: dict[str, list[Observation]] = {}
     normalized_by_id: dict[str, list[FacilityNormalization]] = {}
@@ -357,7 +359,7 @@ def _debt(
             continue
         values = values_by_id.get(fid, [])
         if not values and fid in pro_forma_only:
-            continue  # a same-date pro forma instrument is no part of the reported debt
+            continue  # another same-date pro forma scenario's instrument is no part of this debt
         issued = None if values else facility_issued_after(book, fid, period.end_date)
         if issued is not None:
             # Not yet issued at this date and no row of its own: zero, as the adapter reads it.
