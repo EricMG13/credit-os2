@@ -74,3 +74,29 @@ it("gives the first five sectors slots 3, 4, 5, 6, 8 in order of first appearanc
     ["Software", 8],
   ]);
 });
+
+it("keeps catalogue sector order across interleaved runs and excludes ambiguous folders", () => {
+  const entry = (id: string, sector: string) => ({ ...run(id, "2026-03-31"), sector });
+  const index: LibraryIndex = {
+    catalogue: {
+      real: [
+        entry("a1", "Telecom"),
+        entry("dup", "Unlisted"),
+        entry("b", "Retail"),
+        entry("a2", "Media"),
+        entry("dup", "Unlisted"),
+      ],
+    },
+    workspace: {
+      runs: {
+        a1: { folder: "a1", issuerKey: "a", pathway: null },
+        a2: { folder: "a2", issuerKey: "a", pathway: null },
+      },
+    },
+  };
+  expect([...sectorSlots(index)]).toEqual([
+    ["Telecom", 3],
+    ["Retail", 4],
+    ["Media", 5],
+  ]);
+});

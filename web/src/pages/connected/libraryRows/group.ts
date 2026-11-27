@@ -64,10 +64,12 @@ export type SectorSlot = (typeof SECTOR_SLOTS)[number];
  * 6, 8 and every further sector takes slot 8.
  */
 export function sectorSlots(index: LibraryIndex): Map<string, SectorSlot> {
-  const sectors = [...issuerGroups(index).values()]
-    .flat()
-    .map(({ catalogue }) => catalogue.sector)
-    .filter(Boolean);
+  const admitted = new Set(
+    [...issuerGroups(index).values()].flat().map(({ catalogue }) => catalogue.id),
+  );
+  const sectors = index.catalogue.real
+    .filter(({ id, sector }) => admitted.has(id) && sector)
+    .map(({ sector }) => sector);
   return new Map(
     [...new Set(sectors)].map((sector, at) => [sector, SECTOR_SLOTS[at] ?? 8] as const),
   );
