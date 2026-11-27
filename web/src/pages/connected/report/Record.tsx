@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { ChevronDown } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
-import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
 import {
   getRun,
   moduleName,
@@ -15,6 +14,7 @@ import { card, heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
 import { publishedHref, readerText, type OutputEntry, type PublishedRun } from "../publishedReport";
 import { elapsedFigure, spendFigure, stamp } from "../runFigures";
+import { CapBandKey, CapReading, Meter } from "../runMeter";
 import { useResource } from "../useResource";
 
 const EXECUTION: Record<NonNullable<Run["execution"]>, string> = {
@@ -185,7 +185,22 @@ function CapUsageItem({
       <dd className="font-semibold tabular-nums">{spend?.value ?? missing}</dd>
       <dd>
         {spend?.bar ? (
-          <ProgressBar {...spend.bar} labelBelow />
+          <div className="grid gap-1.5">
+            <div className="flex items-center gap-2">
+              <Meter
+                value={spend.bar.value}
+                max={spend.bar.max}
+                name={spend.bar.label}
+                valueText={spend.bar.label}
+                limit
+              />
+              <CapReading value={spend.bar.value} max={spend.bar.max} />
+            </div>
+            <CapBandKey />
+            <span className="text-small font-medium text-text-secondary tabular-nums">
+              {spend.bar.label}
+            </span>
+          </div>
         ) : (
           <span className="text-sm text-text-tertiary">
             {spend?.note ??
