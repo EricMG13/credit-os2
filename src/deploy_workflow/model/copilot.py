@@ -81,7 +81,10 @@ def event_record(event: Any) -> dict[str, Any]:
 
 def _billed_usd(data: Mapping[str, Any]) -> Decimal | None:
     """The charge from ``copilotUsage.totalNanoAiu``, exact; None when absent, negative,
-    non-integer-valued or non-numeric. The experimental ``cost`` field is ignored."""
+    non-integer-valued or non-numeric, or when ``aiCreditsStatus`` is present and not
+    ``complete`` (the figure is then not the charge). The experimental ``cost`` field is ignored."""
+    if data.get("aiCreditsStatus", "complete") != "complete":
+        return None
     usage = data.get("copilotUsage")
     raw = usage.get("totalNanoAiu") if isinstance(usage, dict) else None
     if isinstance(raw, bool) or not isinstance(raw, int | Decimal):
@@ -242,9 +245,7 @@ def _compaction_usd(data: Mapping[str, Any]) -> Decimal | None:
     """The summariser's charge, by the rule the route uses for a call (``_billed_usd``). A
     subtotal the runtime marks ``partial`` or ``unavailable`` is not a charge: None."""
     used = data.get("compactionTokensUsed")
-    if not isinstance(used, dict) or used.get("aiCreditsStatus", "complete") != "complete":
-        return None
-    return _billed_usd(used)
+    return _billed_usd(used) if isinstance(used, dict) else None
 
 
 def _compaction(kind: str, data: Mapping[str, Any]) -> Compaction | None:
