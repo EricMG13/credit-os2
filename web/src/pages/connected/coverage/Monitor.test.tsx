@@ -446,8 +446,8 @@ describe("Monitor", () => {
   it("draws a series whose middle point lies less than a millionth of the range from the minimum", () => {
     const { data, issuers } = fixture();
     const first = issuers[0] as Issuer;
-    data.facts.push(fact(first, fields[0][0], "FY2026", "100000005", "x", 1000));
-    render(<Monitor data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const extended = { ...data, facts: [...data.facts, fact(first, fields[0][0], "FY2026", "100000005", "x", 1000)] };
+    render(<Monitor data={extended} issuers={issuers} selected={null} onSelect={vi.fn()} />);
     expect(screen.getByRole("cell", { name: /Alpha plc, Total debt \/ EBITDA/ })).toHaveTextContent("100000005");
   });
 
