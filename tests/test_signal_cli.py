@@ -8,8 +8,7 @@ from test_signal_feeds import RSS
 from deploy_workflow.signal.cli import main
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fetch import Fetched, FetchRefused
-from deploy_workflow.signal.identity import clean_name
-from deploy_workflow.signal.store import add_story, open_db, propose_source, role_of
+from deploy_workflow.signal.store import add_story, open_db, propose_source
 
 
 def run(tmp_path, *args):
@@ -166,25 +165,14 @@ def test_approving_an_unknown_source_exits_2_with_one_line(tmp_path):
     assert code == 2 and out == "" and err.splitlines() == ["error: no source with id 999"]
 
 
-def test_adding_a_user_with_an_empty_name_exits_2(tmp_path):
-    code, out, err = run_split(tmp_path, "users", "add", "", "--role", "reader")
-    assert code == 2 and out == "" and err.splitlines() == ["error: display name is empty"]
-
-
-def test_users_add_stores_the_name_the_page_looks_up(tmp_path):
-    messy = "  B.   Novak "
-    assert run(tmp_path, "users", "add", messy, "--role", "writer")[0] == 0
+def test_users_add_is_retired_and_cannot_create_a_signal_user(tmp_path):
+    code, out, err = run_split(tmp_path, "users", "add", "B. Novak", "--role", "writer")
+    assert code == 2 and out == "" and "invalid choice: 'users'" in err
     db = open_db(tmp_path)
     try:
-        assert role_of(db, clean_name(messy)) == "writer"
-        assert [row["name"] for row in db.execute("SELECT name FROM users")] == ["B. Novak"]
+        assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     finally:
         db.close()
-
-
-def test_users_add_refuses_a_name_that_cleans_to_nothing_in_one_line(tmp_path):
-    code, out, err = run_split(tmp_path, "users", "add", "\u200b \t", "--role", "reader")
-    assert code == 2 and out == "" and err.splitlines() == ["error: display name is empty"]
 
 
 @pytest.mark.parametrize("limit", ["0", "-1", "x"])
@@ -367,7 +355,7 @@ def test_a_store_that_is_not_a_database_is_one_sentence_and_exit_two(tmp_path):
 def test_a_root_that_is_a_file_is_one_sentence_and_exit_two(tmp_path):
     root = tmp_path / "not-a-folder"
     root.write_text("x")
-    code, out, err = run_split(root, "users", "add", "Zed", "--role", "reader")
+    code, out, err = run_split(root, "stories")
     assert (code, out) == (2, "")
     assert err.startswith("error: the store ") and err.count("\n") == 1
 

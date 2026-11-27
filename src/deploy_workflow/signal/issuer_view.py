@@ -5,8 +5,8 @@ channels, Settings' issuer list and filing line, and each story's issuers.
     settings.issuers   [{id, name, aliases, cik, libraryKey, source: {id, state, note} | null}]
     settings.filings   {contactSet, note}
 
-`count` is the issuer's story count as text (null for a viewer with no name, and null beside a view
-the size bound left empty, as a topic's). `source` is the issuer's filing source while it has a
+`count` is the issuer's story count as text (null for a viewer with no account, and null beside a
+view the size bound left empty, as a topic's). `source` is the issuer's filing source while it has a
 CIK: its state word and one sentence on what Signal does with it. The owner's contact string is
 never delivered: `contactSet` says only whether one is set. Every read runs in the caller's read
 transaction.
@@ -44,7 +44,7 @@ def _rows(db: sqlite3.Connection, user_name: str) -> list[sqlite3.Row]:
 
 
 def channels(db: sqlite3.Connection, user: User | None) -> list[Json]:
-    """``channels.issuers`` for `user` (None: no display name yet)."""
+    """``channels.issuers`` for `user` (None: no authenticated account)."""
     named = user is not None
     return [
         {

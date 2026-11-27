@@ -21,10 +21,10 @@ import { decisionActions, type Action, type SpecialistOverview } from "../frontP
 import { reportSpecialistOverview } from "../../export/reportExport";
 import { plainText, richParts } from "../../richText";
 import { problemSentence } from "../changes/model";
-import { callBlocks } from "./decision";
+import { callBlocks, retainedPreviewLead } from "./decision";
 import { readerReason } from "./reason";
 import { useSvgScale } from "./svgScale";
-import { entryOf, type Passage, type PassageTable, type RowProps } from "./read";
+import { entryOf, passageBlocks, type Passage, type PassageTable, type RowProps } from "./read";
 import { Figure, GapNote, GapSentence, Tile } from "./Tile";
 
 function Source({
@@ -284,10 +284,44 @@ function SpecialistCall({
   );
 }
 
-function CallTile({ snapshot, run, view }: RowProps) {
-  const lead = view.lead;
+type CallRowProps = RowProps & { retainedPreview?: boolean };
+
+function RetainedKeyFindings({ run, entry }: Pick<RowProps, "run"> & { entry: OutputEntry }) {
+  const findings = passageBlocks(entry, "Key findings");
+  return (
+    <section aria-label="Key findings from retained CP-2 handoff" className="flex flex-col gap-3">
+      <h4 className="text-small font-medium text-text-secondary">Key findings</h4>
+      {findings.length ? (
+        findings.map((passage, index) => (
+          <div key={passage.line} className="flex items-start justify-between gap-3">
+            <Sentence
+              run={run}
+              entry={entry}
+              passage={passage}
+              className="reading-copy text-body text-text-secondary"
+              of="key finding"
+            />
+            <Source
+              run={run}
+              entry={entry}
+              line={passage.line}
+              name={`key finding ${String(index + 1)}`}
+            />
+          </div>
+        ))
+      ) : (
+        <GapNote>The retained CP-2 handoff contains no readable key findings.</GapNote>
+      )}
+    </section>
+  );
+}
+
+function CallTile({ snapshot, run, view, retainedPreview = false }: CallRowProps) {
+  const previewLead = retainedPreviewLead(view, run, retainedPreview);
+  const lead = previewLead ?? view.lead;
+  const callView = lead ? { ...view, lead } : view;
   const decisions = decisionActions(view, run);
-  const { heading, blocks } = callBlocks(view, run);
+  const { heading, blocks } = callBlocks(callView, run, Boolean(previewLead));
   const [first, ...rest] = blocks;
   const key = publishedRunForFolder(snapshot.workspace.runs, run.folder)?.[0];
   const specialist = key === undefined ? null : reportSpecialistOverview(view, run, key);
@@ -315,6 +349,11 @@ function CallTile({ snapshot, run, view }: RowProps) {
     // No `self-start`: a call shorter than the trust column ends level with it, its foot at the foot.
     <Tile span={8} label="The call" className="gap-7">
       <div className="flex flex-col gap-6">
+        {previewLead && (
+          <p className="text-caption text-gap-text">
+            Retained fundamental credit assessment · Unverified test preview.
+          </p>
+        )}
         <div className="flex flex-col gap-3">
           {/* One line names the tile and the passage, with the passage's trace at its right. */}
           <div className="flex items-center justify-between gap-3">
@@ -341,6 +380,7 @@ function CallTile({ snapshot, run, view }: RowProps) {
           />
           <Continuation run={run} entry={lead} rest={rest} of={heading.toLowerCase()} />
         </div>
+        {previewLead && <RetainedKeyFindings run={run} entry={previewLead} />}
         <Decisions run={run} decisions={decisions} />
       </div>
       <RunFacts run={run} view={view} />
@@ -649,7 +689,7 @@ function ChangesTile(props: RowProps) {
  * Row 1: the call. The stance and bottom line take the widest tile; beside them, how far to trust
  * it (confidence, evidence clearance) and whether it moved since the earlier run.
  */
-export function CallRow(props: RowProps) {
+export function CallRow(props: CallRowProps) {
   return (
     <>
       <CallTile {...props} />

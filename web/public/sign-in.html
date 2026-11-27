@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Sign in — Credit OS</title>
+    <style>
+      @font-face {
+        font-family: Geist;
+        src: url("/fonts/Geist-Regular.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: Geist;
+        src: url("/fonts/Geist-SemiBold.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+      }
+      :root {
+        color-scheme: light;
+        font-family: Geist, Arial, sans-serif;
+        color: #0a0a0a;
+        background: #fafafa;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        min-width: 1024px;
+        min-height: 100vh;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 40px;
+        background: #fff;
+        border-bottom: 1px solid #e4e4e7;
+      }
+      header img {
+        width: 24px;
+        height: 24px;
+      }
+      header span {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      main {
+        width: 100%;
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 56px 40px 72px;
+      }
+      .card {
+        width: 100%;
+        max-width: 520px;
+        display: grid;
+        gap: 28px;
+        padding: 40px;
+        background: #fff;
+        border: 1px solid #e4e4e7;
+        border-radius: 20px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.2;
+        letter-spacing: -0.035em;
+        font-weight: 600;
+      }
+      .reason {
+        margin: 0;
+        padding: 12px 14px;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: 14px;
+        line-height: 22px;
+      }
+      .reason:empty {
+        display: none;
+      }
+      .primary {
+        min-height: 40px;
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #1d4ed8;
+        border-radius: 8px;
+        background: #1d4ed8;
+        color: #fff;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background-color 100ms ease;
+      }
+      .primary:hover {
+        background: #1e40af;
+        border-color: #1e40af;
+      }
+      .primary:focus-visible {
+        outline: 3px solid rgb(29, 78, 216);
+        outline-offset: 3px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .primary {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="/symbol.svg" alt="" width="24" height="24" />
+      <span>Credit OS</span>
+    </header>
+    <main>
+      <section class="card" aria-labelledby="sign-in-heading">
+        <h1 id="sign-in-heading">Sign in with your work account</h1>
+        <p class="reason" role="alert" aria-live="assertive"><!-- sign-in-error --></p>
+        <a class="primary" href="/auth/start">Continue with Microsoft</a>
+      </section>
+    </main>
+  </body>
+</html>

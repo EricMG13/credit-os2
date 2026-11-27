@@ -1,4 +1,4 @@
-"""Command line for Signal users, sources, ingest passes and stories, the owner's moderation and
+"""Command line for Signal sources, ingest passes and stories, the owner's moderation and
 clean-up of groups, threads and comments (which have no browser route), of sources and digests
 (``cli_clean``), the owner's AI commands (``cli_ai``), the issuers, filings and market post
 (``cli_issuers``) and the sources' logos (``cli_logos``)."""
@@ -24,13 +24,10 @@ from deploy_workflow.signal import (
 )
 from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
-from deploy_workflow.signal.identity import IdentityError, clean_name
 from deploy_workflow.signal.ingest import health, run_due
 from deploy_workflow.signal.store import (
     KINDS,
-    ROLES,
     StoreError,
-    add_user,
     open_db,
     propose_source,
     set_source_state,
@@ -56,11 +53,6 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m deploy_workflow.signal")
     parser.add_argument("--root", type=Path, required=True, help="folder holding signal/")
     commands = parser.add_subparsers(dest="command", required=True)
-
-    users = commands.add_parser("users").add_subparsers(dest="action", required=True)
-    add = users.add_parser("add")
-    add.add_argument("name")
-    add.add_argument("--role", choices=ROLES, required=True)
 
     srcs = commands.add_parser("sources").add_subparsers(dest="action", required=True)
     propose = srcs.add_parser("propose")
@@ -192,10 +184,6 @@ def _sources(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         set_source_state(db, args.id, state)
 
 
-def _users(db: sqlite3.Connection, args: argparse.Namespace) -> None:
-    add_user(db, clean_name(args.name), args.role)
-
-
 def _ingest_command(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     _ingest(db, args.loop)
 
@@ -206,7 +194,6 @@ def _stories_command(db: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 Handler = Callable[[sqlite3.Connection, argparse.Namespace], None]
 _HANDLERS: dict[str, Handler] = {
-    "users": _users,
     "sources": _sources,
     "topics": _topics,
     "ingest": _ingest_command,
@@ -255,7 +242,7 @@ def main(argv: Sequence[str] | None = None, ai: ai_run.Setup | None = None) -> i
         if args.command == "ai":
             return _ai(args, ai_run.Setup() if ai is None else ai)
         _dispatch(args)
-    except (StoreError, FetchRefused, IdentityError, GroupError) as error:
+    except (StoreError, FetchRefused, GroupError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
     except (sqlite3.Error, OverflowError, OSError) as error:  # a store that cannot be used

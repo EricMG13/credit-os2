@@ -202,12 +202,27 @@ type ActionTreatment = {
   reason: string;
 };
 
+/** A deterministic calculation of retained inputs in a read-only test preview. */
+type ForecastReplay = {
+  foundationDigest: string;
+  forecastDigest: string;
+  cashflow: unknown;
+  reconciliation: string;
+  calculationLine: number;
+};
+
 export type PublishedRun = {
-  history?: { modules: string[]; earlierFormat: boolean; earlierMethods: boolean };
+  history?: {
+    modules: string[];
+    earlierFormat: boolean;
+    earlierMethods: boolean;
+    firstModelCall?: { started: string; attempt: number | null };
+  };
   publicationVerified?: boolean;
   lead?: PublishedLead | null;
   assessmentScope?: AssessmentScope;
   publishedAt?: string | null;
+  forecastReplay?: ForecastReplay;
   actionTreatment?: Partial<Record<"CP-6" | "CP-3", ActionTreatment>>;
   folder: string;
   issuer: string;
@@ -631,9 +646,11 @@ export function methodNote(text: string) {
 
 export function readParagraph(text: string) {
   const lines = text.split("\n");
-  const last = lines.at(-1) ?? "";
-  const basis = last.startsWith("Basis: ") ? last.slice(7) : null;
-  if (basis !== null) lines.pop();
+  let lastContent = lines.length - 1;
+  while (lastContent >= 0 && !lines[lastContent]?.trim()) lastContent -= 1;
+  const match = lines[lastContent]?.match(/^ {0,3}Basis:\s?(.*)$/);
+  const basis = match?.[1] ?? null;
+  if (basis !== null) lines.splice(lastContent);
   const body = lines
     .join(" ")
     .replace(/^[-*] /, "")

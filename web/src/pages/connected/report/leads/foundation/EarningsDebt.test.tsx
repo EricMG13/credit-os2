@@ -389,7 +389,7 @@ describe("Dumbbell series and category (the two kit extensions)", () => {
     expect(dot("E")?.getAttribute("data-category")).toBe("3");
     expect(dot("F")?.getAttribute("class")).toContain("fill-category-4");
     expect(dot("F")?.getAttribute("data-series")).toBe("secondary");
-    expect(dot("G")?.getAttribute("class")).toContain("fill-warning-mark");
+    expect(dot("G")?.getAttribute("class")).toContain("fill-worse-mark");
     expect(dot("G")?.getAttribute("class")).not.toContain("category");
     expect(dot("H")?.getAttribute("class")).toContain("fill-chart-2");
     expect(dot("H")?.hasAttribute("data-category")).toBe(false);
@@ -405,7 +405,7 @@ describe("Dumbbell series and category (the two kit extensions)", () => {
     );
     expect(
       document.querySelector('[data-row="D"] [data-current]')?.getAttribute("class"),
-    ).toContain("fill-warning-mark");
+    ).toContain("fill-worse-mark");
   });
 });
 

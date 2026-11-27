@@ -145,16 +145,53 @@ it("states each run's scope, unverified unless the publication says otherwise", 
   expect(within(row(items, 0)).getByText("Assessment scope unverified")).toBeTruthy();
 });
 
-it("claims no order between runs of the same as-of date", () => {
+it("orders same-as-of runs by first model call and labels the deterministic fallback", () => {
   const { snapshot, runs } = setup();
-  runs.twinKey = summary("twin", "2025-09-30");
+  const mid = summary("mid", "2026-11-26");
+  runs.midKey = {
+    ...mid,
+    history: {
+      ...(mid.history as NonNullable<PublishedRun["history"]>),
+      firstModelCall: { attempt: 1, started: "2026-11-26T12:06:41.374957Z" },
+    },
+  };
+  const twin = summary("twin", "2026-11-26");
+  runs.twinKey = {
+    ...twin,
+    history: {
+      ...(twin.history as NonNullable<PublishedRun["history"]>),
+      firstModelCall: { attempt: 1, started: "2026-11-26T11:38:46.314826+00:00" },
+    },
+  };
+  runs.alphaKey = summary("alpha", "2026-11-26");
+  runs.zuluKey = summary("zulu", "2026-11-26");
   render(<RunHistory snapshot={snapshot} run={runs.newKey as PublishedRun} issuer="Acme" />);
   const items = within(screen.getByRole("list", { name: "Runs, newest first" })).getAllByRole(
     "listitem",
   );
   const same = items.filter((item) => within(item).queryByText("Same as-of date"));
-  expect(same).toHaveLength(2);
-  expect(same.every((item) => item.textContent.includes("30 September 2025"))).toBe(true);
+  expect(same).toHaveLength(4);
+  expect(same.every((item) => item.textContent.includes("26 November 2026"))).toBe(true);
+  const links = same.map((item) => within(item).getByRole("link", { name: "Open overview" }));
+  expect(links.map((link) => link.getAttribute("href"))).toEqual([
+    "/report/mid#overview",
+    "/report/twin#overview",
+    "/report/zulu#overview",
+    "/report/alpha#overview",
+  ]);
+  expect(
+    within(same[0] as HTMLElement).getByText(
+      "First model call · attempt 1 · 2026-11-26 12:06:41.374957 UTC",
+    ),
+  ).toBeVisible();
+  expect(
+    within(same[1] as HTMLElement).getByText(
+      "First model call · attempt 1 · 2026-11-26 11:38:46.314826 UTC",
+    ),
+  ).toBeVisible();
+  expect(
+    within(same[2] as HTMLElement).getByText("First model-call time unavailable"),
+  ).toBeVisible();
 });
 
 it("marks only the current run", () => {
@@ -166,8 +203,8 @@ it("marks only the current run", () => {
 it("shows pathway, finished state, labels, modules run and the two links", () => {
   const items = rows();
   expect(within(row(items, 0)).getByText("full")).toBeTruthy();
-  // Every listed run is finished: the tile says so once, and no row repeats it.
-  expect(screen.getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
+  // Every listed run is finished: the tile explains the timeline once, and no row repeats it.
+  expect(screen.getAllByText(/As-of dates descend\./)).toHaveLength(1);
   expect(within(row(items, 0)).queryByText(/Finished/)).toBeNull();
   for (const at of [0, 1]) {
     const modules = within(row(items, at)).getByText("1 module run").closest("details");
@@ -184,6 +221,45 @@ it("shows pathway, finished state, labels, modules run and the two links", () =>
 it("says who started each run is not published", () => {
   rows();
   expect(screen.getByText("Who started each run is not published with the report.")).toBeTruthy();
+});
+
+it("explains the run ordering basis and labels missing call times", () => {
+  rows();
+  expect(
+    screen.getByText(/As-of dates descend.*first model-call start.*follow deterministically/u),
+  ).toBeVisible();
+  expect(screen.getAllByText("First model-call time unavailable")).toHaveLength(4);
+});
+
+it("uses the exact earliest receipt start for a full run", () => {
+  const { snapshot, runs } = setup();
+  const current = runs.newKey as PublishedRun;
+  const receipt = (attempt: number, started: string) => ({
+    module: "CP-0",
+    attempt,
+    started,
+    http_status: 200,
+    error_class: null,
+    settled_usd: null,
+  });
+  const complete: PublishedRun = {
+    ...current,
+    evidence: {
+      ...current.evidence,
+      record: {
+        ...current.evidence.record,
+        calls: [receipt(2, "2026-03-31T12:06:41.374957Z"), receipt(1, "2026-03-31T11:38:42Z")],
+      },
+    },
+  };
+  runs.newKey = complete;
+  render(<RunHistory snapshot={snapshot} run={complete} issuer="Acme" />);
+  const items = within(screen.getByRole("list", { name: "Runs, newest first" })).getAllByRole(
+    "listitem",
+  );
+  expect(
+    within(row(items, 0)).getByText("First model call · attempt 1 · 2026-03-31 11:38:42 UTC"),
+  ).toBeVisible();
 });
 
 it("leaves out runs of another issuer and says when the date is missing", () => {

@@ -63,7 +63,7 @@ const CATEGORY_FILL = {
 
 /** The current dot's fill: the worse signal, else the row's category, else its series. */
 function dotFill(row: DumbbellRow) {
-  if (row.tone === "worse") return "fill-warning-mark";
+  if (row.tone === "worse") return "fill-worse-mark";
   if (row.category !== undefined) return CATEGORY_FILL[row.category];
   return row.series === "secondary" ? "fill-chart-2" : "fill-chart-1";
 }
@@ -425,7 +425,7 @@ export function Dumbbell({
         { tone: "prior", text: periods.prior },
         { tone: "current", text: periods.current },
         ...(rows.some((row) => row.tone === "worse")
-          ? [{ tone: "worse" as const, text: `${periods.current}, worse` }]
+          ? [{ tone: "worse-mark" as const, text: `${periods.current}, worse` }]
           : []),
         ...(rows.some((row) => !known(row.prior) || !known(row.current))
           ? [{ tone: "gap" as const, text: "Not stated" }]

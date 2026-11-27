@@ -1,6 +1,6 @@
 // Every screen of the live page, over the service's current sample and over the design fixture's
 // fullest scene (groups, threads, comments, digests, rules, notification events): on a service the
-// page writes saves, follows and the name, so nothing else may look as if it saves. The control
+// page writes saves and follows, so nothing else may look as if it saves. The control
 // names allowed below are written out by hand; a control this file does not name fails the walk.
 import { act, cleanup, screen } from "@testing-library/react";
 import fixture from "../../../../fixtures/signal.json";
@@ -40,7 +40,6 @@ const PRESSABLE = [
   /^Saved?: /, // a story's save
   /^(Follow|Following)$/, // the topic's follow, on its page
   /^(Follow|Unfollow) /, // a topic's follow, in the channel list and the empty For you
-  /(Writer|Reader)$/, // the name chip: opens the name dialog, whose name is written
   /^Comment( \d+)?: /, // opens the share form (a link where the story has a thread)
   /^Share to group: /,
   /^(New thread|Attach story)$/, // the group's thread forms

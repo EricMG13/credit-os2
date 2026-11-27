@@ -20,7 +20,7 @@ from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autous
 from deploy_workflow.signal import groups, snapshot, threads
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.store import add_user, open_db
+from deploy_workflow.signal.store import open_db
 
 NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 MARA = User("Mara L", "writer")
@@ -30,8 +30,6 @@ INES = User("Ines K", "writer")
 def _store(root: Path, posted: datetime = NOW - timedelta(minutes=5)) -> sqlite3.Connection:
     """Desk (everyone): Mara L's note thread with her comment 1, posted at `posted`."""
     db = open_db(root)
-    add_user(db, "Mara L", "writer")
-    add_user(db, "Ines K", "writer")
     desk = groups.create_group(db, MARA, "Desk", "everyone")
     thread, _ = threads.share(db, MARA, desk, threads.Item(None, "Note"), posted)
     assert threads.comment(db, MARA, thread, "Mine", posted) == 1

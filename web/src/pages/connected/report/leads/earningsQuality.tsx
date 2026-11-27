@@ -21,9 +21,8 @@ import { UnreadFigures } from "./kit/UnreadFigures";
 import type { Lead, LeadProps } from "./types";
 
 /*
- * CP-1D earnings quality lead. Synthetic contract: built from src/deploy_vii/bindings/cp1d.py and
- * src/deploy_workflow/owners/cp1d.py (the add-back bridge, the assessment T1D.2, the leverage table
- * T1D.6); no real CP-1D handoff has ever been retained, so this lead is unproven on a real run.
+ * CP-1D earnings quality lead. Contract: the add-back bridge, assessment T1D.2 and T1D.6 leverage.
+ * The typed T1D.4 bridge keeps signed adjustments separate from explicitly not-credited amounts.
  * Support (supported / not supported) is drawn only where the assessment states a word for that
  * step's own name; it is never inferred. No sum, difference or comparison is stated in words:
  * the drawing places stated figures, and the table view lists them. The accepted share of a step is
@@ -34,7 +33,11 @@ import type { Lead, LeadProps } from "./types";
 /** Steps in the order stated: the opening level, each step with the parts the assessment states, the closing. */
 function rowsOf(bridge: Bridge): WaterfallRow[] {
   const steps = bridge.changes.map((step): WaterfallRow => {
-    const base = { kind: "step" as const, value: step.value, text: group(step.amount) };
+    const base = {
+      kind: "step" as const,
+      value: step.value,
+      text: `${step.sign === "+" ? "+" : ""}${group(step.amount)}`,
+    };
     // "Partly supported" with no amounts has no part to draw: its word is in the label.
     const word = step.support === "Partly supported" && !step.split ? ` (${step.support})` : "";
     const unread =
@@ -114,10 +117,20 @@ const statedUnit = (text: string) => {
   return split ? writtenUnit(split.amount, split.unit) : text;
 };
 
+const signedAmount = (amount: string, sign?: "" | "+" | "-") =>
+  `${sign === "+" ? "+" : ""}${group(amount)}`;
+
 function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
   const unit = unitLabel(bridge.unit);
   const rows = rowsOf(bridge);
-  const withBasis = bridge.changes.some((step) => step.basis !== "");
+  const hasBasis =
+    bridge.changes.some((step) => step.basis !== "") ||
+    bridge.excluded.some((step) => step.basis !== "");
+  const hasTreatment = bridge.excluded.length > 0;
+  const tableSteps = [
+    ...bridge.changes.map((step) => ({ step, treatment: "" })),
+    ...bridge.excluded.map((step) => ({ step, treatment: step.treatment })),
+  ].sort((first, second) => first.step.line - second.step.line);
   return (
     <FigureTile
       props={props}
@@ -130,6 +143,10 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
       legend={splitLegend(bridge)}
       notes={[
         ...(!bridge.supportStated ? ["This page could not read a support word for any step."] : []),
+        ...bridge.excluded.map(
+          (step) =>
+            `${step.label}: ${statedUnit(`${group(step.amount)} ${bridge.unit}`)}, not credited.`,
+        ),
         ...bridge.notes,
       ]}
       table={{
@@ -141,7 +158,8 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
           "Support stated",
           "Accepted",
           "Not accepted",
-          ...(withBasis ? ["Basis"] : []),
+          ...(hasBasis ? ["Basis"] : []),
+          ...(hasTreatment ? ["Treatment"] : []),
         ],
         rows: [
           [
@@ -151,16 +169,18 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
             "Not applicable",
             "",
             "",
-            ...(withBasis ? [""] : []),
+            ...(hasBasis ? [""] : []),
+            ...(hasTreatment ? [""] : []),
           ],
-          ...bridge.changes.map((step) => [
+          ...tableSteps.map(({ step, treatment }) => [
             step.label,
-            group(step.amount),
+            signedAmount(step.amount, step.sign),
             unit,
             step.support ?? (step.stance || "Not stated"),
-            step.accepted ? group(step.accepted) : "Not stated",
-            step.notAccepted ? group(step.notAccepted) : "Not stated",
-            ...(withBasis ? [step.basis] : []),
+            "accepted" in step && step.accepted ? group(step.accepted) : "Not stated",
+            "notAccepted" in step && step.notAccepted ? group(step.notAccepted) : "Not stated",
+            ...(hasBasis ? [step.basis] : []),
+            ...(hasTreatment ? [treatment] : []),
           ]),
           [
             bridge.closing.label,
@@ -169,7 +189,8 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
             "Not applicable",
             "",
             "",
-            ...(withBasis ? [""] : []),
+            ...(hasBasis ? [""] : []),
+            ...(hasTreatment ? [""] : []),
           ],
         ],
       }}

@@ -24,11 +24,25 @@ const SUPPORT_WORDS: Support[] = [
   "Not supported",
   "Insufficient evidence",
 ];
+const EXPLICIT_BRIDGE_HEADERS = [
+  "Step",
+  "Amount",
+  "Basis",
+  "Supported / Challenged / Rejected",
+  "Cumulative EBITDA",
+  "Evidence ID",
+];
 
 /** The accepted and not accepted amounts the assessment states for a step, when they make up the step. */
 type Split = { accepted: string; notAccepted: string };
 
-type Step = { label: string; amount: string; value: number; line: number };
+type Step = { label: string; amount: string; value: number; line: number; sign?: "" | "+" | "-" };
+type ExcludedStep = Step & {
+  stance: string;
+  basis: string;
+  support: Support | null;
+  treatment: "Not credited";
+};
 
 export type Bridge = {
   state: "ready";
@@ -50,6 +64,8 @@ export type Bridge = {
     /** The module's basis cell for the step, "" without it or where it names a source. */
     basis: string;
   })[];
+  /** Explicitly excluded amounts; they remain visible in the table but do not move the waterfall. */
+  excluded: ExcludedStep[];
   /** Whether a support word is stated for at least one add-back (assessment table or the bridge's own column). */
   supportStated: boolean;
   notes: string[];
@@ -138,6 +154,186 @@ const gapOf = (reason: string, stated: BridgeGap["stated"] = [], heading = ""): 
   stated,
 });
 
+type ExplicitMoney = {
+  amount: string;
+  value: number;
+  unit: string;
+  sign: "" | "+" | "-";
+  treatment: "Not credited" | "";
+};
+
+/** One explicit currency and scale, optionally signed or explicitly marked not credited. */
+function explicitMoney(cell: string): ExplicitMoney | null {
+  const match =
+    /^\s*([+-])?\s*(USD|US\$|[A-Z]{3})\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(m|millions?)\s*(not credited)?\s*$/i.exec(
+      cell,
+    );
+  if (!match) return null;
+  const sign = (match[1] ?? "") as ExplicitMoney["sign"];
+  const treatment = match[5] ? "Not credited" : "";
+  if (sign && treatment) return null;
+  const raw = (match[3] ?? "").replaceAll(",", "");
+  const amount = `${sign === "-" ? "-" : ""}${raw}`;
+  const reading = readCell(amount);
+  if (reading.kind !== "number") return null;
+  return {
+    amount: reading.text,
+    value: reading.value,
+    unit: `${(match[2] ?? "").toUpperCase().replace("US$", "USD")} millions`,
+    sign,
+    treatment,
+  };
+}
+
+/** An exact CP-1D typed bridge: signed USD changes move the total; explicit not-credited amounts do not. */
+function readExplicitBridge(entry: OutputEntry, table: Table, heading: string): Bridge | BridgeGap {
+  const amountAt = table.headers.indexOf("Amount");
+  const cumulativeAt = table.headers.indexOf("Cumulative EBITDA");
+  const statusAt = table.headers.indexOf("Supported / Challenged / Rejected");
+  const basisAt = table.headers.indexOf("Basis");
+  const stated = table.rows.map((row) => ({
+    label: safeText(row.cells[0] ?? ""),
+    text: safeText(row.cells[amountAt] ?? ""),
+  }));
+  if (table.rows.length < 3)
+    return gapOf("This page could not read a complete earnings quality bridge.", stated, heading);
+  const amounts = table.rows.map((row) => explicitMoney(row.cells[amountAt] ?? ""));
+  const cumulatives = table.rows.map((row) => explicitMoney(row.cells[cumulativeAt] ?? ""));
+  if (
+    amounts.some((amount) => amount === null) ||
+    cumulatives.some((total) => total === null || total.sign !== "" || total.treatment !== "")
+  )
+    return gapOf(
+      "This page could not read one explicit currency amount and cumulative total for every bridge row.",
+      stated,
+      heading,
+    );
+  const units = new Set([...amounts, ...cumulatives].flatMap((item) => (item ? [item.unit] : [])));
+  const [unit = ""] = units;
+  if (units.size !== 1)
+    return gapOf("This page could not read the bridge in one currency and scale.", stated, heading);
+  const firstAmount = amounts[0];
+  const lastAmount = amounts.at(-1);
+  const firstTotal = cumulatives[0];
+  const lastTotal = cumulatives.at(-1);
+  if (
+    !firstAmount ||
+    !lastAmount ||
+    !firstTotal ||
+    !lastTotal ||
+    firstAmount.sign ||
+    firstAmount.treatment ||
+    lastAmount.sign ||
+    lastAmount.treatment ||
+    signOf(difference(firstAmount.amount, firstTotal.amount)) !== 0 ||
+    signOf(difference(lastAmount.amount, lastTotal.amount)) !== 0
+  )
+    return gapOf(
+      "This page could not identify matching opening and closing bridge amounts.",
+      stated,
+      heading,
+    );
+
+  const openingRow = table.rows[0];
+  const closingRow = table.rows.at(-1);
+  if (!openingRow || !closingRow)
+    return gapOf("This page could not read two steps of the bridge.", stated, heading);
+  const opening: Step = {
+    label: safeText(openingRow.cells[0] ?? ""),
+    amount: firstAmount.amount,
+    value: firstAmount.value,
+    line: openingRow.line,
+  };
+  const closing: Step = {
+    label: safeText(closingRow.cells[0] ?? ""),
+    amount: lastAmount.amount,
+    value: lastAmount.value,
+    line: closingRow.line,
+  };
+  let running = opening.amount;
+  const names = assessmentByName(entry);
+  const changes: Bridge["changes"] = [];
+  const excluded: ExcludedStep[] = [];
+  for (let at = 1; at < table.rows.length - 1; at += 1) {
+    const row = table.rows[at];
+    const amount = amounts[at];
+    const total = cumulatives[at];
+    if (!row || !amount || !total)
+      return gapOf("This page could not read one of the bridge rows.", stated, heading);
+    const label = safeText(row.cells[0] ?? "");
+    const stance = safeText(row.cells[statusAt] ?? "");
+    const basisText = row.cells[basisAt] ?? "";
+    const basis = namesSource(basisText) ? "" : safeText(basisText);
+    const step: Step = { label, amount: amount.amount, value: amount.value, line: row.line };
+    if (amount.sign) {
+      const next = sum([running, amount.amount]);
+      if (next === null)
+        return gapOf("This page could not reconcile the signed bridge steps.", stated, heading);
+      running = next;
+      const support =
+        SUPPORT_WORDS.find((word) => norm(word) === norm(row.cells[statusAt] ?? "")) ?? null;
+      const matched = names.get(norm(label));
+      changes.push({
+        ...step,
+        sign: amount.sign,
+        stance,
+        basis,
+        support: support ?? matched?.support ?? null,
+        split: splitOf(step, matched),
+        accepted: matched?.accepted.trim() ? safeText(matched.accepted) : "",
+        notAccepted: matched?.notAccepted.trim() ? safeText(matched.notAccepted) : "",
+      });
+    } else if (amount.treatment === "Not credited") {
+      excluded.push({
+        ...step,
+        sign: amount.sign,
+        stance,
+        basis,
+        support: null,
+        treatment: "Not credited",
+      });
+    } else {
+      return gapOf(
+        `This page could not determine how ${label} affects the supported bridge.`,
+        stated,
+        heading,
+      );
+    }
+    if (signOf(difference(total.amount, running)) !== 0)
+      return gapOf(
+        `This page could not reconcile ${label} to its stated cumulative EBITDA.`,
+        stated,
+        heading,
+      );
+  }
+  if (signOf(difference(closing.amount, running)) !== 0)
+    return gapOf(
+      "This page could not reconcile the supported closing EBITDA to its bridge steps.",
+      stated,
+      heading,
+    );
+  const notes = [
+    ...new Set(
+      table.rows.flatMap((row) => {
+        const text = basisAt < 0 ? "" : (row.cells[basisAt] ?? "").trim();
+        return text && !namesSource(text) ? [readerText(text)] : [];
+      }),
+    ),
+  ];
+  return {
+    state: "ready",
+    unit,
+    heading,
+    line: table.line,
+    opening,
+    closing,
+    changes,
+    excluded,
+    supportStated: changes.some((step) => step.support !== null || step.stance !== ""),
+    notes,
+  };
+}
+
 /** The add-back bridge, reconciled; or the gap, with the stated steps to list as words. */
 export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   const found = stepTable(entry);
@@ -148,6 +344,28 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
       "This page could not tell which of the bridges the module wrote is the earnings quality bridge.",
     );
   if (!table) return gapOf("This page could not read the earnings quality bridge.");
+  const monetaryColumns = table.headers.flatMap((header, at) =>
+    header === "Amount" || header === "Cumulative EBITDA" ? [at] : [],
+  );
+  const hasExplicitCurrency = table.rows.some((row) =>
+    monetaryColumns.some((at) => /^\s*[+-]?\s*(?:[A-Z]{3}|US\$)\s+/.test(row.cells[at] ?? "")),
+  );
+  if (
+    /quality-adjusted EBITDA bridge/i.test(heading) &&
+    table.headers.includes("Cumulative EBITDA") &&
+    hasExplicitCurrency
+  ) {
+    if (table.headers.join("|") !== EXPLICIT_BRIDGE_HEADERS.join("|"))
+      return gapOf(
+        "This page could not read an unambiguous T1D.4 earnings quality bridge table.",
+        table.rows.map((row) => ({
+          label: safeText(row.cells[0] ?? ""),
+          text: safeText(row.cells[table.headers.indexOf("Amount")] ?? ""),
+        })),
+        heading,
+      );
+    return readExplicitBridge(entry, table, heading);
+  }
   const unitAt = table.headers.indexOf("Reporting unit");
   const amountAt = table.headers.indexOf("Amount");
   const basisAt = table.headers.indexOf("Basis and limitation");
@@ -283,6 +501,7 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
     opening,
     closing,
     changes,
+    excluded: [],
     supportStated: changes.some((step) => step.support !== null || step.stance !== ""),
     notes,
   };

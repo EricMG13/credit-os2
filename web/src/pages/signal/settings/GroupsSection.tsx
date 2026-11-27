@@ -4,7 +4,7 @@
 // would write, are disabled with the reason in view. On a service the visibility is written, each
 // of the two opens a form, and a row also has Rename and Delete, and Topics where the service says
 // which topics post their new stories into the group (the row then lists them).
-import { useRef, useState, type ReactNode } from "react";
+import { useContext, useRef, useState, type ReactNode } from "react";
 import { Plus, Users01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { cx } from "@/utils/cx";
@@ -17,6 +17,7 @@ import { useSignalActions } from "../actions";
 import { useOpener } from "../parts/focus";
 import { FormDialog, type FormField, type FormValues } from "../parts/FormDialog";
 import { VISIBILITY, writes } from "../writes";
+import { SignalViewerContext } from "../viewer";
 import { Section } from "./Section";
 import { SampleReason, useSampleOff } from "./SampleReason";
 
@@ -49,7 +50,7 @@ const MEMBERS: readonly FormField[] = [
 ];
 
 /** What a form is for: a new group (no group), or one of a group's own. */
-type Purpose = "members" | "rename" | "delete" | "topics";
+type Purpose = "members" | "rename" | "delete" | "topics" | "moderate";
 type Form = { open: boolean; group: SignalSettingsGroup | null; purpose: Purpose };
 type Sent = Promise<string | null>;
 /** The parts of the form dialog that differ by purpose. */
@@ -123,8 +124,11 @@ function GroupForm({
   onGone: () => void;
 }) {
   const actions = useSignalActions();
-  if (actions === null) return null;
+  const viewer = useContext(SignalViewerContext);
   const { group, purpose } = form;
+  if (actions === null || (purpose === "moderate" && viewer?.profileType !== "admin")) {
+    return null;
+  }
   const sent = (request: Parameters<typeof actions.write>[0]): Sent =>
     actions.write(request).then((answer) => answer.refusal);
   // A member added and a member removed are two writes; the second is not sent if the first is refused.
@@ -180,6 +184,20 @@ function GroupForm({
           destructive: true,
           send: () => sent(writes.dropGroup(group.id)),
         };
+      case "moderate":
+        return {
+          title: `Remove ${group.name} and its threads?`,
+          intro:
+            "This removes the group and all of its threads, comments, reactions and read marks. This cannot be undone.",
+          fields: [],
+          action: "Remove group and threads",
+          destructive: true,
+          send: async () => {
+            const answer = await actions.write(writes.moderateGroup(group.id));
+            if (answer.refusal !== null) actions.refresh();
+            return answer.refusal;
+          },
+        };
       case "topics":
         return topicsForm(group, topics, topicsHref, (ids) =>
           sent(writes.groupTopics(group.id, ids)),
@@ -224,6 +242,8 @@ function Row({
 }) {
   const off = useSampleOff(REASON_ID);
   const live = useSignalActions() !== null;
+  const viewer = useContext(SignalViewerContext);
+  const admin = live && viewer?.profileType === "admin";
   // On a service only: the sample has nothing to write to, and draws no control that would.
   const more: [Purpose, string][] = [
     ["topics", "Topics"],
@@ -233,6 +253,7 @@ function Row({
   const offered = more.filter(
     ([purpose]) => live && (purpose !== "topics" || group.topics !== null),
   );
+  if (admin) offered.push(["moderate", "Remove group and threads"]);
   return (
     <li className="@container flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border-hairline py-4">
       <div className="min-w-48 flex-1">
