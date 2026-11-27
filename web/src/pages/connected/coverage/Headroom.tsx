@@ -40,6 +40,10 @@ function rowKey(fact: Fact): string {
   return JSON.stringify([fact.run, fact.line, fact.output, fact.row, fact.period]);
 }
 
+function writtenLevel(fact: Fact): string {
+  return fact.gap || fact.at === null ? fact.text : written(fact);
+}
+
 function calculate(current: Fact, limit: Fact): Dec | null {
   if (!current.unit?.trim() || !limit.unit?.trim()) return null;
   return current.gap || limit.gap ? null : covenantHeadroom(limit, current);
@@ -299,12 +303,12 @@ function Table({
                   </td>
                   <td className="p-2 tabular-nums">
                     {row.currentFacts.length > 0
-                      ? row.currentFacts.map(written).join("; ")
+                      ? row.currentFacts.map(writtenLevel).join("; ")
                       : "Not supplied"}
                   </td>
                   <td className="p-2 tabular-nums">
                     {row.limitFacts.length > 0
-                      ? row.limitFacts.map(written).join("; ")
+                      ? row.limitFacts.map(writtenLevel).join("; ")
                       : "Not supplied"}
                   </td>
                   <td className="p-2 tabular-nums">
