@@ -9,16 +9,18 @@ import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createOfflineProxy, installOfflineGuard } from "./offline-network.mjs";
+import { sourceProvenance, verifyServedBundle } from "./source-provenance.mjs";
 
 // PRODUCT.md supports desktops at 1024px and wider. Keep narrow checks available for diagnostics.
 const desktopOnly = !process.argv.includes("--include-mobile");
 const project = path.resolve(import.meta.dirname, "../..");
 const runAsScript = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const builtSource = await sourceProvenance(project);
 const sourceCommit = await readFile(path.join(project, "SOURCE-COMMIT.txt"), "utf8").then(
   (text) => text.trim(),
   (error) => {
     if (error.code !== "ENOENT") throw error;
-    return null;
+    return builtSource.git_commit;
   },
 );
 const zipSha256 = process.env.CREDIT_OS_PROOF_ZIP_SHA256?.toLowerCase() ?? null;
@@ -30,11 +32,36 @@ if (zipSha256 !== null && (!sourceCommit || !/^[0-9a-f]{64}$/u.test(zipSha256)))
 }
 const provenance = {
   source_commit: sourceCommit,
+  source_git_commit: builtSource.git_commit,
+  source_git_tree: builtSource.git_tree,
+  source_tree_sha256: builtSource.source_sha256,
+  source_file_count: builtSource.source_file_count,
+  source_bytes: builtSource.source_bytes,
   zip_sha256: zipSha256,
   platform: process.platform,
   os_release: release(),
   architecture: arch(),
 };
+
+if (runAsScript) {
+  const manifest = JSON.parse(
+    await readFile(
+      path.join(project, "web", "dist", "connected-assets", "source-provenance.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    manifest.source_sha256,
+    provenance.source_tree_sha256,
+    "build matches current source inputs",
+  );
+  assert.equal(
+    manifest.git_commit,
+    provenance.source_git_commit,
+    "build records the current Git commit",
+  );
+  assert.equal(manifest.git_tree, provenance.source_git_tree, "build records the current Git tree");
+}
 const proofRoot = path.join(project, "proof-artifacts");
 if (runAsScript) await mkdir(proofRoot, { recursive: true });
 const artifacts = runAsScript ? await mkdtemp(path.join(proofRoot, "run-")) : null;
@@ -1808,17 +1835,86 @@ async function checkBrowserRun(context, service, workspace, channel, brand) {
     run,
     publicationRequests,
   });
+  await page.screenshot({
+    path: path.join(artifacts, `${channel}-evidence.png`),
+    fullPage: true,
+  });
+  const coverage = await checkCoveragePage(page, service.endpoint, channel);
   assert.deepEqual(errors, []);
   assert.deepEqual(
     standingResponses.filter((status) => status >= 500),
     [],
     "the standing portfolios service answered with a server error",
   );
-  await page.screenshot({
-    path: path.join(artifacts, `${channel}-evidence.png`),
-    fullPage: true,
-  });
-  return browserProofRecord({ channel, brand, browserVersion: context.browser().version(), run });
+  return {
+    ...browserProofRecord({ channel, brand, browserVersion: context.browser().version(), run }),
+    coverage,
+  };
+}
+
+async function checkCoveragePage(page, endpoint, channel) {
+  const loaded = response(page, /\/connected\/coverage$/u, "GET");
+  await page.goto(new URL("/coverage", endpoint).href);
+  await page.getByRole("heading", { name: "Coverage", exact: true }).waitFor();
+  const result = await loaded;
+  assert.equal(result.status(), 200, "the connected Coverage endpoint responds successfully");
+  const data = await result.json();
+  const manifestResponse = await page.request.get(
+    new URL("/connected-assets/source-provenance.json", endpoint).href,
+  );
+  assert.equal(manifestResponse.status(), 200, "built app source manifest is served with the app");
+  const manifest = await manifestResponse.json();
+  assert.equal(manifest.source_sha256, provenance.source_tree_sha256);
+  assert.equal(manifest.git_commit, provenance.source_git_commit);
+  assert.equal(manifest.git_tree, provenance.source_git_tree);
+  const bundlePaths = await page.evaluate(() =>
+    [
+      ...new Set(
+        performance
+          .getEntriesByType("resource")
+          .map((entry) => new URL(entry.name))
+          .filter((url) => url.origin === location.origin && /\.(?:js|css)$/u.test(url.pathname))
+          .map((url) => url.pathname),
+      ),
+    ].sort(),
+  );
+  const servedBundles = await Promise.all(
+    bundlePaths.map(async (pathname) => {
+      assert.ok(
+        pathname.startsWith("/connected-assets/"),
+        `bundle ${pathname} is a connected asset`,
+      );
+      const response = await page.request.get(new URL(pathname, endpoint).href);
+      assert.equal(response.status(), 200, `loaded bundle ${pathname} is still served`);
+      const sha256 = verifyServedBundle(pathname, await response.body(), manifest.built_bundles);
+      return { path: pathname, sha256 };
+    }),
+  );
+  assert.ok(servedBundles.some((bundle) => bundle.path.endsWith(".js")));
+  const outcome = {
+    issuers: data?.issuers?.length ?? 0,
+    current_views: [],
+    monitor_tab: false,
+    source_manifest: manifest,
+    served_bundles: servedBundles,
+  };
+  if (outcome.issuers === 0) {
+    await page.getByText("No published runs yet", { exact: true }).waitFor();
+    outcome.state = "empty";
+  } else {
+    const view = page.getByRole("group", { name: "View", exact: true });
+    await view.getByRole("button", { name: "Modules", exact: true }).waitFor();
+    outcome.current_views = await view.getByRole("button").allTextContents();
+    outcome.monitor_tab = outcome.current_views.includes("Monitor");
+    await page.getByRole("heading", { name: "What each module delivered, by issuer" }).waitFor();
+    await page
+      .getByRole("status")
+      .getByText(new RegExp(`of ${outcome.issuers} issuers shown`, "u"))
+      .waitFor();
+    outcome.state = "dashboard";
+  }
+  await page.screenshot({ path: path.join(artifacts, `${channel}-coverage.png`), fullPage: true });
+  return outcome;
 }
 
 function launchBrowser(channel, envName, proxy) {
