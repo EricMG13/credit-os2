@@ -12,6 +12,7 @@ import { useSignalActions } from "./actions";
 import { DigestCard } from "./DigestCard";
 import { FeedControls, OrderToggle, type FeedKind, type FeedOrder } from "./FeedControls";
 import { EmptyNote, FeedAlert, FeedEmpty, FeedSkeleton, type EmptyContext } from "./FeedStates";
+import { KindKey } from "./parts/KindDot";
 import { LIST_TILE } from "./parts/classes";
 import { FreshnessBadge } from "./parts/FreshnessBadge";
 import { PageTitle } from "./parts/PageTitle";
@@ -140,22 +141,27 @@ function EntryList({
 }) {
   if (entries.length === 0) return null;
   return (
-    <div ref={listRef} className={`mt-4 ${LIST_TILE}`}>
-      {entries.map((entry) =>
-        entry.kind === "story" ? (
-          <StoryCard
-            key={entry.story.id}
-            story={entry.story}
-            scene={scene}
-            writer={writer}
-            save={save}
-            onShared={onShared}
-          />
-        ) : (
-          <DigestCard key={entry.digest.id} digest={entry.digest} href={entry.href} />
-        ),
-      )}
-    </div>
+    <>
+      <KindKey
+        stories={entries.flatMap((entry) => (entry.kind === "story" ? [entry.story] : []))}
+      />
+      <div ref={listRef} className={`mt-4 ${LIST_TILE}`}>
+        {entries.map((entry) =>
+          entry.kind === "story" ? (
+            <StoryCard
+              key={entry.story.id}
+              story={entry.story}
+              scene={scene}
+              writer={writer}
+              save={save}
+              onShared={onShared}
+            />
+          ) : (
+            <DigestCard key={entry.digest.id} digest={entry.digest} href={entry.href} />
+          ),
+        )}
+      </div>
+    </>
   );
 }
 

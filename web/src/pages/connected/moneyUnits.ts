@@ -2,6 +2,22 @@ const moneyUnitSource = "(USD|US\\$|[A-Z]{3})(?: millions?|m)";
 const moneyUnit = new RegExp(`^${moneyUnitSource}$`);
 const endsInMoneyUnit = new RegExp(`^(.+) (${moneyUnitSource})$`);
 
+/** Headers that identify a table column containing a currency or unit. */
+export const UNIT_HEADER = /^(?:currency|unit|reporting unit|units?|ccy)$/i;
+
+/** A table's cell drawer for its unit columns: a money unit as the currency's symbol ("$m"); any
+ * other cell undefined, so the cell is drawn as written. */
+export function unitCells(table: { headers: readonly string[] }) {
+  const columns = new Set(
+    table.headers.flatMap((header, column) => (UNIT_HEADER.test(header.trim()) ? [column] : [])),
+  );
+  return (column: number, cell: string) => {
+    const written = cell.trim();
+    const drawn = columns.has(column) ? unitLabel(written) : written;
+    return drawn === written ? undefined : drawn;
+  };
+}
+
 /** Splits a text ending in a money unit ("200 US$m") into its amount and that unit. */
 export function splitMoneyUnit(text: string) {
   const match = endsInMoneyUnit.exec(text);

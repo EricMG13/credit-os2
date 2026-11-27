@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1440"><title>Deliverables, colour as signal</title>
+<style>
+/* shared: tokens and colour scales. Paste verbatim; do not edit. */
+@font-face{font-family:"Geist";font-weight:400;src:url("../../../../web/public/fonts/Geist-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist";font-weight:500;src:url("../../../../web/public/fonts/Geist-Medium.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:400;src:url("../../../../web/public/fonts/GeistMono-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url("../../../../web/public/fonts/GeistMono-Medium.woff2") format("woff2")}
+:root{--canvas:#FAFAFA;--tile:#FFFFFF;--well:#F4F4F5;--hair:#E4E4E7;--ink:#0A0A0A;--sec:#52525B;--label:#6B6B74;--acc:#1D4ED8;--tint:#EFF6FF;--prior:#8E8E96;
+--bt:#15803D;--ws:#C2410C;--fail:#DC2626;--blocked:#EA580C;
+--c1:#1D4ED8;--c2:#EA580C;--c3:#0F766E;--c4:#7E22CE;--c5:#B45309;--c6:#BE123C;--c7:#15803D;--c8:#475569;
+--mono:"Geist Mono",ui-monospace,Menlo,monospace;--sans:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 12px/16px var(--sans);width:1440px}
+.banner{background:var(--well);border-bottom:1px solid var(--hair);color:var(--sec);font-size:12px;line-height:16px;text-align:center;padding:5px 0}
+/* position in a cohort or order: sequential blue */
+[data-band="p1"]{background:#FFFFFF}[data-band="p2"]{background:#EFF6FF}[data-band="p3"]{background:#DBEAFE}[data-band="p4"]{background:#BFDBFE}
+/* better / worse: only where the direction table gives a direction */
+[data-band="bt1"]{background:#DCFCE7}[data-band="bt2"]{background:#BBF7D0}[data-band="bt3"]{background:#86EFAC}
+[data-band="ws1"]{background:#FFEDD5}[data-band="ws2"]{background:#FED7AA}[data-band="ws3"]{background:#FDBA74}
+[data-band="d0"]{background:#FFFFFF}
+/* amount: sequential amber */
+[data-band="a1"]{background:#FEF3C7}[data-band="a2"]{background:#FDE68A}[data-band="a3"]{background:#FCD34D}[data-band="a4"]{background:#F59E0B}[data-band="a5"]{background:#D97706}
+/* share of a limit used: bar fills only, never under text */
+[data-band="s1"]{background:#15803D}[data-band="s2"]{background:#777C22}[data-band="s3"]{background:#D97706}[data-band="s4"]{background:#DA4E16}[data-band="s5"]{background:#DC2626}
+[data-band^="p"],[data-band^="bt"],[data-band^="ws"],[data-band^="a"],[data-band="d0"]{color:#0A0A0A}
+.hatch{background:repeating-linear-gradient(135deg,transparent 0 5px,#E4E4E7 5px 6px);color:#52525B}
+.gapline{display:inline-block;border:1px dashed var(--prior);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,#EDEDF0 5px 6px);padding:1px 8px;color:#52525B}
+/* end shared */
+
+.top{height:44px;background:#fff;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:16px;padding:0 16px}
+.top .brand{font:500 14px/20px var(--sans);color:var(--acc)}
+.top .iss{font:500 14px/20px var(--sans)}
+.top .chip{border:1px solid var(--hair);border-radius:6px;padding:1px 8px;color:var(--sec);background:var(--well)}
+.top .sp1{flex:1}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--hair);background:#fff;padding:0 16px}
+.tabs a{height:32px;padding:0 14px;display:flex;align-items:center;color:var(--sec);font:500 13px/18px var(--sans);border-bottom:2px solid transparent;border-radius:8px 8px 0 0;text-decoration:none}
+.tabs a[aria-current=page]{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.tabs a:focus-visible,a.btn:focus-visible,a.lnk:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+main{padding:12px 16px 24px}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.head h1{margin:0;font:500 18px/24px var(--sans)}
+a.lnk{color:var(--acc);font:500 12px/16px var(--sans);text-decoration:underline;text-underline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:148px}
+.tile.na{border:1px dashed var(--blocked);border-width:1.5px}
+.tile h2{margin:0;font:500 14px/20px var(--sans)}
+.tile p{margin:0;color:var(--sec)}
+.tile .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tile .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
+.fmt{display:inline-flex;align-items:center;gap:6px;border-radius:6px;background:var(--well);padding:2px 8px;color:var(--sec)}
+.fmt svg{display:block}
+.st{display:inline-flex;align-items:center;gap:4px;color:var(--ink);font-weight:500}
+.st .g{font-size:13px}
+.st .slash{display:inline-block;width:14px;height:14px;border:1.5px dashed var(--blocked);border-radius:50%;position:relative}
+.st .slash:after{content:"";position:absolute;left:5px;top:-2px;width:0;height:16px;border-left:1.5px solid var(--blocked);transform:rotate(45deg)}
+a.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:8px;background:var(--acc);color:#fff;font:500 12px/16px var(--sans);text-decoration:none}
+a.btn.off{background:var(--well);color:var(--label);pointer-events:none}
+.reason{color:var(--ink)}
+.lgl{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px;font-size:11px;line-height:16px;color:var(--label);margin-top:8px}
+.lgi{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+
+/* shell (copied from library.html top bar and forecast.html report header; prefixed sh-) */
+.sh-top{display:flex;align-items:center;gap:20px;height:48px;padding:0 24px;background:#fff;border-bottom:1px solid var(--hair)}
+.sh-brand{display:flex;align-items:center;gap:8px;font:500 14px/16px var(--sans)}
+.sh-brand i{width:20px;height:20px;border-radius:6px;background:var(--acc);display:block}
+.sh-top nav{display:flex;gap:4px;margin-left:12px}
+.sh-top nav a{padding:14px 10px 12px;color:var(--sec);text-decoration:none;border-bottom:2px solid transparent;font-size:13px}
+.sh-top nav a.cur{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.sh-start{margin-left:auto;background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;font:500 13px/16px var(--sans);text-decoration:none}
+.sh-page{padding:0 16px}
+.sh-bc{color:var(--sec);margin:12px 0 4px}
+.sh-bc a{color:var(--acc);text-decoration:none}
+.sh-ph{display:flex;align-items:flex-end;justify-content:space-between}
+.sh-ph h1{font:500 28px/34px var(--sans);margin:0;display:inline}
+.sh-ph .sh-sec{color:var(--sec);margin-left:10px;font-size:13px}
+.sh-chips{display:flex;gap:6px;margin-top:6px}
+.sh-chip{border:1px solid var(--hair);border-radius:6px;padding:2px 8px;color:var(--sec);background:var(--tile)}
+.sh-seg{display:inline-flex;background:var(--well);border:1px solid var(--hair);border-radius:10px;padding:2px;gap:2px}
+.sh-seg span{padding:6px 14px;border-radius:8px;color:var(--sec);font-size:13px}
+.sh-seg span.cur{background:var(--tint);color:var(--acc);outline:1.5px solid var(--acc);outline-offset:-1.5px;font-weight:500}
+</style></head><body>
+<div class="banner">Illustration of form. Figures are invented, not a delivered run.</div>
+<header class="sh-top"><div class="sh-brand"><i></i>Credit OS</div><nav><a class="cur" href="#">Library</a><a href="#">Coverage</a><a href="#">Run activity</a><a href="#">Signal</a></nav><a class="sh-start" href="#">Start run</a></header>
+<div class="sh-page"><div class="sh-bc"><a href="#">Library</a> / <a href="#">Calderwick Packaging Inc.</a> / Full assessment</div>
+<div class="sh-ph"><div><h1>Calderwick Packaging Inc.</h1><span class="sh-sec">US industrials</span>
+<div class="sh-chips"><span class="sh-chip">Full credit assessment</span><span class="sh-chip">As of 14 March 2027 · FY2026</span><span class="sh-chip">USD millions</span></div></div>
+<div class="sh-seg" aria-label="Report sections"><span>Overview</span><span>Changes</span><span>Modules 17</span><span>Forecast</span><span>Evidence</span><span>Calendar</span><span class="cur" aria-current="page">Deliverables</span></div></div></div>
+<main>
+<div class="head"><h1>Deliverables</h1></div>
+<div class="grid">
+<section class="tile" aria-label="Credit Snapshot"><div class="row"><h2>Credit Snapshot</h2><span class="st"><span class="g" aria-hidden="true">✓</span>Ready</span></div><p>One page of the issuer's credit position for a portfolio manager, with the investment thesis left blank for the analyst.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/><path d="M1.5 5h9M5 1.5v9"/></svg>Workbook (XLSX)</span><a class="btn" href="#"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 1v7M3 5.5 6 8.5 9 5.5M1.5 11h9"/></svg>Download</a></div></section>
+<section class="tile" aria-label="Earnings view"><div class="row"><h2>Earnings view</h2><span class="st"><span class="g" aria-hidden="true">✓</span>Ready</span></div><p>The latest results against expectations, what drove the variance, and what to watch next.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Report, opens print dialog</span><a class="btn" href="#"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Open to print</a></div></section>
+<section class="tile na" aria-label="Market comparison"><div class="row"><h2>Market comparison</h2><span class="st"><span class="slash" aria-hidden="true"></span>Not available for this run</span></div><p>How the issuer's bonds and loans are priced against comparable published levels, and what would change the view.</p><p class="reason">No market prices were supplied for this run, so there is nothing to compare.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Report, opens print dialog</span><a class="btn off" href="#" aria-disabled="true">Open to print</a></div></section>
+<section class="tile" aria-label="Funding and lender implications"><div class="row"><h2>Funding and lender implications</h2><span class="st"><span class="g" aria-hidden="true">✓</span>Ready</span></div><p>What the maturities, facilities and covenants mean for lenders and for the issuer's access to funding.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Report, opens print dialog</span><a class="btn" href="#"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Open to print</a></div></section>
+<section class="tile" aria-label="Distress assessment"><div class="row"><h2>Distress assessment</h2><span class="st"><span class="g" aria-hidden="true">✓</span>Ready</span></div><p>Whether the issuer could be heading for restructuring, and the conditions that would make it likelier.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Report, opens print dialog</span><a class="btn" href="#"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Open to print</a></div></section>
+<section class="tile" aria-label="Portfolio exposure and limits"><div class="row"><h2>Portfolio exposure and limits</h2><span class="st"><span class="g" aria-hidden="true">✓</span>Ready</span></div><p>The reported exposure against the binding limits, with the committee's challenge and the stress that matters.</p><div class="foot"><span class="fmt"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Report, opens print dialog</span><a class="btn" href="#"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 4V1h6v3M3 9H1V4h10v5H9M3 7h6v4H3z"/></svg>Open to print</a></div></section>
+</div>
+<div class="lgl" aria-label="Legend: status"><span class="lgi"><b aria-hidden="true">✓</b> Ready: the file can be downloaded or opened</span><span class="lgi"><span class="st"><span class="slash" aria-hidden="true"></span></span> Not available for this run: dashed orange outline, with the reason in words</span></div>
+</main></body></html>

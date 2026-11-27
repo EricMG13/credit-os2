@@ -123,6 +123,8 @@ node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-librar
   included, with the same markers and deselections and the web dependencies installed (as in the
   fast tests, for the Signal reader check). A failure there that is not in
   `tests/known-failures.txt` is new.
+- `npm --prefix web run proof:connected` exercises the synthetic desktop workflow.
+  Pass `-- --include-mobile` to include the narrower diagnostic checks.
 - The browser check of the generated page (`tests/test_library_page_browser.py`, marker
   `browser`) needs Node with the `playwright` package; it is run by hand.
 - Paid provider runs are never part of CI. They are an explicit command with a ruling

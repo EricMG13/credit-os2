@@ -65,7 +65,7 @@ const NO_CUSTOM_LEAD = ["CP-0", "CP-DR", "CP-5", "CP-8", "CP-MODEL"];
  * research questions, the evidence check, the comparison and the forecast lead nothing. Its plan is
  * the manifest's request, or the order it ran when none is recorded.
  */
-export function leadModules(run: PublishedRun, order: readonly string[]) {
+function leadModules(run: PublishedRun, order: readonly string[]) {
   if (run.pathway === "custom") {
     const planned = Array.isArray(run.requested) ? run.requested : order;
     return [

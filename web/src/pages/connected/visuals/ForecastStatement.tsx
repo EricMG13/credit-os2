@@ -85,7 +85,12 @@ function statementColumns(
 type StatementColumn = ReturnType<typeof statementColumns>[number];
 /** A column the grid draws: one of the grid's own, or a case that publishes no column for the
  * compared year (`source` null). */
-type ShownColumn = GridColumn & { source: StatementColumn | null; missing?: string };
+type ShownColumn = GridColumn & {
+  source: StatementColumn | null;
+  missing?: string;
+  /** The period a source-less case column would represent in the forecast series. */
+  forecast?: boolean;
+};
 
 const INTEREST_ROW = /^(?:Interest|Interest coverage(?: \(.*\))?)$/i;
 const NOT_PUBLISHED = "Not published";
@@ -151,6 +156,7 @@ function caseColumns(lead: StatementColumn[], kept: Kept) {
         band,
         source: null,
         missing: `This case publishes no ${period} column.`,
+        forecast: true,
       }));
     return orderPeriods(
       [...own.map((column) => shownOf(column, band)), ...absent],
@@ -182,7 +188,7 @@ function compareView(projections: StatementColumn[], period: string) {
     );
     return column
       ? shownOf(column, band, readerText(column.group))
-      : { label: readerText(member.group), band, source: null };
+      : { label: readerText(member.group), band, source: null, forecast: true };
   });
 }
 
@@ -284,6 +290,7 @@ function gridRows(grid: Grid, shown: ShownColumn[], period: string | undefined):
     band: row.band,
     total: row.total,
     family: families[familyOf(row)],
+    trend: forecastTrend(row, shown),
     cells: shown.map(({ source, missing }) =>
       source
         ? (row.cells[source.index] ?? {})
@@ -292,6 +299,69 @@ function gridRows(grid: Grid, shown: ShownColumn[], period: string | undefined):
           : unpublished,
     ),
   }));
+}
+
+const DECIMAL = /^-?\d+(?:\.\d+)?$/u;
+
+function exactFigure(cell: Record<string, unknown> | undefined): string | null {
+  if (!cell || cell.status !== "value") return null;
+  const exact = cell.exact;
+  const value = typeof exact === "string" ? exact : exact === undefined ? word(cell.display) : "";
+  return DECIMAL.test(value) ? value : null;
+}
+
+function dateShape(column: StatementColumn, year: number): string | null {
+  const { start, end } = column;
+  if (!start && !end) return "legacy";
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (!validDate(start) || !validDate(end) || start > end || Number(end.slice(0, 4)) !== year)
+    return null;
+  const startYear = Number(start.slice(0, 4));
+  if (year - startYear < 0 || year - startYear > 1) return null;
+  return `${start.slice(5)}:${end.slice(5)}:${String(year - startYear)}`;
+}
+
+/** A trend uses only one row's own fiscal-year cells, on one case and one repeated annual basis. */
+function forecastTrend(row: Grid["rows"][number], shown: ShownColumn[]) {
+  const projections = shown.filter(({ source, forecast }) => forecast || source?.forecast);
+  const candidates = projections.length
+    ? projections
+    : shown.filter(({ source }) => source !== null);
+  const columns = candidates.map(({ source }) => source);
+  if (columns.length < 3 || columns.some((column) => column === null)) return undefined;
+  const comparable = columns.filter((column): column is StatementColumn => column !== null);
+  const groups = new Set(comparable.map(({ rawGroup }) => rawGroup));
+  if (groups.size !== 1) return undefined;
+  const fiscalYears: number[] = [];
+  let previousYear: number | undefined;
+  for (const { label } of comparable) {
+    const year = fiscalYear(label);
+    if (year === null || (previousYear !== undefined && year !== previousYear + 1))
+      return undefined;
+    fiscalYears.push(year);
+    previousYear = year;
+  }
+  const shapes: (string | null)[] = [];
+  for (const [index, column] of comparable.entries()) {
+    const year = fiscalYears[index];
+    if (year === undefined) return undefined;
+    shapes.push(dateShape(column, year));
+  }
+  if (shapes.some((shape) => shape === null) || new Set(shapes).size !== 1) return undefined;
+  const values = comparable.map(({ index }) => exactFigure(row.cells[index]));
+  if (
+    values.filter((value) => value !== null).length < 3 ||
+    values.some((value) => value !== null && !Number.isFinite(Number(value)))
+  )
+    return undefined;
+  const first = comparable[0]?.label;
+  const last = comparable.at(-1)?.label;
+  if (!first || !last) return undefined;
+  return { values, label: `${row.label}, ${first} to ${last}` };
 }
 
 function ColumnControls({

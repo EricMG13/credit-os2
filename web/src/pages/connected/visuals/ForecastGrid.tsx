@@ -6,6 +6,7 @@ import { cx } from "@/utils/cx";
 import { containsReference, readerText } from "../publishedReport";
 import { Key } from "../report/overview/figureParts";
 import { word } from "./visualData";
+import { Sparkline } from "./signal/Sparkline";
 
 type Cell = Record<string, unknown>;
 
@@ -24,6 +25,7 @@ export interface GridRow {
   family: string;
   total: boolean;
   cells: Cell[];
+  trend?: { values: (string | null)[]; label: string };
 }
 
 interface Gap {
@@ -101,7 +103,7 @@ function familyText(rows: GridRow[]) {
     : (names[0] ?? "");
 }
 
-function GapCell({ run }: { run: CellRun & { gap: Gap } }) {
+function GapCell({ run, trend }: { run: CellRun & { gap: Gap }; trend?: GridRow["trend"] }) {
   const { display, reason } = run.gap;
   return (
     <td
@@ -110,22 +112,32 @@ function GapCell({ run }: { run: CellRun & { gap: Gap } }) {
       title={reason || undefined}
       aria-label={reason ? `${display} ${reason}` : undefined}
     >
-      <span className="gap-hatch flex min-h-8 items-center justify-center rounded-ds-sm border border-dashed border-border-gap px-2">
-        <span className="rounded-ds-xs bg-surface-card px-1.5 text-caption text-gap-text whitespace-nowrap">
-          {display}
+      <div className="flex items-center justify-center gap-2">
+        <span className="gap-hatch flex min-h-8 flex-1 items-center justify-center rounded-ds-sm border border-dashed border-border-gap px-2">
+          <span className="rounded-ds-xs bg-surface-card px-1.5 text-caption text-gap-text whitespace-nowrap">
+            {display}
+          </span>
         </span>
-      </span>
+        {trend && <Sparkline values={trend.values} label={trend.label} />}
+      </div>
     </td>
   );
 }
 
-function ValueCell({ cell }: { cell: Cell }) {
+function ValueCell({ cell, trend }: { cell: Cell; trend?: GridRow["trend"] }) {
   return (
     <td
       className="px-3 py-1.5 text-right font-mono text-mono whitespace-nowrap tabular-nums"
       title={word(cell.exact) || undefined}
     >
-      {word(cell.display)}
+      {trend ? (
+        <span className="inline-flex items-center gap-2">
+          {word(cell.display)}
+          <Sparkline values={trend.values} label={trend.label} />
+        </span>
+      ) : (
+        word(cell.display)
+      )}
     </td>
   );
 }
@@ -234,13 +246,14 @@ function MeasureRow({ row, source }: { row: DrawnRow; source?: (row: string) => 
       >
         {row.label}
       </th>
-      {row.runs.map((run) =>
-        run.gap ? (
-          <GapCell key={run.start} run={{ ...run, gap: run.gap }} />
+      {row.runs.map((run, index) => {
+        const trend = index === row.runs.length - 1 ? row.trend : undefined;
+        return run.gap ? (
+          <GapCell key={run.start} run={{ ...run, gap: run.gap }} trend={trend} />
         ) : (
-          <ValueCell key={run.start} cell={run.cell} />
-        ),
-      )}
+          <ValueCell key={run.start} cell={run.cell} trend={trend} />
+        );
+      })}
       {source && (
         <td className="px-2 py-1">
           <div className="flex min-h-8 items-center justify-end max-[480px]:min-h-11">

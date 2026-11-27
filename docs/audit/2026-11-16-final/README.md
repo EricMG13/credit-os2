@@ -4,6 +4,10 @@ A staged audit of the whole application, front to back, before the repository is
 work PC. This file routes; each stage has one brief under `stages/`. To start the audit in a
 cloud session, paste [`CLOUD-PROMPT.md`](CLOUD-PROMPT.md).
 
+For a new Stage 6 sweep in Codex, use the [sweep session prompt](sessions/sweep.md)
+and the [Stage 6 brief](stages/6-sweep.md). The retained records under `output/`
+describe the completed Claude run.
+
 The audit runs as one lead coordinator session (Fable) and several sub-sessions; who runs which
 stage, the waves, the branches and the hand-off are in [`SESSIONS.md`](SESSIONS.md). The lead
 and every sub-session controller dispatch sub-agents with the stage brief's path (never pasted
@@ -81,6 +85,9 @@ Recorded by the session that wrote these briefs. The owner may overrule any of t
 | R16 | No analyst uses a screen reader. A finding that changes only what a screen reader announces (live regions, heading levels, landmark and control names, alert roles) is not a defect. Reviewed fixes already merged stay. Contrast, colour-only, target-size, visible-label and page-title findings are not affected. | Owner, 2026-11-17: "screen reader - not required" |
 | R17 | The legacy issuer library and the legacy run-start form stay in this release (B0-006). The connected app reads `library/data.js` and links `library/downloads/`, both written by the legacy library's build (`apps/issuer-library/update_library.py`); the Python context checks and five test files rely on the legacy form. Separating the data build from the old page, and moving the form's rules into Python, is work after the audit. | Owner, 2026-11-17: "agreed" (to the lead's recommendation to keep both for this hand-over) |
 | R7 | A tool or skill a brief names may be missing in the cloud. Use the fallback the brief gives and write the absence under `Not verified:`. Do not add a package to any manifest to get a tool. | Coordinator |
+
+The Codex Stage 6 brief specifies Luna for the implementation swarm and retains
+the sweep's two-attempt cap. R12 records the escalation policy from the original audit.
 
 ## Rules every agent follows
 

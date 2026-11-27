@@ -15,11 +15,13 @@ prompt file to paste into a new session, and on which branch.
 | `sections-static` | Opus 5.5, `xhigh`; workers Sonnet, `xhigh` | 2: S1–S6, X1 | [`sessions/sections-static.md`](sessions/sections-static.md) | `audit/out-sections-static` | `output/2-sections/S*/`, `output/2-sections/X1/` |
 | `journeys` | Opus 5.5, `xhigh`; workers Sonnet, `xhigh` | 3: J1–J6 | [`sessions/journeys.md`](sessions/journeys.md) | `audit/out-journeys` | `output/3-journeys/` |
 | `repair-<n>` (one to three) | Opus 5.5, `xhigh`; workers Sonnet | 5, steps 1–6, for its task group | [`sessions/repair.md`](sessions/repair.md) | `audit/repair-<n>` | code in its group's files; `output/5-repair/<task id>.md` |
-| `sweep` | Opus 5.5, `xhigh`; workers Sonnet | 6 | [`sessions/sweep.md`](sessions/sweep.md) | `audit/final-sweep` | code; `output/6-sweep/` |
+| `sweep` | Codex controller on its launch model; implementation swarm on GPT-6 Luna | 6 | [`sessions/sweep.md`](sessions/sweep.md) | `audit/final-sweep` for the original audit; run-specific branch for a new sweep | code; Stage 6 output |
 
-A sub-session's controller dispatches workers and writes no code itself. Workers run on Sonnet;
-section and journey workers at `xhigh` (ruling R1). If a session cannot choose its model, it runs
-on what it has and says so in its status.
+A sub-session's controller dispatches workers and writes no application code. Section and journey
+workers run on Sonnet at `xhigh` (R1). For stages 1–5, a session that cannot choose its model uses
+the available model and records it in its status. In Codex Stage 6, explicitly select
+`gpt-6-luna` for each implementer. Record model availability in the sweep status and
+continue discovery if Luna is unavailable.
 
 ## Waves
 
@@ -50,15 +52,17 @@ on what it has and says so in its status.
   `audit/repair-<n>`, and opens a pull request into `audit/final-repairs`. The lead reads the diff
   and the session's reports, then merges it (ruling R9). The lead first copies
   `output/4-register/` onto `audit/final-repairs` so repair sessions can read it.
-- **Wave 7 (sweep).** Starts from the tip of `audit/final-repairs`, works on `audit/final-sweep`,
-  opens a pull request into `audit/final-repairs`.
+- **Wave 7 (sweep).** Starts from the accepted repair commit. The Codex controller dispatches
+  Luna implementers, integrates reviewed changes, and hands the lead a sweep diff against that
+  repair base. See the [sweep prompt](sessions/sweep.md) for resuming and publishing.
 - **Wave 8.** The lead merges the sweep's pull request, runs stage 7 on `audit/final-repairs`, and
   opens the final pull request into `main`. Nothing is merged into `main` (ruling R6).
 
 ## Status
 
-Every sub-session keeps `output/sessions/<session>/STATUS.md` on its branch, updated and pushed
-at each milestone:
+Every sub-session keeps `output/sessions/<session>/STATUS.md` current at each milestone.
+The Codex sweep shares its status path and branch with the lead. In the cloud workflow,
+the other sub-sessions push status on their branches.
 
 ```
 state: running | done | blocked
@@ -69,10 +73,9 @@ blocked: <what, and what would unblock it, or none>
 reports: <paths>
 ```
 
-The lead reads a session's status with `git fetch origin audit/out-<session>` and
-`git show origin/audit/out-<session>:docs/audit/2026-11-16-final/output/sessions/<session>/STATUS.md`.
-A status is a claim, not proof: before collecting, the lead checks that the outputs it lists exist
-and are well formed (every `findings.jsonl` line parses and has the schema's fields).
+For published status, the lead reads the session's actual branch and status path.
+Before collecting, the lead checks that the listed outputs exist and are well formed
+(every `findings.jsonl` line parses and has the schema's fields).
 
 A `blocked` session waits for the lead's answer. The lead answers through the session if it can
 message it, otherwise by committing `output/sessions/<session>/ANSWER.md` to that session's branch

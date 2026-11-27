@@ -30,14 +30,14 @@ export function readCell(cell: string): Reading {
     const bare = bracketed.replaceAll(",", "");
     // "(0)" is zero, not a negative zero.
     const plain = Number(bare) === 0 ? bare : `-${bare}`;
-    return { kind: "number", text: plain, value: Number(plain) + 0, written: cell.trim() };
+    if (Number.isFinite(Number(plain)))
+      return { kind: "number", text: plain, value: Number(plain) + 0, written: cell.trim() };
   }
-  if (PLAIN.test(text))
-    return {
-      kind: "number",
-      text: text.replaceAll(",", ""),
-      value: Number(text.replaceAll(",", "")),
-    };
+  if (PLAIN.test(text)) {
+    const value = Number(text.replaceAll(",", ""));
+    // A digit run too long for a number parses to Infinity: not a readable number, so words as written.
+    if (Number.isFinite(value)) return { kind: "number", text: text.replaceAll(",", ""), value };
+  }
   return { kind: "text", text: cell.trim() };
 }
 
