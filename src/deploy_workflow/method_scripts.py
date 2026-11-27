@@ -848,12 +848,7 @@ def _unread_cells(
     return tuple(
         f"`Facility: {f['facility']}` {column}"
         for f in facilities
-        if f["committed"]
-        and not (
-            horizon is not None
-            and f["years_to_expiry"] is not None
-            and f["years_to_expiry"] < horizon
-        )
+        if f["committed"] and not _expires_inside(f["years_to_expiry"], horizon)
         for key, column in needed
         if f[key] is None
     )

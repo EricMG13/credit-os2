@@ -194,3 +194,43 @@ def test_a_blank_cell_on_a_facility_expiring_inside_the_horizon_does_not_block_t
     # Bilateral line expires at 1.0y, inside the 2y Horizon: not in the totals (470 and 200 stand).
     funding = replaced(FUNDING, "Facility: Bilateral line", drawn="—")
     assert statuses(ms.run("CP-3C", cp3c(funding=funding))) == dict.fromkeys(LINES, "agreed")
+
+
+# --- C11 regression repair: restore BASE 030805f for two inputs round 2 made worse ----------------
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "Interest expense after interest income",
+        "Interest expense less interest income",
+        "Interest expense, net of  interest income",
+    ],
+)
+def test_an_interest_expense_line_naming_interest_income_stays_a_cost(item):
+    # BASE: agreed with either sign (100 -> 110 is +10.0%)
+    assert t44_line(item, "(10.0%)") == "agreed"
+
+
+@pytest.mark.parametrize("item", ["Interest income", "Net interest income"])
+def test_an_interest_income_line_alone_is_not_a_cost(item):
+    assert t44_line(item, "(10.0%)") == "disagreed"
+    assert t44_line(item, "10.0%") == "agreed"
+
+
+def test_a_space_only_abs_then_percentage_is_not_checked():
+    # BASE: `-10 10.0%` is not read (no separator, no brackets); 90 / 100 - 1 = -10.0%
+    t44 = (
+        "### T4.4 - Performance\n\n| Line Item | FY2023 | FY2024 | YoY Abs/% |\n|---|---|---|---|\n"
+        "| Revenue | 100 | 90 | -10 10.0% |\n\n"
+    )
+    outcomes = [o for o in ms.run("CP-1B", cp1b(t44=t44)) if o.register == "T4.4"]
+    assert outcomes[0].status == "not checked"
+
+
+def test_years_equal_to_the_horizon_still_blocks_the_totals():
+    # Bilateral line expires at 2.0y = the 2y Horizon: not inside it, so it is in the totals.
+    funding = replaced(FUNDING, "Facility: Bilateral line", drawn="—", years="2.0")
+    out = {o.figure: o for o in ms.run("CP-3C", cp3c(funding=funding))}
+    assert out["Available liquidity"].status == "not checked"
+    assert out["Funding gap"].status == "not checked"

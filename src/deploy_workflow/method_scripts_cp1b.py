@@ -69,10 +69,14 @@ _COST = re.compile(
 # interest (`Net income after tax`, `Interest income`); `income tax` is itself a cost.
 _NOT_COST = re.compile(
     r"\b(?:net\s+income|operating\s+income|gross\s+profit|(?:profit|profits|income|earnings)\s+"
-    r"(?:before|after)|(?:after|before)[- ]tax|(?<!net of )interest\s+income|"
-    r"interest\s+coverage|coverage|margin|retained\s+earnings|adjusted\s+ebitda)\b",
+    r"(?:before|after)|(?:after|before)[- ]tax|interest\s+coverage|coverage|margin|"
+    r"retained\s+earnings|adjusted\s+ebitda)\b",
     re.IGNORECASE,
 )
+# `Interest income` alone is income; a name that also says expense or cost is a cost line
+# (`Interest expense after interest income`).
+_INTEREST_INCOME = re.compile(r"\binterest\s+income\b", re.IGNORECASE)
+_EXPENSE_WORD = re.compile(r"\b(?:expenses?|costs?|paid|charges?)\b", re.IGNORECASE)
 _INCOME_TAX = re.compile(r"\bincome\s+tax(?:es)?\b", re.IGNORECASE)
 GROWTH_FORMULA = (
     "% Change = Current / Prior - 1, in percent; none on a zero prior (credit_metrics.py growth, "
@@ -248,7 +252,10 @@ def _check(pair: _Pair, loaded: Loaded) -> Outcome:
 
 def _is_cost(name: str) -> bool:
     """Whether a line is a cost, whose change the method fixes no sign for."""
-    return bool(_COST.search(name)) and not _NOT_COST.search(_INCOME_TAX.sub("tax", name))
+    if not _COST.search(name):
+        return False
+    income = bool(_INTEREST_INCOME.search(name)) and not _EXPENSE_WORD.search(name)
+    return not (income or _NOT_COST.search(_INCOME_TAX.sub("tax", name)))
 
 
 def _sign(text: str) -> bool:
@@ -430,6 +437,10 @@ def _joined_yoy(cell: str, prior: str, current: str, tables: types.ModuleType) -
         return parts[1], ""
     if blank(text, tables):
         return "", ""
+    ending = _ENDING.match(text)
+    spaced = ending and ending["abs"] and not ending["sep"] and not ending["abs"].endswith(",")
+    if spaced and not _ANNOTATED.match(text):  # BASE: an absolute figure and a percentage, a space
+        return "", "the Abs/% cell has no separator between its absolute figure and percentage"
     return _abs_pct(text, _change(prior, current))
 
 
