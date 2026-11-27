@@ -11,8 +11,17 @@ import { useCanStart } from "./startAction";
 import { getLibraryIndex, type LibraryIndex } from "./publishedReport";
 import { isUnreachable } from "./useResource";
 import { ChipGroup } from "@/components/kit/Chip";
-import { groupIssuers, libraryChoices, matchesQuery, RUN_STATES } from "./libraryRows/group";
-import { figureName } from "./libraryRows/FigureMark";
+import {
+  groupIssuers,
+  libraryChoices,
+  matchesQuery,
+  RUN_STATES,
+  sectorSlots,
+  type IssuerGroup,
+} from "./libraryRows/group";
+import { figureChange, figureName } from "./libraryRows/FigureMark";
+import { Legend, type LegendEntry } from "./report/leads/kit/marks/Legend";
+import { BETTER, WORSE } from "./visuals/signal/scales";
 import { IssuerRow, ROW_COLUMNS } from "./libraryRows/IssuerRow";
 import { stated } from "./reportView";
 
@@ -26,6 +35,50 @@ function filtersFromAddress(): LibraryFilters {
     pathway: query.get("pathway") ?? "all",
     state: query.get("state") ?? "all",
   };
+}
+
+/** The three figures a row draws a change for. */
+const CHANGE_KEYS = ["net_leverage", "coverage", "cash"] as const;
+
+/** Whether a row draws a tint or an arrow-only cell, which the tint legend explains. */
+function drawsChange({ newest }: IssuerGroup) {
+  return CHANGE_KEYS.some((key) => {
+    const change = figureChange(key, newest.metrics[key]);
+    return (
+      change !== undefined &&
+      (change.kind === "better" || change.kind === "worse" || change.sign !== 0)
+    );
+  });
+}
+
+function TintSwatch({ colour }: { colour: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ backgroundColor: colour }}
+      className="size-3 rounded-ds-xs border border-border-hairline"
+    />
+  );
+}
+
+/** What a tinted cell and a grey arrow mean, in words beside each swatch. */
+function TintLegend() {
+  return (
+    <ul
+      aria-label="Tint colours"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary"
+    >
+      <li className="inline-flex items-center gap-1.5">
+        <TintSwatch colour={BETTER[1]} />
+        <span>Green: better</span>
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <TintSwatch colour={WORSE[1]} />
+        <span>Orange: worse</span>
+      </li>
+      <li>Grey arrow: no better or worse is drawn</li>
+    </ul>
+  );
 }
 
 function MatchRuns({
@@ -61,6 +114,16 @@ function MatchRuns({
       (group) =>
         figureName("coverage", "Interest cover", group.newest.metrics.coverage) === coverageName,
     );
+  const slots = sectorSlots(snapshot);
+  const shownSectors = new Set(rows.map((group) => group.newest.sector).filter(Boolean));
+  const sectorLegend: LegendEntry[] = [...slots]
+    .filter(([sector]) => shownSectors.has(sector))
+    .map(([sector, slot]) => ({
+      kind: "dot",
+      tone: `category-${String(slot)}` as `category-${3 | 4 | 5 | 6 | 8}`,
+      text: sector,
+    }));
+  const tinted = rows.some(drawsChange);
   const choose = (change: Partial<LibraryFilters>) => {
     setFilters((previous) => ({ ...previous, ...change }));
   };
@@ -117,6 +180,16 @@ function MatchRuns({
           />
         )}
       </div>
+      {(sectorLegend.length > 0 || tinted) && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {sectorLegend.length > 0 && (
+            <div aria-label="Sector colours">
+              <Legend items={sectorLegend} />
+            </div>
+          )}
+          {tinted && <TintLegend />}
+        </div>
+      )}
       {rows.length === 0 ? (
         <div className={`${card} items-start`}>
           <p role="status">No issuers match these filters.</p>
@@ -147,7 +220,12 @@ function MatchRuns({
           <h2 className="sr-only">Issuers</h2>
           <ul aria-label="Issuers" className="grid gap-2">
             {rows.map((group) => (
-              <IssuerRow key={group.key} group={group} coverageInHeader={coverageInHeader} />
+              <IssuerRow
+                key={group.key}
+                group={group}
+                coverageInHeader={coverageInHeader}
+                sectorSlot={slots.get(group.newest.sector)}
+              />
             ))}
           </ul>
           <p className="reading-copy max-w-3xl text-caption text-text-tertiary">

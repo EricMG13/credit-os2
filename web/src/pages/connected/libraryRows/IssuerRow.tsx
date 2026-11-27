@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { StatusShape } from "@/components/status/shapes";
 import { StatsStrip, type Stat } from "@/components/kit/StatsStrip";
 import { TextLink } from "../../run/TextLink";
 import { reportPath, runPathway, withUnit, type CatalogueRun } from "../publishedReport";
@@ -16,6 +17,7 @@ import { useFigureTrace } from "./figureTrace";
 import type { IssuerGroup } from "./group";
 import { useNextEvent, useSeen } from "./nextEvent";
 import { useScopedSnapshots } from "./rowSnapshot";
+import { SECTOR } from "../visuals/signal/scales";
 
 /** The columns of a row on a wide screen; below it a row stacks and each cell names itself. */
 export const ROW_COLUMNS =
@@ -29,9 +31,18 @@ const QUIET_LINK =
 const isoDay = (date: string) => (/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined);
 
 function StateChip({ group }: { group: IssuerGroup }) {
-  if (group.state === "Test preview") return <Badge color="brand">Test preview</Badge>;
   if (group.state === "Delivered") return <StatusBadge set="Module state" state="Delivered" />;
-  return <Badge color="gray">No report published</Badge>;
+  // Caution, something to look at (a test preview); or nothing to open (a ring).
+  const preview = group.state === "Test preview";
+  return (
+    <Badge
+      color="gray"
+      icon={<StatusShape shape={preview ? "triangle" : "ring"} />}
+      className="gap-1 text-text-primary"
+    >
+      {group.state}
+    </Badge>
+  );
 }
 
 function Runs({ group }: { group: IssuerGroup }) {
@@ -170,10 +181,13 @@ function moreStats(catalogue: CatalogueRun, trace: ReturnType<typeof useFigureTr
 export function IssuerRow({
   group,
   coverageInHeader = false,
+  sectorSlot,
 }: {
   group: IssuerGroup;
   /** The Interest cover column header already carries the qualified label. */
   coverageInHeader?: boolean;
+  /** The sector's category slot (1 to 8) for its dot; none, no dot. */
+  sectorSlot?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -237,7 +251,17 @@ export function IssuerRow({
             </h3>
             {(newest.ticker || newest.sector) && (
               <p className="text-small text-text-secondary">
-                {[newest.ticker, newest.sector].filter(Boolean).join(" · ")}
+                {newest.ticker}
+                {newest.ticker && newest.sector && " · "}
+                {newest.sector && sectorSlot !== undefined && (
+                  <span
+                    aria-hidden="true"
+                    data-sector-dot
+                    style={{ backgroundColor: SECTOR[sectorSlot - 1] }}
+                    className="mr-1.5 inline-block size-2 rounded-full align-middle"
+                  />
+                )}
+                {newest.sector}
               </p>
             )}
             {newest.period && newest.period !== newest.date && (

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { CatalogueRun, LibraryIndex } from "../publishedReport";
-import { groupIssuers } from "./group";
+import { groupIssuers, sectorSlots } from "./group";
 
 const run = (id: string, date: string): CatalogueRun => ({
   id,
@@ -39,4 +39,38 @@ it("always opens the report of the run it draws: a row's linked run is its newes
   };
   for (const group of groupIssuers(index))
     expect(group.linked === undefined || group.linked === group.newest).toBe(true);
+});
+
+it("gives the first five sectors slots 3, 4, 5, 6, 8 in order of first appearance, then slot 8", () => {
+  const sectored = (id: string, issuer: string, sector: string): CatalogueRun => ({
+    ...run(id, "2026-03-31"),
+    name: issuer,
+    issuer,
+    sector,
+  });
+  const index: LibraryIndex = {
+    catalogue: {
+      real: [
+        sectored("a", "A", "Telecom"),
+        sectored("b", "B", ""),
+        sectored("c", "C", "Retail"),
+        sectored("d", "D", "Telecom"),
+        sectored("e", "E", "Energy"),
+        sectored("f", "F", "Media"),
+        sectored("g", "G", "Autos"),
+        sectored("h", "H", "Chemicals"),
+        sectored("i", "I", "Software"),
+      ],
+    },
+    workspace: { runs: {} },
+  };
+  expect([...sectorSlots(index)]).toEqual([
+    ["Telecom", 3],
+    ["Retail", 4],
+    ["Energy", 5],
+    ["Media", 6],
+    ["Autos", 8],
+    ["Chemicals", 8],
+    ["Software", 8],
+  ]);
 });
