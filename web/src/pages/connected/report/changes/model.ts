@@ -246,7 +246,7 @@ function effectOf(
   return text ? { kind: "written", text } : null;
 }
 
-function stated(reason: string, pathway?: string | null) {
+export function stated(reason: string, pathway?: string | null) {
   return containsReference(reason) ? "See comparison evidence." : words(reason, pathway);
 }
 

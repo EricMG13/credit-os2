@@ -14,6 +14,7 @@ import {
   type Snapshot,
   withoutReferences,
 } from "../publishedReport";
+import { withoutReference } from "./moduleRecordsModel";
 import { PublishedTable } from "../ReportContent";
 import { MaturityPair, usableProfile } from "./changes/MaturityPair";
 import { MeasureList } from "./changes/MeasureList";
@@ -26,6 +27,7 @@ import {
   leftovers,
   passageItems,
   problemSentence,
+  stated,
   verdictOf,
   words,
   type PassageItem,
@@ -43,6 +45,18 @@ import { PublishedSource } from "./PublishedTrace";
 
 const BUTTON = "min-h-8 max-[480px]:min-h-11";
 
+const SAME_PERIOD = " · Same-period analysis change";
+/** Measure, Earlier, Current and Difference: figures and labels, drawn without a citation token. */
+const FIGURE_COLUMNS = 4;
+function readerCell(cell: string, column: number) {
+  if (!containsReference(cell)) return cell;
+  // Removes only a gap id after the empty-set mark, so a missing value stays distinct from zero.
+  if (column < FIGURE_COLUMNS) return withoutReference(cell.replace(/(∅)\s*\[?G\d+\]?/gu, "$1"));
+  const revision = cell.endsWith(SAME_PERIOD);
+  const reason = revision ? cell.slice(0, -SAME_PERIOD.length) : cell;
+  return (withoutReferences(reason) || stated(reason)) + (revision ? SAME_PERIOD : "");
+}
+
 export function ComparisonTable({
   rows,
   source,
@@ -54,12 +68,8 @@ export function ComparisonTable({
   evidence?: boolean;
 }) {
   // PublishedTable's reader mode would add its own link or "unavailable" note to a citing cell;
-  // the row already has its one trace control, so the cell's references are dropped here.
-  const drawn = evidence
-    ? rows
-    : rows.map((cells) =>
-        cells.map((cell) => (containsReference(cell) ? withoutReferences(cell) : cell)),
-      );
+  // the row already has its one trace control, so each cell is drawn without its references.
+  const drawn = evidence ? rows : rows.map((cells) => cells.map(readerCell));
   return (
     <PublishedTable
       evidence

@@ -239,7 +239,7 @@ export const citesSource = (text: string) => containsReference(holdFigures(text)
 
 /** The title without its cited source: a parenthesised reference, then a trailing clause that
  * cites one, then any word that is one. */
-function withoutReference(title: string) {
+export function withoutReference(title: string) {
   if (!containsReference(title)) return title;
   const bare = title.replace(PARENTHESISED, (group) => (containsReference(group) ? "" : group));
   const cuts = [...bare.matchAll(CLAUSE)].filter(({ index }) =>
