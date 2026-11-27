@@ -298,6 +298,8 @@ def seal(layout: Layout, sid: str, actor: RunActor | None = None) -> Path:
     with _LOCK:
         if actor is not None:
             approval = issued_approval(layout, sid)
+            if not approval.digest:
+                raise Refused(NO_SUMMARY_ISSUED)
             if (approval.actor_id, approval.actor_name) != (actor.account_id, actor.analyst_name):
                 raise Refused(
                     "this summary was approved by another account or name; review the summary again"
@@ -966,6 +968,7 @@ def issued(layout: Layout, sid: str) -> str:
     return issued_approval(layout, sid).digest
 
 
+NO_SUMMARY_ISSUED = "review the summary again; no summary was issued for this run"
 _CAP_LINE = "cap="
 _LIMITS_LINE = "limits="
 
@@ -994,6 +997,8 @@ class IssuedApproval:
 def issued_approval(layout: Layout, sid: str) -> IssuedApproval:
     """Read the current approval from one atomic version of the issued file."""
     lines = _issued_lines(layout, sid)
+    # Line 2 is a run folder name from `Scheduler._new_id` (digits and hyphens, never `account=`
+    # or `name=`); tests/test_auth_scheduler_actor.py pins that format.
     prior = (
         lines[1] if len(lines) > 1 and not lines[1].startswith((_CAP_LINE, _LIMITS_LINE)) else ""
     )

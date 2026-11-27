@@ -283,7 +283,7 @@ class AuthRoutes:
         if isinstance(analyst_name, http_base.Reply):
             return analyst_name
         account_id = int(match[1])
-        db = store.open_db(self._config.accounts_dir)
+        db = store.open_db(self._config.accounts_dir, create=False)
         try:
             try:
                 store.set_analyst_name_override_as_admin(db, account.id, account_id, analyst_name)
@@ -319,7 +319,7 @@ class AuthRoutes:
         return value["analyst_name"]
 
     def _accounts_directory(self) -> http_base.Reply:
-        db = store.open_db(self._config.accounts_dir)
+        db = store.open_db(self._config.accounts_dir, create=False)
         try:
             return http_base.Reply(200, {"accounts": store.account_directory(db)})
         finally:
@@ -356,7 +356,7 @@ class AuthRoutes:
                 if length != 0:
                     return http_base.refuse(400, "invalid account request")
 
-        db = store.open_db(self._config.accounts_dir)
+        db = store.open_db(self._config.accounts_dir, create=False)
         try:
             try:
                 if action == "disable":
@@ -486,7 +486,7 @@ class AuthRoutes:
         ):
             return self._sign_in_page(400, registration.DENIAL)
         now = datetime.now(UTC)
-        db = store.open_db(self._config.accounts_dir)
+        db = store.open_db(self._config.accounts_dir, create=False)
         try:
             try:
                 account = registration.register_identity(
@@ -549,7 +549,7 @@ class AuthRoutes:
         if account is None or token is None:
             return http_base.refuse(401, "sign in first")
         passcode = self._passcode_value(handler)
-        db = store.open_db(self._config.accounts_dir)
+        db = store.open_db(self._config.accounts_dir, create=False)
         try:
             attempt = registration.redeem_passcode(
                 db, token, passcode=passcode, now=datetime.now(UTC)
@@ -585,7 +585,7 @@ class AuthRoutes:
     def _sign_out(self, handler: http_base.Handler) -> http_base.Reply:
         token = auth_gate.session_token(handler.headers.get_all("Cookie") or [])
         if token is not None:
-            db = store.open_db(self._config.accounts_dir)
+            db = store.open_db(self._config.accounts_dir, create=False)
             try:
                 sessions.end_session(db, token)
             finally:

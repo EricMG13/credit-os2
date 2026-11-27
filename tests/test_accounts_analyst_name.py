@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -234,3 +235,11 @@ def test_operator_cli_refuses_invalid_analyst_name_without_write(
         assert unchanged is not None and unchanged.analyst_name_override is None
     finally:
         db.close()
+
+
+def test_derivation_normalises_to_nfc_first() -> None:
+    result = analyst_names.derive_analyst_name(
+        unicodedata.normalize("NFD", "José"), unicodedata.normalize("NFD", "Ñúñez")
+    )
+    assert result == unicodedata.normalize("NFC", "José Ñ")
+    assert unicodedata.is_normalized("NFC", result or "")

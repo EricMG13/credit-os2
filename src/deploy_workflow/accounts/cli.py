@@ -1,4 +1,8 @@
-"""The accounts command line: set a passcode, list accounts, disable one, change its type.
+"""The accounts command line.
+
+Commands: `passcode set <type>`, `accounts list`, `accounts disable <id>`, `accounts enable <id>`,
+`accounts type <id> <type>` and `accounts analyst-name <id> <name>`. `--accounts-dir` goes before
+the group, between the group and the action, or after the action; the rightmost one wins.
 
 A passcode is read only with `getpass.getpass` at a terminal, never from an argument, an
 environment variable or a pipe. Nothing here logs, and no message carries a passcode.
@@ -30,7 +34,7 @@ _NO_ENTRY = "error: no passcode was entered; nothing was set"
 _NOT_UNDERSTOOD = (
     "error: the command was not understood; see python -m deploy_workflow.accounts --help"
 )
-_NO_STORE = "error: there is no account store in {folder}; check --accounts-dir"
+_NO_STORE = f"error: there is no account store in {{folder}}; check --accounts-dir or {_ENV_FOLDER}"
 _NOT_TEXT = "error: the passcode could not be read as text; nothing was set"
 _DIFFER = "error: the two entries differ; nothing was set"
 
@@ -59,29 +63,24 @@ def _parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="python -m deploy_workflow.accounts", allow_abbrev=False)
     parser.add_argument("--accounts-dir", default=None)  # text: Path("") would become "."
 
-    def leaf(commands: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
-        """A command that also takes --accounts-dir; SUPPRESS keeps the leading value unless the
-        later one is given, in which case the later one wins."""
-        command = commands.add_parser(name, allow_abbrev=False)
-        command.add_argument("--accounts-dir", default=argparse.SUPPRESS)
-        return command
+    def command(commands: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
+        """A group or command that also takes --accounts-dir; the rightmost one given wins."""
+        parsed = commands.add_parser(name, allow_abbrev=False)
+        parsed.add_argument("--accounts-dir", default=argparse.SUPPRESS)
+        return parsed
 
     groups = parser.add_subparsers(dest="group", required=True)
-    passcode = groups.add_parser("passcode", allow_abbrev=False).add_subparsers(
-        dest="action", required=True
-    )
-    set_cmd = leaf(passcode, "set")
+    passcode = command(groups, "passcode").add_subparsers(dest="action", required=True)
+    set_cmd = command(passcode, "set")
     set_cmd.add_argument("type", choices=passcodes.PASSCODE_TYPES)
-    accounts = groups.add_parser("accounts", allow_abbrev=False).add_subparsers(
-        dest="action", required=True
-    )
-    leaf(accounts, "list")
-    leaf(accounts, "disable").add_argument("id", type=_account_id)
-    leaf(accounts, "enable").add_argument("id", type=_account_id)
-    change = leaf(accounts, "type")
+    accounts = command(groups, "accounts").add_subparsers(dest="action", required=True)
+    command(accounts, "list")
+    command(accounts, "disable").add_argument("id", type=_account_id)
+    command(accounts, "enable").add_argument("id", type=_account_id)
+    change = command(accounts, "type")
     change.add_argument("id", type=_account_id)
     change.add_argument("type", choices=store.PROFILE_TYPES)
-    analyst_name = leaf(accounts, "analyst-name")
+    analyst_name = command(accounts, "analyst-name")
     analyst_name.add_argument("id", type=_account_id)
     analyst_name.add_argument("name", nargs="+")
     return parser

@@ -72,9 +72,13 @@ def session_token(headers: list[str]) -> str | None:
         jar.load(header)
     except CookieError:
         return None  # an unparseable header holds no session cookie
-    if COOKIE not in jar or not sessions.TOKEN.fullmatch(jar[COOKIE].value):
+    if COOKIE not in jar:
         return None
-    return jar[COOKIE].value
+    morsel = jar[COOKIE]
+    # A quoted or backslash-escaped spelling decodes to a different ``value``: it is no session.
+    if morsel.coded_value != morsel.value or not sessions.TOKEN.fullmatch(morsel.value):
+        return None
+    return morsel.value
 
 
 def session_account(headers: list[str], folder: Path) -> store.Account | None:
@@ -82,7 +86,7 @@ def session_account(headers: list[str], folder: Path) -> store.Account | None:
     token = session_token(headers)
     if token is None:
         return None
-    db = store.open_db(folder)
+    db = store.open_db(folder, create=False)
     try:
         return sessions.session_account(db, token, now=datetime.now(UTC))
     finally:

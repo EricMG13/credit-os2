@@ -443,9 +443,9 @@ def opened(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     calls: list[Path] = []
     original = store.open_db
 
-    def recording(folder: Path) -> object:
+    def recording(folder: Path, **kwargs: bool) -> object:
         calls.append(folder)
-        return original(folder)
+        return original(folder, **kwargs)
 
     monkeypatch.setattr("react_frontend.auth_gate.store.open_db", recording)
     return calls
