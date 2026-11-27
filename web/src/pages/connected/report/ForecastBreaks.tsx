@@ -4,9 +4,10 @@ import { cx } from "@/utils/cx";
 import { moduleName } from "../api";
 import { evidencePath, unitLabel, type OutputEntry } from "../publishedReport";
 import type { ReportView } from "../reportView";
-import { drawnReason } from "../visuals/drawnQualifications";
+import { drawnReason, sentence } from "../visuals/drawnQualifications";
 import {
   drawnCellText,
+  drawnGapText,
   cellsOf,
   absentText,
   covenantTests,
@@ -130,6 +131,16 @@ type ListItem = {
   trace?: ReactNode;
 };
 
+/** A gap's drawn words, then its recorded reason as the reader rule draws it, when it has one. */
+const reasoned = (text: string, reason = "") => {
+  const why = drawnReason(reason);
+  return why ? `${text}: ${why}` : text;
+};
+
+/** A cell as the page draws it: a value as written, a gap with its reason rule. */
+const drawnCell = ({ text, value }: { text: string; value: number | null }) =>
+  value === null ? drawnGapText(text) : drawnCellText(text);
+
 /** A list of published figures, each on one scale from zero shared by the list only, each with
  * its own trace. A figure the module does not give keeps the module's words. */
 function FigureList({ items, tone }: { items: ListItem[]; tone: "primary" | "secondary" }) {
@@ -143,9 +154,7 @@ function FigureList({ items, tone }: { items: ListItem[]; tone: "primary" | "sec
         >
           <span className="font-mono text-caption text-text-secondary">{item.label}</span>
           {item.value === null ? (
-            <GapChip>
-              {item.reason ? `${item.text}: ${drawnReason(item.reason)}` : item.text}
-            </GapChip>
+            <GapChip>{reasoned(item.text, item.reason)}</GapChip>
           ) : item.value >= 0 && most > 0 ? (
             <BarCell text={item.text} share={item.value / most} tone={tone} />
           ) : (
@@ -221,7 +230,7 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
         items={items.map((item) => ({
           key: item.key,
           label: item.label,
-          text: drawnCellText(item.cell?.text ?? ""),
+          text: drawnCell(item.cell ?? { text: "", value: null }),
           value: item.cell?.value ?? null,
           trace: rowTrace(folder, schedule.entry, item.line, `debt maturing, ${item.label}`),
         }))}
@@ -296,7 +305,7 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
               <span>
                 Level{" "}
                 {test.threshold.value === null ? (
-                  <GapChip>{drawnCellText(test.threshold.text)}</GapChip>
+                  <GapChip>{drawnGapText(test.threshold.text)}</GapChip>
                 ) : (
                   <Figure className="text-mono">{drawnCellText(test.threshold.text)}</Figure>
                 )}
@@ -304,7 +313,7 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
               <span>
                 Current{" "}
                 {test.current.value === null ? (
-                  <GapChip>{drawnCellText(test.current.text)}</GapChip>
+                  <GapChip>{drawnGapText(test.current.text)}</GapChip>
                 ) : (
                   <Figure className="text-mono">{drawnCellText(test.current.text)}</Figure>
                 )}
@@ -360,7 +369,7 @@ function cellReading(cell: DownsidePanel["cells"][number] | undefined) {
   if (!cell) return "";
   return cell.value === null && (cell.reason !== null || !cell.text.trim())
     ? gapReading(cell.text)
-    : drawnCellText(cell.text);
+    : drawnCell(cell);
 }
 
 /** A name broken into lines of at most `chars` characters, at spaces; a longer word is broken. */
@@ -570,7 +579,9 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
         if (cell.value === null) {
           // The cell's own words: the module's stated reason, or the text it wrote in full.
           const words = gapText(cell);
-          return words === null ? [] : [`${scenario}, ${panel.measure}: ${drawnReason(words)}.`];
+          return words === null
+            ? []
+            : [`${scenario}, ${panel.measure}: ${sentence(drawnReason(words))}`];
         }
         const text = drawnCellText(cell.text);
         return lead(text) !== text ? [`${scenario}, ${panel.measure}: ${text}.`] : [];

@@ -9,7 +9,7 @@ import {
   periodList,
   scenarioComparisonNotice,
 } from "../visuals/scenarioPeriods";
-import { drawnAmount, EVIDENCE_AMOUNT } from "../visuals/drawnQualifications";
+import { drawnAmount, drawnReason, EVIDENCE_AMOUNT } from "../visuals/drawnQualifications";
 import { amount, record, word } from "../visuals/visualData";
 import {
   blocked,
@@ -50,9 +50,16 @@ export type MeasureCase = {
   own: Map<string, MeasureCell>;
 };
 
-/** A schedule, covenant or stress cell's text as the page draws it: no citation, no file name. */
+/** A schedule, covenant or stress cell's value as the page draws it: no citation, no file name. */
 export const drawnCellText = (text: string) =>
-  drawnAmount(text) ?? figureWithoutCitation(text) ?? (text.trim() ? EVIDENCE_AMOUNT : "");
+  citationFree(text) ?? (text.trim() ? EVIDENCE_AMOUNT : "");
+
+/**
+ * A cell with no value as the page draws it: the module's words without the citation, else the
+ * reason rule. It never says an amount is recorded where the module wrote a gap.
+ */
+export const drawnGapText = (text: string) =>
+  citationFree(text) ?? (text.trim() ? drawnReason(text) : "");
 
 const byPeriod = <T extends { period: string }>(cells: readonly T[]) =>
   orderPeriods(cells, ({ period }) => period).ordered;
@@ -495,30 +502,53 @@ export function gapContext(gap: FundingGap) {
 }
 
 /** A closing bracket, with the space before it: where a cell writes its citation. */
-const CLOSING_BRACKET = /\s*(?:\([^()[\]]*\)|\[[^()[\]]*\])$/u;
+const CLOSING_BRACKET = /\s*(?:\(([^()[\]]*)\)|\[([^()[\]]*)\])$/u;
+const FILE_NAME = /[\w\-./]+\.(?:pdf|xlsx?|xlsm|docx?|csv|html?|md|txt|json)\b/giu;
+const CUE = /^(?:see|per|cf\.|sources?:?)\s*[,;:]?\s*/iu;
+/** A gap or register marker the cited cells write undotted: "C05". Period tags ("H2") are not. */
+const GAP_MARKER = /^C\d{2,3}(?:\.\w+)*$/u;
+/** A word a citation bracket completes: with the bracket gone it would say nothing. */
+const OPENS_CITATION = /\b(?:per|see|from|in|at|on|by|of|to|cf\.|according to|sources?:?)\s*$/iu;
 
-/**
- * The plain figure a referenced cell states: the cell without its closing citation bracket, when
- * what is left is one figure that cites nothing. Null otherwise: no amount can be drawn.
- */
-function figureWithoutCitation(text: string) {
-  const bracket = CLOSING_BRACKET.exec(text)?.[0] ?? "";
-  if (!bracket || !containsReference(bracket)) return null;
-  const rest = text.slice(0, text.length - bracket.length).trim();
-  return rest && !containsReference(rest) && amount(rest.replaceAll("−", "-")) !== null
-    ? rest
-    : null;
+/** Whether one part of a closing bracket is nothing but a citation. */
+function pureCitation(part: string) {
+  const rest = part
+    .replace(FILE_NAME, " ")
+    .trim()
+    .replace(/^[\s,;:&]+|[\s,;:&]+$/gu, "")
+    .replace(CUE, "")
+    .trim();
+  return rest === "" || GAP_MARKER.test(rest) || drawnAmount(`1 (${rest})`) === "1";
 }
 
-/** One gap cell as drawn: a cell citing a source is its amount without the citation, else a gap. */
+/**
+ * The cell's text without its closing citation: a bracket that is only citation goes whole; one
+ * that mixes words with a citation keeps the words when every `;`-part is either one or the
+ * other. Null when a citation remains that cannot be set aside exactly.
+ */
+function citationFree(text: string) {
+  const whole = text.trim();
+  const match = CLOSING_BRACKET.exec(whole);
+  const inner = match?.[1] ?? match?.[2];
+  const head = match ? whole.slice(0, whole.length - match[0].length) : whole;
+  if (!match || inner === undefined || OPENS_CITATION.test(head)) return drawnAmount(whole);
+  const parts = inner.split(";").map((part) => part.trim());
+  const kept = parts.filter((part) => !pureCitation(part));
+  if (kept.length === parts.length) return drawnAmount(whole);
+  const bracket = kept.length ? ` (${kept.join("; ")})` : "";
+  return head.trim() ? drawnAmount(`${head.trim()}${bracket}`) : null;
+}
+
+/** One gap cell as drawn: its figure as written without any citation, else a gap. */
 function gapFigure(header: string, cell: string): GapFigure {
   const text = cell.trim();
-  if (!containsReference(text))
-    return { header, text: plain(text), value: amount(text.replaceAll("−", "-")) };
-  const drawn = drawnAmount(text) ?? figureWithoutCitation(text);
-  return drawn === null
-    ? { header, text: NOT_STATED_IN_ROW, value: null }
-    : { header, text: plain(drawn), value: amount(drawn.replaceAll("−", "-")) };
+  const drawn = citationFree(text);
+  if (drawn === null) {
+    return containsReference(text)
+      ? { header, text: NOT_STATED_IN_ROW, value: null }
+      : { header, text: plain(text), value: amount(text.replaceAll("−", "-")) };
+  }
+  return { header, text: plain(drawn), value: amount(drawn.replaceAll("−", "-")) };
 }
 
 function gapIn(entry: OutputEntry, module: string): FundingGap | null {
@@ -565,7 +595,10 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
       figures: figures.length ? figures : [{ header: "", text: NOT_STATED_IN_ROW, value: null }],
       unit: gapUnit(table.headers, row.cells, values),
       unitInFigure: figures.some(
-        ({ text, value }) => value === null && text !== NOT_STATED_IN_ROW && OWN_UNIT.test(text),
+        ({ text, value }) =>
+          value === null &&
+          text !== NOT_STATED_IN_ROW &&
+          OWN_UNIT.test(text.replace(/\([^()]*\)|\[[^[\]]*\]/gu, "")),
       ),
       notes,
       horizon: horizonText && !containsReference(horizonText) ? plain(horizonText) : null,

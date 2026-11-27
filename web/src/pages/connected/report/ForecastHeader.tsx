@@ -372,23 +372,31 @@ export function ForecastHeader({
   );
 }
 
+/** A year with no figure, named with the model's reason as the reader rule draws it. */
+function notCalculated({ period, reason }: MeasureCell) {
+  const why = drawnReason(reason);
+  return `${period} not calculated${why ? `: ${why}` : ""}`;
+}
+
 /** Each year of a case with no figure, named with the model's reason. */
 function noFigure(cells: MeasureCell[]) {
-  return cells
-    .filter((cell) => cell.value === null)
-    .map(
-      (cell) =>
-        `${cell.period} not calculated${cell.reason ? `: ${drawnReason(cell.reason)}` : ""}`,
-    );
+  return cells.filter((cell) => cell.value === null).map((cell) => notCalculated(cell));
 }
+
+/** Clauses joined by "; ", or by a space after one that already ends in a stop: never ".;". */
+const joined = (clauses: string[]) =>
+  clauses.reduce(
+    (all, clause) => (all ? `${all}${/[.!?]$/u.test(all) ? " " : "; "}${clause}` : clause),
+    "",
+  );
 
 /** Why a stat has no figure, in the words the lead uses; a case's years counted and named. */
 function absence(read: MeasureRead, cells: MeasureCell[], caseName: string) {
   if (!read.measure || !cells.length) return absentText(read, caseName);
   const valued = cells.filter((cell) => cell.value !== null);
   if (valued.length === 1)
-    return [`Only ${valued[0]?.period ?? ""} has a figure`, ...noFigure(cells)].join("; ");
-  return noFigure(cells).join("; ") || `No ${read.what} figure for ${caseName}.`;
+    return joined([`Only ${valued[0]?.period ?? ""} has a figure`, ...noFigure(cells)]);
+  return joined(noFigure(cells)) || `No ${read.what} figure for ${caseName}.`;
 }
 
 function selection(
@@ -524,9 +532,7 @@ export function ForecastStats({
       : {
           label: end ? `Net leverage, ${end.period}` : "Net leverage, last forecast year",
           value: null,
-          gap: end
-            ? `${end.period} not calculated${end.reason ? `: ${drawnReason(end.reason)}` : ""}`
-            : absentText(leverage, caseName),
+          gap: end ? notCalculated(end) : absentText(leverage, caseName),
           trace: trace("Net leverage", leverageRow)(end),
         },
     selection(
