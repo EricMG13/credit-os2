@@ -2,13 +2,14 @@
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
+from deploy_workflow.accounts.entra import HTTPS_REQUIRED, EntraIds
 from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.copilot_adapter import CopilotAdapter
 from deploy_workflow.model.turn import ModelSpec
-
 from react_frontend import serve
 
 
@@ -37,8 +38,16 @@ def main() -> None:
     )
     args = parser.parse_args()
     try:
+        environment = dict(os.environ)
+        if EntraIds.from_environment(environment) is not None:
+            raise ValueError(HTTPS_REQUIRED)
         models = _seat_models() if args.copilot_preflight else {}
-        serve(args.root, port=args.port, copilot_models=models)
+        serve(
+            args.root,
+            port=args.port,
+            copilot_models=models,
+            environ=environment,
+        )
     except (OSError, ValueError) as error:
         parser.exit(2, f"{error}\n")
     except KeyboardInterrupt:

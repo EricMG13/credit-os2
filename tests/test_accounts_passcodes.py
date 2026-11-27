@@ -325,9 +325,9 @@ def test_22_concurrent_failures(tmp_path: Path, trial: int) -> None:
         finally:
             conn.close()
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        futures = [pool.submit(worker) for _ in range(6)]
-        results = [f.result() for f in futures]  # re-raises any thread's error
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = [pool.submit(worker) for _ in range(5)]
+        results = [worker(), *(f.result() for f in futures)]  # re-raises any worker's error
     assert sorted(results) == ["locked"] + ["wrong passcode"] * 5
     check = open_db(folder)
     try:

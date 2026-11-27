@@ -21,6 +21,7 @@ __all__ = [
     "COOKIE",
     "LIBRARY_PATHS",
     "OPEN_GETS",
+    "OPEN_PAIRS",
     "SIGN_IN_ASSETS",
     "check",
     "session_account",
@@ -29,9 +30,28 @@ __all__ = [
 
 COOKIE = "credit_os_session"
 # Slice 3 names the sign-in page's files here, and /auth/start and /auth/callback.
-SIGN_IN_ASSETS: frozenset[str] = frozenset()
-OPEN_GETS = frozenset({"/sign-in", "/auth/me"}) | SIGN_IN_ASSETS
+SIGN_IN_ASSETS: frozenset[str] = frozenset(
+    {"/symbol.svg", "/fonts/Geist-Regular.woff2", "/fonts/Geist-SemiBold.woff2"}
+)
+OPEN_GETS = frozenset({"/sign-in", "/auth/me"})
+OPEN_PAIRS = frozenset({("GET", path) for path in OPEN_GETS})
+# The configured route layer uses this exact set. Keep ``OPEN_GETS`` as the parallel
+# gate-only topology used by the slice 2 structural controls.
+CONFIGURED_OPEN_PAIRS = OPEN_PAIRS | frozenset(
+    {("GET", path) for path in SIGN_IN_ASSETS}
+    | {
+        ("GET", "/auth/start"),
+        ("GET", "/auth/callback"),
+        ("POST", "/auth/passcode"),
+        ("POST", "/auth/sign-out"),
+    }
+)
 LIBRARY_PATHS = frozenset({"/library", "/library/", "/library/index.html", "/library.html"})
+
+
+def loopback_ip_host(host: str, port: int) -> bool:
+    """Whether a previously validated Host names this 127.0.0.1 listener."""
+    return host == f"127.0.0.1:{port}" or (port == 80 and host == "127.0.0.1")
 
 
 def session_token(headers: list[str]) -> str | None:
@@ -70,13 +90,18 @@ def session_account(headers: list[str], folder: Path) -> store.Account | None:
 
 
 def check(
-    handler: http_base.Handler, folder: Path, is_page: Callable[[str], bool]
+    handler: http_base.Handler,
+    folder: Path,
+    is_page: Callable[[str], bool],
+    *,
+    configured: bool = False,
 ) -> store.Account | None:
     """Let the request through (returning its account, or None where none is needed) or raise the
     reply that refuses it: 303 to ``/sign-in`` for a page, 401 for anything else."""
     path = urllib.parse.urlsplit(handler.path).path
     account = session_account(handler.headers.get_all("Cookie") or [], folder)
-    if account is not None or (handler.command == "GET" and path in OPEN_GETS):
+    open_pairs = CONFIGURED_OPEN_PAIRS if configured else OPEN_PAIRS
+    if account is not None or (handler.command, path) in open_pairs:
         return account
     if handler.command == "GET" and (is_page(path) or path in LIBRARY_PATHS):
         raise http_base.Reply(303, b"", {"Location": "/sign-in", "Cache-Control": "no-store"})

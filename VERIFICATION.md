@@ -4,6 +4,47 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Sign-in slice 3, offline Entra flow and registration
+
+- Scope: slice 3 and TODO item 22, stacked on #119 at `de2a5543` and #108. The owner authorized
+  proceeding while both remain drafts and excluded work-PC and Windows validation. The ordinary
+  HTTP launcher refuses paired Entra settings before the store or Scheduler starts. Without the
+  settings it prints the sign-in-off notice to stderr and still reports the address on stdout.
+  An explicit constructor provider runs the actual configured routes in the offline proof. A
+  dedicated deployment hostname and HTTPS remain rollout work. [RFC 6265 §8.5](https://www.rfc-editor.org/rfc/rfc6265.html#section-8.5)
+- Shared HTTP logs omit request queries, including in access, parser and service-error paths.
+  MSAL 1.39.0 completed the public-client PKCE flow through the injected loopback transport. It
+  accepted both the independently verified signed control and the altered-signature token with the
+  same claims. The test provider checks declared request values at authorization and at token
+  exchange. The real application drops the MSAL token-cache event. DEBUG captures and database
+  checks covered submitted passcodes, session values, authorization codes, PKCE verifiers and the
+  issued ID, access and refresh tokens. [Dependency record](docs/rulings/2026-11-26-sign-in-msal-pin.md)
+- The configured handler opens exact method and path pairs. The matrix covered 468 paths and seven
+  methods in eight shards of 819 app requests, half signed out and half signed in. It retains the
+  original gate-only cases. Two callbacks racing on the same flow produced one session. Other tests
+  covered wrong state, replay, tenant, issuer, audience and nonce refusal, first-sign-in Reader,
+  disabled account refusal, Admin passcode and lockout, and sign-out. The store remained outside
+  `--root`. Tests stayed within six threads and 1,000 sequential connections each.
+- Local macOS: 597 targeted Python tests, changed-code quality gate and three import
+  contracts passed. The MSAL query-mode warning remains visible. Confidence review, the post-edit
+  rewrite tournament and changed-update sweep ran. Per-task precise, order, defensive security and
+  pre-merge reviews passed. The owner approved GPT for advisor and architect after the Opus 5.5
+  xhigh attempt hit expired Claude authentication.
+- Desktop fidelity: lint, format, typecheck, unused-code, duplication, 18 focused web tests and the
+  production web build passed. Chromium rendered the actual sign-in and connected account pages
+  through the configured app at 1024, 1280 and 1440 px. A local HTTP driver finished the real
+  loopback callback and imported its returned session cookie. The browser showed the actual fixed
+  400 callback alert, Reader, Admin after passcode and the signed-out page. The sign-in view loaded
+  three initial resources. All 40 browser requests stayed on loopback.
+- GitHub's first run passed Python, import and leak checks. Its theme test found two inline hex
+  literals. The account trigger now uses the existing focus token, and the standalone test checks
+  the equivalent RGB color within the focus rule. All 32 targeted web tests and the web gates
+  passed. A fresh Chromium run confirmed the same focus color and completed all 40 requests on
+  loopback. The GPT task and architecture closure reviews passed.
+- Not verified: real Entra, browser navigation through Microsoft, live TLS rollout and native
+  Windows (TODO item 15), all excluded by the owner. The browser proof used the integrated local
+  provider. The full weekly suite and draft CI are separate from these local checks.
+
 ## 2026-11-26 — Sign-in slice 2: sessions, the one check, the switch and `/auth/me` (PR #119)
 
 - Scope: `deploy_workflow.accounts` (sessions; folder rules and display names moved or fixed) and
@@ -939,33 +980,3 @@ then 5; the narrow layout and the controls listed below.
 - Commands: web `lint`, `format:check`, `typecheck`, `unused`, `duplication` exit 0; `npm test`
   5,293 passed on the branch before the merge.
 - Not verified: Chrome and Edge on the work PC; a late portfolio basis in a browser.
-
-## 2026-11-18 — Adversarial review of the performance changes; fonts, imports, publisher reuse
-
-- Scope: synthetic runs and fixtures on one shared Linux container. No provider call, no real
-  issuer file, no Windows. Each part was attacked by a separate reviewer given the diff only;
-  every confirmed defect was reproduced, corrected with a test, and its reproduction run again.
-- Merged change of the entry below, three confirmed: (1) a run recorded before the Copilot
-  cutover lost its module outputs on the run page (its workflow names the configuration without
-  `copilot-`); a record with no config now matches that name; (2) the 64 MB limit of the run
-  page's publication read was a check before the read (3 of 6,363 raced reads answered from a
-  larger file); the read is now bounded on the open handle; (3) the kept publication was keyed
-  on file identity and times, which do not show every change; it is keyed on the sha256 of the
-  bytes read each request. That costs time: publication requests at 30 runs take about 20 ms
-  (6 to 10 ms in the entry below, 110 to 150 ms before it).
-- Fonts and imports: `/fonts/*.woff2` and `/symbol.svg` are fresh for a day (a font replaced
-  under its name can be stale that long). Review: every file under `/fonts/` had the lifetime;
-  now only fonts, and the test asks for `data.js`. `model.handoff` no longer imports every
-  module owner: `react_frontend` 906 to 612 ms, `owners.cpos_launch` 966 to 688 ms (min of 3).
-- Publisher: handoff sections, chips and the cash-flow grid are reused between publications of
-  one process, by the sha256 of bytes read in that publication (256 MiB of pickled values, least
-  recently used first out). Every pinned file is still read and hashed each publication (362
-  files, 269 digests, as before). At 30 runs a repeat publication takes 1.6 to 1.9 s (3.9 to
-  4.1 s before). Review: a value pickle could not copy made a run unreadable, and a grid that
-  failed for a passing reason stayed missing until restart; both corrected. The reviewer's
-  scenarios (tampered, removed, renamed, changed source text) are byte-identical to the parent.
-- Commands: `tools/quality_gate.py` 0 findings; pytest on the server, proof, publisher, store,
-  chips, changes, handoff, model, inbox and quality-gate files 3,054 passed.
-- Not fixed: publication still grows with the number of runs (reads, hashes, 840 download
-  files at 30 runs). Not verified: a live run, real PDFs, Windows. One server test failed once
-  under load and passed in the next ten runs; it was not identified.

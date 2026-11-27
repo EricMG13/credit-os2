@@ -17,6 +17,8 @@ import os
 import pkgutil
 import random
 import re
+import shutil
+import socket
 import threading
 import urllib.parse
 from collections.abc import Callable, Iterator
@@ -28,11 +30,18 @@ from tempfile import TemporaryDirectory
 from typing import Any, NamedTuple
 
 import pytest
+from auth_provider import (
+    CLIENT_ID,
+    TENANT_ID,
+    LoopbackHttpClient,
+    LoopbackIdentityProvider,
+)
 from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
 
 import react_frontend
 from deploy_workflow.accounts import sessions, store
+from deploy_workflow.accounts.entra import EntraProvider, public_client
 from deploy_workflow.run_start import service as run_start_service
 from deploy_workflow.signal import service as signal_service
 from react_frontend import Server, make_server, signal_host
@@ -50,6 +59,30 @@ DO_METHODS = {
 }
 OTHER_METHODS = ("PUT", "PATCH", "HEAD", "OPTIONS")
 OPEN_GETS = {"/sign-in", "/auth/me"}  # the answer key: slice 3 adds assets here, on purpose
+CONFIGURED_OPEN_ANSWER = frozenset(
+    {
+        ("GET", "/sign-in"),
+        ("GET", "/auth/me"),
+        ("GET", "/auth/start"),
+        ("GET", "/auth/callback"),
+        ("GET", "/symbol.svg"),
+        ("GET", "/fonts/Geist-Regular.woff2"),
+        ("GET", "/fonts/Geist-SemiBold.woff2"),
+        ("POST", "/auth/passcode"),
+        ("POST", "/auth/sign-out"),
+    }
+)
+CONFIGURED_DIRECT_STATUSES = {
+    ("GET", "/sign-in"): 200,
+    ("GET", "/auth/me"): 200,
+    ("GET", "/auth/start"): 302,
+    ("GET", "/auth/callback"): 400,
+    ("GET", "/symbol.svg"): 200,
+    ("GET", "/fonts/Geist-Regular.woff2"): 200,
+    ("GET", "/fonts/Geist-SemiBold.woff2"): 200,
+    ("POST", "/auth/passcode"): 401,
+    ("POST", "/auth/sign-out"): 204,
+}
 CAP = 1000
 GATE_BODY = b'{"error": "sign in first"}'
 FLOOR = 300
@@ -230,6 +263,8 @@ def _shards(paths: list[str]) -> list[list[str]]:
 
 ALL_PATHS = build_paths()
 SHARDS = _shards(ALL_PATHS)
+CONFIGURED_PATHS = sorted(set(ALL_PATHS) | {path for _, path in CONFIGURED_OPEN_ANSWER})
+CONFIGURED_SHARDS = _shards(CONFIGURED_PATHS)
 
 
 # -- servers -----------------------------------------------------------------------------------
@@ -307,9 +342,9 @@ class Spies:
 
 
 class Client:
-    def __init__(self, server: Server, token: str | None) -> None:
+    def __init__(self, server: Server, token: str | None, *, host_name: str = "127.0.0.1") -> None:
         self.port = server.server_address[1]
-        self.host = f"127.0.0.1:{self.port}"
+        self.host = f"{host_name}:{self.port}"
         self.token = token
         self.sent = 0
 
@@ -407,6 +442,82 @@ def application(
         yield server
 
 
+@contextmanager
+def configured_application(
+    where: Places, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[
+    tuple[Server, LoopbackIdentityProvider, LoopbackHttpClient, list[str], list[tuple[str, str]]]
+]:
+    """Configured live routes with real MSAL and only the strict loopback provider transport."""
+    public = REPO / "web" / "public"
+    shutil.copyfile(public / "sign-in.html", where.web / "sign-in.html")
+    shutil.copyfile(public / "symbol.svg", where.web / "symbol.svg")
+    (where.web / "fonts").mkdir()
+    for name in ("Geist-Regular.woff2", "Geist-SemiBold.woff2"):
+        shutil.copyfile(public / "fonts" / name, where.web / "fonts" / name)
+
+    attempts: list[str] = []
+    original_getaddrinfo = socket.getaddrinfo
+    original_connect = socket.socket.connect
+    permitted = {"127.0.0.1", "::1", "localhost"}
+
+    def guarded_getaddrinfo(host: str | None, *args: Any, **kwargs: Any) -> Any:
+        if host not in permitted:
+            attempts.append(f"DNS {host!r}")
+            raise AssertionError(attempts[-1])
+        return original_getaddrinfo(host, *args, **kwargs)
+
+    def guarded_connect(connection: socket.socket, address: Any, *args: Any, **kwargs: Any) -> Any:
+        if isinstance(address, tuple) and address and address[0] not in permitted:
+            attempts.append(f"connect {address[0]!r}")
+            raise AssertionError(attempts[-1])
+        return original_connect(connection, address, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+
+    with LoopbackIdentityProvider(
+        signature_modes=["valid"],
+        redirect_uri_path="/auth/callback",
+        expected_scopes=("offline_access", "openid", "profile"),
+        expected_state=None,
+    ) as provider:
+        transport = LoopbackHttpClient(provider.base_url)
+        factory_calls: list[tuple[str, str]] = []
+
+        def provider_factory(client_id: str, authority: str) -> EntraProvider:
+            factory_calls.append((client_id, authority))
+            test_authority = f"{provider.authority_url}/{TENANT_ID}"
+            application = public_client(
+                client_id,
+                test_authority,
+                instance_discovery=False,
+                http_client=transport,
+            )
+            return EntraProvider(application, f"{test_authority}/v2.0")
+
+        try:
+            with make_server(
+                where.root,
+                web=where.web,
+                environ={
+                    "CREDIT_OS_ENTRA_TENANT": TENANT_ID,
+                    "CREDIT_OS_ENTRA_CLIENT": CLIENT_ID,
+                },
+                accounts_dir=where.accounts,
+                provider_factory=provider_factory,
+            ) as server:
+                thread = threading.Thread(target=server.serve_forever)
+                thread.start()
+                try:
+                    yield server, provider, transport, attempts, factory_calls
+                finally:
+                    server.shutdown()
+                    thread.join()
+        finally:
+            transport.close()
+
+
 def test_the_set_of_do_methods_is_the_one_the_key_names(
     root: Path, web: Path, tmp_path: Path
 ) -> None:
@@ -442,7 +553,7 @@ def test_no_route_runs_without_a_session(
         client, rows = _exercise(server, None, spies, paths, hosted=hosted)
     assert FLOOR < client.sent <= CAP
     assert client.sent == len(paths) * len(METHODS)
-    for path, method, status, calls, headers, body in rows:
+    for path, method, status, calls, headers, _body in rows:
         row = f"{method} {path} -> {status}"
         assert status not in (400, 403), f"never reached the gate: {row}"
         if method == "GET" and _own_path(path) in OPEN_GETS:
@@ -459,6 +570,185 @@ def test_no_route_runs_without_a_session(
     # the named rows were all met (the hand-written key was exercised, not skipped)
     named = [row for row in rows if expected_without_session(row[0], row[1], hosted=hosted)]
     assert len(named) > 0
+
+
+def _configured_status(method: str, path: str) -> int:
+    pair = (method, _own_path(path))
+    status = CONFIGURED_DIRECT_STATUSES[pair]
+    query = urllib.parse.urlsplit(path).query
+    if query and pair in {
+        ("GET", "/sign-in"),
+        ("GET", "/auth/start"),
+        ("POST", "/auth/sign-out"),
+    }:
+        return 400
+    return status
+
+
+def _configured_open_calls(pair: tuple[str, str]) -> list[str]:
+    if pair == ("POST", "/auth/passcode"):
+        return []
+    if pair[0] == "POST":
+        return ["_post"]
+    if pair in {
+        ("GET", "/auth/me"),
+        ("GET", "/symbol.svg"),
+        ("GET", "/fonts/Geist-Regular.woff2"),
+        ("GET", "/fonts/Geist-SemiBold.woff2"),
+    }:
+        return ["_get", "divert"]
+    return ["_get"]
+
+
+def _assert_configured_open_row(
+    path: str,
+    method: str,
+    status: int,
+    calls: list[str],
+    headers: dict[str, str],
+) -> bool:
+    pair = (method, _own_path(path))
+    if pair not in CONFIGURED_OPEN_ANSWER:
+        return False
+    row = f"{method} {path} -> {status}"
+    assert calls == _configured_open_calls(pair), (row, calls)
+    expected_status = (
+        CONFIGURED_DIRECT_STATUSES[pair] if path == pair[1] else _configured_status(method, path)
+    )
+    assert status == expected_status, row
+    if pair == ("GET", "/auth/start"):
+        location = headers.get("Location", "")
+        assert location.startswith("https://127.0.0.1:"), (
+            "MSAL start did not redirect to its authority"
+        )
+    return True
+
+
+def _assert_configured_closed_row(
+    path: str,
+    method: str,
+    status: int,
+    calls: list[str],
+    headers: dict[str, str],
+) -> None:
+    row = f"{method} {path} -> {status}"
+    assert calls == [], f"a configured route ran for a closed pair: {row} {calls}"
+    assert status not in (400, 403), f"request did not reach the auth gate: {row}"
+    assert status in {401, 303, 501}, row
+    if status == 303:
+        assert method == "GET" and headers["Location"] == "/sign-in", row
+
+
+def _configured_session_pairs(paths: list[str]) -> list[tuple[str, str]]:
+    sign_out = [
+        (path, "POST")
+        for path in paths
+        if _own_path(path) == "/auth/sign-out" and not urllib.parse.urlsplit(path).query
+    ]
+    ordinary = [
+        (path, method)
+        for path in paths
+        for method in METHODS
+        if (method != "POST" or _own_path(path) != "/auth/sign-out")
+        or urllib.parse.urlsplit(path).query
+    ]
+    return ordinary + sign_out
+
+
+def _assert_configured_session_row(
+    row_values: tuple[str, str, int, list[str], dict[str, str], bytes],
+) -> None:
+    path, method, status, calls, headers, body = row_values
+    row = f"{method} {path} -> {status} {calls}"
+    assert not (status == 303 and headers.get("Location") == "/sign-in"), row
+    assert not (status == 401 and body == GATE_BODY), row
+    if method == "GET":
+        assert calls[:1] == ["_get"], row
+    elif method == "POST":
+        assert calls[:1] == ["_post"], row
+    elif method == "DELETE":
+        assert calls[:1] == ["_delete"], row
+    elif _under_signal_api(path):
+        assert calls == ["divert"], row
+    else:
+        assert calls == [] and status == 501, row
+
+
+@pytest.mark.parametrize("index", range(len(CONFIGURED_SHARDS)))
+def test_configured_routes_stay_closed_outside_the_literal_pairs(
+    places: Places, monkeypatch: pytest.MonkeyPatch, index: int
+) -> None:
+    paths = CONFIGURED_SHARDS[index]
+    assert FLOOR < len(paths) * len(METHODS) <= CAP
+    with configured_application(places, monkeypatch) as (
+        server,
+        provider,
+        transport,
+        network_attempts,
+        factory_calls,
+    ):
+        spies = Spies()
+        spies.install(server, monkeypatch)
+        client = Client(server, None, host_name="localhost")
+        rows = []
+        for path in paths:
+            for method in METHODS:
+                spies.calls.clear()
+                status, body, headers = client.send(path, method)
+                rows.append((path, method, status, list(spies.calls), headers, body))
+
+    assert FLOOR < client.sent <= CAP
+    assert client.sent == len(paths) * len(METHODS)
+    for path, method, status, calls, headers, body in rows:
+        is_open = _assert_configured_open_row(path, method, status, calls, headers)
+        if not is_open:
+            _assert_configured_closed_row(path, method, status, calls, headers)
+
+    if "/auth/start" in paths:
+        assert factory_calls == [(CLIENT_ID, f"https://login.microsoftonline.com/{TENANT_ID}")]
+    assert len(transport.mapped_requests) == len(factory_calls)
+    assert all(url.startswith(provider.authority_url) for url in transport.mapped_requests)
+    assert all(
+        url.endswith(f"/{TENANT_ID}/v2.0/.well-known/openid-configuration")
+        for url in transport.mapped_requests
+    )
+    assert {event[0] for event in provider.network_events} <= {"discovery"}
+    assert all(event[1] == "127.0.0.1" for event in provider.network_events)
+    assert network_attempts == []
+
+
+@pytest.mark.parametrize("index", range(len(CONFIGURED_SHARDS)))
+def test_configured_routes_reach_their_handlers_with_a_session(
+    places: Places, monkeypatch: pytest.MonkeyPatch, index: int
+) -> None:
+    paths = CONFIGURED_SHARDS[index]
+    pairs = _configured_session_pairs(paths)
+    assert FLOOR < len(pairs) <= CAP
+    with configured_application(places, monkeypatch) as (
+        server,
+        provider,
+        transport,
+        network_attempts,
+        factory_calls,
+    ):
+        token = _mint(places.accounts)
+        spies = Spies()
+        spies.install(server, monkeypatch)
+        client = Client(server, token, host_name="localhost")
+        rows = []
+        for path, method in pairs:
+            spies.calls.clear()
+            status, body, headers = client.send(path, method)
+            rows.append((path, method, status, list(spies.calls), headers, body))
+
+    assert FLOOR < client.sent <= CAP
+    assert client.sent == len(paths) * len(METHODS)
+    for path, method, status, calls, headers, body in rows:
+        _assert_configured_session_row((path, method, status, calls, headers, body))
+    assert len(transport.mapped_requests) == len(factory_calls)
+    assert all(url.startswith(provider.authority_url) for url in transport.mapped_requests)
+    assert all(event[1] == "127.0.0.1" for event in provider.network_events)
+    assert network_attempts == []
 
 
 @pytest.mark.parametrize("hosted", [True, False], ids=["signal", "no-signal"])

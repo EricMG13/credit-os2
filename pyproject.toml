@@ -8,6 +8,7 @@ dependencies = [
     "pypdf==6.21.2",
     "openpyxl==3.1.5",
     "github-copilot-sdk==1.0.28",
+    "msal==1.39.0",
     # The engine rebuilds the library after a run (cpos_launch.update_library_at); the library
     # imports the engine. The cycle is declared.
     "issuer-library",
