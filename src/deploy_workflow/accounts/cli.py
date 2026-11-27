@@ -30,6 +30,7 @@ _NO_ENTRY = "error: no passcode was entered; nothing was set"
 _NOT_UNDERSTOOD = (
     "error: the command was not understood; see python -m deploy_workflow.accounts --help"
 )
+_NO_STORE = "error: there is no account store in {folder}; check --accounts-dir"
 _NOT_TEXT = "error: the passcode could not be read as text; nothing was set"
 _DIFFER = "error: the two entries differ; nothing was set"
 
@@ -57,21 +58,30 @@ def _account_id(text: str) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="python -m deploy_workflow.accounts", allow_abbrev=False)
     parser.add_argument("--accounts-dir", default=None)  # text: Path("") would become "."
+
+    def leaf(commands: argparse._SubParsersAction[_Parser], name: str) -> _Parser:
+        """A command that also takes --accounts-dir; SUPPRESS keeps the leading value unless the
+        later one is given, in which case the later one wins."""
+        command = commands.add_parser(name, allow_abbrev=False)
+        command.add_argument("--accounts-dir", default=argparse.SUPPRESS)
+        return command
+
     groups = parser.add_subparsers(dest="group", required=True)
     passcode = groups.add_parser("passcode", allow_abbrev=False).add_subparsers(
         dest="action", required=True
     )
-    set_cmd = passcode.add_parser("set", allow_abbrev=False)
+    set_cmd = leaf(passcode, "set")
     set_cmd.add_argument("type", choices=passcodes.PASSCODE_TYPES)
     accounts = groups.add_parser("accounts", allow_abbrev=False).add_subparsers(
         dest="action", required=True
     )
-    accounts.add_parser("list", allow_abbrev=False)
-    accounts.add_parser("disable", allow_abbrev=False).add_argument("id", type=_account_id)
-    change = accounts.add_parser("type", allow_abbrev=False)
+    leaf(accounts, "list")
+    leaf(accounts, "disable").add_argument("id", type=_account_id)
+    leaf(accounts, "enable").add_argument("id", type=_account_id)
+    change = leaf(accounts, "type")
     change.add_argument("id", type=_account_id)
     change.add_argument("type", choices=store.PROFILE_TYPES)
-    analyst_name = accounts.add_parser("analyst-name", allow_abbrev=False)
+    analyst_name = leaf(accounts, "analyst-name")
     analyst_name.add_argument("id", type=_account_id)
     analyst_name.add_argument("name", nargs="+")
     return parser
@@ -123,6 +133,9 @@ def _run(db: sqlite3.Connection, args: argparse.Namespace) -> int:
         name = " ".join(args.name)
         store.set_analyst_name_override(db, args.id, name)
         print(f"account {args.id} analyst name is now {name}")
+    elif args.action == "enable":
+        store.enable_account(db, args.id)
+        print(f"account {args.id} enabled")
     else:
         store.set_profile_type(db, args.id, args.type)
         print(f"account {args.id} is now {args.type}")
@@ -135,6 +148,49 @@ def _folder(given: str | None, environ: Mapping[str, str]) -> Path | None:
     return Path(text) if text else None
 
 
+def _absent(path: Path) -> bool:
+    """True only when the file is plainly missing; any other stat failure is left for open_db to
+    report as an unusable store."""
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def _usage_error(parser: argparse.ArgumentParser) -> int:
+    try:
+        parser.error("")
+    except SystemExit as exit_:
+        return int(exit_.code) if isinstance(exit_.code, int) else 2
+    return 2
+
+
+def _serve(folder: Path, args: argparse.Namespace) -> int:
+    database = folder / "accounts.db"
+    new_store = _absent(database)
+    if args.group == "accounts" and new_store and folder.is_absolute():
+        print(_NO_STORE.format(folder=folder), file=sys.stderr)
+        return 2
+    try:
+        db = store.open_db(folder)
+        try:
+            code = _run(db, args)
+        finally:
+            db.close()
+        return code
+    except store.StoreError as error:
+        print(f"error: {error}", file=sys.stderr)
+    except (sqlite3.Error, OSError) as error:
+        print(
+            f"error: the account store {folder / 'accounts.db'} cannot be used: {error}",
+            file=sys.stderr,
+        )
+    return 2
+
+
 def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None) -> int:
     env = os.environ if environ is None else environ
     try:
@@ -145,23 +201,12 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     except SystemExit as exit_:
         return int(exit_.code) if isinstance(exit_.code, int) else 2
     if extra:
+        if args.group != "passcode":
+            return _usage_error(parser)
         print(_NO_ARGUMENT, file=sys.stderr)
         return 2
     folder = _folder(args.accounts_dir, env)
     if folder is None:
         print(_NO_FOLDER, file=sys.stderr)
         return 2
-    try:
-        db = store.open_db(folder)
-        try:
-            return _run(db, args)
-        finally:
-            db.close()
-    except store.StoreError as error:
-        print(f"error: {error}", file=sys.stderr)
-    except (sqlite3.Error, OSError) as error:
-        print(
-            f"error: the account store {folder / 'accounts.db'} cannot be used: {error}",
-            file=sys.stderr,
-        )
-    return 2
+    return _serve(folder, args)

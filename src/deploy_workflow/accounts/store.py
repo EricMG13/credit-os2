@@ -14,7 +14,7 @@ import sqlite3
 import sys
 import time
 import unicodedata
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -38,6 +38,7 @@ _MAX_TAG = 40
 RESERVED_DISPLAY_NAMES = frozenset({"before accounts"})
 
 RELATIVE_FOLDER = "the account store's folder must be an absolute path"
+_JOINERS = "\u200c\u200d"  # needed to spell Persian and other scripts; kept in names
 
 
 class StoreError(ValueError):
@@ -212,18 +213,21 @@ def _migrate(db: sqlite3.Connection) -> None:
         db.autocommit = sqlite3.LEGACY_TRANSACTION_CONTROL
 
 
-def _enable_wal(db: sqlite3.Connection) -> None:
-    """Switch to WAL, retrying on "locked" (SQLite ignores the busy timeout here on a fresh file
-    another opener is initialising) until the same 30 s deadline."""
+def _retry_locked[T](action: Callable[[], T]) -> T:
+    """Run `action`, retrying on "locked" (SQLite ignores the busy timeout for a pragma or read on
+    a fresh file another opener is initialising) until the same 30 s deadline."""
     deadline = time.monotonic() + _BUSY_SECONDS
     while True:
         try:
-            mode = db.execute("PRAGMA journal_mode=WAL").fetchone()[0]
-            break
+            return action()
         except sqlite3.OperationalError as exc:
             if "locked" not in str(exc) or time.monotonic() >= deadline:
                 raise
             time.sleep(0.02)
+
+
+def _enable_wal(db: sqlite3.Connection) -> None:
+    mode = _retry_locked(lambda: db.execute("PRAGMA journal_mode=WAL").fetchone()[0])
     if str(mode).lower() != "wal":
         raise StoreError(f"could not enable WAL mode; database reports {mode!r}")
 
@@ -325,9 +329,10 @@ def open_db(folder: Path) -> sqlite3.Connection:
     db = sqlite3.connect(path, timeout=_BUSY_SECONDS)
     try:
         db.row_factory = sqlite3.Row
+        # Before WAL, so a refused store keeps its journal mode.
+        _retry_locked(lambda: _check_made_here(db, path))
         _enable_wal(db)
         db.execute("PRAGMA foreign_keys=ON")
-        _check_made_here(db, path)
         _migrate(db)
     except BaseException:
         db.close()
@@ -343,7 +348,9 @@ def utc_text(at: datetime) -> str:
 
 def _clean(text: str) -> str:
     spaced = "".join(" " if ch in "\t\n\r" else ch for ch in text)
-    kept = "".join(ch for ch in spaced if unicodedata.category(ch) not in _UNPRINTABLE)
+    kept = "".join(
+        ch for ch in spaced if ch in _JOINERS or unicodedata.category(ch) not in _UNPRINTABLE
+    )
     return " ".join(unicodedata.normalize("NFC", kept).split())
 
 
@@ -502,6 +509,13 @@ def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per 
 def disable_account(db: sqlite3.Connection, account_id: int) -> None:
     with write_transaction(db):
         cursor = db.execute("UPDATE accounts SET disabled=1 WHERE id=?", (account_id,))
+        if cursor.rowcount == 0:
+            raise Missing(f"no account {account_id}")
+
+
+def enable_account(db: sqlite3.Connection, account_id: int) -> None:
+    with write_transaction(db):
+        cursor = db.execute("UPDATE accounts SET disabled=0 WHERE id=?", (account_id,))
         if cursor.rowcount == 0:
             raise Missing(f"no account {account_id}")
 

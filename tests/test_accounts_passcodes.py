@@ -211,7 +211,10 @@ def test_12_lock_and_release(db_an: sqlite3.Connection) -> None:
     assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 5)) == "locked"
     assert try_passcode(db_an, "o-1", passcode=AN, now=T(10, 3, 59)) == "locked"
     assert try_passcode(db_an, "o-1", passcode=AN, now=T(10, 4, 1)) == "analyst"
-    assert _attempt_row(db_an) is None
+    row = _attempt_row(db_an)
+    assert row is not None
+    assert row["failed_count"] == 5
+    assert row["locked_until"] == LOCKED_UNTIL
 
 
 def test_13_lock_ends_exactly(db_an: sqlite3.Connection) -> None:
@@ -243,13 +246,33 @@ def test_16_other_identity_unaffected(db_an: sqlite3.Connection) -> None:
     assert try_passcode(db_an, "o-2", passcode=AN, now=T(9, 5)) == "analyst"
 
 
-def test_17_success_clears_count(db_an: sqlite3.Connection) -> None:
+def test_17_success_neither_counts_nor_clears(db_an: sqlite3.Connection) -> None:
     for minute in range(4):
         assert try_passcode(db_an, "o-1", passcode=W, now=T(9, minute)) == "wrong passcode"
+    before = tuple(_attempt_row(db_an) or ())
     assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 4)) == "analyst"
-    for minute in range(5, 9):
+    row = _attempt_row(db_an)
+    assert row is not None and tuple(row) == before
+    assert row["failed_count"] == 4
+    assert row["first_failure_at"] == T(9, 0).isoformat()
+    assert row["locked_until"] is None
+    assert try_passcode(db_an, "o-1", passcode=W, now=T(9, 5)) == "wrong passcode"
+    assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 6)) == "locked"
+
+
+def test_17b_success_without_failures_leaves_no_row(db_an: sqlite3.Connection) -> None:
+    assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 0)) == "analyst"
+    assert _attempt_row(db_an) is None
+
+
+def test_17c_wrong_after_window_restarts_at_one(db_an: sqlite3.Connection) -> None:
+    for minute in range(4):
         assert try_passcode(db_an, "o-1", passcode=W, now=T(9, minute)) == "wrong passcode"
-    assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 9)) == "analyst"
+    assert try_passcode(db_an, "o-1", passcode=AN, now=T(9, 30)) == "analyst"
+    assert try_passcode(db_an, "o-1", passcode=W, now=T(10, 0)) == "wrong passcode"
+    row = _attempt_row(db_an)
+    assert row is not None and row["failed_count"] == 1
+    assert row["first_failure_at"] == T(10, 0).isoformat()
 
 
 def test_18_window_restarts(db_an: sqlite3.Connection) -> None:
