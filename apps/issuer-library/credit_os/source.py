@@ -6,12 +6,13 @@ Part of the library's store (`credit_os.store`, which re-exports every name here
 import datetime
 import hashlib
 import json
+import math
 import os
 import re
 import stat
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
 MONTHS = (
@@ -280,14 +281,20 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _refuse_constant(name: str) -> Any:
-    raise ValueError(f"non-finite number {name} is not accepted")
+def _refuse_non_finite(token: str) -> Never:
+    raise ValueError(f"non-finite number {token} is not accepted")
+
+
+def _finite_float(token: str) -> float:
+    value = float(token)
+    if not math.isfinite(value):
+        _refuse_non_finite(token)
+    return value
 
 
 def strict_loads(text: str | bytes) -> Any:
-    """json.loads that refuses ``NaN``, ``Infinity`` and ``-Infinity`` with a ValueError, so a run
-    file holding one is unreadable and named by its caller; no stand-in value is made up."""
-    return json.loads(text, parse_constant=_refuse_constant)
+    """Reject non-finite literals and overflowing exponents so callers can name the bad file."""
+    return json.loads(text, parse_constant=_refuse_non_finite, parse_float=_finite_float)
 
 
 def describe(error: BaseException) -> str:

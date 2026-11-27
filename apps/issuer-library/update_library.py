@@ -13,9 +13,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,7 @@ ROOT = HERE if PACKAGED else HERE.parents[1]
 from credit_os.source import strict_loads
 from credit_os.store import UnreadableFile, regular_chunks, workspace_store
 
+from deploy_vii.platform_io import flags, locks
 from deploy_vii.registry import plan
 from deploy_workflow.changes import PACK_SCHEMAS, lead_module
 from deploy_workflow.changes_check import page_verdicts
@@ -43,6 +46,8 @@ from deploy_workflow.library_index import (
 from deploy_workflow.run_events import read_events
 
 FILES = "/files/"
+WINDOWS_PUBLICATION_WAIT = 120.0
+WINDOWS_PUBLICATION_POLL = 0.05
 
 
 def relative_href(href: str) -> str:
@@ -251,10 +256,14 @@ def pack_of(workspace: Path, run: dict[str, Any]) -> tuple[dict[str, Any] | None
     except ValueError:
         return None, f"{path} is not valid JSON"
     if not isinstance(value, dict):
-        return None, f"{path} is not a JSON object"
-    if value.get("schema") not in PACK_SCHEMAS:
-        return None, f"{path} has schema {value.get('schema')!r}, not one of {PACK_SCHEMAS!r}"
-    return value, None
+        problem = "is not a JSON object"
+    elif value.get("schema") not in PACK_SCHEMAS:
+        problem = f"has schema {value.get('schema')!r}, not one of {PACK_SCHEMAS!r}"
+    elif not isinstance(value.get("measures"), list):
+        problem = "must contain a measures list"
+    else:
+        return value, None
+    return None, f"{path} {problem}"
 
 
 def cp8_verdicts(
@@ -449,10 +458,43 @@ def update_library(workspace: Path) -> Library:
         return publish(workspace)
 
 
+def _open_windows_publication_lock(workspace: Path) -> int:
+    marker = workspace / ".library-publishing"
+    # The Windows CRT removes this exclusive marker when its last descriptor closes.
+    temporary = flags("O_TEMPORARY")
+    if not temporary:
+        raise Refused(f"Not written: delete-on-close is unavailable for publication lock {marker}")
+    options = os.O_CREAT | os.O_EXCL | os.O_RDWR | temporary
+    deadline = time.monotonic() + WINDOWS_PUBLICATION_WAIT
+    while True:
+        try:
+            return os.open(marker, options, 0o600)
+        except FileExistsError as error:
+            if time.monotonic() >= deadline:
+                raise Refused(f"Not written: publication lock {marker} is busy") from error
+            time.sleep(WINDOWS_PUBLICATION_POLL)
+
+
 def publish(workspace: Path) -> Library:
     workspace = workspace.resolve()
     if not workspace.is_dir():
         raise Refused(f"Workspace not found: {workspace}")
+    windows = os.name == "nt"
+    descriptor = (
+        _open_windows_publication_lock(workspace)
+        if windows
+        else os.open(workspace, os.O_RDONLY | flags("O_DIRECTORY"))
+    )
+    try:
+        if not windows:
+            locks.flock(descriptor, locks.LOCK_EX)
+        # Serialize the scan as well as installation so a later writer cannot use an old scan.
+        return _publish_locked(workspace)
+    finally:
+        os.close(descriptor)
+
+
+def _publish_locked(workspace: Path) -> Library:
     target = workspace / "library"
     if target.is_symlink() or (target.exists() and not target.is_dir()):
         raise Refused(f"Not written: {target} is a link or a file, not the library folder")
