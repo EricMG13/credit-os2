@@ -149,7 +149,7 @@ export function stateOf(cells: readonly (Reading | null)[]): PeriodState {
 }
 
 /** Years between the first and the last stated annual year that no table states, for a true axis. */
-function withUnstated(periods: readonly Period[]): (Period & { unstated?: true })[] {
+export function withUnstated(periods: readonly Period[]): (Period & { unstated?: true })[] {
   const first = periods[0];
   const last = periods.at(-1);
   const prefix = first ? /^(\D*)\d{4}$/.exec(first.label)?.[1] : undefined;

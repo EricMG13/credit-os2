@@ -46,9 +46,27 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
     expect(num(bar(tile, "Airframe ebitda"), "width") / unit).toBeCloseTo(1962, 6);
     expect(num(bar(tile, "Non-aviation sales"), "width") / unit).toBeCloseTo(190, 6);
     expect(num(bar(tile, "Non-aviation ebitda"), "width") / unit).toBeCloseTo(81, 6);
-    // Sales in plum, EBITDA As Defined in blue, as the mockup.
-    expect(pcSales?.getAttribute("class")).toBe("fill-chart-2");
-    expect(bar(tile, "Power & Control ebitda")?.getAttribute("class")).toBe("fill-chart-1");
+    // Tint by size against the largest drawn bar, 3,941 (ruling C4), shares worked by hand:
+    // P&C sales 3941/3941 = 1 -> 5; Airframe sales 3809/3941 = 0.9665 -> 5; P&C EBITDA 2236/3941 = 0.5674 -> 3;
+    // Airframe EBITDA 1962/3941 = 0.4978 -> 3; Non-aviation sales 190/3941 = 0.048 -> 1; EBITDA 81/3941 = 0.021 -> 1.
+    const tone = (name: string, step: number) =>
+      expect(bar(tile, name)).toHaveClass(
+        `fill-scale-amount-${String(step)}`,
+        "stroke-scale-amount-edge",
+      );
+    tone("Power & Control sales", 5);
+    tone("Airframe sales", 5);
+    tone("Power & Control ebitda", 3);
+    tone("Airframe ebitda", 3);
+    tone("Non-aviation sales", 1);
+    tone("Non-aviation ebitda", 1);
+  });
+  it("tells the two measures apart in words, not colour, and keys the tint in the legend", () => {
+    const tile = draw(cp1Entry());
+    expect(within(tile).getByText("Net sales, FY2024", { selector: "span" })).toBeVisible();
+    expect(within(tile).getByText("EBITDA As Defined, FY2024", { selector: "span" })).toBeVisible();
+    expect(within(tile).getByText(/^Shade by size against the biggest bar/)).toBeVisible();
+    expect(within(tile).getByText("biggest")).toBeVisible();
   });
   it("writes the FY2023 figure under each bar at a thin tick on the same scale", () => {
     const tile = draw(cp1Entry());
@@ -78,6 +96,8 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
   });
   it("says every drawn figure in the aria-label", () => {
     const tile = draw(cp1Entry());
+    // Two periods only: the accepted handoff draws no sparkline (ruling C5).
+    expect(tile.querySelector("[data-values], [data-end]")).toBeNull();
     expect(within(tile).getByRole("img").getAttribute("aria-label")).toBe(
       "Segments, $m, FY2024 with FY2023 beneath. Power & Control: Net sales 3,941 (FY2023 3,316), EBITDA As Defined 2,236 (FY2023 1,866); Airframe: Net sales 3,809 (FY2023 3,094), EBITDA As Defined 1,962 (FY2023 1,547); Non-aviation: Net sales 190 (FY2023 175), EBITDA As Defined 81 (FY2023 71); Unallocated corporate, FY2024: Net sales Not supplied: no separate revenue line; EBITDA As Defined −106 (FY2023 −89).",
     );
@@ -191,6 +211,7 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
       "1,866",
       "2,236",
     ]);
+    expect(tile.querySelector("[data-values], [data-end]")).toBeNull();
   });
   it("draws the annual pair beside a last-twelve-months row and names the LTM period", () => {
     const ltm = addRow(cp1Entry(), SCHEDULE, [
@@ -302,6 +323,122 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
   });
 });
 
+// Mutation (not a real handoff): the accepted handoff's Power & Control sales carried over four
+// years. FY2024 3,941 and FY2023 3,316 are the schedule's own cells; FY2022 and FY2021 are invented.
+describe("SegmentsTile sparkline (mutation: four stated years for one segment)", () => {
+  const row = (period: string, sales: string) => [
+    "Power & Control",
+    period,
+    sales,
+    "1000",
+    "USD millions",
+    "-",
+    "-",
+  ];
+  const four = () =>
+    addRow(
+      addRow(cp1Entry(), SCHEDULE, row("FY2022", "2900")),
+      SCHEDULE,
+      row("FY2021", "Not supplied: not stated"),
+    );
+  it("draws the stated sales years as a line, the unstated year as a gap, and says them in the reading", () => {
+    const tile = draw(four());
+    const spark = within(tile).getByRole("img", {
+      name: "Power & Control Net sales, FY2021 to FY2024",
+    });
+    expect(spark.querySelector("path")?.getAttribute("data-values")).toBe("2900 3316 3941");
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(0);
+    expect(spark.querySelector("circle[data-end]")?.getAttribute("data-value")).toBe("3941");
+    const figure = within(tile).getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ });
+    expect(figure.getAttribute("aria-label")).toContain(
+      "Power & Control Net sales: FY2021 Not supplied; FY2022 2,900; FY2023 3,316; FY2024 3,941",
+    );
+  });
+  it("marks a stated gap inside the series as a gap, never bridged", () => {
+    const tile = draw(
+      addRow(
+        addRow(
+          addRow(cp1Entry(), SCHEDULE, row("FY2022", "Not supplied: not stated")),
+          SCHEDULE,
+          row("FY2021", "2500"),
+        ),
+        SCHEDULE,
+        row("FY2020", "2400"),
+      ),
+    );
+    const spark = within(tile).getByRole("img", {
+      name: "Power & Control Net sales, FY2020 to FY2024",
+    });
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["2400 2500", "3316 3941"]);
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(1);
+  });
+});
+
+// Mutation (not a real handoff): Power & Control sales FY2021 2,500 (invented), FY2022 stated as the
+// words "n.m." (invented), FY2023 3,316 and FY2024 3,941 (the schedule's own cells).
+describe("SegmentsTile sparkline reading of non-number cells (mutation)", () => {
+  const row = (name: string, period: string, sales: string) => [
+    name,
+    period,
+    sales,
+    "1000",
+    "USD millions",
+    "-",
+    "-",
+  ];
+  const figureOf = (tile: HTMLElement) =>
+    within(tile)
+      .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+      .getAttribute("aria-label");
+  it("reads stated words as written, not as Not supplied, and breaks the line there", () => {
+    const tile = draw(
+      addRow(
+        addRow(
+          addRow(cp1Entry(), SCHEDULE, row("Power & Control", "FY2022", "n.m.")),
+          SCHEDULE,
+          row("Power & Control", "FY2021", "2500"),
+        ),
+        SCHEDULE,
+        row("Power & Control", "FY2020", "2400"),
+      ),
+    );
+    const said = figureOf(tile) ?? "";
+    expect(said).toContain(
+      "Net sales: FY2020 2,400; FY2021 2,500; FY2022 n.m.; FY2023 3,316; FY2024 3,941",
+    );
+    expect(said).not.toContain("FY2022 Not supplied");
+    const spark = within(tile).getByRole("img", {
+      name: "Power & Control Net sales, FY2020 to FY2024",
+    });
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["2400 2500", "3316 3941"]);
+  });
+  it("reads a period with no row as not stated", () => {
+    // FY2022 exists as a period through Airframe's row only; Power & Control has none.
+    const tile = draw(
+      addRow(
+        addRow(
+          addRow(
+            addRow(cp1Entry(), SCHEDULE, row("Airframe", "FY2022", "3000")),
+            SCHEDULE,
+            row("Power & Control", "FY2021", "2500"),
+          ),
+          SCHEDULE,
+          row("Power & Control", "FY2020", "2400"),
+        ),
+        SCHEDULE,
+        row("Power & Control", "FY2019", "2300"),
+      ),
+    );
+    expect(figureOf(tile)).toContain(
+      "Net sales: FY2019 2,300; FY2020 2,400; FY2021 2,500; FY2022 not stated; FY2023 3,316; FY2024 3,941",
+    );
+  });
+});
+
 describe("segmentLayout at a measured width", () => {
   const view = segmentView(cp1Entry());
   const periods = view ? segmentPeriods(view) : null;
@@ -370,5 +507,127 @@ describe("SegmentsTile: which period the bars draw when no two years are compare
       notDrawn: ["PF FY2024"],
     });
     expect(view.comparison).toBeNull();
+  });
+});
+
+// Mutations (not a real handoff) of the accepted handoff's Power & Control sales (FY2023 3,316 and
+// FY2024 3,941 are its own cells; the other years are invented).
+describe("SegmentsTile sparkline: stated words, skipped years, a drawn period that is not a number", () => {
+  const row = (period: string, sales: string) => [
+    "Power & Control",
+    period,
+    sales,
+    "1000",
+    "USD millions",
+    "-",
+    "-",
+  ];
+  const rows = (...pairs: [string, string][]) =>
+    pairs.reduce(
+      (entry, [period, sales]) => addRow(entry, SCHEDULE, row(period, sales)),
+      cp1Entry(),
+    );
+  const figureOf = (tile: HTMLElement) =>
+    within(tile)
+      .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+      .getAttribute("aria-label") ?? "";
+  const sparkOf = (tile: HTMLElement, first: string) =>
+    within(tile).getByRole("img", { name: `Power & Control Net sales, ${first} to FY2024` });
+
+  it.each(["restated in the Form 10-K", "n.m. per the annual report", "Source: the prospectus"])(
+    "says a words cell that cites a filing as the table does: %s",
+    (words) => {
+      const tile = draw(rows(["FY2022", words], ["FY2021", "2500"], ["FY2020", "2400"]));
+      const said = figureOf(tile);
+      expect(said).not.toMatch(/Form 10-K|annual report|prospectus|Source:/);
+      expect(said).toContain("FY2021 2,500; FY2022 Detail is in Evidence.; FY2023 3,316");
+    },
+  );
+  it("breaks the line at each year the schedule does not state and says so", () => {
+    // FY2019, FY2021, FY2023, FY2024 stated; FY2020 and FY2022 have no period at all.
+    const tile = draw(rows(["FY2021", "2500"], ["FY2019", "2300"]));
+    expect(figureOf(tile)).toContain(
+      "Power & Control Net sales: FY2019 2,300; FY2020 not stated; FY2021 2,500; FY2022 not stated; FY2023 3,316; FY2024 3,941",
+    );
+    const spark = sparkOf(tile, "FY2019");
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(2);
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["3316 3941"]);
+  });
+  it("does not bridge a year the schedule states only as pro forma", () => {
+    const tile = draw(rows(["FY2022 PF", "3000"], ["FY2021", "2500"], ["FY2020", "2400"]));
+    const spark = sparkOf(tile, "FY2020");
+    expect(spark.querySelectorAll("line[data-gap]")).toHaveLength(1);
+    expect(
+      [...spark.querySelectorAll("path")].map((path) => path.getAttribute("data-values")),
+    ).toEqual(["2400 2500", "3316 3941"]);
+    expect(figureOf(tile)).toContain("FY2021 2,500; FY2022 not stated; FY2023 3,316");
+  });
+  it("draws no sparkline when the drawn period's own sales is not a number", () => {
+    const tile = draw(
+      setCell(
+        rows(["FY2022", "2900"], ["FY2021", "2800"]),
+        SCHEDULE,
+        0,
+        "Net sales",
+        "Not supplied: withheld",
+      ),
+    );
+    expect(within(tile).queryByRole("img", { name: /^Power & Control Net sales, FY/ })).toBeNull();
+  });
+});
+
+// Mutation (not a real handoff): Power & Control sales stated for FY2008, FY2009, FY2010 and FY2022
+// (invented) beside the schedule's FY2023 and FY2024. The twelve-year fill does not apply (16 years),
+// so a line would bridge FY2010 to FY2022 across eleven unstated years: none is drawn (ruling C5).
+describe("SegmentsTile sparkline: years that are not consecutive and cannot be filled (mutation)", () => {
+  it("draws no sparkline and reads the figure without a series", () => {
+    const row = (period: string, sales: string) => [
+      "Power & Control",
+      period,
+      sales,
+      "1000",
+      "USD millions",
+      "-",
+      "-",
+    ];
+    const entry = [
+      ["FY2022", "2900"],
+      ["FY2010", "2100"],
+      ["FY2009", "2000"],
+      ["FY2008", "1900"],
+    ].reduce(
+      (one, [period = "", sales = ""]) => addRow(one, SCHEDULE, row(period, sales)),
+      cp1Entry(),
+    );
+    const tile = draw(entry);
+    expect(within(tile).queryByRole("img", { name: /^Power & Control Net sales, FY/ })).toBeNull();
+    const said =
+      within(tile)
+        .getByRole("img", { name: /^Segments, \$m, FY2024 with FY2023/ })
+        .getAttribute("aria-label") ?? "";
+    expect(said).not.toContain("Net sales: FY");
+  });
+});
+
+// Mutation (not a real handoff): Power & Control FY2024 net sales is a 400-digit run (invented).
+describe("SegmentsTile: a figure too large to be a number (mutation)", () => {
+  it("renders the tile, shows that row as words, and tints the other bars as before", () => {
+    const huge = "9".repeat(400);
+    const tile = draw(setCell(cp1Entry(), SCHEDULE, 0, "Net sales", huge));
+    expect(bar(tile, "Power & Control sales")).toBeNull();
+    // The row is the words state: the cell as written, no bar, no value.
+    const row = byData(tile, "measure", "Power & Control sales");
+    expect(row?.querySelector('[data-part="reason"]')?.textContent).toContain("9999");
+    expect(row?.querySelector('[data-part="value"]')).toBeNull();
+    // Largest drawn bar is now Airframe sales 3809: Airframe 3809/3809 = 1 -> 5; P&C EBITDA 2236/3809 = 0.587 -> 3;
+    // Airframe EBITDA 1962/3809 = 0.515 -> 3; Non-aviation sales 190/3809 = 0.05 -> 1.
+    const tone = (name: string, step: number) =>
+      expect(bar(tile, name)).toHaveClass(`fill-scale-amount-${String(step)}`);
+    tone("Airframe sales", 5);
+    tone("Power & Control ebitda", 3);
+    tone("Airframe ebitda", 3);
+    tone("Non-aviation sales", 1);
   });
 });
