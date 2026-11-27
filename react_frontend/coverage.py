@@ -132,6 +132,8 @@ def _chart_facts(
     """One (field, fact) per stated cell of a typed chart table's numeric columns."""
     headers = table["headers"]
     periods = headers[0] == "Period"
+    # A row table's own Direction column ("Passes below", ...) is carried for headroom.
+    direction = headers.index("Direction") if not periods and "Direction" in headers else None
     found = []
     for row in table["rows"]:
         cells = row["cells"]
@@ -161,6 +163,8 @@ def _chart_facts(
             }
             if measure != headers[at]:
                 fact["heading"] = headers[at]
+            if direction is not None and cells[direction]:
+                fact["direction"] = cells[direction]
             found.append((field, fact))
     return found
 

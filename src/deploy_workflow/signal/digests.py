@@ -25,13 +25,13 @@ With some in scope it needs a ``Writer`` (the AI pass's, ``ai_digest``, given on
 is on); without one no issue is written and the run is recorded as skipped, with the reason.
 
 A run with a writer makes its model call outside every transaction: a first write transaction reads
-the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no other
-runner takes it); the writer then drafts the issue, holding no lock; a second write transaction
-re-reads the digest and stores the issue only if the digest still exists with the same settings and
-the same period start, and its owner still sees the same covered groups. A draft for a digest that
-changed meanwhile is dropped (its call is already paid and counted). A writer whose paid call failed
-or came back invalid (``WriterFailed``) stores no issue and leaves the period where it was, so the
-next scheduled run covers it again: the failure is recorded, the digest moves on to its next slot
+the scope and claims the digest, moving ``next_run_at`` on for a scheduled run. The writer drafts
+the issue without a lock. A second write transaction stores the issue only if the claim still
+belongs to the run, the digest has the same settings and period start, and its owner still sees
+the same covered groups. An unusable draft is dropped (its call is already paid and counted).
+A writer whose paid call failed or came back invalid (``WriterFailed``) stores no issue and
+leaves the period where it was, so the next scheduled run covers it again. The failure is
+recorded, the digest moves on to its next slot
 and "Run once now" waits for that slot too (one paid attempt per period). A writer that made no paid
 call (``WriterFailed.again``: the call was refused, or the adapter established it was not sent)
 leaves the run due exactly as it was, and the pass ends there (``Writer.stopped``).
@@ -68,7 +68,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
@@ -184,7 +184,7 @@ class ScopedStory:
 class Scope:
     """What a run found: the digest, its period, the stories in scope (newest first), the highest
     story id stored when they were read (the digest's next mark) and the ids of the covered groups
-    its owner could see then."""
+    its owner could see then. A run with a writer also carries its stored claim timestamp."""
 
     digest: Digest
     start: datetime
@@ -192,6 +192,7 @@ class Scope:
     stories: tuple[ScopedStory, ...]
     upto: int
     groups: tuple[int, ...] = ()
+    claim: str | None = None
 
 
 @dataclass(frozen=True)
@@ -776,8 +777,7 @@ def _plan(
     trigger: Trigger,
     writer: Writer | None,
 ) -> Run | Scope:
-    """Inside the caller's write transaction: a run that needs no model call is made here (its Run);
-    one that does returns its scope, with a scheduled run's slot claimed."""
+    """Inside the caller's transaction, make a no-call run or claim the digest for its writer."""
     start = min(digest.period_from, now)
     bare = covers_nothing(db, digest)
     upto = _highest_story(db)
@@ -791,11 +791,12 @@ def _plan(
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (_utc_text(due), digest.id))
     if stories and writer is not None and not bare:
+        claim = _utc_text(writer.clock())
         db.execute(
             "UPDATE digests SET claimed_by=?, claimed_at=? WHERE id=?",
-            (trigger, _utc_text(writer.clock()), digest.id),
+            (trigger, claim, digest.id),
         )
-        return scope
+        return replace(scope, claim=claim)
     if bare:
         run = Run("skipped", None, 0, NO_COVER)
     elif not stories:
@@ -828,6 +829,11 @@ def _unclaim(db: sqlite3.Connection, digest_id: int) -> None:
     db.execute("UPDATE digests SET claimed_by=NULL, claimed_at=NULL WHERE id=?", (digest_id,))
 
 
+def _owns_claim(db: sqlite3.Connection, scope: Scope) -> bool:
+    row = _row(db, scope.digest.id)
+    return row is not None and scope.claim is not None and row["claimed_at"] == scope.claim
+
+
 def _unchanged(db: sqlite3.Connection, scope: Scope) -> bool:
     """Whether the digest still exists with the settings and period start of its scope, and its
     owner still sees the covered groups the scope was read from (no fewer, no more)."""
@@ -844,6 +850,21 @@ def _unchanged(db: sqlite3.Connection, scope: Scope) -> bool:
     )
 
 
+def _record_failed_write(
+    db: sqlite3.Connection, scope: Scope, failed: WriterFailed, trigger: Trigger, now: datetime
+) -> Run | None:
+    """Record a paid call that produced no issue if the run still owns the unchanged digest."""
+    run = Run("skipped", None, len(scope.stories), f"{NOT_WRITTEN}{failed}")
+    with _write_transaction(db):
+        if not _owns_claim(db, scope):
+            return None
+        if not _unchanged(db, scope):
+            _unclaim(db, scope.digest.id)
+            return None
+        _close(db, scope, run, trigger, now)  # the period stays where it was
+    return run
+
+
 def _write(
     db: sqlite3.Connection, scope: Scope, trigger: Trigger, writer: Writer, now: datetime
 ) -> Run | None:
@@ -855,16 +876,13 @@ def _write(
         draft = writer.draft(scope)
     except WriterFailed as failed:
         if failed.again:
-            _due_again(db, scope)
-            raise _RetryLater(str(failed), fault=failed.fault, stories=count) from None
-        run = Run("skipped", None, count, f"{NOT_WRITTEN}{failed}")
-        with _write_transaction(db):
-            if not _unchanged(db, scope):
-                _unclaim(db, scope.digest.id)
+            if not _due_again(db, scope):
                 return None
-            _close(db, scope, run, trigger, now)  # the period stays where it was
-        return run
+            raise _RetryLater(str(failed), fault=failed.fault, stories=count) from None
+        return _record_failed_write(db, scope, failed, trigger, now)
     with _write_transaction(db):
+        if not _owns_claim(db, scope):
+            return None
         if not _unchanged(db, scope):
             log.warning("digest %s changed while its issue was written; dropped", scope.digest.id)
             _unclaim(db, scope.digest.id)
@@ -874,19 +892,20 @@ def _write(
     return run
 
 
-def _due_again(db: sqlite3.Connection, scope: Scope) -> None:
-    """Undo a run's claim: its scheduled time and the time its run was asked for are put back as
-    they were, so it keeps its place among the due digests (longest due first)."""
+def _due_again(db: sqlite3.Connection, scope: Scope) -> bool:
+    """Release an owned claim and restore its place in the due queue if the digest is unchanged."""
     digest = scope.digest
     asked = None if digest.requested_at is None else _utc_text(digest.requested_at)
     with _write_transaction(db):
+        if not _owns_claim(db, scope):
+            return False
         _unclaim(db, digest.id)
-        if not _unchanged(db, scope):
-            return
-        db.execute(
-            "UPDATE digests SET next_run_at=?, run_requested_at=? WHERE id=?",
-            (_utc_text(digest.next_run_at), asked, digest.id),
-        )
+        if _unchanged(db, scope):
+            db.execute(
+                "UPDATE digests SET next_run_at=?, run_requested_at=? WHERE id=?",
+                (_utc_text(digest.next_run_at), asked, digest.id),
+            )
+    return True
 
 
 def _moment(at: datetime, now: datetime) -> str:
@@ -964,13 +983,16 @@ def request_run(db: sqlite3.Connection, owner: str, digest_id: int, now: datetim
 
 
 def _run_scheduled(
-    db: sqlite3.Connection, digest_id: int, now: datetime, writer: Writer | None
+    db: sqlite3.Connection,
+    digest_id: int,
+    now: datetime,
+    writer: Writer | None,
+    claims: list[str | None],
 ) -> Run | None:
-    """The digest's scheduled run, or the run its owner asked for; None when neither is due now
-    (deleted, or another runner took it, since the list was read)."""
+    """The digest's scheduled run or owner's request, if due and no runner owns its claim."""
     with _write_transaction(db):
         row = _row(db, digest_id)
-        if row is None:
+        if row is None or row["claimed_at"] is not None:
             return None
         trigger: Trigger = "schedule"
         if datetime.fromisoformat(row["next_run_at"]) > now:
@@ -981,36 +1003,48 @@ def _run_scheduled(
     if isinstance(planned, Run):
         return planned
     assert writer is not None
+    claims.append(planned.claim)
     return _write(db, planned, trigger, writer, now)
 
 
 INTERRUPTED = f"{NOT_WRITTEN}the service stopped while its model call was in flight"
+EXPIRED = f"{NOT_WRITTEN}the run did not finish before its claim expired"
 
 
-def recover_claims(db: sqlite3.Connection, before: datetime, now: datetime) -> int:
-    """At start-up: every run claimed before `before` (its model call in flight then, so cut
-    short by a crash or a stop) that left no result is recorded as one whose paid call wrote no
-    issue (``INTERRUPTED``): its period stays, and it waits for its next scheduled time like any
-    failed write. Younger claims are left (another process may own them). How many."""
+def recover_claims(
+    db: sqlite3.Connection, before: datetime, now: datetime, *, during_pass: bool = False
+) -> int:
+    """Record unfinished claims older than `before` at startup or during a digest pass.
+
+    An open digest reservation for the owner made at or after the claim may belong to this run.
+    Wait for its settlement because the ledger identifies owners, not individual digests.
+    Preserve the period and mark and clear pending requests in the same transaction.
+    """
+    run = Run("skipped", None, 0, EXPIRED if during_pass else INTERRUPTED)
     with _write_transaction(db):
         rows = db.execute(
-            "SELECT * FROM digests WHERE claimed_at IS NOT NULL AND claimed_at < ?",
+            "SELECT digests.* FROM digests WHERE claimed_at IS NOT NULL AND claimed_at < ?"
+            " AND NOT EXISTS (SELECT 1 FROM ai_usage WHERE purpose='digest' AND status='open'"
+            " AND ai_usage.owner=digests.owner AND reserved_at >= digests.claimed_at)",
             (_utc_text(before),),
         ).fetchall()
         for row in rows:
             digest = _digest(db, row)
             claimed = datetime.fromisoformat(row["claimed_at"])
             scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
-            _close(db, scope, Run("skipped", None, 0, INTERRUPTED), row["claimed_by"], now)
+            _close(db, scope, run, row["claimed_by"], now)
+            db.execute("UPDATE digests SET run_requested_at=NULL WHERE id=?", (digest.id,))
     return len(rows)
 
 
-def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name: str) -> None:
-    """A run that raised is recorded as skipped and the digest moves to its next slot, with its
-    period ended, so one bad digest is not retried on every pass and its period does not grow."""
+def _record_failure(
+    db: sqlite3.Connection, digest_id: int, now: datetime, name: str, claim: str | None
+) -> None:
+    """For a matching claim (including none after a planning error), record the failure and move
+    the digest to its next slot, ending the period."""
     with _write_transaction(db):
         row = _row(db, digest_id)
-        if row is None:
+        if row is None or row["claimed_at"] != claim:
             return
         digest = _digest(db, row)
         scope = Scope(digest, min(digest.period_from, now), now, (), digest.story_mark)
@@ -1024,10 +1058,12 @@ def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name:
         )
 
 
-def _fail(db: sqlite3.Connection, digest_id: int, now: datetime, error: Exception) -> bool:
+def _fail(
+    db: sqlite3.Connection, digest_id: int, now: datetime, error: Exception, claim: str | None
+) -> bool:
     """Record a failed run; if recording fails too, log it, leave the digest due and say so."""
     try:
-        _record_failure(db, digest_id, now, type(error).__name__)
+        _record_failure(db, digest_id, now, type(error).__name__, claim)
     except sqlite3.Error:
         log.exception("digest %s: the failure could not be recorded", digest_id)
         return False
@@ -1047,8 +1083,9 @@ def _run_one(
     db: sqlite3.Connection, digest_id: int, now: datetime, writer: Writer | None, results: Ran
 ) -> None:
     """Run one due digest into `results`; a fault is logged and recorded, or left due."""
+    claims: list[str | None] = []  # receives the timestamp only once planning commits
     try:
-        run = _run_scheduled(db, digest_id, now, writer)
+        run = _run_scheduled(db, digest_id, now, writer, claims)
     except _RetryLater as later:  # a fault is a warning; a limit doing its work is not
         level = logging.WARNING if later.fault else logging.INFO
         log.log(level, "digest %s: no paid call was made (%s); it stays due", digest_id, later)
@@ -1060,12 +1097,12 @@ def _run_one(
             results.left_due.append(digest_id)
             return
         log.exception("digest %s failed (a lasting database fault)", digest_id)
-        if not _fail(db, digest_id, now, error):
+        if not _fail(db, digest_id, now, error, claims[0] if claims else None):
             results.left_due.append(digest_id)
         return
     except Exception as error:
         log.exception("digest %s failed", digest_id)
-        if not _fail(db, digest_id, now, error):
+        if not _fail(db, digest_id, now, error, claims[0] if claims else None):
             results.left_due.append(digest_id)
         return
     if run is not None:

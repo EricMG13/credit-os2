@@ -4,23 +4,26 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
-## 2026-11-27 — Credit OS2 development coordinator pilot
 
-- Pilot base `0563bccc`. Claude initialization discovered `/dev`. Codex prompt inspection
-  included `$credit-os2-dev` and the shared project rules. Two active Codex chats adopted them.
-- Seventeen focused offline tests passed. They cover shared reservations, actual-cost overruns,
-  stale results, incompatible trial cohorts, repeated evidence and incomplete trials.
-- Hook payload fixtures exercised Claude edit input and both Codex patch representations with
-  real ESLint. All three fail an invalid TypeScript edit and pass its correction. Native event
-  delivery to the hook is pending.
-- Confidence review repaired overrun handling and trial evidence identity. Rewrite tournament
-  retained the SQLite reservation transaction and paired replay checks. The alternatives added
-  a cached counter, a precomputed result or more SQL without improving the tested contracts.
-- Existing connected desktop journeys passed in live Chrome 158.0.8127.88 and Edge
-  158.0.4370.33, with 37 recorded checks per browser and zero non-loopback requests.
-  Evidence is `proof-artifacts/run-TuJEPt/proof.json` from the rollout worktree build.
-  Coverage Monitor and a new rendered-state critique are pending.
-- Route evaluation is advisory. Client dispatch, cloud and protected-branch enforcement are pending.
+## 2026-11-27 — Development coordinator and dashboard
+
+- Real Chrome and Edge on the local dashboard verified the run selector, ranked decisions,
+  decision details, reply drafting and copying, worker status, and unchanged ledger state.
+  Impeccable review of desktop and mobile led to a hidden-until-focused skip link and tighter
+  mobile worker columns. Fixture runs and worker decisions were synthetic.
+- Retained native Codex observation verified Astra medium through the ChatGPT subscription.
+  An isolated worker wrote the exact fixture and was accepted with zero reserved units.
+- A disposable GitHub target blocked stale, failed and wrongly attributed proof and allowed
+  the repaired tested tree. Claude subscription dispatch and production merge rules need
+  separate qualification. See the development coordinator rollout plan for the pilot scope.
+
+
+## 2026-11-27 — Foundation and Signal integration
+
+- Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
+- Foundation and Modules used older TransDigm CP-1 data and synthetic cases for units, zero and gaps, and like-for-like comparisons. PR review added cases for equivalent, opposing and unrecognized swap scopes, source locators in Evidence, and comparable segment sales alongside mixed EBITDA.
+- Signal used synthetic DOM tests for draft ownership across Settings tabs. Two SQLite connections checked late results, recurring recovery after restart or a busy write, queued requests, and reservation ordering when a model call starts after the digest claim.
+- Not verified: live issuer or provider execution and the weekly full Python suite.
 
 ## 2026-11-27 — Event timeline interaction fidelity
 
@@ -986,11 +989,3 @@ then 5; the narrow layout and the controls listed below.
   - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
-
-## 2026-11-27 Credit OS2 development route
-
-- Local Codex used the ChatGPT subscription and resolved GPT-6.2 Astra at medium effort.
-  A disposable worker run reserved zero units, wrote the exact file in its own worktree and
-  passed acceptance. The approved base was cb0a438f, and the worker checkout was 42e4be2b.
-- Tests reject API-key billing, incompatible account types and a previously saved Astra high
-  route before a worker is admitted. The live Fable test requires Claude authentication.

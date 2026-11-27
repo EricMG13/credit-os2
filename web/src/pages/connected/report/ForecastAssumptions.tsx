@@ -1,5 +1,7 @@
 import { ChevronRight, Plus } from "@untitledui/icons";
 import { containsReference, readerText, unitLabel } from "../publishedReport";
+import { changeSign, exactDifference } from "../signal";
+import { DIVERGING } from "../visuals/signal/scales";
 import { driverTable } from "./forecastDrivers";
 import { RecordedForecastAssumptions, type ForecastSource } from "./ForecastRecord";
 import { GapChip } from "./ForecastGaps";
@@ -38,6 +40,70 @@ function Mark() {
     </svg>
   );
 }
+
+type Direction = "lower" | "higher";
+type DriverCell = ReturnType<typeof driverTable>["rows"][number]["cells"][number];
+
+/** The order of two recorded values by exact decimal arithmetic; no difference leaves this. */
+function order(a: string, b: string): -1 | 0 | 1 | null {
+  const difference = exactDifference(a, b);
+  const sign = difference === null ? null : changeSign(difference);
+  return sign === null ? null : sign < 0 ? -1 : sign > 0 ? 1 : 0;
+}
+
+const EACH_YEAR = / each year$/u;
+const PERCENT = /\s*%$/u;
+
+/** A cell's values year by year, as recorded (a collapsed "each year" run repeated to its length). */
+function yearly(cell: DriverCell): (string | null)[] {
+  const [only] = cell.parts;
+  if (cell.parts.length === 1 && only !== null && only !== undefined && EACH_YEAR.test(only))
+    return Array.from({ length: cell.title.split(" · ").length }, () =>
+      only.replace(EACH_YEAR, ""),
+    );
+  return cell.parts;
+}
+
+/**
+ * Whether a differing cell is lower or higher than base, pair by pair (one value stands for every
+ * year). Not comparable, null: a year either side does not state, unequal runs, a pair that is not a
+ * plain number or a percent on both sides, a mix of lower and higher, or every pair equal.
+ */
+function directionOf(base: DriverCell | undefined, cell: DriverCell): Direction | null {
+  if (!base?.stated || !cell.stated) return null;
+  const a = yearly(base);
+  const b = yearly(cell);
+  const length = a.length === 1 ? b.length : b.length === 1 ? a.length : a.length;
+  if (a.length !== 1 && b.length !== 1 && a.length !== b.length) return null;
+  const orders: (-1 | 0 | 1 | null)[] = [];
+  for (let at = 0; at < length; at += 1) {
+    const x = a[a.length === 1 ? 0 : at] ?? null;
+    const y = b[b.length === 1 ? 0 : at] ?? null;
+    if (x === null || y === null) return null;
+    const percents = [PERCENT.test(x), PERCENT.test(y)];
+    if (percents[0] !== percents[1]) return null;
+    orders.push(percents[0] ? order(y.replace(PERCENT, ""), x.replace(PERCENT, "")) : order(y, x));
+  }
+  if (orders.includes(null)) return null;
+  const lower = orders.includes(-1);
+  const higher = orders.includes(1);
+  return lower === higher ? null : lower ? "lower" : "higher";
+}
+
+/** The small chip that says, with the words, which side of base a differing value is. */
+function Chip({ direction }: { direction: Direction }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-4 shrink-0 place-items-center rounded-ds-xs border border-border-hairline bg-surface-card font-sans text-caption leading-none text-text-primary"
+    >
+      {direction === "lower" ? "−" : "+"}
+    </span>
+  );
+}
+
+const TINT = { lower: DIVERGING[0], higher: DIVERGING[1] } as const;
+const WORDS = { lower: "lower than base", higher: "higher than base" } as const;
 
 /** The mark that, with the words, says only this case states a driver; the legend uses it too. */
 function OnlyMark() {
@@ -88,16 +154,38 @@ export function AssumptionsByCase({
   const drawn = rows.flatMap((row) =>
     row.cells.filter((cell, at) => !(!cell.stated && inherits(row, at))),
   );
+  const directions = rows.flatMap((row) =>
+    row.cells.flatMap((cell) =>
+      drawn.includes(cell) && cell.stated && cell.differs ? [directionOf(row.cells[0], cell)] : [],
+    ),
+  );
   const uses = {
-    differs: drawn.some((cell) => cell.stated && cell.differs),
+    lower: directions.includes("lower"),
+    higher: directions.includes("higher"),
+    differs: directions.includes(null),
     only: drawn.some((cell) => cell.stated && cell.only),
     notStated: drawn.some((cell) => !cell.stated || cell.parts.includes(null)),
   };
   return (
     <Tile {...tile}>
       {/* The key names only the marks this table draws. */}
-      {(uses.differs || uses.only || uses.notStated) && (
+      {(uses.lower || uses.higher || uses.differs || uses.only || uses.notStated) && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-text-secondary">
+          {(["lower", "higher"] as const).map(
+            (side) =>
+              uses[side] && (
+                <span key={side} className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="grid size-4 place-items-center rounded-ds-xs border border-border-hairline"
+                    style={{ backgroundColor: TINT[side] }}
+                  >
+                    <Chip direction={side} />
+                  </span>
+                  {side === "lower" ? "Lower than base (−)" : "Higher than base (+)"}
+                </span>
+              ),
+          )}
           {uses.differs && (
             <span className="flex items-center gap-2">
               <span
@@ -181,49 +269,61 @@ export function AssumptionsByCase({
                       </span>
                     )}
                   </th>
-                  {row.cells.map((cell, at) => (
-                    <td
-                      key={cases[at]?.key}
-                      className={`whitespace-nowrap px-3 py-2 font-mono tabular-nums ${
-                        cell.differs ? "bg-surface-selected text-text-primary" : "text-text-primary"
-                      }`}
-                    >
-                      {cell.stated ? (
-                        <>
-                          <span
-                            className="inline-flex items-center gap-x-1.5 whitespace-nowrap"
-                            title={cell.title}
-                          >
-                            {cell.differs && <Mark />}
-                            {cell.parts.map((part, index) => (
-                              <span key={index} className="inline-flex items-center gap-1.5">
-                                {index > 0 && <span aria-hidden="true"> · </span>}
-                                {part === null ? <NotStated /> : part}
+                  {row.cells.map((cell, at) => {
+                    const direction = cell.differs ? directionOf(row.cells[0], cell) : null;
+                    return (
+                      <td
+                        key={cases[at]?.key}
+                        data-direction={direction ?? undefined}
+                        style={direction ? { backgroundColor: TINT[direction] } : undefined}
+                        className={`whitespace-nowrap px-3 py-2 font-mono tabular-nums ${
+                          cell.differs && !direction
+                            ? "bg-surface-selected text-text-primary"
+                            : "text-text-primary"
+                        }`}
+                      >
+                        {cell.stated ? (
+                          <>
+                            <span
+                              className="inline-flex items-center gap-x-1.5 whitespace-nowrap"
+                              title={cell.title}
+                            >
+                              {cell.differs &&
+                                (direction ? <Chip direction={direction} /> : <Mark />)}
+                              {cell.parts.map((part, index) => (
+                                <span key={index} className="inline-flex items-center gap-1.5">
+                                  {index > 0 && <span aria-hidden="true"> · </span>}
+                                  {part === null ? <NotStated /> : part}
+                                </span>
+                              ))}
+                            </span>
+                            {cell.differs && (
+                              <span className="sr-only">
+                                , differs from base{direction && `, ${WORDS[direction]}`}
                               </span>
-                            ))}
+                            )}
+                            {cell.unlike && (
+                              <span className="block font-sans text-caption text-text-secondary">
+                                stated differently from base
+                              </span>
+                            )}
+                            {cell.only && (
+                              <span className="flex items-center gap-1 font-sans text-caption text-text-secondary">
+                                <OnlyMark />
+                                only this case states it
+                              </span>
+                            )}
+                          </>
+                        ) : inherits(row, at) ? (
+                          <span title="The model takes this driver from the base case for this case">
+                            As base
                           </span>
-                          {cell.differs && <span className="sr-only">, differs from base</span>}
-                          {cell.unlike && (
-                            <span className="block font-sans text-caption text-text-secondary">
-                              stated differently from base
-                            </span>
-                          )}
-                          {cell.only && (
-                            <span className="flex items-center gap-1 font-sans text-caption text-text-secondary">
-                              <OnlyMark />
-                              only this case states it
-                            </span>
-                          )}
-                        </>
-                      ) : inherits(row, at) ? (
-                        <span title="The model takes this driver from the base case for this case">
-                          As base
-                        </span>
-                      ) : (
-                        <NotStated />
-                      )}
-                    </td>
-                  ))}
+                        ) : (
+                          <NotStated />
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="py-2 pl-3">
                     {source?.(`${row.name} assumptions`, { case: joined, inputPath: path })}
                   </td>

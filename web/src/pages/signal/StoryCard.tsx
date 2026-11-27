@@ -12,6 +12,7 @@ import { AvatarGroup } from "./parts/AvatarGroup";
 import { FOCUS, LINK, TARGET } from "./parts/classes";
 import { focusAgainIfLost } from "./parts/focus";
 import { MarketTable } from "./parts/MarketTable";
+import { KindDot } from "./parts/KindDot";
 import { MediaObject } from "./parts/MediaObject";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
 import { BadgeGroup } from "./parts/BadgeGroup";
@@ -30,6 +31,8 @@ const ROW = "mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-small text-te
 
 /** The kind, source and time line above a headline. */
 export const BYLINE = "mb-0.5 flex flex-wrap items-center gap-2 text-small text-text-tertiary";
+/** The badge's gap to its dot, as the kit's dot badge sets it at this size. */
+const DOTTED = "gap-1 pl-1.5";
 /** A story's or an issue's headline, and the link it is when there is a page to open. */
 export const HEADLINE = "text-h4 font-medium text-text-primary";
 export const HEADLINE_LINK = `inline-flex items-center rounded-ds-xs text-text-primary hover:underline ${TARGET} ${FOCUS}`;
@@ -62,16 +65,23 @@ const shareLabelOf = (story: SignalStory) => `Share to group: ${story.headline}`
 
 /** The kind, source and time line above the headline. */
 function Byline({ story }: { story: SignalStory }) {
+  const gap = story.kind === "market" ? "" : DOTTED;
   return (
     <div className={BYLINE}>
       {story.ai?.kind === true ? (
-        <Badge size="sm" className="border border-dashed border-text-tertiary ring-transparent">
+        <Badge
+          size="sm"
+          className={`border border-dashed border-text-tertiary ring-transparent ${gap}`}
+          icon={<KindDot kind={story.kind} />}
+        >
           <span role="img" aria-label={`Kind chosen by AI: ${story.kindLabel}`}>
             {story.kindLabel}
           </span>
         </Badge>
       ) : (
-        <Badge size="sm">{story.kindLabel}</Badge>
+        <Badge size="sm" className={gap} icon={<KindDot kind={story.kind} />}>
+          {story.kindLabel}
+        </Badge>
       )}
       <span>{story.source.name}</span>
       {story.time === null ? null : <span className="tabular-nums">{story.time}</span>}

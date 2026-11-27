@@ -189,6 +189,15 @@ describe("the picker's design", () => {
     expect(list).toHaveClass("lg:grid-cols-2");
   });
 
+  it("draws the estimate against the most a custom run may spend", async () => {
+    await atPicker();
+    expect(
+      within(estimateBox()).getByRole("progressbar", {
+        name: "Estimate against the most a custom run may spend",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("describes each checkbox by its purpose, needs and reason", async () => {
     await atPicker();
     fireEvent.click(box("Committee decision"));

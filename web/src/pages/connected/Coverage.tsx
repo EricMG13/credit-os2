@@ -38,17 +38,43 @@ import { named, STATE_WORDS } from "./coverage/shared";
 import { TrendView } from "./coverage/Trend";
 import { useResource } from "./useResource";
 
-type View = "matrix" | "rank" | "find" | "trend";
+type View =
+  | "monitor"
+  | "patterns"
+  | "refinancing"
+  | "headroom"
+  | "market"
+  | "matrix"
+  | "rank"
+  | "find"
+  | "trend";
 const VIEWS: readonly { id: View; name: string }[] = [
+  { id: "monitor", name: "Monitor" },
+  { id: "patterns", name: "Patterns" },
+  { id: "refinancing", name: "Refinancing" },
+  { id: "headroom", name: "Headroom" },
+  { id: "market", name: "Market" },
   { id: "matrix", name: "Modules" },
   { id: "rank", name: "Rank" },
   { id: "find", name: "Find" },
   { id: "trend", name: "Trend" },
 ];
 
+function isAnalyticsView(
+  view: View,
+): view is "monitor" | "patterns" | "refinancing" | "headroom" | "market" {
+  return (
+    view === "monitor" ||
+    view === "patterns" ||
+    view === "refinancing" ||
+    view === "headroom" ||
+    view === "market"
+  );
+}
+
 function addressState(): { view: View; field: string; filters: Filters } {
   const query = new URLSearchParams(window.location.search);
-  const view = VIEWS.find((item) => item.id === query.get("view"))?.id ?? "matrix";
+  const view = VIEWS.find((item) => item.id === query.get("view"))?.id ?? "monitor";
   return {
     view,
     field: query.get("field") ?? "",
@@ -93,6 +119,7 @@ function Dashboard({ data: served }: { data: Data }) {
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const [onlyChosen, setOnlyChosen] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [selectedIssuer, setSelectedIssuer] = useState<string | null>(data.issuers[0]?.key ?? null);
   const [groups, setGroups] = useState<SavedGroup[]>(readGroups);
   const [groupName, setGroupName] = useState("");
   /** A saved group's issuers that the library still publishes: a gone issuer is not ticked. */
@@ -122,8 +149,8 @@ function Dashboard({ data: served }: { data: Data }) {
   useEffect(() => {
     const address = new URL(window.location.href);
     const values = {
-      view: view === "matrix" ? "" : view,
-      field: field && view !== "matrix" && view !== "find" ? field.id : "",
+      view: view === "monitor" ? "" : view,
+      field: field && (view === "rank" || view === "trend") ? field.id : "",
       q: filters.query,
       sector: filters.sector === "all" ? "" : filters.sector,
       pathway: filters.pathway === "all" ? "" : filters.pathway,
@@ -283,8 +310,10 @@ function Dashboard({ data: served }: { data: Data }) {
       ? `${field.label} ${[low.value !== null && `≥ ${boundMark(filters.min.trim())}`, high.value !== null && `≤ ${boundMark(filters.max.trim())}`].filter(Boolean).join(", ")} · ${period}`
       : null;
   const badBounds = (["min", "max"] as const).filter((side) => readBound(filters[side]).invalid);
-  const heading =
-    view === "matrix"
+  const viewName = VIEWS.find((item) => item.id === view)?.name ?? "Coverage";
+  const heading = isAnalyticsView(view)
+    ? viewName
+    : view === "matrix"
       ? "What each module delivered, by issuer"
       : view === "find"
         ? "Module passages, by issuer"
@@ -654,7 +683,29 @@ function Dashboard({ data: served }: { data: Data }) {
         </p>
       )}
       <h2 className="font-display text-h3 text-text-primary">{heading}</h2>
-      {shown.length === 0 ? (
+      {isAnalyticsView(view) ? (
+        <section aria-label={viewName} className={card}>
+          <label className="flex flex-wrap items-center gap-2 text-small text-text-secondary">
+            Issuer
+            <select
+              aria-label="Selected issuer"
+              value={selectedIssuer ?? ""}
+              onChange={(event) => {
+                setSelectedIssuer(event.currentTarget.value || null);
+              }}
+              className={control}
+            >
+              <option value="">No issuer selected</option>
+              {data.issuers.map((issuer) => (
+                <option key={issuer.key} value={issuer.key}>
+                  {issuer.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="mt-3">{viewName} analysis is not available yet.</p>
+        </section>
+      ) : shown.length === 0 ? (
         <p className={card}>No issuers match these filters.</p>
       ) : view === "matrix" ? (
         <>
@@ -684,8 +735,8 @@ function Dashboard({ data: served }: { data: Data }) {
         <TrendView data={data} issuers={shown} field={field} />
       )}
       <p className="reading-copy max-w-3xl text-small text-text-secondary">
-        Every figure and sentence is as its module wrote it; this page only selects, sorts and
-        groups them. Views read each issuer’s newest run.
+        Every figure and sentence is as its module wrote it, except those marked computed, which
+        this page works out from them by the ruled arithmetic. Views read each issuer’s newest run.
       </p>
     </div>
   );

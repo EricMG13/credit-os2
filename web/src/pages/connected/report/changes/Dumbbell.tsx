@@ -51,7 +51,7 @@ export function Dumbbell({
       data-direction={after === before ? "none" : rose ? "up" : "down"}
     >
       {low === 0 && (
-        <span aria-hidden="true" className="font-mono text-caption text-text-tertiary">
+        <span aria-hidden="true" className="font-mono text-caption text-text-secondary">
           0
         </span>
       )}
@@ -71,7 +71,7 @@ export function Dumbbell({
         />
         <span
           data-earlier=""
-          className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-ds-full bg-chart-3"
+          className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-ds-full bg-text-secondary"
           style={{ left: `${String(from)}%` }}
         />
         <span

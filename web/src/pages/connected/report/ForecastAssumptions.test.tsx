@@ -39,7 +39,10 @@ it("shows recorded values as recorded and marks only a real difference, with wor
   expect(growth[0]?.textContent).not.toContain("differs from base");
   expect(growth[1]?.textContent).toContain("0.08 each year");
   expect(growth[1]?.textContent).toContain("differs from base");
-  expect(growth[1]).toHaveClass("bg-surface-selected");
+  // Ruling R2: a higher-than-base cell is tinted with the diverging "higher" step, not the plain selected fill.
+  expect(growth[1]).toHaveAttribute("data-direction", "higher");
+  expect(growth[1]).toHaveStyle({ backgroundColor: "var(--color-scale-diverging-2)" });
+  expect(growth[1]?.textContent).toContain("higher than base");
   expect(growth[1]?.className).not.toMatch(
     /warning|worse-mark|better-mark|scale-better|scale-worse/,
   );
@@ -284,4 +287,84 @@ it("says an upside driver the model does not restate is as base, not that nothin
   expect(region().textContent).not.toContain("nothing is assumed");
   // The shock column still states nothing for a base driver.
   expect(texts(rowOf("Dividends"))[2]).toBe("Not stated");
+});
+
+/** A document whose one driver is `base` in the base case and `upside` in the upside case. */
+const one = (base: unknown, upside: unknown) => ({
+  years: [{ year: 2025 }, { year: 2026 }, { year: 2027 }],
+  base_drivers: { revenue_growth: { values: base } },
+  upside_drivers: { revenue_growth: { values: upside } },
+});
+const upsideCell = (base: unknown, upside: unknown) => {
+  render(<AssumptionsByCase document={one(base, upside)} />);
+  return within(rowOf("Revenue growth")).getAllByRole("cell")[1] as HTMLElement;
+};
+const LOWER = "var(--color-scale-diverging-1)";
+const HIGHER = "var(--color-scale-diverging-2)";
+
+it("tints a lower cell with the lower step, a minus chip and the words (ruling R2)", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.03", "0.03", "0.03"]);
+  expect(cell).toHaveStyle({ backgroundColor: LOWER });
+  expect(cell.textContent).toContain("−");
+  expect(cell.textContent).toContain("differs from base, lower than base");
+  expect(screen.getByText("Lower than base (−)")).toBeInTheDocument();
+  expect(screen.queryByText("Higher than base (+)")).toBeNull();
+  expect(screen.queryByText("Differs from base")).toBeNull();
+  expect(cell.textContent).not.toContain("%");
+});
+
+it("tints a higher cell with the higher step and a plus chip", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.05", "0.06", "0.05"]);
+  expect(cell).toHaveStyle({ backgroundColor: HIGHER });
+  expect(cell.textContent).toContain("+");
+  expect(cell.textContent).toContain("higher than base");
+});
+
+it("reads a mix of lower and higher years as differs only, with no direction", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.04", "0.05", "0.06"]);
+  expect(cell).toHaveClass("bg-surface-selected");
+  expect(cell).not.toHaveAttribute("data-direction");
+  expect(cell.textContent).toContain("differs from base");
+  expect(cell.textContent).not.toContain("than base");
+  expect(screen.getByText("Differs from base")).toBeInTheDocument();
+});
+
+it("reads a pair that is not like the other as differs only", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.06", "5%", "0.05"]);
+  expect(cell).toHaveClass("bg-surface-selected");
+  expect(cell.textContent).not.toContain("than base");
+});
+
+it("compares percents with percents", () => {
+  const percent = upsideCell(["5%", "5%", "5%"], ["6%", "6%", "6%"]);
+  expect(percent).toHaveStyle({ backgroundColor: HIGHER });
+});
+
+it("compares comma-grouped thousands by value", () => {
+  const cell = upsideCell(["2,000", "2,000", "2,000"], ["1,500", "1,500", "1,500"]);
+  expect(cell).toHaveStyle({ backgroundColor: LOWER });
+});
+
+it("draws no tint for 0.40 against 0.4", () => {
+  const cell = upsideCell(["0.40", "0.40", "0.40"], ["0.4", "0.4", "0.4"]);
+  expect(cell).not.toHaveAttribute("data-direction");
+  expect(cell).not.toHaveClass("bg-surface-selected");
+  expect(cell.textContent).not.toContain("differs");
+});
+
+it("compares a scalar with every year", () => {
+  const cell = upsideCell(["0.05"], ["0.04", "0.03", "0.02"]);
+  expect(cell).toHaveStyle({ backgroundColor: LOWER });
+});
+
+it("reads a year the case does not state as differs only", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.06", null, "0.06"]);
+  expect(cell).toHaveClass("bg-surface-selected");
+  expect(cell).not.toHaveAttribute("data-direction");
+});
+
+it("reads runs of unequal length as differs only", () => {
+  const cell = upsideCell(["0.05", "0.05", "0.05"], ["0.06", "0.06"]);
+  expect(cell).toHaveClass("bg-surface-selected");
+  expect(cell).not.toHaveAttribute("data-direction");
 });

@@ -146,7 +146,7 @@ describe("Net debt: the accepted handoff, FY2023 and FY2024", () => {
     expect(marks(tile)[0]?.getAttribute("class")).toContain("fill-chart-3");
     expect(marks(tile)[1]?.getAttribute("class")).toContain("fill-chart-1");
     for (const mark of marks(tile).slice(2))
-      expect(mark.getAttribute("class")).toContain("fill-warning-mark");
+      expect(mark.getAttribute("class")).toContain("fill-category-3");
     expect(stripLabels(tile)).toEqual([
       "FY2023",
       "FY2024",
@@ -259,7 +259,13 @@ describe("Net debt: one or two stated pro formas are drawn as bars", () => {
     const tile = draw(oneAdjustment());
     const pro = tile.querySelector("[data-pro-forma]");
     expect(attr(pro, "data-value")).toBe(22967);
-    expect(pro?.getAttribute("class")).toContain("fill-warning-mark");
+    expect(pro?.getAttribute("class")).toContain("fill-category-3");
+    const label = tile.querySelector('[data-row="Pro forma"] [data-part="label"]');
+    expect(label?.getAttribute("class")).toContain("fill-text-primary");
+    expect(label?.getAttribute("class")).toContain("font-medium");
+    expect(label?.getAttribute("class")).not.toContain("fill-warning-text");
+    const key = tile.querySelector('[data-part="legend"] [data-swatch].fill-category-3');
+    expect(key?.closest("[data-legend]")?.textContent).toContain("Pro forma net debt");
     // Solid, not the hatch (hatch means not known).
     expect(pro?.getAttribute("fill")).toBeNull();
     expect(tile.querySelector('[data-row="Pro forma"] [data-gap]')).toBeNull();
@@ -293,7 +299,7 @@ describe("Net debt: one or two stated pro formas are drawn as bars", () => {
       `Net debt / EBITDA on its own scale: FY2023 5.17x, FY2024 4.88x, pro forma ${DIVIDEND_NAME} 6.02x.`,
     );
     expect(strip.textContent).toContain(`Pro forma · ${DIVIDEND_NAME}`);
-    expect(strip.querySelector("circle.fill-warning-mark")).not.toBeNull();
+    expect(strip.querySelector("circle.fill-category-3")).not.toBeNull();
     // FY2023 → FY2024 joined by one line; the pro forma mark is not joined to a period page-chosen.
     expect(strip.querySelectorAll("line[data-join]")).toHaveLength(1);
   });

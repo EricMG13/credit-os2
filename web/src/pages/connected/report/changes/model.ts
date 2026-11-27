@@ -44,6 +44,8 @@ export type MeasureChange = {
   beforeValue: number | null;
   afterValue: number | null;
   delta: string | null;
+  /** The direction of the comparison's difference; null where `delta` is null. */
+  sign: -1 | 0 | 1 | null;
   tone: MeasureTone | null;
   /** The comparability sentence of the verdict; a reference is replaced by a pointer to Evidence. */
   reason: string;
@@ -202,6 +204,7 @@ export function classifyMeasures(
       beforeValue: amountOf(measure.prior?.value),
       afterValue: amountOf(measure.current?.value),
       delta: shown && sign !== null ? delta : null,
+      sign: shown ? sign : null,
       tone: toned === "none" || unresolved ? null : toned,
       reason: stated(reason.replace(/ · Same-period analysis change$/, "")),
       cause,
