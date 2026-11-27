@@ -62,6 +62,11 @@ def test_maturity_value_is_none_without_maturities():
         ("In breach", True),
         ("Pass", False),
         ("", False),
+        ("Not in breach", False),
+        ("No longer in breach", False),
+        ("No active breach", False),
+        ("Breach - cured", True),  # no negator: a cured breach is still reported as a breach
+        ("Never breached", False),
     ],
 )
 def test_status_classification(status, expected):
@@ -175,7 +180,7 @@ def test_the_holdings_header_without_a_sector_is_reported_when_market_data_has_o
     [
         ("Below Investment Grade", None),
         ("Sub-IG", None),
-        ("Non-Investment Grade (BB+ and below)", "BB"),
+        ("Non-Investment Grade (BB+ and below)", None),
         ("Non-IG", None),
         ("Investment Grade", "IG"),
         ("IG", "IG"),
@@ -250,3 +255,68 @@ def test_a_name_with_a_capital_a_tilde_is_not_mojibake(name):
 @pytest.mark.parametrize("name", ["CafÃ© SA", "ZÃ¼rich AG", "Ã€ Corp", "Sociâ€™s", "Ã\u0081 Corp"])
 def test_utf8_read_as_latin_1_is_mojibake(name):
     assert pe.MOJIBAKE.search(name) is not None
+
+
+# --- Round 2 -------------------------------------------------------------------------------------
+
+
+def test_titles_directly_under_data_rows_are_still_titles():
+    rows = [
+        ["Exposure Report - Fund X"],
+        ["A. Summary"],
+        ["Metric", "Value"],
+        ["NAV", "100"],
+        [],
+        ["B. Rating Distribution"],
+        ["Bucket", "% NAV"],
+        ["IG", "10%"],
+        ["C. Sector Exposure"],  # no blank row above it
+        ["Sector", "% NAV"],
+        ["Software", "40%"],
+    ]
+    found = pe.sections(list(enumerate(rows, start=1)))
+    assert set(found) == {"summary", "ratings", "sectors"}
+    assert [r[0] for _, r in found["ratings"].rows] == ["IG"]
+    assert [r[0] for _, r in found["sectors"].rows] == ["Software"]
+
+
+def test_a_summary_row_naming_a_sector_stays_a_data_row_without_a_gap():
+    rows = [
+        ["A. Summary Metrics"],
+        ["Metric", "Value"],
+        ["NAV", "100"],
+        ["Max Single Sector", ""],
+        ["Top 10", "100%"],
+        [],
+        ["C. Top 20 Sectors"],
+        ["Sector", "% NAV"],
+        ["Software", "40%"],
+    ]
+    found = pe.sections(list(enumerate(rows, start=1)))
+    assert found["sectors"].title == "C. Top 20 Sectors"
+    assert [r[0] for _, r in found["summary"].rows] == ["NAV", "Max Single Sector", "Top 10"]
+
+
+def test_the_limit_is_exact_so_headroom_gets_only_the_current_values_rounding():
+    spec = synth.clean()
+    row = _monitor_row(spec, "C-05")
+    row[3], row[6], row[7] = "≤ 25% NAV", "20.00%", "4.60%"  # 25 less 20.00 is 5.00
+    assert any("headroom 4.60% is not the limit" in p for p in problems(spec))
+
+
+def test_no_maturity_finding_when_the_report_has_no_bucket_to_compare():
+    spec = synth.clean()
+    for row in spec.holdings:
+        row[MATURITY] = ""
+    start = spec.exposure.index(["E. Maturity Profile"])
+    spec.exposure[start + 2 : start + 6] = []  # only the Total row is left
+    assert not any("no priced holding has a maturity" in p for p in problems(spec))
+
+
+def test_the_maturity_finding_has_its_own_fix_text():
+    spec = synth.clean()
+    for row in spec.holdings:
+        row[MATURITY] = ""
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    [issue] = [i for i in report.issues if "no priced holding has a maturity" in i.problem]
+    assert issue.fix == "export the holdings with their maturity dates"

@@ -125,6 +125,7 @@ FIX: Mapping[str, str] = {
     "layout": "export the report with its sections A to E, each a title row, a header row and "
     "data rows",
     "column": "export the sheet with its full header row",
+    "maturity": "export the holdings with their maturity dates",
     "missing": "add the holdings sheet: without it no stated figure can be verified",
     "par_cell": "enter the position's par in Holdings, a plain number",
     "repeated": "supply one export: remove the other files that hold the same part",
@@ -631,7 +632,9 @@ def section_key(title: str) -> str | None:
     return next((key for key, words in _SECTION_KEYS if any(w in text for w in words)), None)
 
 
-_NO_BREACH = re.compile(r"(?<![a-z])(?:no|not|non|without)[\s-]+breach")
+_NO_BREACH = re.compile(
+    r"(?<![a-z])(?:no|not|non|without|never)(?:[\s-]+[a-z]+){0,2}[\s-]+breach(?:ed)?(?![a-z])"
+)
 
 
 def is_breach_status(status: str) -> bool:
@@ -927,18 +930,35 @@ def recognise(files: Mapping[str, bytes]) -> dict[str, str]:
     return {name: ", ".join(found) for name, found in roles.items()}
 
 
+_TITLE_PREFIX = re.compile(r"(?:[a-z]|\d+)[.):]\s|section\b")
+
+
+def _opens_section(row: Sequence[str], after_gap: bool, current: Section | None) -> bool:
+    """Whether a one-cell row naming a section starts it. It does at the start of the file, after
+    a blank row or a gap in the row numbers, before any header is read (a title directly under a
+    title or the file's first row), or when it is lettered or numbered (`C. Sectors`, `3. Ratings`,
+    `Section 2`). Otherwise it is a data row of the table above (a summary row `Max Single Sector`
+    with no value)."""
+    if not _is_title(row) or section_key(row[0]) is None:
+        return False
+    return (
+        after_gap
+        or current is None
+        or not current.header
+        or _TITLE_PREFIX.match(folded(row[0])) is not None
+    )
+
+
 def sections(rows: Sequence[tuple[int, Sequence[str]]]) -> dict[str, Section]:
     """The exposure report's stacked sections: a title row, a header row, then data rows."""
     found: dict[str, Section] = {}
     current: Section | None = None
-    # A title starts the file or follows a blank row (an empty row, or a gap in the row numbers
-    # where a workbook sheet leaves it out), never a data row.
     previous: int | None = None
     for number, row in rows:
         if not _cells(row):
             continue
         was_blank, previous = previous is None or number != previous + 1, number
-        if was_blank and _is_title(row) and (key := section_key(row[0])) is not None:
+        if _opens_section(row, was_blank, current) and (key := section_key(row[0])):
             current = Section(key, row[0], [], [])
             found.setdefault(key, current)
         elif current is not None and not current.header:
@@ -1148,7 +1168,7 @@ PRIORITY: Mapping[str, int] = {
     **dict.fromkeys(
         (
             *("par", "nav", "count", "share", "absent", "metric", "missing", "layout", "column"),
-            *("repeated", "refused"),
+            *("repeated", "refused", "maturity"),
         ),
         1,
     ),
@@ -2788,8 +2808,8 @@ def _own_arithmetic(
     if headroom is not None and _same_family(headroom, limit):
         room = EXACT.subtract(limit.value, current.value)
         expected = room if limit.operator == "<=" else room.copy_negate()
-        rounding = EXACT.add(limit.half_unit, current.half_unit)
-        if not within(headroom, expected, extra=rounding):
+        # The limit is a policy figure, exact; the current value is a stated, rounded measure.
+        if not within(headroom, expected, extra=current.half_unit):
             problem = (
                 f"{item.label}: headroom {item.cells['headroom']} is not the limit "
                 f"{item.cells['limit']} less the current value {item.cells['current']} "
@@ -3249,18 +3269,19 @@ def rating_bucket(holding: Holding) -> str:
 
 
 # "Below Investment Grade", "Sub-IG", "Non-Investment Grade": the opposite of investment grade, so
-# not the IG bucket (the report has no bucket of its own for it).
+# not the IG bucket, and a range over several buckets (BB, B, CCC): no bucket.
 _NOT_IG = re.compile(r"(?<![a-z])(?:below|sub|non|not)[\s-]+(?:investment|ig(?![a-z]))")
 
 
 def label_bucket(label: str) -> str | None:
     """The bucket a report's rating row names, or None (e.g. Other) when it names none."""
     text = folded(label)
-    negated = _NOT_IG.search(text) is not None
+    if _NOT_IG.search(text) is not None:
+        return None  # a range (below investment grade) spans several buckets: none of them
     for bucket, words in (
         ("Unrated", ("unrated", "not rated", "nr")),
         ("CCC", ("ccc", "caa")),
-        ("IG", () if negated else ("ig", "investment", "baa", "bbb")),
+        ("IG", ("ig", "investment", "baa", "bbb")),
         ("BB", ("bb", "ba")),
         ("B", ("b",)),
     ):
@@ -3465,6 +3486,11 @@ def rating_section_findings(
             findings.add(file, section.title, "rows", problem, "share")
 
 
+def _comparable_bucket(row: Sequence[str], columns: Columns) -> bool:
+    name = label_of(row, columns)
+    return _label_kind(name) == "row" and maturity_bounds(name) is not None
+
+
 def maturity_section_findings(
     export: Export, found: Recomputed, shape: Profile, as_of: date | None, findings: Findings
 ) -> None:
@@ -3475,10 +3501,12 @@ def maturity_section_findings(
         return
     file, columns = export.files["exposure"], section_columns(section.header)
     if not shape.by_maturity:
-        problem = (
-            "no priced holding has a maturity, so the report's maturity buckets cannot be checked"
-        )
-        findings.add(file, section.title, "rows", problem, "column")
+        if any(_comparable_bucket(row, columns) for _, row in section.rows):
+            problem = (
+                "no priced holding has a maturity, so the report's maturity buckets cannot be "
+                "checked"
+            )
+            findings.add(file, section.title, "rows", problem, "maturity")
         return
     for number, row in section.rows:
         name = label_of(row, columns)
