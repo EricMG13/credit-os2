@@ -70,11 +70,14 @@ text in the separate desktop readback. This readback did not replace the
 connected proof gate. Stage 6 acceptance remains blocked by the two
 connected assertions reproduced on the pinned main revision.
 
-The branch has an uncommitted application diff. The SHA-256 of its tracked
-application patch is
+The recorded sweep verification covered the application patch committed at
+`ef75dab8`. The SHA-256 of that tracked patch is
 `465c655bfd002523f60cef10f9c984862e6babba273f83ae4ba77fa75365bcff`.
 The new scanner file's SHA-256 is
 `8cd118ad09ac36e5c648ccecd58397223ad2b057804551a3b72801d72e6e3866`.
+
+PR review removed a unit-header comment left above the period-header regex.
+The change affects documentation in the code only.
 
 Not verified: the formal connected proof beyond each first failing assertion,
 live provider responses and spend, Windows release behavior, and a causal

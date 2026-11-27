@@ -322,7 +322,6 @@ const NOT_AMOUNT =
   /\/|ratio|bps|%|rate|spread|margin|coupon|floor|multiple|cover|leverage|date|year|period|unit|basis|source|tier|status|growth|cagr|change|conversion|days|yield|\(x\)|\bto (?:ebitda|revenue|sales|equity|capital)\b/i;
 /** A column of places, tests or tallies: its figures are no amounts ("Debt maturing" is one). */
 const NOT_AMOUNT_WORD = /\b(?:rank|test|maturity|order|number|count|score)|#/i;
-/** A column that states each row's currency or unit: figures in two of them share no scale. */
 const PERIOD_HEADER = /^(?:FY|H[12] |Q[1-4] |LTM |20\d\d)/;
 /** Rows that are different measures, a bridge, or totals: their figures are not peers. */
 const MEASURES_HEADER = /^(?:item|items|metric|metrics|measure|line item|kpi|indicator)s?$/i;
