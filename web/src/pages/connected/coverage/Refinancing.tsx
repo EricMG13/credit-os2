@@ -12,7 +12,7 @@ import { AMOUNT, SECTOR, step } from "../visuals/signal/scales";
 import { abs, sum, compare, type Dec } from "./coverageMath";
 import { fraction } from "./monitorMath";
 import { MiniColumns } from "../visuals/signal/Sparkline";
-import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
+import { orderPeriods } from "@/utils/periodOrder";
 
 const REFI = "cp-3c/refinancing-need/debt-maturing";
 const FOUNDATION = "cp-1/debt-maturities/debt-maturing";
@@ -140,16 +140,7 @@ export function Refinancing({ data, issuers, selected, onSelect }: Props) {
       ),
     ),
   ];
-  const keyedPeriods = statedPeriods.flatMap((label) => {
-    const key = periodKey(label);
-    return key === null ? [] : [{ label, key }];
-  });
-  const periods =
-    keyedPeriods.length === statedPeriods.length
-      ? keyedPeriods
-          .sort((left, right) => comparePeriodKeys(left.key, right.key))
-          .map(({ label }) => label)
-      : statedPeriods;
+  const { ordered: periods, gaps: unplacedPeriods } = orderPeriods(statedPeriods, (label) => label);
   const [periodPick, setPeriodPick] = useState("");
   const period = periods.includes(periodPick) ? periodPick : (periods[0] ?? "");
   const wall = input.map(({ issuer, source, facts }) => ({
@@ -255,6 +246,11 @@ export function Refinancing({ data, issuers, selected, onSelect }: Props) {
         <span className="text-caption text-text-secondary">
           {calendar ? "Calendar-year axis" : "Columns are in period order"}
         </span>
+        {unplacedPeriods.length > 0 && (
+          <span className="text-caption text-text-secondary">
+            Periods that could not be placed are shown last in written order.
+          </span>
+        )}
       </div>
       <h3 className="text-small font-semibold text-text-primary">
         Debt maturing by period ({unit || "no unit stated"})

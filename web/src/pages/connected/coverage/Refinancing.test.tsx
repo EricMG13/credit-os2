@@ -315,3 +315,15 @@ describe("Refinancing synthetic reply", () => {
     expect(within(row).getByText("Open source runs (3)")).toBeInTheDocument();
   });
 });
+
+it("orders dated maturities before unplaced labels in their written order", () => {
+  const { data, issuers } = syntheticReply();
+  const issuer = issuerAt(issuers, 0);
+  const facts = ["Thereafter", "FY2031", "At call", "FY2027"].map((period, index) =>
+    fact(issuer, REFI, period, "20", "USD millions", index + 1),
+  );
+  render(<Refinancing data={{ ...data, facts }} issuers={[issuer]} selected={null} onSelect={vi.fn()} />);
+  const periods = within(screen.getByRole("combobox", { name: "Period" })).getAllByRole("option");
+  expect(periods.map((option) => option.textContent)).toEqual(["FY2027", "FY2031", "Thereafter", "At call"]);
+  expect(screen.getByText("Periods that could not be placed are shown last in written order.")).toBeVisible();
+});
