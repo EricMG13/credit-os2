@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { builtBundleHashes, sourceProvenance } from "./source-provenance.mjs";
 
@@ -19,14 +19,14 @@ for (const args of [
 const outputDirectory = path.resolve(process.cwd(), outDir ?? "dist");
 const connectedAssets = path.join(outputDirectory, "connected-assets");
 const builtBundles = await builtBundleHashes(connectedAssets);
-await writeFile(
-  path.join(connectedAssets, "source-provenance.json"),
-  `${JSON.stringify(
-    {
-      ...(await sourceProvenance(path.resolve(import.meta.dirname, "../.."))),
-      built_bundles: builtBundles,
-    },
-    null,
-    2,
-  )}\n`,
-);
+const manifest = {
+  ...(await sourceProvenance(path.resolve(import.meta.dirname, "../.."))),
+  built_bundles: builtBundles,
+};
+const manifestContents = `${JSON.stringify(manifest, null, 2)}\n`;
+await writeFile(path.join(connectedAssets, "source-provenance.json"), manifestContents);
+if (!outDir) {
+  const retainedDirectory = path.resolve(import.meta.dirname, "../../proof-artifacts");
+  await mkdir(retainedDirectory, { recursive: true });
+  await writeFile(path.join(retainedDirectory, "connected-build-manifest.json"), manifestContents);
+}

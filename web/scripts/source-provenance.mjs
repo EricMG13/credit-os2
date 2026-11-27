@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 const sourceDirectories = [
   "src",
@@ -50,27 +51,41 @@ async function filesUnder(root, relative, total = { count: 0 }) {
   return files;
 }
 
-function gitValue(root, args) {
+function gitOutput(root, args) {
   try {
-    return (
-      execFileSync("git", args, {
-        cwd: root,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim() || null
-    );
+    return execFileSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
   } catch {
     return null;
   }
 }
 
-function gitMetadata(root) {
-  const rootPath = path.resolve(root);
-  if (gitValue(rootPath, ["rev-parse", "--show-toplevel"]) !== rootPath)
-    return { commit: null, tree: null };
+async function gitMetadata(root) {
+  const rootPath = await realpath(root);
+  const topLevel = gitOutput(rootPath, ["rev-parse", "--show-toplevel"]);
+  if (topLevel === rootPath) {
+    const status = gitOutput(rootPath, ["status", "--porcelain=v1", "--untracked-files=all"]);
+    return {
+      available: true,
+      commit: gitOutput(rootPath, ["rev-parse", "HEAD"]),
+      tree: gitOutput(rootPath, ["rev-parse", "HEAD^{tree}"]),
+      clean: status === null ? null : status === "",
+    };
+  }
+  try {
+    await lstat(path.join(rootPath, ".git"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return { available: false, commit: null, tree: null, clean: null };
+  }
   return {
-    commit: gitValue(rootPath, ["rev-parse", "HEAD"]),
-    tree: gitValue(rootPath, ["rev-parse", "HEAD^{tree}"]),
+    available: true,
+    commit: null,
+    tree: null,
+    clean: null,
   };
 }
 
@@ -105,14 +120,27 @@ export async function sourceProvenance(root) {
     hash.update("\0");
   }
 
-  const git = gitMetadata(root);
+  const git = await gitMetadata(root);
   return {
+    git_available: git.available,
     git_commit: git.commit,
     git_tree: git.tree,
+    git_clean: git.clean,
     source_sha256: hash.digest("hex"),
     source_file_count: includedFiles,
     source_bytes: totalBytes,
   };
+}
+
+export function requireCleanGitSource(source, required) {
+  if (!required || !source.git_available) return;
+  if (source.git_commit === null || source.git_clean !== true)
+    throw new Error("Hosted merge proof requires a committed, clean Git worktree");
+}
+
+export function assertManifestMatches(actual, expected) {
+  if (!isDeepStrictEqual(actual, expected))
+    throw new Error("Served build manifest differs from the retained local build manifest");
 }
 
 export async function builtBundleHashes(connectedAssets) {

@@ -9,7 +9,13 @@ import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createOfflineProxy, installOfflineGuard } from "./offline-network.mjs";
-import { sourceProvenance, verifyServedBundle } from "./source-provenance.mjs";
+import {
+  assertManifestMatches,
+  builtBundleHashes,
+  requireCleanGitSource,
+  sourceProvenance,
+  verifyServedBundle,
+} from "./source-provenance.mjs";
 
 // PRODUCT.md supports desktops at 1024px and wider. Keep narrow checks available for diagnostics.
 const desktopOnly = !process.argv.includes("--include-mobile");
@@ -32,8 +38,10 @@ if (zipSha256 !== null && (!sourceCommit || !/^[0-9a-f]{64}$/u.test(zipSha256)))
 }
 const provenance = {
   source_commit: sourceCommit,
+  source_git_available: builtSource.git_available,
   source_git_commit: builtSource.git_commit,
   source_git_tree: builtSource.git_tree,
+  source_git_clean: builtSource.git_clean,
   source_tree_sha256: builtSource.source_sha256,
   source_file_count: builtSource.source_file_count,
   source_bytes: builtSource.source_bytes,
@@ -42,25 +50,33 @@ const provenance = {
   os_release: release(),
   architecture: arch(),
 };
+const requireCleanSource =
+  process.env.CREDIT_OS_REQUIRE_CLEAN_SOURCE === "1" || process.env.CI === "true";
+requireCleanGitSource(builtSource, runAsScript && requireCleanSource);
+
+let retainedBuildManifest = null;
 
 if (runAsScript) {
-  const manifest = JSON.parse(
+  const manifestBytes = await readFile(
+    path.join(project, "proof-artifacts", "connected-build-manifest.json"),
+  );
+  retainedBuildManifest = JSON.parse(manifestBytes.toString("utf8"));
+  const servedBuildManifest = JSON.parse(
     await readFile(
       path.join(project, "web", "dist", "connected-assets", "source-provenance.json"),
       "utf8",
     ),
   );
-  assert.equal(
-    manifest.source_sha256,
-    provenance.source_tree_sha256,
-    "build matches current source inputs",
+  assertManifestMatches(servedBuildManifest, retainedBuildManifest);
+  assert.equal(retainedBuildManifest.source_sha256, provenance.source_tree_sha256);
+  assert.equal(retainedBuildManifest.git_commit, provenance.source_git_commit);
+  assert.equal(retainedBuildManifest.git_tree, provenance.source_git_tree);
+  assert.equal(retainedBuildManifest.git_clean, provenance.source_git_clean);
+  const localBundleHashes = await builtBundleHashes(
+    path.join(project, "web", "dist", "connected-assets"),
   );
-  assert.equal(
-    manifest.git_commit,
-    provenance.source_git_commit,
-    "build records the current Git commit",
-  );
-  assert.equal(manifest.git_tree, provenance.source_git_tree, "build records the current Git tree");
+  assertManifestMatches(localBundleHashes, retainedBuildManifest.built_bundles);
+  provenance.build_manifest_sha256 = createHash("sha256").update(manifestBytes).digest("hex");
 }
 const proofRoot = path.join(project, "proof-artifacts");
 if (runAsScript) await mkdir(proofRoot, { recursive: true });
@@ -1608,6 +1624,43 @@ function recordBrowserRequests(page) {
   return { errors, publicationRequests, scriptRequests, standingResponses };
 }
 
+function observeConnectedAssets(context, endpoint, builtBundles) {
+  const origin = new URL(endpoint).origin;
+  const observed = new Map();
+  const failures = [];
+  const pending = [];
+
+  context.on("page", (page) => {
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (
+        url.origin !== origin ||
+        !url.pathname.startsWith("/connected-assets/") ||
+        !/\.(?:js|css)$/u.test(url.pathname)
+      )
+        return;
+
+      const capture = (async () => {
+        assert.equal(response.status(), 200, `connected asset ${url.pathname} loaded`);
+        const sha256 = verifyServedBundle(url.pathname, await response.body(), builtBundles);
+        const hashes = observed.get(url.pathname) ?? new Set();
+        hashes.add(sha256);
+        observed.set(url.pathname, hashes);
+      })().catch((error) => failures.push(error));
+      pending.push(capture);
+    });
+  });
+
+  return async () => {
+    await Promise.all(pending);
+    if (failures.length > 0)
+      throw new AggregateError(failures, "A connected bundle failed build verification");
+    return [...observed.entries()]
+      .flatMap(([pathname, hashes]) => [...hashes].map((sha256) => ({ path: pathname, sha256 })))
+      .sort((left, right) => left.path.localeCompare(right.path));
+  };
+}
+
 async function checkStartRoute(page, endpoint, scriptRequests, brand) {
   await page.goto(new URL("/start", endpoint).href);
   await page.getByLabel("Issuer name", { exact: true }).waitFor();
@@ -1785,6 +1838,7 @@ function browserProofRecord({ channel, brand, browserVersion, run }) {
       "compact library index, repeated issuer searches and report-scoped browser requests",
       "Run loads only connected route bundles without the report reader or offline app",
       "route-based JavaScript loads only after navigation (run, library, and report chunks)",
+      "connected JavaScript and CSS received across run, report, library and Coverage match the retained build manifest",
       "overview",
       "issuer calendar date precision and originating row",
       "figure and row trace keyboard focus restoration",
@@ -1864,39 +1918,16 @@ async function checkCoveragePage(page, endpoint, channel) {
   );
   assert.equal(manifestResponse.status(), 200, "built app source manifest is served with the app");
   const manifest = await manifestResponse.json();
+  assertManifestMatches(manifest, retainedBuildManifest);
   assert.equal(manifest.source_sha256, provenance.source_tree_sha256);
   assert.equal(manifest.git_commit, provenance.source_git_commit);
   assert.equal(manifest.git_tree, provenance.source_git_tree);
-  const bundlePaths = await page.evaluate(() =>
-    [
-      ...new Set(
-        performance
-          .getEntriesByType("resource")
-          .map((entry) => new URL(entry.name))
-          .filter((url) => url.origin === location.origin && /\.(?:js|css)$/u.test(url.pathname))
-          .map((url) => url.pathname),
-      ),
-    ].sort(),
-  );
-  const servedBundles = await Promise.all(
-    bundlePaths.map(async (pathname) => {
-      assert.ok(
-        pathname.startsWith("/connected-assets/"),
-        `bundle ${pathname} is a connected asset`,
-      );
-      const response = await page.request.get(new URL(pathname, endpoint).href);
-      assert.equal(response.status(), 200, `loaded bundle ${pathname} is still served`);
-      const sha256 = verifyServedBundle(pathname, await response.body(), manifest.built_bundles);
-      return { path: pathname, sha256 };
-    }),
-  );
-  assert.ok(servedBundles.some((bundle) => bundle.path.endsWith(".js")));
+  assert.ok(Object.keys(manifest.built_bundles).some((bundle) => bundle.endsWith(".js")));
   const outcome = {
     issuers: data?.issuers?.length ?? 0,
     current_views: [],
     monitor_tab: false,
     source_manifest: manifest,
-    served_bundles: servedBundles,
   };
   if (outcome.issuers === 0) {
     await page.getByText("No published runs yet", { exact: true }).waitFor();
@@ -1952,6 +1983,11 @@ for (const [channel, brand, envName] of browserCases) {
         browser = await launchBrowser(channel, envName, proxy.settings);
         context = await browser.newContext({ serviceWorkers: "block" });
         guard = await installOfflineGuard(context);
+        const connectedAssets = observeConnectedAssets(
+          context,
+          service.endpoint,
+          retainedBuildManifest.built_bundles,
+        );
         const blank = await context.newPage();
         await blank.goto("about:blank");
         await writeFile(
@@ -1968,6 +2004,13 @@ for (const [channel, brand, envName] of browserCases) {
         );
         await blank.close();
         record = await checkBrowserRun(context, service, workspace, channel, brand);
+        record.connected_assets = await connectedAssets();
+        for (const routeBundle of ["StartRun-", "ReportLibrary-", "Coverage-"])
+          assert.ok(
+            record.connected_assets.some((asset) => asset.path.includes(routeBundle)),
+            `the browser loaded the ${routeBundle} route bundle`,
+          );
+        assert.ok(record.connected_assets.some((asset) => asset.path.endsWith(".css")));
       } catch (error) {
         if (service !== undefined) console.error(service.stderr());
         await cp(path.join(workspace, "_engine", "logs"), path.join(artifacts, `${channel}-logs`), {
