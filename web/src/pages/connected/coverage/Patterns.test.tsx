@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { evidenceLink, type Coverage, type Fact, type Issuer } from "../coverageData";
+import { NEUTRAL } from "../visuals/signal/scales";
 import { Patterns, scaleWithReference } from "./Patterns";
 
 const debt = "cp-1/leverage/total-debt-ebitda";
@@ -72,7 +73,8 @@ function unorder(data: Coverage, issuer?: string): Coverage {
 describe("Patterns", () => {
   it("draws exact level/difference and the two-measure intersection", () => {
     const { data, issuers } = fixture();
-    render(<Patterns data={data} issuers={issuers} selected="issuer-0" onSelect={vi.fn()} />);
+    const onSelect = vi.fn();
+    render(<Patterns data={data} issuers={issuers} selected="issuer-0" onSelect={onSelect} />);
     const scale = scaleWithReference(["7", "17", "28", "36"], "28");
     expect(scale.points[2]).toBe(scale.reference);
     expect(scale.reference).toBe(72.4137931);
@@ -134,6 +136,38 @@ describe("Patterns", () => {
     ).toHaveLength(4);
     expect(within(medianRow).getAllByRole("link", { name: /Open run/ })).toHaveLength(5);
     expect(screen.queryByRole("img", { name: /fitted line/i })).toBeNull();
+
+    const band = screen.getByRole("table", { name: "Cohort band data" });
+    const fy25 = within(band).getByRole("row", { name: /FY2025/ });
+    expect(fy25).toHaveTextContent(/13\.5x.*25x.*34\.5x/);
+    expect(fy25).toHaveTextContent("other period; no figure for FY2025");
+    expect(fy25).toHaveTextContent("FY2025 issuer basis");
+    fireEvent.click(within(fy25).getByText("Sources (6)"));
+    expect(within(fy25).getAllByRole("link", { name: "Evidence" })).toHaveLength(6);
+    const bandChart = screen.getByRole("img", { name: "Cohort band over time chart" });
+    expect(bandChart.querySelectorAll(".recharts-line-curve")).toHaveLength(
+      within(band).getAllByRole("button").length + 1,
+    );
+    fireEvent.click(within(band).getByRole("button", { name: "Gamma" }));
+    expect(onSelect).toHaveBeenCalledWith("issuer-2");
+
+    const heat = screen.getByRole("table", { name: "Difference heat grid" });
+    const alphaHeat = within(heat).getByRole("row", { name: /Alpha/ });
+    expect(alphaHeat).toHaveTextContent("−2x");
+    expect(within(alphaHeat).getAllByRole("cell")[0]).toHaveAttribute(
+      "aria-label",
+      "−2x: Prior 10x (FY2024 issuer basis); Current 8x (FY2025 issuer basis)",
+    );
+    expect(within(heat).getByRole("row", { name: /Gamma/ })).toHaveTextContent("1x");
+    expect(within(heat).getByRole("row", { name: /Epsilon/ })).toHaveTextContent(
+      "FY2025: other period; no figure for FY2025",
+    );
+    expect(within(heat).getAllByRole("link", { name: "Open run" })).toHaveLength(5);
+    expect(within(alphaHeat).getAllByRole("link")).toHaveLength(1);
+    expect(within(alphaHeat).getByRole("link", { name: "Open run" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/report/folder-0#evidence/"),
+    );
   });
 
   it("does not draw time series when the selected field periods cannot be ordered", () => {
@@ -173,7 +207,7 @@ describe("Patterns", () => {
     expect(screen.queryByText(/paired 0|Current 0/i)).toBeNull();
 
     rerender(<Patterns data={data} issuers={issuers.slice(0, 3)} selected={null} onSelect={vi.fn()} />);
-    expect(screen.getAllByRole("img")).toHaveLength(2);
+    expect(screen.getAllByRole("img")).toHaveLength(3);
     expect(within(screen.getByRole("table", { name: "Level versus difference data" })).getByRole("row", { name: /Median/ })).toHaveTextContent("Current cohort: 3; paired: 3");
 
     rerender(<Patterns data={data} issuers={[]} selected={null} onSelect={vi.fn()} />);
@@ -181,5 +215,82 @@ describe("Patterns", () => {
     expect(screen.queryByRole("img", { name: "Two measures scatter chart" })).toBeNull();
     expect(screen.queryByText(/0(?:x|; paired)/i)).toBeNull();
     expect(screen.getAllByText(/no qualifying figures|no issuers qualify on both measures/i)).toHaveLength(2);
+  });
+
+  it("keeps the period control selection when changing the measure", () => {
+    const { data, issuers } = fixture();
+    render(<Patterns data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Period"), { target: { value: "FY2025" } });
+    fireEvent.change(screen.getByLabelText("Measure"), { target: { value: cover } });
+    expect(screen.getByLabelText("Period")).toHaveValue("FY2025");
+  });
+
+  it("lists an unorderable issuer in a mixed cohort beside its exact other-period reason", () => {
+    const { data, issuers } = fixture();
+    const mixed = unorder(data, "issuer-2");
+    render(<Patterns data={mixed} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const leftOut = screen.getByRole("region", {
+      name: "Issuers not plotted in level versus difference",
+    });
+    expect(leftOut).toHaveTextContent(
+      "Gamma: Total debt / EBITDA: other period; Total debt / EBITDA: periods cannot be ordered",
+    );
+    expect(leftOut).toHaveTextContent("Epsilon: Total debt / EBITDA: other period");
+  });
+
+  it("omits cohort periods with fewer than three qualified issuers and preserves the chart gap", () => {
+    const { data, issuers } = fixture();
+    const sparse = {
+      ...data,
+      facts: data.facts.filter(
+        (item) => item.period !== "FY2025" || item.issuer === "issuer-0" || item.issuer === "issuer-1",
+      ),
+    };
+    render(<Patterns data={sparse} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const band = screen.getByRole("table", { name: "Cohort band data" });
+    expect(within(band).queryByRole("row", { name: /FY2025/ })).toBeNull();
+    const leftOut = screen.getByRole("region", { name: "Periods left out of cohort band" });
+    expect(leftOut).toHaveTextContent("FY2025: 2 of 5 qualify; fewer than three");
+    expect(leftOut).toHaveTextContent("Gamma: other period");
+    const lines = screen
+      .getByRole("img", { name: "Cohort band over time chart" })
+      .querySelectorAll(".recharts-line-curve");
+    expect(lines).toHaveLength(6);
+    expect(lines.item(1).getAttribute("d")?.match(/M/g)).toHaveLength(2);
+  });
+
+  it("keeps cash differences neutral", () => {
+    const { data, issuers } = fixture();
+    const cash = "cp-1/liquidity/cash";
+    const cashData = {
+      ...data,
+      fields: data.fields.map((item) => (item.id === debt ? { ...item, id: cash, label: "Cash" } : item)),
+      facts: data.facts.map((item) => (item.field === debt ? { ...item, field: cash } : item)),
+    };
+    render(<Patterns data={cashData} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const heat = screen.getByRole("table", { name: "Difference heat grid" });
+    const alpha = within(heat).getByRole("row", { name: /Alpha/ });
+    expect(within(alpha).getAllByRole("cell")[0]).toHaveStyle({ backgroundColor: NEUTRAL[1] });
+    expect(screen.getByText(/Neutral: no ruled Better or Worse direction/)).toBeInTheDocument();
+  });
+
+  it("leaves duplicate and differently unitized period cells empty", () => {
+    const { data, issuers } = fixture();
+    const alpha = issuers.find((issuer) => issuer.name === "Alpha");
+    const beta = issuers.find((issuer) => issuer.name === "Beta");
+    if (!alpha || !beta) throw new Error("fixture issuers are incomplete");
+    const facts = data.facts.filter(
+      (item) => !(item.issuer === beta.key && item.field === debt && item.period === "FY2025"),
+    );
+    facts.push(fact(alpha, debt, "FY2025", "8.5", "x", facts.length + 1));
+    facts.push(fact(beta, debt, "FY2025", "19", "USD millions", facts.length + 1));
+    render(<Patterns data={{ ...data, facts }} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const heat = screen.getByRole("table", { name: "Difference heat grid" });
+    expect(within(heat).getByRole("row", { name: /Alpha/ })).toHaveTextContent(
+      "FY2025: more than one figure",
+    );
+    expect(within(heat).getByRole("row", { name: /Beta/ })).toHaveTextContent(
+      "FY2025: other unit (USD millions)",
+    );
   });
 });

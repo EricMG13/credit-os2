@@ -23,6 +23,7 @@ import { cohort, type Cohort, type Member } from "./cohort";
 import { compare, difference, stats, type Dec } from "./coverageMath";
 import { DIRECTION } from "./direction";
 import { fieldLabel, fraction, written, writtenText } from "./monitorMath";
+import { PatternHistory } from "./PatternHistory";
 
 type Props = {
   data: Coverage;
@@ -589,6 +590,19 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
           </table>
           {tableOut(twoOut, fieldLabels, "Issuers left out of two measures")}
         </section>
+        {field && current && (
+          <PatternHistory
+            data={fieldData}
+            field={field.id}
+            periods={axis}
+            issuers={issuers}
+            orderedIssuers={seriesIssuers}
+            heading={current.heading}
+            unit={current.unit}
+            selected={selected}
+            onSelect={onSelect}
+          />
+        )}
       </div>
     </section>
   );
