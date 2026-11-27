@@ -381,7 +381,7 @@ describe("Dumbbell series (the one kit extension)", () => {
     );
     expect(
       document.querySelector('[data-row="D"] [data-current]')?.getAttribute("class"),
-    ).toContain("fill-warning-mark");
+    ).toContain("fill-worse-mark");
   });
 });
 

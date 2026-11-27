@@ -378,6 +378,10 @@ describe("each figure's basis", () => {
     );
     expect(worse).toHaveClass("text-text-primary", "border-worse-mark");
     expect(worse.style.backgroundColor).toBe(WORSE[1]);
+    // The mark colour is on the arrow glyph only; the word stays in ink.
+    expect(worse.querySelector("svg")).toHaveClass("text-worse-mark");
+    expect(better.querySelector("svg")).toHaveClass("text-better-mark");
+    expect(worse).not.toHaveClass("text-worse-mark");
   });
 
   it("shows the latest figure's period on every small tile", () => {
