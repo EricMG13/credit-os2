@@ -419,17 +419,33 @@ def test_a_failed_module_stops_new_starts_and_the_modules_after_it(case):
     assert case.events("failed", "module_accepted") == ["CP-0"]
 
 
-def test_a_module_before_the_failed_one_still_finishes_and_is_accepted(case):
+def _failed_once_reported(monkeypatch) -> threading.Event:
+    """Set after a module's failure has reached the board, not when its call raises: a module
+    before it can be accepted in between, and the scheduler may then start the next one
+    (docs/rulings/2026-11-18-parallel-modules.md)."""
+    from deploy_workflow.owners import cpos
+
+    report = cpos._ModuleLoop._report
+    reported = threading.Event()
+
+    def watched_report(board, module_id, error):
+        report(board, module_id, error)
+        reported.set()
+
+    monkeypatch.setattr(cpos._ModuleLoop, "_report", staticmethod(watched_report))
+    return reported
+
+
+def test_a_module_before_the_failed_one_still_finishes_and_is_accepted(case, monkeypatch):
     """CP-1A fails first; CP-1, before it in the plan and already in flight, is accepted; then
     the run stops with CP-1A's failure and starts nothing more. A relaunch reuses the accepted
     answers without a call and stops at the module that was cut short, as a serial run does."""
-    failed = threading.Event()
+    failed = _failed_once_reported(monkeypatch)
     calls = []
 
     def execute(task: HandoffTask) -> bytes:
         calls.append(task.module_id)
         if task.module_id == "CP-1A":
-            failed.set()
             raise RuntimeError("cpos_live_stopped: the provider stopped CP-1A")
         if task.module_id == "CP-1":
             assert failed.wait(WAIT)
@@ -545,14 +561,15 @@ def test_nothing_starts_once_a_module_in_flight_has_failed(case, monkeypatch):
     assert one[-2:] == ["CP-2A", "CP-2E"] and "CP-2D" not in two
 
 
-def test_a_failure_of_the_later_module_is_raised_when_the_earlier_one_is_accepted(case):
+def test_a_failure_of_the_later_module_is_raised_when_the_earlier_one_is_accepted(
+    case, monkeypatch
+):
     """CP-1A fails; CP-1 then finishes and is accepted. The failure found while CP-1 was still in
     flight is the one raised, with nothing else started."""
-    failed = threading.Event()
+    failed = _failed_once_reported(monkeypatch)
 
     def execute(task: HandoffTask) -> bytes:
         if task.module_id == "CP-1A":
-            failed.set()
             raise ValueError("cpos_module_failed: CP-1A: the checker refused it")
         if task.module_id == "CP-1":
             assert failed.wait(WAIT)

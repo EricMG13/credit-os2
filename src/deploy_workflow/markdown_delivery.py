@@ -1223,8 +1223,6 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
         BindingMap(module_id=module_id, entries=tuple(items))
         for module_id, items in entries.items()
     )
-    if issues := validate_bindings(view, maps):
-        raise ValueError("markdown_bindings: " + "; ".join(issues))
     pathway = preset.model_copy(
         update={
             "blocks": layout.blocks,
@@ -1233,6 +1231,8 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
             "question": layout.question or preset.question,
         }
     )
+    if issues := validate_bindings(view, maps, pathway=pathway):
+        raise ValueError("markdown_bindings: " + "; ".join(issues))
     passports, index = build_index(view)
     refs = _refs_by_fact(index)
     blocks = []
