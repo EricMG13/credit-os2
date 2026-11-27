@@ -402,6 +402,14 @@ describe("the portfolio fit page: a section that is a gap with a reason", () => 
     if (result.kind === "invalid") expect(result.reason).not.toContain(".gap");
   });
 
+  it("reads a scatter gap titled like the ratings", () => {
+    const gap = { gap: { title: "Agency ratings", reason: "R" } };
+    const result = read(S, gap);
+    if (result.kind !== "ok")
+      throw new Error(result.kind === "invalid" ? result.reason : result.kind);
+    expect(result.data.runs[0]?.portfolioFit.scatter).toEqual(gap);
+  });
+
   it.each<[string, readonly (string | number)[], unknown, string]>([
     [
       "an empty reason",
@@ -423,12 +431,6 @@ describe("the portfolio fit page: a section that is a gap with a reason", () => 
       [...L, "columns"],
       [],
       `${P}.limits.columns: expected at least one column`,
-    ],
-    [
-      "a scatter gap titled like the ratings",
-      S,
-      { gap: { title: "Agency ratings", reason: "R" } },
-      `${P}.scatter.gap.title: expected a name no other trace control on the page has`,
     ],
   ])("refuses %s", (_name, steps, value, reason) => {
     expect(read(steps, value)).toEqual({ kind: "invalid", reason });
