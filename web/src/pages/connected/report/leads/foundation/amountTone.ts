@@ -3,7 +3,7 @@ import type { LegendEntry } from "../kit/marks/Legend";
 
 export type AmountTone = "amount-1" | "amount-2" | "amount-3" | "amount-4" | "amount-5";
 
-/** C4: a figure's size against the largest figure in the same visual; share 0 when the largest is 0. */
+/** C4: share against the largest figure (0 when it is zero); IEEE noise at exact bin edges is ignored. */
 export function amountTone(value: number, largest: number): AmountTone {
   if (Number.isNaN(value) || Number.isNaN(largest)) {
     throw new RangeError("amountTone: value or largest is NaN");
@@ -14,7 +14,6 @@ export function amountTone(value: number, largest: number): AmountTone {
   const share = largest === 0 ? 0 : Math.abs(value) / Math.abs(largest);
   const scaled = share * AMOUNT.length;
   const boundary = Math.round(scaled);
-  // IEEE division can put an exact decimal boundary just below its integer bin.
   const stable =
     Math.abs(scaled - boundary) <= Number.EPSILON * Math.max(1, scaled) * 2
       ? boundary / AMOUNT.length
