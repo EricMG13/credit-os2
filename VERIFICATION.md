@@ -22,6 +22,12 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   Coverage Monitor and a new rendered-state critique are pending.
 - Route evaluation is advisory. Client dispatch, cloud and protected-branch enforcement are pending.
 
+## 2026-11-27 — Event timeline interaction fidelity
+
+The synthetic EventLane suite passed all 45 tests, including a marker click that focuses its row
+and hover in both directions. The change only shares the four event handlers for enter, leave,
+focus and blur. The marker and row still receive their own activation callbacks.
+
 ## 2026-11-27 — Sign-in parked Low and Info batch (after slice 6)
 
 - Scope: 19 of the 29 parked sign-in Low/Info rows still open on `main` at `f300698c`, gathered
@@ -981,19 +987,3 @@ then 5; the narrow layout and the controls listed below.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
 
-## 2026-11-24 — Frontend redesign: theme tokens and shell
-
-- Scope: `web/src/styles/theme.css` re-valued under the existing token names and
-  `web/src/shell/Shell.tsx` rebuilt as a top bar. No report, module, forecast or run page was
-  rebuilt; their layouts are unchanged and only take the new colours, type and radii. No handoff,
-  delivery or figure code changed, so no value, period, unit or source reference is affected.
-- Fidelity check: static build opened from disk in Chromium at 1440 and 390 px (`#/` and `#/kit`):
-  top bar, current-area tint and underline, buttons, badges, status marks, cards, metric tiles and
-  timeline draw in the new palette with no page errors. No report page was viewed with real run
-  data; the static build holds no report.
-- Web tests in four targeted runs: 320 files, 5,459 tests pass. One ConnectedApp run-start test
-  (leave-page prompt) failed once under load and passes alone, with and without this change.
-  Typecheck, knip, build and the 76 script tests pass. Full `npm run gates` and the Python suite
-  were not run.
-- `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
-  approved mockups to keep it.
