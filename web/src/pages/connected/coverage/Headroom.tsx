@@ -11,7 +11,7 @@ import { NEUTRAL } from "../visuals/signal/scales";
 import { compare, dec, type Dec } from "./coverageMath";
 import { headroom as covenantHeadroom } from "./direction";
 import { fraction, written, writtenText } from "./monitorMath";
-import { named } from "./shared";
+import { named, reportPath } from "./shared";
 
 const CURRENT = "cp-4/covenant-headroom/current";
 const LIMIT = "cp-4/covenant-headroom/threshold";
@@ -23,8 +23,8 @@ type Pair = { current: Fact; limit: Fact; room: Dec };
 type Row = {
   issuer: Issuer;
   run: CoverageRun;
-  current?: Fact;
-  limit?: Fact;
+  currentFacts: Fact[];
+  limitFacts: Fact[];
   pair?: Pair;
   source: Fact;
   state: string;
@@ -40,29 +40,26 @@ function rowKey(fact: Fact): string {
   return JSON.stringify([fact.run, fact.line, fact.output, fact.row, fact.period]);
 }
 
-function hasTriggerFacts(data: Coverage): boolean {
-  return data.facts.some((fact) => fact.field.startsWith(TRIGGER_PREFIX));
-}
-
 function calculate(current: Fact, limit: Fact): Dec | null {
   if (!current.unit?.trim() || !limit.unit?.trim()) return null;
   return current.gap || limit.gap ? null : covenantHeadroom(limit, current);
 }
 
 function rowsFor(
-  data: Coverage,
   issuer: Issuer,
   currentField: string | undefined,
   limitField: string | undefined,
+  issuerFacts: readonly Fact[],
 ): Row[] {
   const run = latestRun(issuer);
   if (!run || (!currentField && !limitField)) return [];
-  const facts = data.facts.filter(
+  const facts = issuerFacts.filter(
     (fact) =>
       fact.issuer === issuer.key &&
       fact.run === run.key &&
       (fact.field === currentField || fact.field === limitField),
   );
+  if (facts.length === 0) return [];
   const groups = new Map<string, Fact[]>();
   for (const fact of facts) groups.set(rowKey(fact), [...(groups.get(rowKey(fact)) ?? []), fact]);
 
@@ -73,24 +70,24 @@ function rowsFor(
     const limit = limits[0];
     const source = current ?? limit;
     if (!source) throw new Error("Headroom row lost its source fact");
+    if (currents.length > 1 || limits.length > 1) {
+      return {
+        issuer,
+        run,
+        currentFacts: currents,
+        limitFacts: limits,
+        source,
+        state: "ambiguous duplicate row",
+      };
+    }
     if (!current || !limit) {
       return {
         issuer,
         run,
-        current,
-        limit,
+        currentFacts: currents,
+        limitFacts: limits,
         source,
         state: "missing current level or limit",
-      };
-    }
-    if (currents.length !== 1 || limits.length !== 1) {
-      return {
-        issuer,
-        run,
-        current,
-        limit,
-        source,
-        state: "ambiguous duplicate row",
       };
     }
     const room = calculate(current, limit);
@@ -98,20 +95,28 @@ function rowsFor(
       ? {
           issuer,
           run,
-          current,
-          limit,
+          currentFacts: currents,
+          limitFacts: limits,
           source,
           state: "not computed: incompatible or missing figure",
         }
-      : { issuer, run, current, limit, source, pair: { current, limit, room }, state: "computed" };
+      : {
+          issuer,
+          run,
+          currentFacts: currents,
+          limitFacts: limits,
+          source,
+          pair: { current, limit, room },
+          state: "computed",
+        };
   });
 }
 
 function commonUnit(rows: readonly Row[]): string | undefined {
   const counts = new Map<string, number>();
   for (const row of rows) {
-    if (row.pair && row.current?.unit !== undefined) {
-      const unit = row.current.unit;
+    if (row.pair && row.pair.current.unit !== undefined) {
+      const unit = row.pair.current.unit;
       counts.set(unit, (counts.get(unit) ?? 0) + 1);
     }
   }
@@ -157,8 +162,8 @@ function markPosition(current: Fact, limit: Fact): { current: number; limit: num
 }
 
 function Marks({ row }: { row: Row }) {
-  if (!row.current || !row.limit) return <span>Marks unavailable</span>;
-  const positions = markPosition(row.current, row.limit);
+  if (!row.pair || row.state !== "computed") return <span>Marks unavailable</span>;
+  const positions = markPosition(row.pair.current, row.pair.limit);
   if (!positions) return <span>Marks unavailable</span>;
   const color = NEUTRAL[1];
   return (
@@ -189,24 +194,58 @@ function Table({
   issuers,
   currentField,
   limitField,
+  moduleCode,
+  emptyGroupTitle,
+  emptyGroupText,
   title,
   selected,
   onSelect,
 }: Props & {
   currentField: string | undefined;
   limitField: string | undefined;
+  moduleCode: string;
+  emptyGroupTitle: string;
+  emptyGroupText: string;
   title: string;
 }) {
+  const factsByIssuer = useMemo(() => {
+    const indexed = new Map<string, Fact[]>();
+    const selectedFacts = data.facts.filter(
+      (fact) => fact.field === currentField || fact.field === limitField,
+    );
+    for (const fact of selectedFacts)
+      indexed.set(fact.issuer, [...(indexed.get(fact.issuer) ?? []), fact]);
+    return indexed;
+  }, [currentField, data.facts, limitField]);
   const rows = useMemo(
     () =>
-      issuers.flatMap((issuer) => tightestFirst(rowsFor(data, issuer, currentField, limitField))),
-    [currentField, data, issuers, limitField],
+      issuers.flatMap((issuer) =>
+        tightestFirst(
+          rowsFor(issuer, currentField, limitField, factsByIssuer.get(issuer.key) ?? []),
+        ),
+      ),
+    [currentField, factsByIssuer, issuers, limitField],
+  );
+  const missing = useMemo(
+    () =>
+      issuers.flatMap((issuer) => {
+        const run = latestRun(issuer);
+        if (!run) return [];
+        const hasFacts = factsByIssuer.get(issuer.key)?.some((fact) => fact.run === run.key);
+        return hasFacts ? [] : [{ issuer, run }];
+      }),
+    [factsByIssuer, issuers],
   );
   const fieldsById = new Map(data.fields.map((field) => [field.id, field]));
   const sourceModule = (row: Row) => {
     const field = fieldsById.get(row.source.field);
-    const column = data.columns.find((item) => item.code === field?.module);
-    return named(column ?? { code: field?.module ?? "" }, latestRun(row.issuer)?.pathway);
+    const code = field?.module ?? moduleCode;
+    const column = data.columns.find((item) => item.code === code);
+    return named(column ?? { code }, row.run.pathway);
+  };
+  const emptySourceModule = (run: CoverageRun) => {
+    const column = data.columns.find((item) => item.code === moduleCode);
+    return named(column ?? { code: moduleCode }, run.pathway);
   };
 
   return (
@@ -234,8 +273,7 @@ function Table({
           <tbody>
             {rows.map((row, index) => {
               const room = row.pair?.room;
-              const rowName =
-                row.source.row ?? row.current?.row ?? row.limit?.row ?? "Test name not stated";
+              const rowName = row.source.row ?? "Test name not stated";
               const sourceLink = evidenceLink(row.run, row.source);
               return (
                 <tr
@@ -260,10 +298,14 @@ function Table({
                     )}
                   </td>
                   <td className="p-2 tabular-nums">
-                    {row.current ? written(row.current) : "Not supplied"}
+                    {row.currentFacts.length > 0
+                      ? row.currentFacts.map(written).join("; ")
+                      : "Not supplied"}
                   </td>
                   <td className="p-2 tabular-nums">
-                    {row.limit ? written(row.limit) : "Not supplied"}
+                    {row.limitFacts.length > 0
+                      ? row.limitFacts.map(written).join("; ")
+                      : "Not supplied"}
                   </td>
                   <td className="p-2 tabular-nums">
                     {room === undefined ? (
@@ -299,6 +341,23 @@ function Table({
           </tbody>
         </table>
       </div>
+      {missing.length > 0 && (
+        <section aria-label={emptyGroupTitle} className="mt-3 rounded-ds-md bg-surface-subtle p-2">
+          <h3 className="text-small font-medium text-text-primary">{emptyGroupTitle}</h3>
+          <ul className="mt-1 space-y-1 text-caption text-text-secondary">
+            {missing.map(({ issuer, run }) => (
+              <li key={issuer.key} className="flex flex-wrap items-center gap-x-2">
+                <span>{issuer.name}</span>
+                <span>{emptyGroupText}</span>
+                <span>{emptySourceModule(run)}</span>
+                <a href={reportPath(run.folder)} aria-label={`Open run for ${issuer.name}`}>
+                  Open run
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
   );
 }
@@ -306,15 +365,24 @@ function Table({
 export function Headroom(props: Props) {
   return (
     <section className="space-y-4" aria-label="Headroom">
-      <Table {...props} currentField={CURRENT} limitField={LIMIT} title="Covenant headroom" />
-      {hasTriggerFacts(props.data) && (
-        <Table
-          {...props}
-          currentField={TRIGGER_CURRENT}
-          limitField={TRIGGER_LIMIT}
-          title="Rating triggers"
-        />
-      )}
+      <Table
+        {...props}
+        currentField={CURRENT}
+        limitField={LIMIT}
+        moduleCode="CP-4"
+        emptyGroupTitle="Issuers without covenant facts in newest run"
+        emptyGroupText="No typed covenant test values."
+        title="Covenant headroom"
+      />
+      <Table
+        {...props}
+        currentField={TRIGGER_CURRENT}
+        limitField={TRIGGER_LIMIT}
+        moduleCode="CP-2H"
+        emptyGroupTitle="Issuers without trigger facts in newest run"
+        emptyGroupText="No typed rating trigger values."
+        title="Rating triggers"
+      />
       <section
         className="rounded-ds-lg border border-border-subtle bg-surface-card p-3"
         aria-label="Base and downside cases"

@@ -118,6 +118,8 @@ function fixture(): Coverage {
     fact("alpha", "alpha-run", currentId, "Ambiguous", 13, "2"),
     fact("alpha", "alpha-run", currentId, "Ambiguous", 13, "3"),
     fact("alpha", "alpha-run", limitId, "Ambiguous", 13, "4"),
+    fact("alpha", "alpha-run", currentId, "Duplicate without limit", 131, "7"),
+    fact("alpha", "alpha-run", currentId, "Duplicate without limit", 131, "8"),
     fact("alpha", "alpha-run", currentId, "Equal", 14, "4"),
     fact("alpha", "alpha-run", limitId, "Equal", 14, "4"),
     fact("alpha", "alpha-run", currentId, "Wrong unit", 15, "2", "ratio"),
@@ -151,7 +153,7 @@ describe("Headroom", () => {
     );
     const covenant = screen.getByRole("table", { name: "Covenant headroom" });
     const rows = within(covenant).getAllByRole("row");
-    expect(rows.map((row) => row.textContent)).toHaveLength(11);
+    expect(rows.map((row) => row.textContent)).toHaveLength(12);
     expect(rows[1]).toHaveTextContent("Beyond");
     expect(rows[1]).toHaveTextContent("−1x");
     expect(rows[1]).toHaveTextContent("beyond the limit");
@@ -163,16 +165,22 @@ describe("Headroom", () => {
     expect(rows[4]).toHaveTextContent("not computed");
     expect(rows[5]).toHaveTextContent("Ambiguous");
     expect(rows[5]).toHaveTextContent("ambiguous");
-    expect(rows[6]).toHaveTextContent("Equal");
-    expect(within(rows[6] as HTMLElement).getByLabelText("Level mark at 50%")).toBeInTheDocument();
-    expect(within(rows[6] as HTMLElement).getByLabelText("Limit mark at 50%")).toBeInTheDocument();
-    expect(rows[7]).toHaveTextContent("Wrong unit");
-    expect(rows[7]).toHaveTextContent("not computed");
-    expect(rows[8]).toHaveTextContent("Other valid unit");
-    expect(rows[9]).toHaveTextContent("Unit not stated");
-    expect(rows[9]).toHaveTextContent("not computed");
-    expect(rows[10]).toHaveTextContent("Beta covenant");
-    expect(within(covenant).getAllByRole("link", { name: /Open run/ })).toHaveLength(10);
+    expect(rows[5]).toHaveTextContent("2x; 3x");
+    expect(rows[5]?.querySelectorAll("[data-mark]")).toHaveLength(0);
+    expect(rows[6]).toHaveTextContent("Duplicate without limit");
+    expect(rows[6]).toHaveTextContent("7x; 8x");
+    expect(rows[6]).toHaveTextContent("ambiguous");
+    expect(rows[6]?.querySelectorAll("[data-mark]")).toHaveLength(0);
+    expect(rows[7]).toHaveTextContent("Equal");
+    expect(within(rows[7] as HTMLElement).getByLabelText("Level mark at 50%")).toBeInTheDocument();
+    expect(within(rows[7] as HTMLElement).getByLabelText("Limit mark at 50%")).toBeInTheDocument();
+    expect(rows[8]).toHaveTextContent("Wrong unit");
+    expect(rows[8]).toHaveTextContent("not computed");
+    expect(rows[9]).toHaveTextContent("Other valid unit");
+    expect(rows[10]).toHaveTextContent("Unit not stated");
+    expect(rows[10]).toHaveTextContent("not computed");
+    expect(rows[11]).toHaveTextContent("Beta covenant");
+    expect(within(covenant).getAllByRole("link", { name: /Open run/ })).toHaveLength(11);
     expect(
       screen.getByText("This page could not read base and downside cases."),
     ).toBeInTheDocument();
@@ -212,6 +220,64 @@ describe("Headroom", () => {
     expect(within(gap).getByRole("link", { name: "Open run" })).toHaveAttribute(
       "href",
       expect.stringContaining("beta-folder"),
+    );
+  });
+
+  it("shows each newest-run issuer with no typed facts as a report-linked gap", () => {
+    const gammaRun = { ...alphaRun, key: "gamma-run", folder: "gamma-folder" };
+    const gammaOldRun = {
+      ...alphaRun,
+      key: "gamma-old-run",
+      folder: "gamma-old-folder",
+      asOf: "2024-12-31",
+    };
+    const gamma: Issuer = {
+      key: "gamma",
+      name: "Gamma",
+      sector: "Industrials",
+      runs: [gammaRun, gammaOldRun],
+    };
+    const base = fixture();
+    const data = {
+      ...base,
+      issuers: [...base.issuers, gamma],
+      facts: [
+        ...base.facts,
+        fact("gamma", "gamma-old-run", currentId, "Old covenant", 40, "3"),
+        fact("gamma", "gamma-old-run", limitId, "Old covenant", 40, "4"),
+      ],
+    };
+    render(
+      <Headroom
+        data={data}
+        issuers={[...issuers, gamma]}
+        selected={null}
+        onSelect={() => undefined}
+      />,
+    );
+
+    const covenant = screen.getByRole("table", { name: "Covenant headroom" });
+    expect(within(covenant).queryByRole("row", { name: /Gamma/ })).not.toBeInTheDocument();
+    const covenantGap = screen.getByRole("region", {
+      name: "Issuers without covenant facts in newest run",
+    });
+    expect(covenantGap).toHaveTextContent("Gamma");
+    expect(covenantGap).toHaveTextContent("Legal & covenants");
+    expect(within(covenantGap).getByRole("link", { name: "Open run for Gamma" })).toHaveAttribute(
+      "href",
+      "/report/gamma-folder",
+    );
+
+    const triggers = screen.getByRole("table", { name: "Rating triggers" });
+    expect(within(triggers).queryByRole("row", { name: /Gamma/ })).not.toBeInTheDocument();
+    const triggerGap = screen.getByRole("region", {
+      name: "Issuers without trigger facts in newest run",
+    });
+    expect(triggerGap).toHaveTextContent("Gamma");
+    expect(triggerGap).toHaveTextContent("Ratings & triggers");
+    expect(within(triggerGap).getByRole("link", { name: "Open run for Gamma" })).toHaveAttribute(
+      "href",
+      "/report/gamma-folder",
     );
   });
 });
