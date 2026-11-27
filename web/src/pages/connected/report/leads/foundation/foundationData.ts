@@ -1,7 +1,7 @@
 import { unitLabel, type OutputEntry, type Row, type Table } from "../../../publishedReport";
 import { tone } from "../../../signal";
 import { difference, readCell, signOf, sum, type Reading } from "../kit/numbers";
-import { changeBetween, type Change } from "../kit/changes";
+import { changeBetween, yearApart, type Change } from "../kit/changes";
 import { citesSource, clauses, IN_EVIDENCE, reasonText, safeText } from "../kit/reader";
 import {
   allTables,
@@ -724,12 +724,19 @@ export type ProForma = {
   netDebt: Reading;
   leverage: Reading;
   unit: string;
+  reportingUnit: string;
   /** The row's Basis and limitation words, sources left out. */
   basis: string | null;
   line: number;
 };
 
-export type LiquidityPeriod = { label: string; cash: Reading; undrawn: Reading; line: number };
+export type LiquidityPeriod = {
+  label: string;
+  cash: Reading;
+  undrawn: Reading;
+  unit: string;
+  line: number;
+};
 
 export type NetDebtView = {
   unit: string;
@@ -782,6 +789,7 @@ function adjustmentsOf(entry: OutputEntry) {
     netDebt: readCell(text(row, "Pro forma net debt")),
     leverage: readCell(text(row, "Pro forma net leverage")),
     unit: unitLabel(text(row, "Reporting unit")),
+    reportingUnit: text(row, "Reporting unit"),
     basis: basisOf(row),
     line: row.line,
   }));
@@ -833,9 +841,10 @@ function readNetDebt(entry: OutputEntry): NetDebtView | string {
     typeof liquid === "string"
       ? []
       : liquid.rows.flatMap(({ period, row }) => {
-          const [cash, undrawn] = [
+          const [cash, undrawn, unit] = [
             columnOf(liquid.table, "Cash"),
             columnOf(liquid.table, "Undrawn committed facilities"),
+            columnOf(liquid.table, "Reporting unit"),
           ];
           return cash < 0 || undrawn < 0
             ? []
@@ -844,6 +853,7 @@ function readNetDebt(entry: OutputEntry): NetDebtView | string {
                   label: period.label,
                   cash: readCell(row.cells[cash] ?? ""),
                   undrawn: readCell(row.cells[undrawn] ?? ""),
+                  unit: (row.cells[unit] ?? "").trim(),
                   line: row.line,
                 },
               ];
@@ -1032,6 +1042,8 @@ export type SegmentView = {
   /** The measures' names as the handoff writes them ("Net sales", "EBITDA As Defined"). */
   salesLabel: string;
   ebitdaLabel: string;
+  /** EBITDA rows kept apart when the schedule states more than one definition. */
+  mixedEbitda: { name: string; definition: string; values: PeriodCell[] }[];
   segments: Segment[];
   /** Corporate and elimination lines: stated apart, never ranked. */
   apart: Segment[];
@@ -1041,6 +1053,7 @@ export type SegmentView = {
 type SegmentCell = {
   name: string;
   measure: "sales" | "ebitda";
+  definition: string;
   label: string;
   cell: Reading;
   line: number;
@@ -1054,7 +1067,8 @@ type SegmentRead = {
   ebitdaLabel: string;
 } & Placing;
 
-const EBITDA_WORDS = /EBITDA(?: As Defined| \((?:Adjusted|Reported)\))?/i;
+const EBITDA_WORDS =
+  /\b(?:(?:Adjusted|Reported) EBITDA\b|EBITDA\b(?: As Defined\b| \((?:Adjusted|Reported)\))?)/i;
 const SALES_WORDS = /\b(?:net sales|revenue|sales)\b/i;
 const SEPARATOR = /[\s,—–-]+/;
 
@@ -1066,7 +1080,7 @@ const SEPARATOR = /[\s,—–-]+/;
  * revenue", "Total revenue"). The handoff contract fixes no label form here; these are the forms
  * the retained handoffs write.
  */
-function wideLabel(label: string): { name: string; measure: "sales" | "ebitda" } | null {
+function wideLabel(label: string): Pick<SegmentCell, "name" | "measure" | "definition"> | null {
   const ebitda = EBITDA_WORDS.exec(label);
   const total = /^Total\s+/i.exec(label);
   const sales = SALES_WORDS.exec(label);
@@ -1079,7 +1093,7 @@ function wideLabel(label: string): { name: string; measure: "sales" | "ebitda" }
     .trim();
   const groupTotal = total && (sales || /\b(?:segments?|consolidated|group)\b/i.test(name));
   if (!name || groupTotal || /\s[—–]\s/.test(name)) return null;
-  return { name, measure };
+  return { name, measure, definition: ebitda?.[0] ?? "" };
 }
 
 function longSchedule(table: Table, at: (name: string) => number): SegmentRead | string {
@@ -1098,12 +1112,27 @@ function longSchedule(table: Table, at: (name: string) => number): SegmentRead |
   const [unit] = [...units];
   if ("reason" in ordered) return periodsGap("the segment schedule", ordered.reason);
   if (units.size !== 1 || !unit) return SEGMENT_UNITS;
+  const ebitdaLabel = table.headers[ebitdaAt] ?? "EBITDA";
   const cells = table.rows.flatMap((row): SegmentCell[] => {
     const name = (row.cells[nameAt] ?? "").trim();
     const { label } = statedPeriod(row.cells[periodAt] ?? "");
     return [
-      { name, measure: "sales", label, cell: readCell(row.cells[salesAt] ?? ""), line: row.line },
-      { name, measure: "ebitda", label, cell: readCell(row.cells[ebitdaAt] ?? ""), line: row.line },
+      {
+        name,
+        measure: "sales",
+        definition: "",
+        label,
+        cell: readCell(row.cells[salesAt] ?? ""),
+        line: row.line,
+      },
+      {
+        name,
+        measure: "ebitda",
+        definition: ebitdaLabel,
+        label,
+        cell: readCell(row.cells[ebitdaAt] ?? ""),
+        line: row.line,
+      },
     ];
   });
   return {
@@ -1113,7 +1142,7 @@ function longSchedule(table: Table, at: (name: string) => number): SegmentRead |
     ...placing(ordered.unplaced),
     unit: unitLabel(unit),
     salesLabel: table.headers[salesAt] ?? "Net sales",
-    ebitdaLabel: table.headers[ebitdaAt] ?? "EBITDA",
+    ebitdaLabel,
   };
 }
 
@@ -1130,18 +1159,15 @@ function wideSchedule(table: Table): SegmentRead | string {
   const [unit] = [...units];
   if (read.length === 0) return NOT_IN("a net sales or EBITDA row of the segment schedule");
   if (units.size !== 1 || !unit) return SEGMENT_UNITS;
-  const cells = read.flatMap(({ row, name, measure }) =>
+  const cells = read.flatMap(({ row, ...measure }) =>
     columns.periods.map(({ period, item }): SegmentCell => ({
-      name,
-      measure,
+      ...measure,
       label: period.label,
       cell: readCell(row.cells[item] ?? ""),
       line: row.line,
     })),
   );
-  const ebitdaLabel = read.flatMap(
-    ({ row }) => EBITDA_WORDS.exec(row.cells[0] ?? "")?.[0] ?? [],
-  )[0];
+  const ebitdaLabel = read.find(({ measure }) => measure === "ebitda")?.definition;
   const salesWord = read.flatMap(({ row }) => SALES_WORDS.exec(row.cells[0] ?? "")?.[0] ?? [])[0];
   return {
     table,
@@ -1169,12 +1195,13 @@ const isApart = (name: string) => /^unallocated|\bcorporate\b|\beliminations?\b/
 function readSegments(entry: OutputEntry): SegmentView | string {
   const read = segmentSchedule(entry);
   if (typeof read === "string") return read;
-  const key = (cell: SegmentCell) => `${normalLabel(cell.name)}|${cell.measure}|${cell.label}`;
+  const key = (cell: SegmentCell) =>
+    `${normalLabel(cell.name)}|${cell.measure}|${cell.definition.toLowerCase()}|${cell.label}`;
   const twice = read.cells.find(
     (cell, at) => read.cells.findIndex((other) => key(other) === key(cell)) !== at,
   );
   if (twice) {
-    const label = twice.measure === "sales" ? read.salesLabel : read.ebitdaLabel;
+    const label = twice.measure === "sales" ? read.salesLabel : twice.definition;
     const measure = /^[A-Z][a-z]/.test(label)
       ? label.charAt(0).toLowerCase() + label.slice(1)
       : label;
@@ -1183,27 +1210,41 @@ function readSegments(entry: OutputEntry): SegmentView | string {
       `${twice.name} ${measure} appears more than once for ${twice.label}`,
     );
   }
-  const names = [...new Set(read.cells.map((cell) => cell.name))];
-  const series = (name: string, measure: SegmentCell["measure"]) =>
+  const ebitdaDefinitions = (cells: SegmentCell[]) => [
+    ...new Set(cells.map(({ definition }) => definition).filter(Boolean)),
+  ];
+  const mixed = new Set(ebitdaDefinitions(read.cells).map((label) => label.toLowerCase())).size > 1;
+  const series = (cells: SegmentCell[]) =>
     onto(
       read.periods,
-      read.cells
-        .filter((cell) => cell.name === name && cell.measure === measure)
-        .map((cell) => ({ label: cell.label, cell: cell.cell, line: cell.line })),
+      cells.map(({ label, cell, line }) => ({ label, cell, line })),
     );
-  const all = names.map((name): Segment => ({
-    name,
-    sales: series(name, "sales"),
-    ebitda: series(name, "ebitda"),
-  }));
+  const names = [...new Set(read.cells.map((cell) => cell.name))];
+  const mixedEbitda: SegmentView["mixedEbitda"] = [];
+  const all = names.map((name): Segment => {
+    const cells = read.cells.filter((cell) => cell.name === name);
+    const ebitda = cells.filter((cell) => cell.measure === "ebitda");
+    if (mixed) {
+      for (const definition of ebitdaDefinitions(ebitda)) {
+        const values = series(ebitda.filter((cell) => cell.definition === definition));
+        mixedEbitda.push({ name, definition, values });
+      }
+    }
+    return {
+      name,
+      sales: series(cells.filter((cell) => cell.measure === "sales")),
+      ebitda: mixed ? [] : series(ebitda),
+    };
+  });
   return {
     unit: read.unit,
     periods: read.periods,
     ordered: read.ordered,
     unplaced: read.unplaced,
-    comparison: comparisonOf(read.periods),
+    comparison: mixed ? null : comparisonOf(read.periods),
     salesLabel: read.salesLabel,
-    ebitdaLabel: read.ebitdaLabel,
+    ebitdaLabel: mixed ? "EBITDA" : read.ebitdaLabel,
+    mixedEbitda,
     segments: all.filter((segment) => !isApart(segment.name)),
     apart: all.filter((segment) => isApart(segment.name)),
     tableLine: read.table.line,
@@ -1241,6 +1282,10 @@ export type InterestCover = {
   values: PeriodCell[];
   /** The Basis and limitation words per period, sources left out. */
   bases: (string | null)[];
+  /** The complete period cell for every value, including any explicit date. */
+  periodWords: string[];
+  /** Consecutive figures the handoff places on different dates or EBITDA bases. */
+  separations: { from: string; to: string }[];
   /**
    * The two periods `change` is between: the latest reported period and the reported one before
    * it, never a pro forma, a forecast or an unplaced period. Null with fewer than two.
@@ -1259,48 +1304,100 @@ export type InterestCover = {
 const COVER = "Chart data: interest cover";
 const COVER_COLUMN = "EBITDA / cash interest";
 
+/** A ratio may repeat its column's stated unit (e.g. "3.1x" in a column measured in x). */
+function coverCell(text: string, unit: string): Reading {
+  if (/^x$/i.test(unit)) {
+    const ratio = readCell(text.trim().replace(/\s*x$/i, ""));
+    if (ratio.kind === "number") return ratio;
+  }
+  return readCell(text);
+}
+
+const isoEnd = (period: Period) => / \/ (\d{4})-(\d{2}-\d{2})$/.exec(period.cell ?? "");
+
+const COVER_EBITDA_WORDS = new RegExp(EBITDA_WORDS.source, `${EBITDA_WORDS.flags}g`);
+
+/** Undefined means no explicit definition; null means conflicting definitions. */
+function coverBasis(basis: string): string | null | undefined {
+  let definition: string | undefined;
+  for (const [words] of basis.matchAll(COVER_EBITDA_WORDS)) {
+    const explicit = words
+      .toLowerCase()
+      .replace(/ebitda|[()]/g, "")
+      .trim();
+    if (!explicit) continue;
+    if (definition && definition !== explicit) return null;
+    definition = explicit;
+  }
+  return definition;
+}
+
+function coverPeriodsDiffer(
+  prior: { period: Period; ebitdaDefinition: ReturnType<typeof coverBasis> },
+  latest: { period: Period; ebitdaDefinition: ReturnType<typeof coverBasis> },
+) {
+  const [from, to] = [prior.ebitdaDefinition, latest.ebitdaDefinition];
+  if (from === null || to === null) return true;
+  if (from && to && from !== to) return true;
+  if (!yearApart(prior.period, latest.period)) return false;
+  const [earlierEnd, laterEnd] = [isoEnd(prior.period), isoEnd(latest.period)];
+  return Boolean(
+    earlierEnd &&
+    laterEnd &&
+    (earlierEnd[2] !== laterEnd[2] || Number(laterEnd[1]) - Number(earlierEnd[1]) !== 1),
+  );
+}
+
 /** See the exported reader below; a string is the reason the figure is not drawn. */
 function readCover(entry: OutputEntry): InterestCover | string {
   const table = tableUnder(entry, COVER);
   if (!table) return NOT_IN("interest cover");
   const read = periodRows(table);
   if ("reason" in read) return periodsGap("interest cover", read.reason);
-  const rows = read.periods.map(({ period, item }) => ({ period, row: item }));
-  const [at, unitAt, basisAt] = [COVER_COLUMN, "Reporting unit", "Basis and limitation"].map(
-    (header) => columnOf(table, header),
-  );
-  if (at === undefined || at < 0 || unitAt === undefined || unitAt < 0)
-    return BECAUSE("interest cover", NOT_A_SHAPE);
-  const values = rows.map(({ period, row }): PeriodCell => ({
+  const at = columnOf(table, COVER_COLUMN);
+  const unitAt = columnOf(table, "Reporting unit");
+  const basisAt = columnOf(table, "Basis and limitation");
+  if (at < 0 || unitAt < 0) return BECAUSE("interest cover", NOT_A_SHAPE);
+  const rows = read.periods.map(({ period, item }) => {
+    const unit = (item.cells[unitAt] ?? "").trim();
+    const statedBasis = item.cells[basisAt] ?? "";
+    return {
+      period,
+      ebitdaDefinition: coverBasis(statedBasis),
+      basis: basisText(statedBasis),
+      unit,
+      cell: coverCell(item.cells[at] ?? "", unit),
+      line: item.line,
+    };
+  });
+  const values = rows.map(({ period, cell, line }): PeriodCell => ({
     label: period.label,
-    cell: readCell(row.cells[at] ?? ""),
-    line: row.line,
+    cell,
+    line,
   }));
   if (values.every((value) => value.cell?.kind !== "number"))
     return gapWords(values.map((value) => ({ label: value.label, text: value.cell?.text ?? "" })));
-  const units = new Set(rows.map(({ row }) => (row.cells[unitAt] ?? "").trim()));
+  const units = new Set(rows.map(({ unit }) => unit));
   const [unit] = [...units];
   if (units.size !== 1 || !unit) return NOT_IN("interest cover in one unit");
-  const cellOf = (period: Period) => values.find(({ label }) => label === period.label)?.cell;
-  const reported = rows.flatMap(({ period }) => (isReported(period.label) ? [period] : []));
-  const [prior, latest] = reported.slice(-2);
-  const comparison = prior && latest ? { from: prior.label, to: latest.label } : null;
-  const change =
-    prior && latest
-      ? changeBetween(
-          { period: prior, cell: cellOf(prior) ?? null, unit },
-          { period: latest, cell: cellOf(latest) ?? null, unit },
-        )
-      : null;
+  const [prior, latest] = rows.filter(({ period }) => isReported(period.label)).slice(-2);
+  const comparable = prior && latest && !coverPeriodsDiffer(prior, latest);
+  const change = comparable ? changeBetween(prior, latest) : null;
+  const separations = rows.slice(1).flatMap((row, at) => {
+    const previous = rows[at];
+    return previous && coverPeriodsDiffer(previous, row)
+      ? [{ from: previous.period.label, to: row.period.label }]
+      : [];
+  });
   return {
     label: table.headers[at] ?? COVER_COLUMN,
     unit: unitLabel(unit),
     ...placing(read.unplaced),
     values,
-    bases: rows.map(({ row }) =>
-      basisAt === undefined || basisAt < 0 ? null : basisText(row.cells[basisAt] ?? ""),
-    ),
-    comparison,
+    bases: rows.map(({ basis }) => basis),
+    periodWords: rows.map(({ period }) => period.cell ?? period.label),
+    separations,
+    comparison: comparable ? { from: prior.period.label, to: latest.period.label } : null,
     change,
     tone: change ? tone("coverage", change.text) : "none",
     notes: sectionNotes(entry, COVER),

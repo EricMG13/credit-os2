@@ -5,6 +5,7 @@ import {
   cashLadder,
   earningsAgainstDebt,
   handoffWords,
+  interestCover,
   netDebtView,
   segmentView,
   statedPeriods,
@@ -63,9 +64,16 @@ type Cells = { label: string; cell: Reading | null }[];
 const fromValues = (values: readonly PeriodCell[]): Cells =>
   values.map(({ label, cell }) => ({ label, cell }));
 
+type FigureCells = {
+  figure: string;
+  cells: Cells;
+  line: number;
+  compare?: (from: string, to: string) => boolean;
+};
+
 /** Each figure's cells by period, from the figure's own reader; a figure that cannot draw is left out. */
-function figureCells(entry: OutputEntry): { figure: string; cells: Cells; line: number }[] {
-  const out: { figure: string; cells: Cells; line: number }[] = [];
+function figureCells(entry: OutputEntry): FigureCells[] {
+  const out: FigureCells[] = [];
   const earnings = earningsAgainstDebt(entry);
   if (earnings)
     out.push({
@@ -104,11 +112,24 @@ function figureCells(entry: OutputEntry): { figure: string; cells: Cells; line: 
   if (segments)
     out.push({
       figure: "Segments",
-      cells: [...segments.segments, ...segments.apart].flatMap((segment) => [
-        ...fromValues(segment.sales),
-        ...fromValues(segment.ebitda),
-      ]),
+      cells: [
+        ...[...segments.segments, ...segments.apart].flatMap((segment) => [
+          ...fromValues(segment.sales),
+          ...fromValues(segment.ebitda),
+        ]),
+        ...segments.mixedEbitda.flatMap(({ values }) => fromValues(values)),
+      ],
       line: segments.tableLine,
+      compare: (from, to) => segments.comparison?.from === from && segments.comparison.to === to,
+    });
+  const cover = interestCover(entry);
+  if (cover)
+    out.push({
+      figure: "Interest cover",
+      cells: fromValues(cover.values),
+      line: cover.tableLine,
+      compare: (from, to) =>
+        cover.change !== null && cover.comparison?.from === from && cover.comparison.to === to,
     });
   return out;
 }
@@ -148,6 +169,21 @@ function withUnstated(periods: readonly Period[]): (Period & { unstated?: true }
   });
 }
 
+/** The two periods must have numeric coverage in a figure that can compare them. */
+function coveredComparison(comparison: PeriodStrip["comparison"], figures: FigureCells[]) {
+  if (!comparison) return null;
+  const { from, to } = comparison;
+  return figures.some(
+    ({ cells, compare }) =>
+      (compare?.(from, to) ?? true) &&
+      [from, to].every((label) =>
+        cells.some((cell) => cell.label === label && cell.cell?.kind === "number"),
+      ),
+  )
+    ? comparison
+    : null;
+}
+
 /** The strip: the stated periods on a time axis, each figure's state per period, and what is apart. */
 export function periodStrip(entry: OutputEntry): PeriodStrip {
   const stated = statedPeriods(entry);
@@ -178,8 +214,9 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
     ? stated.periods.filter((period) => period.kind !== "annual")
     : [];
   const latest = latestReported(stated.labels, (label) => label);
+  const comparison = coveredComparison(stated.comparison, found);
   const compared = (label: string) =>
-    stated.comparison?.from === label ? "from" : stated.comparison?.to === label ? "to" : null;
+    comparison?.from === label ? "from" : comparison?.to === label ? "to" : null;
   const axis = (stated.ordered ? withUnstated(onAxis) : onAxis).map((period): StripPeriod => ({
     label: period.label,
     year: period.year,
@@ -201,7 +238,7 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
   return {
     axis,
     apart,
-    comparison: stated.comparison,
+    comparison,
     figures,
     shown,
     gaps: stated.gaps,
