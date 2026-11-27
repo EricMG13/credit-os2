@@ -205,23 +205,39 @@ def observed_routes(db: sqlite3.Connection, run: str) -> dict[str, str]:
     }
 
 
-def model_decisions(db: sqlite3.Connection) -> str:
-    table = db.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='dev_route_notifications'"
-    ).fetchone()
-    if table is None:
+def has_table(db: sqlite3.Connection, table: str) -> bool:
+    return (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
+        is not None
+    )
+
+
+def model_decisions(db: sqlite3.Connection, run: str) -> str:
+    if not has_table(db, "dev_route_notifications"):
         return ""
-    rows = db.execute(
-        "SELECT decision_id,message FROM dev_route_notifications ORDER BY rowid DESC LIMIT 20"
-    ).fetchall()
+    if has_table(db, "dev_route_notification_runs"):
+        rows = db.execute(
+            """SELECT n.decision_id,n.message,r.run_id
+               FROM dev_route_notifications n LEFT JOIN dev_route_notification_runs r
+               ON n.decision_id=r.decision_id
+               WHERE r.run_id=? OR r.run_id IS NULL ORDER BY n.rowid DESC LIMIT 20""",
+            (run,),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT decision_id,message,NULL AS run_id FROM dev_route_notifications "
+            "ORDER BY rowid DESC LIMIT 20"
+        ).fetchall()
     if not rows:
         return ""
     items = "".join(
-        f"<li><b>{escape(row['decision_id'])}</b><p>{escape(row['message'])}</p></li>"
+        f"<li><b>{escape(row['decision_id'])}</b>"
+        f"{' <small>Project notice</small>' if row['run_id'] is None else ''}"
+        f"<p>{escape(row['message'])}</p></li>"
         for row in rows
     )
     return (
-        '<section class="workers"><h2>Project model decisions</h2>'
+        '<section class="workers"><h2>Model decisions</h2>'
         f'<ul class="model-list">{items}</ul></section>'
     )
 
@@ -248,7 +264,7 @@ def dashboard(db_path: Path, path: str, query: dict[str, list[str]]) -> tuple[HT
                 )
             report = run_status(db, run)
             observed = observed_routes(db, run)
-            model_log = model_decisions(db)
+            model_log = model_decisions(db, run)
     except sqlite3.Error:
         message = '<p class="empty">The ledger could not be read. Check its path and refresh.</p>'
         return HTTPStatus.SERVICE_UNAVAILABLE, page_html(path, message)

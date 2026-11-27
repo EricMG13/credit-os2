@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -54,8 +55,9 @@ def test_rpc_reader_preserves_buffered_messages(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(dev_dispatch.select, "select", ready)
     monkeypatch.setattr(dev_dispatch.os, "read", read)
     buffer = bytearray()
-    assert rpc_read(process, 1, buffer) == ready_messages[0]
-    assert rpc_read(process, 1, buffer) == ready_messages[1]
+    deadline = time.monotonic() + 1
+    assert rpc_read(process, deadline, buffer) == ready_messages[0]
+    assert rpc_read(process, deadline, buffer) == ready_messages[1]
 
 
 def test_codex_thread_identity_and_final_text_are_observed(
@@ -419,3 +421,45 @@ def test_existing_high_effort_route_cannot_reserve_worker(tmp_path: Path) -> Non
         assert (
             db.execute("SELECT count(*) FROM events WHERE kind='route-resolved'").fetchone()[0] == 0
         )
+
+
+def test_rpc_deadline_is_not_reset_by_partial_messages(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tools import dev_dispatch
+
+    process = FakeProcess([])
+    now = iter([1.0, 2.0, 4.0])
+    waits: list[float] = []
+
+    def ready(*args: object) -> tuple[list[object], list[object], list[object]]:
+        waits.append(float(str(args[-1])))
+        return ([process.stdout], [], [])
+
+    monkeypatch.setattr(dev_dispatch.time, "monotonic", lambda: next(now))
+    monkeypatch.setattr(dev_dispatch.select, "select", ready)
+    monkeypatch.setattr(dev_dispatch.os, "read", lambda *_: b"{")
+
+    with pytest.raises(dev_dispatch.subprocess.TimeoutExpired):
+        rpc_read(process, 4.0, bytearray())
+    assert waits == [3.0, 2.0]
+
+
+@pytest.mark.parametrize(
+    "notification",
+    [
+        {"method": "model/rerouted", "params": {"model": "another-model"}},
+        {"method": "thread/settings/updated", "params": {"threadSettings": {"effort": "high"}}},
+    ],
+)
+def test_unapproved_worker_route_interrupts_before_more_rpc_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, notification: dict[str, object]
+) -> None:
+    from tools import dev_dispatch
+
+    responses = iter([{"id": 3, "result": {"turn": {"id": "t-1"}}}, notification])
+    monkeypatch.setattr(dev_dispatch, "rpc_read", lambda *_: next(responses))
+    request = CodexRequest(["codex"], tmp_path, "Reply OK", "gpt-6.2-astra", "medium", 30)
+    turn, rerouted, changes, receipt = dev_dispatch._await_turn(
+        FakeProcess([]), request, "thread-1", time.monotonic() + 30, bytearray()
+    )
+    assert turn == {"status": "interrupted"}
+    assert rerouted and changes and receipt is not None

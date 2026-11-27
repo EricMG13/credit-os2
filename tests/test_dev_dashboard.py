@@ -69,3 +69,24 @@ def test_dashboard_links_a_replaced_decision_to_its_latest_resolution(tmp_path: 
     assert b"Draft change request" not in contents
     assert b"Urgency</dt><dd>Today" in contents
     assert b'run=run-1&amp;decision=D-03#detail">D-03</a>' in contents
+
+
+def test_model_notices_follow_the_selected_run(tmp_path: Path) -> None:
+    from tools.dev_dashboard import model_decisions
+
+    with connect(tmp_path / "dev.sqlite") as db:
+        db.executescript(
+            """
+            CREATE TABLE dev_route_notifications (decision_id TEXT, message TEXT);
+            INSERT INTO dev_route_notifications VALUES ('D-legacy','Legacy note');
+            INSERT INTO dev_route_notifications VALUES ('D-own','Own run');
+            INSERT INTO dev_route_notifications VALUES ('D-other','Other run');
+            CREATE TABLE dev_route_notification_runs (decision_id TEXT, run_id TEXT);
+            INSERT INTO dev_route_notification_runs VALUES ('D-own','run-1');
+            INSERT INTO dev_route_notification_runs VALUES ('D-other','run-2');
+            """
+        )
+        markup = model_decisions(db, "run-1")
+    assert "Own run" in markup
+    assert "Other run" not in markup
+    assert "Legacy note" in markup and "Project notice" in markup

@@ -165,6 +165,9 @@ is the primary checkout. Keep the database and local evidence there across sessi
    terminal unmetered workers whose accounting was interrupted. Keep reservations for
    workers with unknown outcomes while checking their native session and worktree. A pause or resume uses the corresponding `action`.
    Identify the affected work when explaining why an earlier result cannot be integrated.
+   To preserve an unaffected attempt during a redirect, include its exact ID in
+   `revalidated_attempts` and record the verified assumptions in `reason`. Accept the result
+   at the current revision. The ledger retains its original launch revision.
 3. A model route needs recorded, independent outcomes for its client and task family. Feed
    completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
    Show changes to the selected route with their decision IDs. A model trial, a browser journey

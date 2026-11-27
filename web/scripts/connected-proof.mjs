@@ -1934,7 +1934,7 @@ async function checkCoveragePage(page, endpoint, channel) {
     outcome.state = "empty";
   } else {
     const view = page.getByRole("group", { name: "View", exact: true });
-    await view.getByRole("button", { name: "Modules", exact: true }).waitFor();
+    await view.getByRole("button", { name: "Modules", exact: true }).click();
     outcome.current_views = await view.getByRole("button").allTextContents();
     outcome.monitor_tab = outcome.current_views.includes("Monitor");
     await page.getByRole("heading", { name: "What each module delivered, by issuer" }).waitFor();

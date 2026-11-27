@@ -71,13 +71,18 @@ def rpc_send(process: subprocess.Popen[bytes], message: dict[str, Any]) -> None:
     process.stdin.flush()
 
 
-def rpc_read(process: subprocess.Popen[bytes], timeout: float, buffer: bytearray) -> dict[str, Any]:
+def rpc_read(
+    process: subprocess.Popen[bytes], deadline: float, buffer: bytearray
+) -> dict[str, Any]:
     if process.stdout is None:
         raise RuntimeError("app-server stdout is unavailable")
     while b"\n" not in buffer:
-        ready, _, _ = select.select([process.stdout], [], [], timeout)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired("codex app-server", 0)
+        ready, _, _ = select.select([process.stdout], [], [], remaining)
         if not ready:
-            raise subprocess.TimeoutExpired("codex app-server", timeout)
+            raise subprocess.TimeoutExpired("codex app-server", remaining)
         chunk = os.read(process.stdout.fileno(), 4096)
         if not chunk:
             raise RuntimeError("Codex app-server exited before replying")
@@ -94,7 +99,7 @@ def rpc_response(
     process: subprocess.Popen[bytes], request_id: int, deadline: float, buffer: bytearray
 ) -> dict[str, Any]:
     while True:
-        message = rpc_read(process, max(deadline - time.monotonic(), 0), buffer)
+        message = rpc_read(process, deadline, buffer)
         if message.get("id") != request_id:
             continue
         if "error" in message:
@@ -271,10 +276,8 @@ def _await_turn(
     buffer: bytearray,
 ) -> tuple[dict[str, Any], bool, list[dict[str, Any]], dict[str, Any] | None]:
     turn_result: dict[str, Any] | None = None
-    rerouted = False
-    reroutes: list[dict[str, Any]] = []
     while time.monotonic() < deadline:
-        message = rpc_read(process, max(deadline - time.monotonic(), 0), buffer)
+        message = rpc_read(process, deadline, buffer)
         if "method" in message and "id" in message and message.get("id") != 3:
             raise RuntimeError("worker requested an unsupported approval")
         if message.get("id") == 3:
@@ -286,16 +289,15 @@ def _await_turn(
             route_change = message.get("params", {})
             if not isinstance(route_change, dict):
                 raise RuntimeError("Codex app-server returned invalid route-change metadata")
-            rerouted = True
-            reroutes.append(route_change)
+            return {"status": "interrupted"}, True, [route_change], turn_result
         if message.get("method") == "thread/settings/updated":
             params = message.get("params", {})
             settings = params.get("threadSettings", {}) if isinstance(params, dict) else {}
             if not _settings_match(settings, request):
-                rerouted = True
-                reroutes.append(settings if isinstance(settings, dict) else {})
+                mismatch = settings if isinstance(settings, dict) else {}
+                return {"status": "interrupted"}, True, [mismatch], turn_result
         if message.get("method") == "turn/completed":
-            return _completed_turn(message, thread_id, turn_result), rerouted, reroutes, turn_result
+            return _completed_turn(message, thread_id, turn_result), False, [], turn_result
     raise subprocess.TimeoutExpired(request.command, request.timeout)
 
 
@@ -374,6 +376,7 @@ def run_codex(request: CodexRequest) -> dict[str, Any]:
             "status": turn.get("status"),
             "rerouted": rerouted,
             "reroutes": reroutes,
+            "error": "Worker interrupted after the approved route changed" if rerouted else None,
             "turn_id": turn.get("id"),
             "duration_ms": turn.get("durationMs"),
             "started_at": turn.get("startedAt"),
@@ -792,11 +795,12 @@ def main() -> int:
     if args.task is None:
         args.task = args.attempt
     try:
-        print(json.dumps(dispatch(args), sort_keys=True))
+        result = dispatch(args)
+        print(json.dumps(result, sort_keys=True))
     except (OSError, ValueError, sqlite3.Error, subprocess.SubprocessError) as error:
         print(json.dumps({"ok": False, "error": str(error)}), file=sys.stderr)
         return 2
-    return 0
+    return int(result["returncode"])
 
 
 if __name__ == "__main__":
