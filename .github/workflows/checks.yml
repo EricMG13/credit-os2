@@ -138,7 +138,8 @@ jobs:
             tests/test_source_text_extraction.py \
             tests/test_statement_extract_labels.py \
             tests/test_statement_history_undated.py \
-            tests/test_transport_connect_not_sent.py
+            tests/test_transport_connect_not_sent.py \
+            tests/test_cp3_ev_metric_unit.py
 
   web:
     name: connected application (lint, types, tests, build)
