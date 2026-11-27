@@ -222,7 +222,9 @@ it("S16-2-3 says a unit gap once and prints no figure or axis end with it", () =
 it("draws the bar in the primary tone by default and in the tone it is given", () => {
   const { container, rerender } = render(<Bullets label="Tests" tests={TESTS} />);
   expect(container.querySelector(".bg-chart-1")).not.toBeNull();
-  expect(container.querySelector(".bg-text-tertiary:not(span span)")).toBeNull();
+  const bar = container.querySelector("[data-threshold]")?.previousElementSibling;
+  expect(bar).not.toBeNull();
+  expect(bar).not.toHaveClass("bg-text-tertiary");
   rerender(<Bullets label="Tests" tests={TESTS} tone="neutral" />);
   expect(container.querySelector(".bg-chart-1")).toBeNull();
   expect(container.querySelector(".bg-text-tertiary")).not.toBeNull();
