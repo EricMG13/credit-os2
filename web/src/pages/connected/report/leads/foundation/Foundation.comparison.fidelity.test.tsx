@@ -312,6 +312,51 @@ it.each([
   expect(Boolean(periods.querySelector("[data-comparison]"))).toBe(compared);
 });
 
+it.each([
+  ["pre-swap cash interest paid", "post-swap cash interest paid", false],
+  ["cash interest paid with swaps", "cash interest paid without swaps", false],
+  ["cash interest paid", "post-swap cash interest paid", false],
+  ["pre-swap cash interest paid", "cash interest paid before swaps", false],
+  ["cash interest paid before swaps", "post-swap cash interest paid", false],
+  [
+    "cash interest paid including swap fees",
+    "cash interest paid including swap settlements",
+    false,
+  ],
+  [
+    "cash interest paid before swaps",
+    "cash interest paid before swaps; post-swap cash interest paid",
+    false,
+  ],
+  [
+    "cash interest paid after swaps",
+    "pre-swap cash interest paid; cash interest paid after swaps",
+    false,
+  ],
+  ["cash interest paid before swaps", "cash interest paid", true],
+  ["cash interest paid", "cash interest paid; swaptions omitted", true],
+] as const)(
+  "checks swap wording and generic cover bases (%s and %s)",
+  (prior, latest, compared) => {
+    const input = coverInput([
+      ["FY2023", "Not supplied: ratio unavailable", "x", ""],
+      ["FY2024 / 2024-09-30", "3", "x", `Reported EBITDA / ${prior}.`],
+      ["FY2025 / 2025-09-30", "5", "x", `Reported EBITDA / ${latest}.`],
+    ]);
+    render(<FoundationLead {...leadProps(input)} />);
+    const tile = screen.getByRole("region", { name: "Interest cover" });
+    expect(
+      [...tile.querySelectorAll('[data-part="value"]')].map((part) => part.textContent),
+    ).toEqual(["3x", "5x"]);
+    expect(tile.querySelector('[data-part="change"]')?.textContent ?? null).toBe(
+      compared ? "FY2024 to FY2025: +2x, up, better" : null,
+    );
+    expect(Boolean(tile.querySelector('[data-part="link"]'))).toBe(compared);
+    const periods = screen.getByRole("region", { name: "Periods" });
+    expect(Boolean(periods.querySelector("[data-comparison]"))).toBe(compared);
+  },
+);
+
 it.each(["10K", "10K filing", "Source S7", "filing_2024.jsonl, pages 71 and 123"])(
   "keeps a source-only annotation (%s) in Evidence without blocking a comparison",
   (locator) => {

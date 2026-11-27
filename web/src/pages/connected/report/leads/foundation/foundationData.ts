@@ -1318,7 +1318,7 @@ const COVER_EBITDA_WORDS = new RegExp(EBITDA_WORDS.source, `${EBITDA_WORDS.flags
 const CASH_INTEREST_BASIS =
   /\b(?:(net|gross) cash interest\b|cash interest(?: paid)?,? (net|gross)\b)/gi;
 const CASH_INTEREST_SWAP_SCOPE =
-  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after|excluding|including)\s+(?:(?:the\s+)?effect\s+of\s+)?(?:interest[- ]rate\s+)?swaps?\b/gi;
+  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after|excluding|including)\s+(?:(?:the\s+)?effect\s+of\s+)?(?:interest[- ]rate\s+)?swaps?(?:\s+settlements?)?(?=\s*(?:$|[.,;:)\]]))/gi;
 
 /** Undefined means no explicit definition; null means conflicting definitions. */
 function oneBasis(definitions: string[]): string | null | undefined {
@@ -1339,10 +1339,11 @@ function coverBasis(basis: string) {
   const swapScope = [...basis.matchAll(CASH_INTEREST_SWAP_SCOPE)].map(([, scope = ""]) =>
     /^(?:before|excluding)$/i.test(scope) ? "excluding" : "including",
   );
+  const remainingBasis = basis.replace(CASH_INTEREST_SWAP_SCOPE, " ");
   return {
     numerator: oneBasis(numerator),
     denominator: oneBasis(denominator),
-    swapScope: oneBasis(swapScope),
+    swapScope: /\bswaps?\b/i.test(remainingBasis) ? null : oneBasis(swapScope),
   };
 }
 

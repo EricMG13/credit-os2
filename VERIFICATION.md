@@ -8,7 +8,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 ## 2026-11-27 — Foundation and Signal integration
 
 - Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
-- Foundation and Modules used older TransDigm CP-1 data and synthetic cases for units, zero and gaps, and like-for-like comparisons. PR review added cases for equivalent and opposing swap scopes, source locators in Evidence, and comparable segment sales alongside mixed EBITDA.
+- Foundation and Modules used older TransDigm CP-1 data and synthetic cases for units, zero and gaps, and like-for-like comparisons. PR review added cases for equivalent, opposing and unrecognized swap scopes, source locators in Evidence, and comparable segment sales alongside mixed EBITDA.
 - Signal used synthetic DOM tests for draft ownership across Settings tabs. Two SQLite connections checked late results, recurring recovery after restart or a busy write, queued requests, and reservation ordering when a model call starts after the digest claim.
 - Not verified: live issuer or provider execution and the weekly full Python suite.
 
