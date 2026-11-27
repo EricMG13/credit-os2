@@ -18,7 +18,7 @@ export const ResearchLead = withDraws(
           span={12}
           label={QUESTIONS}
           title={QUESTIONS}
-          reason="This handoff gives supported research findings but no separate list of questions and answers."
+          reason="This module gives supported research findings but no separate list of questions and answers."
         />
         {!statedInProse(entry, "Events: Research catalysts") && (
           <LaneTile

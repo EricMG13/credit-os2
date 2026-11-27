@@ -8,7 +8,7 @@ import {
 } from "./sourceReadinessData";
 import type { Lead, LeadProps } from "./types";
 
-const ABSENT = "No readiness-by-area table is present in this handoff.";
+const ABSENT = "No readiness-by-area table is present in this module.";
 const NOT_HERE = "This page could not read the key evidence located or the conflicts.";
 
 // The state columns of the matrix, by their grid line at lg and above; the last two lines hold the

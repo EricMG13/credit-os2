@@ -757,7 +757,7 @@ describe("EarningsDeltaLead on the retained handoff", () => {
     expect(hasVarianceRegister(cp1bEntry())).toBe(true);
     expect(
       within(gap).getByText(
-        "The variance register is available in Statements and records; this handoff does not state a charted step bridge.",
+        "The variance register is available in Statements and records; this module does not state a charted step bridge.",
       ),
     ).toBeVisible();
     expect(within(gap).queryByText(/could not read/)).toBeNull();
@@ -1080,7 +1080,7 @@ describe("EarningsDeltaLead on chart tables", () => {
     expect(textOf(row, "reason").join(" ")).toContain("FY2024: Not supplied: not yet reported");
     expect(row.querySelector("[data-current]")).toBeNull();
     expect(
-      screen.getByText(/No charted variance bridge is included in this handoff\./),
+      screen.getByText(/No charted variance bridge is included in this module\./),
     ).toBeVisible();
   });
   it("puts a stated zero at the axis start, not off the chart", () => {

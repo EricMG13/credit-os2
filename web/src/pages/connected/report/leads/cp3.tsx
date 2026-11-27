@@ -50,8 +50,8 @@ export const SecurityLead = withDraws(
             title="Relative value against peers"
             reason={
               relativeValueNarrative
-                ? "No separate peer-level table is included; the handoff reports comparisons in its relative-value findings."
-                : "No peer-level table or relative-value findings are included in this handoff."
+                ? "No separate peer-level table is included; the module reports comparisons in its relative-value findings."
+                : "No peer-level table or relative-value findings are included in this module."
             }
           />
         )}

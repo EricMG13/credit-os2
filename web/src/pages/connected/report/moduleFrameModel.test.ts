@@ -34,7 +34,7 @@ function entry(module: string): OutputEntry {
 }
 
 describe("table-centred module frames", () => {
-  it.each(["CP-0", "CP-PARSE", "CP-1", "CP-1C"])(
+  it.each(["CP-0", "CP-PARSE", "CP-1C"])(
     "%s keeps its bottom line and limitations while hiding surplus reader prose",
     (module) => {
       const frame = moduleFrame(entry(module));

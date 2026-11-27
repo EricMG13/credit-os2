@@ -181,7 +181,7 @@ it("states that the relative-value passage carries comparisons when no peer tabl
   const peers = screen.getByRole("region", { name: "Relative value against peers" });
   expect(
     within(peers).getByText(
-      "No separate peer-level table is included; the handoff reports comparisons in its relative-value findings.",
+      "No separate peer-level table is included; the module reports comparisons in its relative-value findings.",
     ),
   ).toBeVisible();
   expect(peers.textContent).not.toMatch(/could not read peer levels/);
@@ -197,7 +197,7 @@ it("states each gap when the module wrote neither table nor passage", () => {
   ).toBeVisible();
   expect(
     within(screen.getByRole("region", { name: "Relative value against peers" })).getByText(
-      "No peer-level table or relative-value findings are included in this handoff.",
+      "No peer-level table or relative-value findings are included in this module.",
     ),
   ).toBeVisible();
   expect(document.body.textContent).not.toMatch(/passage|register|table\./);

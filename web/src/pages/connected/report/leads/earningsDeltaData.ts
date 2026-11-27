@@ -31,7 +31,7 @@ export const MIXED_PERIODS =
   "This page did not compare the earnings table's two latest annual periods: they are different kinds of period.";
 const SAME_YEAR =
   "This page did not compare the earnings table's two latest annual periods: they are the same year.";
-export const NO_BRIDGE = "No charted variance bridge is included in this handoff.";
+export const NO_BRIDGE = "No charted variance bridge is included in this module.";
 
 /** Handoff words for the page, or the Evidence pointer where they name a source or are empty. */
 const readable = (text: string) => safeText(text) || IN_EVIDENCE;

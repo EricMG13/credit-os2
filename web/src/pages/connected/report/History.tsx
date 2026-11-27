@@ -257,9 +257,9 @@ export function RunHistory({
     <Bento>
       <Tile span={12} as="h2" label={`Runs of ${issuer}`} title={`Runs of ${issuer}`}>
         <p className="text-caption text-text-tertiary">
-          As-of dates descend. Runs with the same as-of date use the first model-call start when
-          recorded; rows without one follow deterministically. A run’s scope is the standard pathway
-          scope unless its row says otherwise.
+          Finished runs, newest first. As-of dates descend. Runs with the same as-of date use the
+          first model-call start when recorded; rows without one follow deterministically. A run’s
+          scope is the standard pathway scope unless its row says otherwise.
         </p>
         <p className="text-caption text-gap-text">
           Who started each run is not published with the report.

@@ -403,7 +403,7 @@ export const EarningsDeltaLead: Lead = (props) => {
           {bridges.length === 0 && (
             <Gap name={BRIDGE_NAME}>
               {varianceRegister
-                ? "The variance register is available in Statements and records; this handoff does not state a charted step bridge."
+                ? "The variance register is available in Statements and records; this module does not state a charted step bridge."
                 : NO_BRIDGE}
             </Gap>
           )}

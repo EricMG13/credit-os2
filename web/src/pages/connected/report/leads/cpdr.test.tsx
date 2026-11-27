@@ -67,7 +67,7 @@ it("states that no separate question register is present and never invents cover
   expect(tile.className).toMatch(/lg:col-span-12/);
   expect(
     within(tile).getByText(
-      "This handoff gives supported research findings but no separate list of questions and answers.",
+      "This module gives supported research findings but no separate list of questions and answers.",
     ),
   ).toBeVisible();
   expect(within(tile).queryByText(/under Executive answer/)).toBeNull();

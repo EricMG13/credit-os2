@@ -425,7 +425,7 @@ describe("SourceReadinessLead", () => {
   it("draws one plain gap tile when the table is absent", () => {
     lead(entry("CP-0", [], []));
     const tile = screen.getByRole("region", { name: "Readiness by area" });
-    expect(tile).toHaveTextContent("No readiness-by-area table is present in this handoff.");
+    expect(tile).toHaveTextContent("No readiness-by-area table is present in this module.");
     expect(tile.className).not.toContain("border-dashed");
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.queryByText(/could not read the key evidence/)).toBeNull();

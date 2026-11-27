@@ -106,7 +106,10 @@ export function calculationNodes(
       {
         label: plainModuleNames(row.label || id),
         value: row.value || null,
-        note: [id, ...row.details].filter(Boolean).join(" · "),
+        note: [id, ...row.details]
+          .filter(Boolean)
+          .map((part) => plainModuleNames(part))
+          .join(" · "),
         children: idsIn(row.source).flatMap((child) => node(child, [...ancestors, id])),
       },
     ];

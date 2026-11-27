@@ -346,7 +346,10 @@ function ForwardPathTile({
         }
       >
         {replay && (
-          <a className="text-small font-semibold text-action underline" href="#forecast">
+          <a
+            className="text-small text-text-secondary underline underline-offset-4 hover:text-text-primary"
+            href="#forecast"
+          >
             Open the forecast calculation replay
           </a>
         )}

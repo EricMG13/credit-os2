@@ -23,7 +23,7 @@ export const KEY_FINDINGS = "Key findings";
 export const CONTRARY = "Contrary evidence and what would change the view";
 const LIMITATIONS = "Limitations";
 const PASSAGE_NAMES = ["Bottom line", KEY_FINDINGS, CONTRARY, LIMITATIONS] as const;
-const DATA_MODULES = new Set(["CP-0", "CP-PARSE", "CP-1", "CP-1C"]);
+const DATA_MODULES = new Set(["CP-0", "CP-PARSE", "CP-1C"]);
 
 /** What a module's visuals are, so a lead can say which of them it draws itself. */
 export type FigureKind = LeadKind;
