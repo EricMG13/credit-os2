@@ -346,6 +346,9 @@ def capacity_available(
     return int(usage["active"]) < workers and int(usage["committed"]) + reserve <= cap
 
 
+APPROVAL_MISMATCH = "attempt must use the approved spec and plan"
+
+
 def launch_run(
     db: sqlite3.Connection,
     args: argparse.Namespace,
@@ -368,7 +371,9 @@ def launch_run(
     if row["state"] != "approved" or (deadline and deadline["expires"] <= int(time.time())):
         raise ValueError("run is paused or its approved deadline has elapsed")
     if row["spec"] != args.spec or row["plan"] != args.plan:
-        raise ValueError("attempt must use the approved spec and plan")
+        record_launch_rejection(db, args.run, args.id, row["revision"])
+        db.commit()
+        raise ValueError(APPROVAL_MISMATCH)
     limits = db.execute("SELECT cap, workers FROM project_limits WHERE id=1").fetchone()
     if not capacity_available(db, row["cap"], row["workers"], args.reserve, args.run):
         raise ValueError("run worker or budget limit reached")
@@ -383,6 +388,19 @@ def launch_run(
     event(db, args.run, f"launch:{args.id}", "launch", {"reserve": args.reserve})
     db.commit()
     emit({"ok": True, "attempt": args.id, "reserved": args.reserve})
+
+
+def record_launch_rejection(db: sqlite3.Connection, run: str, attempt: str, revision: int) -> None:
+    """Record the rejected approval check without reserving a worker or retaining arguments."""
+    db.execute(
+        """INSERT OR IGNORE INTO events VALUES (?, ?, 'launch-rejected', ?, ?)""",
+        (
+            run,
+            f"launch-rejected:{revision}:{attempt}",
+            json.dumps({"attempt": attempt, "revision": revision}),
+            int(time.time()),
+        ),
+    )
 
 
 def settle_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:

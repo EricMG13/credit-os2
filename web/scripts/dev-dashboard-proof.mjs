@@ -24,6 +24,41 @@ const ledger = (...args) =>
     encoding: "utf8",
   });
 
+function seedClaude() {
+  const run = "claude-hook-fixture";
+  const attempt = "claude-review";
+  ledger("start", run, "fixture-spec", "fixture-plan", "0", "2");
+  ledger("launch", run, attempt, "1", "0", "fixture-spec", "fixture-plan");
+  execFileSync(
+    python,
+    [
+      "-c",
+      "import json, sys; from pathlib import Path; from tools.dev_ledger import connect; " +
+        "db = connect(Path(sys.argv[1])); " +
+        "db.execute('INSERT INTO dispatch_policies VALUES(?,?)', " +
+        "(sys.argv[2], json.dumps({'client': 'claude'})))",
+      database,
+      run,
+    ],
+    { cwd: root },
+  );
+  const adapter = (...args) => command("tools/dev_claude_activity.py", ...args);
+  execFileSync(python, adapter("bind", run, attempt, "fixture-session", "reviewer"), { cwd: root });
+  for (const hook_event_name of ["SubagentStart", "SubagentStop"]) {
+    execFileSync(python, adapter("hook"), {
+      cwd: root,
+      input: JSON.stringify({
+        hook_event_name,
+        session_id: "fixture-session",
+        agent_type: "reviewer",
+        agent_id: "fixture-agent",
+        last_assistant_message: "Fixture transcript must stay out of the dashboard",
+      }),
+    });
+  }
+  ledger("settle", run, attempt, "0");
+}
+
 function seed() {
   ledger("start", "coverage-delivery", "fixture-spec", "fixture-plan", "0", "2");
   ledger("start", "report-copy", "fixture-spec", "fixture-plan", "0", "2");
@@ -67,6 +102,27 @@ async function ready(server) {
   return url.value;
 }
 
+async function proveRecovery(page, url, channel) {
+  const run = `recovery-${channel}`;
+  ledger("start", run, "fixture-spec", "fixture-plan", "0", "1");
+  assert.throws(() => ledger("launch", run, "writer-1", "1", "0", "wrong", "wrong"));
+  await page.goto(`${url}?run=${run}`);
+  await page.getByRole("link", { name: "Run progress · launch rejected" }).waitFor();
+  if (out) await page.screenshot({ path: join(out, `${channel}-rejected.png`), fullPage: true });
+  await page.getByText("writer-1 · Launch rejected before worker start", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("heading", { name: "writer-1", exact: true }).count(), 0);
+  ledger("launch", run, "writer-1", "1", "0", "fixture-spec", "fixture-plan");
+  await page.clock.fastForward(10500);
+  await page.getByRole("heading", { name: "writer-1", exact: true }).waitFor();
+  assert.equal(await page.locator(".launch-notice").count(), 0);
+  await page.getByRole("link", { name: "Run progress", exact: true }).waitFor();
+  await page
+    .locator(".timeline")
+    .getByText("writer-1 · Launch recovered · worker assigned")
+    .waitFor();
+  ledger("settle", run, "writer-1", "0");
+}
+
 async function prove(channel, url, viewport) {
   const browser = await chromium.launch({ channel });
   try {
@@ -87,7 +143,8 @@ async function prove(channel, url, viewport) {
       "Applied 1",
       "Verified 1",
     ]);
-    assert.equal(await page.getByRole("rowheader", { name: "worker-1" }).count(), 1);
+    assert.equal(await page.getByRole("heading", { name: "worker-1", exact: true }).count(), 1);
+    assert(await page.getByText(/Time to result/).isVisible());
     assert(await page.getByText("gpt-6.2-astra · medium", { exact: true }).isVisible());
     await page.getByRole("link", { name: /D-04/ }).click();
     await page.getByRole("button", { name: "Draft change request" }).click();
@@ -124,6 +181,15 @@ async function prove(channel, url, viewport) {
     assert.equal(status.status(), 404);
     const rejected = await page.request.post(url, { data: { decision: "D-04" } });
     assert(!rejected.ok());
+    await proveRecovery(page, url, channel);
+    await page.goto(`${url}?run=claude-hook-fixture`);
+    await page.getByText("Claude Code · Model unverified", { exact: true }).waitFor();
+    assert(await page.getByText(/Agent time/).isVisible());
+    await page.locator(".timeline").getByText("claude-review · Claude agent returned").waitFor();
+    assert.equal(
+      await page.getByText("Fixture transcript must stay out of the dashboard").count(),
+      0,
+    );
     return { channel, version: browser.version(), viewport, decision: "D-04" };
   } finally {
     await browser.close();
@@ -133,6 +199,7 @@ async function prove(channel, url, viewport) {
 let server;
 try {
   seed();
+  seedClaude();
   const before = ledger("status", "coverage-delivery");
   server = spawn(python, command("tools/dev_dashboard.py"), {
     cwd: root,

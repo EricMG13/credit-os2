@@ -7,6 +7,7 @@ import json
 import secrets
 import sqlite3
 import sys
+from collections import deque
 from contextlib import closing
 from datetime import UTC, datetime
 from html import escape
@@ -20,6 +21,7 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.dev_ledger import (
+    APPROVAL_MISMATCH,
     DECISION_LABELS,
     decision_kind,
     decision_summary,
@@ -64,18 +66,19 @@ def page_html(path: str, contents: str) -> bytes:
 </html>""".encode()
 
 
-def run_selector(path: str, runs: list[sqlite3.Row], selected: str) -> str:
+def run_selector(path: str, runs: list[sqlite3.Row], selected: str, blocked: bool = False) -> str:
     options = "".join(
         f'<option value="{escape(row["id"])}"{" selected" if row["id"] == selected else ""}>'
         f"{escape(row['id'])} · {escape(row['state']).title()}</option>"
         for row in runs
     )
+    progress = "Run progress · launch rejected" if blocked else "Run progress"
     return f"""<form method="get" action="{path}" class="selector">
 <label for="run">Run</label>
 <select name="run" id="run">{options}</select>
 <button type="submit">View run</button>
 <a class="button subtle" href="{address(path, run=selected)}">Refresh</a>
-<a class="button subtle" href="#progress-title">Run progress</a>
+<a id="progress-link" class="button subtle" href="#progress-title">{progress}</a>
 </form>"""
 
 
@@ -173,53 +176,81 @@ def stage(attempt: dict[str, Any], activity: dict[str, Any], revision: int) -> s
     code = result.get("returncode")
     if code is not None and code != 0:
         return "Failed"
-    if code is None and attempt["state"] == "active":
+    finished = "claude-stop" in activity.get("timing", {}).get(ident, {})
+    if code is None and attempt["state"] == "active" and not finished:
         return "Active"
     return "Awaiting verification"
 
 
-def worker_row(
-    attempt: dict[str, Any], event: dict[str, Any], observed: dict[str, Any], status: str
-) -> str:
+def worker_elapsed(timing: dict[str, int]) -> str:
+    started = timing.get("claude-start", timing.get("launch"))
+    ended = timing.get("claude-stop", timing.get("worker-result", timing.get("settle")))
+    if started is None:
+        return ""
+    if ended is None:
+        return f"{'Started' if 'claude-start' in timing else 'Assigned'} {stamp(started)}"
+    seconds = max(0, ended - started)
+    minutes, seconds = divmod(seconds, 60)
+    if "claude-stop" in timing:
+        label = "Agent time"
+    else:
+        label = "Time to result" if "worker-result" in timing else "Time to settlement"
+    return f"{label} · {minutes}m {seconds:02d}s" if minutes else f"{label} · {seconds}s"
+
+
+def worker_row(attempt: dict[str, Any], activity: dict[str, Any], status: str) -> str:
     ident = attempt["id"]
+    observed = activity["results"].get(ident, {})
     model, effort = observed.get("observed_model"), observed.get("observed_effort")
-    route = f"{model} · {effort}" if model and effort else "—"
-    summary = event.get("summary")
-    updated = event.get("created")
-    update = f"<b>{escape(summary)}</b>" if summary else ""
-    if updated:
-        update += f"<small>{stamp(updated)}</small>"
-    return (
-        f'<tr><th scope="row">{escape(ident)}</th><td>{status}</td>'
-        f"<td>{update or '—'}</td><td>{escape(route)}</td>"
-        f"<td>{attempt['revision']}</td><td>{attempt['reserved']}</td>"
-        f"<td>{attempt['settled'] if attempt['settled'] is not None else '—'}</td></tr>"
-    )
+    timing = activity["timing"].get(ident, {})
+    summary = activity["updates"].get(ident, "")
+    route = f"{model} · {effort}" if model and effort else "Model unverified"
+    age = worker_elapsed(timing)
+    client = "Claude Code · " if "claude-start" in timing else ""
+    settled = attempt["settled"]
+    settlement = "Settlement unrecorded" if settled is None else f"{settled} settled"
+    return f"""<li class="worker-lane">
+<div class="lane-heading"><h4>{escape(ident)}</h4><b>{status}</b></div>
+<p>{escape(summary)}</p>
+<div class="lane-details"><span>{client}{escape(route)}</span><span>{age}</span>
+<span>Revision {attempt["revision"]} · {attempt["reserved"]} reserved · {settlement}</span>
+</div>
+</li>"""
 
 
-def attempts_table(report: dict[str, Any], activity: dict[str, Any], stages: dict[str, str]) -> str:
-    attempts = report["attempts"]
-    if not attempts:
+def workers(report: dict[str, Any], activity: dict[str, Any], stages: dict[str, str]) -> str:
+    if not report["attempts"]:
         return '<p class="empty">No workers have started.</p>'
-    rows = "".join(
-        worker_row(
-            attempt,
-            activity["updates"].get(attempt["id"], {}),
-            activity["results"].get(attempt["id"], {}),
-            stages[attempt["id"]],
-        )
-        for attempt in attempts
+    rows = "".join(worker_row(a, activity, stages[a["id"]]) for a in report["attempts"])
+    return f'<ul class="worker-lanes" aria-label="Workers">{rows}</ul>'
+
+
+def unresolved_launch(activity: dict[str, Any], revision: int) -> str | None:
+    return next(
+        (
+            attempt
+            for attempt in reversed(activity["rejected"])
+            if activity["rejected"][attempt] == revision
+            and "launch" not in activity["timing"].get(attempt, {})
+        ),
+        None,
     )
-    return f"""<div class="table-wrap" role="region" aria-label="Workers" tabindex="0"><table>
-<thead><tr><th>Attempt</th><th>Status</th><th>Latest worker update</th><th>Observed model</th>
-<th>Revision</th><th>Reserved</th><th>Settled</th></tr></thead><tbody>{rows}</tbody></table></div>"""
+
+
+def launch_notice(attempt: str | None) -> str:
+    if attempt is None:
+        return ""
+    return f"""<div class="launch-notice">
+<strong>{escape(attempt)} · Launch rejected before worker start</strong>
+<p>The spec and plan did not match the approval. The coordinator can compare the approved
+and current documents before retrying. Changed documents need a new approval.</p></div>"""
 
 
 def timeline_item(row: sqlite3.Row, summary: str) -> str:
-    timestamp = datetime.fromtimestamp(row["created"], UTC).isoformat()
+    timestamp = datetime.fromtimestamp(row["created"], UTC)
+    label = timestamp.strftime("%d %b %Y, %H:%M:%S UTC")
     return (
-        f'<li><time datetime="{timestamp}">{stamp(row["created"])}</time>'
-        f"<p>{escape(summary)}</p></li>"
+        f'<li><time datetime="{timestamp.isoformat()}">{label}</time><p>{escape(summary)}</p></li>'
     )
 
 
@@ -248,9 +279,10 @@ def progress_panel(path: str, report: dict[str, Any], activity: dict[str, Any]) 
 <h2 id="progress-title">Run progress</h2><span id="refresh-status">Updates every 10 seconds</span>
 </div>
 <div id="run-progress" data-refresh="{source}">
+{launch_notice(unresolved_launch(activity, report["revision"]))}
 <dl class="progress-counts">{counts}</dl>
 <h3>Workers</h3>
-{attempts_table(report, activity, stages)}
+{workers(report, activity, stages)}
 <h3>Recent activity</h3>
 {timeline(activity)}
 </div>
@@ -277,6 +309,10 @@ def show_run(path: str, report: dict[str, Any], chosen: str, activity: dict[str,
 EVENT_LABELS = {
     "run": "Spec and plan approved",
     "launch": "Worker assigned",
+    "launch-rejected": "Launch rejected before worker start. " + APPROVAL_MISMATCH.capitalize(),
+    "claude-start": "Claude agent started",
+    "claude-stop": "Claude agent returned",
+    "settle": "Worker reservation settled",
     "route-resolved": "Model route assigned",
     "worker-result": "Worker result recorded",
     "accept": "Worker result verified",
@@ -284,44 +320,61 @@ EVENT_LABELS = {
 }
 
 
+def observe_worker(
+    activity: dict[str, Any], row: sqlite3.Row, payload: dict[str, Any]
+) -> tuple[str, str | None]:
+    kind = row["kind"]
+    ident = row["id"].partition(":")[2]
+    summary = EVENT_LABELS.get(kind)
+    if kind in {"launch", "worker-result", "settle", "claude-start", "claude-stop"}:
+        activity["timing"].setdefault(ident, {})[kind] = row["created"]
+    if kind == "launch-rejected":
+        ident = payload.get("attempt", ident)
+        activity["rejected"][ident] = payload.get("revision")
+    elif kind == "launch" and ident in activity["rejected"]:
+        summary = "Launch recovered · worker assigned"
+    elif kind == "worker-result":
+        activity["results"][ident] = payload
+    elif kind == "decision":
+        summary = "Run paused" if payload["action"] == "pause" else "Run resumed"
+    if kind == "route-resolved" and isinstance(task := payload.get("task"), str) and task:
+        activity["updates"][ident] = task
+    if kind == "note":
+        ident, summary = payload.get("attempt", ""), payload.get("summary")
+        if ident and summary:
+            activity["updates"][ident] = summary
+    return ident, summary
+
+
 def run_activity(db: sqlite3.Connection, run: str) -> dict[str, Any]:
+    kinds = (*EVENT_LABELS, "note", "decision")
+    markers = ",".join("?" for _ in kinds)
     rows = db.execute(
-        """SELECT id,kind,result,created FROM events WHERE run=? AND
-           (kind IN ('run','launch','route-resolved','worker-result','accept','merged') OR
-            (kind='note' AND json_extract(result,'$.kind')='progress') OR
-            (kind='decision' AND json_extract(result,'$.action') IN ('pause','resume')))
-           ORDER BY created DESC,rowid DESC""",
-        (run,),
+        f"""SELECT id,kind,result,created FROM events WHERE run=? AND kind IN ({markers})
+            AND (kind NOT IN ('note','decision')
+              OR (kind='note' AND json_extract(result,'$.kind')='progress')
+              OR (kind='decision' AND json_extract(result,'$.action') IN ('pause','resume')))
+            ORDER BY created,rowid""",
+        (run, *kinds),
     )
-    updates: dict[str, Any] = {}
-    results: dict[str, Any] = {}
-    items: list[str] = []
+    activity: dict[str, Any] = {
+        "updates": {},
+        "results": {},
+        "timing": {},
+        "rejected": {},
+        "revalidated": {},
+    }
+    items: deque[tuple[sqlite3.Row, str]] = deque(maxlen=12)
     for row in rows:
-        payload = json.loads(row["result"])
-        kind = row["kind"]
-        ident = row["id"].partition(":")[2]
-        summary = EVENT_LABELS.get(kind)
-        if kind == "note":
-            ident = payload.get("attempt", "")
-            summary = payload.get("summary")
-            if ident:
-                updates.setdefault(ident, {"summary": summary, "created": row["created"]})
-        elif kind == "route-resolved" and isinstance(task := payload.get("task"), str) and task:
-            updates.setdefault(ident, {"summary": task, "created": row["created"]})
-        elif kind == "worker-result":
-            results[ident] = payload
-        elif kind == "decision":
-            summary = "Run paused" if payload["action"] == "pause" else "Run resumed"
-        if summary and len(items) < 12:
-            items.append(timeline_item(row, f"{ident} · {summary}" if ident else summary))
-    revisions = {}
+        ident, summary = observe_worker(activity, row, json.loads(row["result"]))
+        if summary:
+            items.append((row, f"{ident} · {summary}" if ident else summary))
     if has_table(db, "revalidated_attempts"):
-        revisions = dict(
-            db.execute(
-                "SELECT attempt,revision FROM revalidated_attempts WHERE run=?", (run,)
-            ).fetchall()
+        activity["revalidated"] = dict(
+            db.execute("SELECT attempt,revision FROM revalidated_attempts WHERE run=?", (run,))
         )
-    return {"updates": updates, "results": results, "timeline": items, "revalidated": revisions}
+    activity["timeline"] = [timeline_item(row, summary) for row, summary in reversed(items)]
+    return activity
 
 
 def has_table(db: sqlite3.Connection, table: str) -> bool:
@@ -376,10 +429,9 @@ def dashboard(db_path: Path, path: str, query: dict[str, list[str]]) -> tuple[HT
                     path, '<p class="empty">No runs yet. Start one with /dev.</p>'
                 )
             run = query.get("run", [runs[0]["id"]])[0]
-            selector = run_selector(path, runs, run)
             if run not in {row["id"] for row in runs}:
                 return HTTPStatus.NOT_FOUND, page_html(
-                    path, selector + '<p class="empty">Run not found.</p>'
+                    path, run_selector(path, runs, run) + '<p class="empty">Run not found.</p>'
                 )
             report = run_status(db, run)
             activity = run_activity(db, run)
@@ -388,6 +440,8 @@ def dashboard(db_path: Path, path: str, query: dict[str, list[str]]) -> tuple[HT
         message = '<p class="empty">The ledger could not be read. Check its path and refresh.</p>'
         return HTTPStatus.SERVICE_UNAVAILABLE, page_html(path, message)
     chosen = query.get("decision", [""])[0]
+    blocked = unresolved_launch(activity, report["revision"]) is not None
+    selector = run_selector(path, runs, run, blocked)
     return HTTPStatus.OK, page_html(
         path, selector + show_run(path, report, chosen, activity) + model_log
     )
