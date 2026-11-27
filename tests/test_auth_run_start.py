@@ -332,3 +332,38 @@ def test_underivable_analyst_name_requires_admin_override(app, caplog) -> None:
         accounts_dir,
         (token, ANALYST_PASSCODE, ADMIN_PASSCODE),
     )
+
+
+def test_signed_submit_with_no_summary_is_a_400_that_moves_nothing(app) -> None:
+    browser, provider, accounts_dir, _, _, _ = app
+    token = _reader_session(browser, provider, accounts_dir, name_parts=("Eric", "Green"))
+    cookie = f"{COOKIE}={token}"
+    status, body, _ = browser.request(
+        "POST",
+        "/auth/passcode",
+        cookie=cookie,
+        body=json.dumps({"passcode": ANALYST_PASSCODE}).encode(),
+    )
+    assert status == 200
+    status, body, _ = browser.request("POST", "/api/submissions", cookie=cookie)
+    sid = json.loads(body)["id"]
+    status, _, _ = browser.request(
+        "POST", f"/api/submissions/{sid}/files?name=source.txt", cookie=cookie, body=b"Revenue."
+    )
+    assert status == 200
+    root = _APP_ROOTS[-1]
+    before = _tree_snapshot(root)
+
+    status, refused = _signed_json_request(
+        browser,
+        cookie,
+        f"/api/submissions/{sid}/submit",
+        {"answers": answers_for(submitted_by="Forged X"), "digest": "none"},
+    )
+    assert (status, refused) == (
+        400,
+        {"error": "review the summary again; no summary was issued for this run"},
+    )
+    assert (root / "_engine" / "uploads" / sid / "files" / "source.txt").is_file()
+    assert _tree_snapshot(root) == before
+    assert runs.load_all(Layout(root)) == []

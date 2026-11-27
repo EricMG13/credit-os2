@@ -273,7 +273,7 @@ it("lets an Analyst without a canonical name prepare files but refuses review be
   expect(calls.some((path) => path.endsWith("/submit"))).toBe(false);
 });
 
-it("uses the summary's canonical analyst name after it differs from run access", async () => {
+function signedSummaryPage(summary: Record<string, unknown>) {
   const calls: { path: string; init?: RequestInit }[] = [];
   const standing = {
     portfolios: [
@@ -345,7 +345,6 @@ it("uses the summary's canonical analyst name after it differs from run access",
             documents: [{ source: "annual.txt", kind: "annual_report" }],
             ignored: [],
             error: "",
-            digest: "reviewed",
             cap: "30",
             modules: ["CP-0"],
             items: [],
@@ -353,12 +352,17 @@ it("uses the summary's canonical analyst name after it differs from run access",
             changes: "first run",
             model: "gpt",
             effort: "balanced",
-            submitted_by: "Ana L",
+            ...summary,
           }),
         );
       throw new Error(`Unexpected request ${path}`);
     }),
   );
+  return calls;
+}
+
+it("uses the summary's canonical analyst name after it differs from run access", async () => {
+  const calls = signedSummaryPage({ digest: "reviewed", submitted_by: "Ana L" });
   render(<StartRun mode="live" signIn navigate={vi.fn()} />);
 
   expect(await screen.findByText("Your analyst name: Eric G")).toBeVisible();
@@ -392,6 +396,40 @@ it("uses the summary's canonical analyst name after it differs from run access",
   expect(sent.context).not.toHaveProperty("account");
   expect(sent.context).not.toHaveProperty("account_id");
   expect(sent.context).not.toHaveProperty("profile_type");
+});
+
+async function reviewSignedSummary() {
+  render(<StartRun mode="live" signIn navigate={vi.fn()} />);
+  await screen.findByText("Your analyst name: Eric G");
+  fireEvent.change(screen.getByLabelText("Issuer name"), { target: { value: "Northbridge" } });
+  fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "2026-10-31" } });
+  fireEvent.change(screen.getByLabelText("Documents"), {
+    target: { files: [new File(["annual"], "annual.txt", { type: "text/plain" })] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to purpose" }));
+  await screen.findByRole("heading", { name: "Purpose" });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
+  await screen.findByRole("heading", { name: "More context" });
+  fireEvent.click(screen.getByRole("button", { name: "Review run" }));
+}
+
+it("tells a signed analyst a summary with no digest could not be approved", async () => {
+  signedSummaryPage({ digest: "", submitted_by: undefined });
+  await reviewSignedSummary();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "This summary could not be approved. Select Review run to request a new summary.",
+  );
+  expect(screen.queryByText(/authorized analyst name/)).toBeNull();
+});
+
+it("still names the analyst error when a digested signed summary lacks a valid name", async () => {
+  signedSummaryPage({ digest: "reviewed", submitted_by: 12 });
+  await reviewSignedSummary();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "The run summary did not include the authorized analyst name.",
+  );
 });
 
 it.each([
