@@ -2761,7 +2761,7 @@ def build(view: View, pathway: Pathway, maps: Iterable["BindingMap"]) -> ReportV
             module.status in SHOWN_STATUSES or module.facts or module.tables or module.claims
         ):
             _validate_cp1b_layout(module)
-    if issues := validate_bindings(view, maps):
+    if issues := validate_bindings(view, maps, pathway=pathway):
         more = f" (and {len(issues) - 3} more)" if len(issues) > 3 else ""
         raise ValueError("Bindings do not cover the view: " + "; ".join(issues[:3]) + more)
     passports, index = build_index(view)
