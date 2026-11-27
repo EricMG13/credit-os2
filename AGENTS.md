@@ -188,3 +188,7 @@ Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Cr
 The command prints a local URL. Run lookup, refresh, decision details, and prompts use the same
 ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
 change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.
+Record a substantive checkpoint with `note RUN ID REVISION` and a JSON payload containing
+`kind: "progress"`, a plain-English `summary`, and the `attempt` ID when it is a worker update.
+Progress notes never advance the run revision. The dashboard refreshes the worker timeline
+while an owner can keep editing a decision reply.

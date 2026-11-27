@@ -76,3 +76,14 @@ tbody tr { border-top: 1px solid var(--line); }
   th, td { padding-inline: 8px; }
   tbody th, tbody td:nth-child(4) { white-space: normal; overflow-wrap: anywhere; }
 }
+.progress-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+#refresh-status, .timeline time, .table-wrap small { color: var(--muted); font-size: .8rem; }
+.progress-counts { display: flex; flex-wrap: wrap; gap: 12px 30px; padding-block: 12px; border-block: 1px solid var(--line); }
+.progress-counts dd { font-size: 1.15rem; font-weight: 680; }
+#run-progress h3 { margin-block: 16px 8px; }
+.table-wrap small { display: block; margin-top: 4px; }
+.table-wrap td:nth-child(3) { white-space: normal; min-width: 12rem; }
+.timeline li { display: grid; grid-template-columns: minmax(9rem, auto) 1fr; gap: 6px 16px; align-items: baseline; }
+@media (max-width: 780px) {
+  .timeline li { grid-template-columns: minmax(0, 1fr); }
+}

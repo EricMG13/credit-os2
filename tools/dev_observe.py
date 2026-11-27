@@ -192,7 +192,8 @@ def approved_route_policy(db: sqlite3.Connection, policy: RoutePolicy) -> Effect
     if decision is None:
         raise ValueError("route policy lacks an owner-approved coordinator decision")
     if db.execute(
-        "SELECT 1 FROM decisions WHERE run=? AND json_extract(payload, '$.supersedes')=?",
+        "SELECT 1 FROM decisions WHERE run=? AND json_extract(payload, '$.supersedes')=? "
+        "AND coalesce(json_extract(payload,'$.kind'),'') != 'progress'",
         (policy.run_id, policy.approval_decision_id),
     ).fetchone():
         raise ValueError("route policy approval has been superseded")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import secrets
 import sqlite3
 import sys
@@ -30,7 +31,7 @@ from tools.dev_ledger import (
 ASSETS = Path(__file__).with_suffix("")
 CSP = (
     "default-src 'none'; style-src 'self'; script-src 'self'; "
-    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; connect-src 'self'"
 )
 
 
@@ -74,6 +75,7 @@ def run_selector(path: str, runs: list[sqlite3.Row], selected: str) -> str:
 <select name="run" id="run">{options}</select>
 <button type="submit">View run</button>
 <a class="button subtle" href="{address(path, run=selected)}">Refresh</a>
+<a class="button subtle" href="#progress-title">Run progress</a>
 </form>"""
 
 
@@ -159,27 +161,108 @@ def decision_details(path: str, run: str, item: dict[str, Any] | None) -> str:
 </aside>"""
 
 
-def attempts_table(attempts: list[dict[str, Any]], observed: dict[str, str]) -> str:
+def stage(attempt: dict[str, Any], activity: dict[str, Any], revision: int) -> str:
+    if attempt["state"] == "accepted":
+        return "Verified"
+    ident = attempt["id"]
+    if activity["revalidated"].get(ident, attempt["revision"]) != revision:
+        return "Superseded"
+    result = activity["results"].get(ident, {})
+    if result.get("timed_out"):
+        return "Timed out"
+    code = result.get("returncode")
+    if code is not None and code != 0:
+        return "Failed"
+    if code is None and attempt["state"] == "active":
+        return "Active"
+    return "Awaiting verification"
+
+
+def worker_row(
+    attempt: dict[str, Any], event: dict[str, Any], observed: dict[str, Any], status: str
+) -> str:
+    ident = attempt["id"]
+    model, effort = observed.get("observed_model"), observed.get("observed_effort")
+    route = f"{model} · {effort}" if model and effort else "—"
+    summary = event.get("summary")
+    updated = event.get("created")
+    update = f"<b>{escape(summary)}</b>" if summary else ""
+    if updated:
+        update += f"<small>{stamp(updated)}</small>"
+    return (
+        f'<tr><th scope="row">{escape(ident)}</th><td>{status}</td>'
+        f"<td>{update or '—'}</td><td>{escape(route)}</td>"
+        f"<td>{attempt['revision']}</td><td>{attempt['reserved']}</td>"
+        f"<td>{attempt['settled'] if attempt['settled'] is not None else '—'}</td></tr>"
+    )
+
+
+def attempts_table(report: dict[str, Any], activity: dict[str, Any], stages: dict[str, str]) -> str:
+    attempts = report["attempts"]
     if not attempts:
         return '<p class="empty">No workers have started.</p>'
     rows = "".join(
-        f'<tr><th scope="row">{escape(row["id"])}</th><td>{escape(row["state"]).title()}</td>'
-        f"<td>{row['revision']}</td><td>{escape(observed.get(row['id'], '—'))}</td>"
-        f"<td>{row['reserved']}</td>"
-        f"<td>{row['settled'] if row['settled'] is not None else '—'}</td></tr>"
-        for row in attempts
+        worker_row(
+            attempt,
+            activity["updates"].get(attempt["id"], {}),
+            activity["results"].get(attempt["id"], {}),
+            stages[attempt["id"]],
+        )
+        for attempt in attempts
     )
     return f"""<div class="table-wrap" role="region" aria-label="Workers" tabindex="0"><table>
-<thead><tr><th>Attempt</th><th>Status</th><th>Revision</th><th>Observed model</th>
-<th>Reserved</th><th>Settled</th></tr></thead>
-<tbody>{rows}</tbody></table></div>"""
+<thead><tr><th>Attempt</th><th>Status</th><th>Latest worker update</th><th>Observed model</th>
+<th>Revision</th><th>Reserved</th><th>Settled</th></tr></thead><tbody>{rows}</tbody></table></div>"""
 
 
-def show_run(path: str, report: dict[str, Any], chosen: str, observed: dict[str, str]) -> str:
+def timeline_item(row: sqlite3.Row, summary: str) -> str:
+    timestamp = datetime.fromtimestamp(row["created"], UTC).isoformat()
+    return (
+        f'<li><time datetime="{timestamp}">{stamp(row["created"])}</time>'
+        f"<p>{escape(summary)}</p></li>"
+    )
+
+
+def timeline(activity: dict[str, Any]) -> str:
+    items = "".join(activity["timeline"])
+    return (
+        f'<ol class="model-list timeline">{items}</ol>'
+        if items
+        else '<p class="empty">Run activity appears here as it is recorded.</p>'
+    )
+
+
+def progress_panel(path: str, report: dict[str, Any], activity: dict[str, Any]) -> str:
+    labels = ("Active", "Awaiting verification", "Verified", "Failed", "Superseded")
+    stages = {
+        attempt["id"]: stage(attempt, activity, report["revision"])
+        for attempt in report["attempts"]
+    }
+    totals = dict.fromkeys(labels, 0)
+    for label in stages.values():
+        totals["Failed" if label == "Timed out" else label] += 1
+    counts = "".join(f"<div><dt>{key}</dt><dd>{value}</dd></div>" for key, value in totals.items())
+    source = address(path, run=report["run"])
+    return f"""<section class="workers" aria-labelledby="progress-title">
+<div class="progress-title">
+<h2 id="progress-title">Run progress</h2><span id="refresh-status">Updates every 10 seconds</span>
+</div>
+<div id="run-progress" data-refresh="{source}">
+<dl class="progress-counts">{counts}</dl>
+<h3>Workers</h3>
+{attempts_table(report, activity, stages)}
+<h3>Recent activity</h3>
+{timeline(activity)}
+</div>
+</section>"""
+
+
+def show_run(path: str, report: dict[str, Any], chosen: str, activity: dict[str, Any]) -> str:
     selected = next((item for item in report["decisions"] if item["id"] == chosen), None)
     spend = report["project_spend"]
     return f"""<dl class="run-meta">
-<div><dt>Status</dt><dd>{escape(report["state"]).title()} · Revision {report["revision"]}</dd></div>
+<div><dt>Status</dt><dd id="run-state">
+{escape(report["state"]).title()} · Revision {report["revision"]}</dd></div>
 <div><dt>Deadline</dt><dd>{stamp(report["deadline_unix"])}</dd></div>
 <div><dt>Worker limit</dt><dd>{report["workers"]}</dd></div>
 <div><dt>Project spend</dt><dd>{spend["spent"]} spent · {spend["reserved"]} reserved</dd></div>
@@ -188,21 +271,57 @@ def show_run(path: str, report: dict[str, Any], chosen: str, observed: dict[str,
 <section><h2>Decision queue</h2>{decision_queue(path, report, chosen)}</section>
 {decision_details(path, report["run"], selected)}
 </div>
-<section class="workers"><h2>Workers</h2>{attempts_table(report["attempts"], observed)}</section>"""
+{progress_panel(path, report, activity)}"""
 
 
-def observed_routes(db: sqlite3.Connection, run: str) -> dict[str, str]:
+EVENT_LABELS = {
+    "run": "Spec and plan approved",
+    "launch": "Worker assigned",
+    "route-resolved": "Model route assigned",
+    "worker-result": "Worker result recorded",
+    "accept": "Worker result verified",
+    "merged": "Merge verified",
+}
+
+
+def run_activity(db: sqlite3.Connection, run: str) -> dict[str, Any]:
     rows = db.execute(
-        """SELECT id, json_extract(result, '$.observed_model') AS model,
-                  json_extract(result, '$.observed_effort') AS effort
-           FROM events WHERE run=? AND kind='worker-result' AND id LIKE 'observed:%'""",
+        """SELECT id,kind,result,created FROM events WHERE run=? AND
+           (kind IN ('run','launch','route-resolved','worker-result','accept','merged') OR
+            (kind='note' AND json_extract(result,'$.kind')='progress') OR
+            (kind='decision' AND json_extract(result,'$.action') IN ('pause','resume')))
+           ORDER BY created DESC,rowid DESC""",
         (run,),
     )
-    return {
-        row["id"].removeprefix("observed:"): f"{row['model']} · {row['effort']}"
-        for row in rows
-        if isinstance(row["model"], str) and isinstance(row["effort"], str)
-    }
+    updates: dict[str, Any] = {}
+    results: dict[str, Any] = {}
+    items: list[str] = []
+    for row in rows:
+        payload = json.loads(row["result"])
+        kind = row["kind"]
+        ident = row["id"].partition(":")[2]
+        summary = EVENT_LABELS.get(kind)
+        if kind == "note":
+            ident = payload.get("attempt", "")
+            summary = payload.get("summary")
+            if ident:
+                updates.setdefault(ident, {"summary": summary, "created": row["created"]})
+        elif kind == "route-resolved" and isinstance(task := payload.get("task"), str) and task:
+            updates.setdefault(ident, {"summary": task, "created": row["created"]})
+        elif kind == "worker-result":
+            results[ident] = payload
+        elif kind == "decision":
+            summary = "Run paused" if payload["action"] == "pause" else "Run resumed"
+        if summary and len(items) < 12:
+            items.append(timeline_item(row, f"{ident} · {summary}" if ident else summary))
+    revisions = {}
+    if has_table(db, "revalidated_attempts"):
+        revisions = dict(
+            db.execute(
+                "SELECT attempt,revision FROM revalidated_attempts WHERE run=?", (run,)
+            ).fetchall()
+        )
+    return {"updates": updates, "results": results, "timeline": items, "revalidated": revisions}
 
 
 def has_table(db: sqlite3.Connection, table: str) -> bool:
@@ -263,14 +382,14 @@ def dashboard(db_path: Path, path: str, query: dict[str, list[str]]) -> tuple[HT
                     path, selector + '<p class="empty">Run not found.</p>'
                 )
             report = run_status(db, run)
-            observed = observed_routes(db, run)
+            activity = run_activity(db, run)
             model_log = model_decisions(db, run)
     except sqlite3.Error:
         message = '<p class="empty">The ledger could not be read. Check its path and refresh.</p>'
         return HTTPStatus.SERVICE_UNAVAILABLE, page_html(path, message)
     chosen = query.get("decision", [""])[0]
     return HTTPStatus.OK, page_html(
-        path, selector + show_run(path, report, chosen, observed) + model_log
+        path, selector + show_run(path, report, chosen, activity) + model_log
     )
 
 

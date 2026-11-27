@@ -90,3 +90,63 @@ def test_model_notices_follow_the_selected_run(tmp_path: Path) -> None:
     assert "Own run" in markup
     assert "Other run" not in markup
     assert "Legacy note" in markup and "Project notice" in markup
+
+
+def test_recorded_worker_progress_appears_in_timeline_without_adding_a_decision(
+    tmp_path: Path,
+) -> None:
+    from tools.dev_ledger import launch_run
+
+    path = tmp_path / "dev.sqlite"
+    with connect(path) as db:
+        start_run(db, argparse.Namespace(run="run-1", spec="s", plan="p", cap=0, workers=1))
+        launch_run(
+            db,
+            argparse.Namespace(
+                run="run-1", id="worker-1", expected_revision=1, reserve=0, spec="s", plan="p"
+            ),
+        )
+        decision_run(
+            db,
+            argparse.Namespace(
+                run="run-1",
+                id="P-01",
+                expected_revision=1,
+                command="note",
+                payload='{"kind":"progress","attempt":"worker-1","summary":"Review running"}',
+            ),
+        )
+        assert db.execute("SELECT revision FROM runs WHERE id='run-1'").fetchone()[0] == 1
+    status, contents = dashboard(path, "/local/", {"run": ["run-1"]})
+    assert status == HTTPStatus.OK
+    assert b"No decisions have been recorded" in contents
+    assert b"Run progress" in contents
+    assert b"worker-1 \xc2\xb7 Review running" in contents
+    assert b"<dt>Active</dt><dd>1</dd>" in contents
+
+
+def test_superseded_work_is_separate_from_eligible_results() -> None:
+    from tools.dev_dashboard import stage
+
+    attempt = {"id": "worker", "state": "settled", "revision": 1}
+    activity = {"results": {"worker": {"returncode": 0}}, "revalidated": {}}
+    assert stage(attempt, activity, revision=2) == "Superseded"
+    activity["revalidated"]["worker"] = 2
+    assert stage(attempt, activity, revision=2) == "Awaiting verification"
+
+
+def test_progress_note_cannot_supersede_an_owner_decision(tmp_path: Path) -> None:
+    import pytest
+
+    with connect(tmp_path / "dev.sqlite") as db:
+        start_run(db, argparse.Namespace(run="run-1", spec="s", plan="p", cap=0, workers=1))
+        args = argparse.Namespace(
+            run="run-1",
+            id="P-01",
+            expected_revision=1,
+            command="note",
+            payload='{"kind":"progress","summary":"Checking","supersedes":"D-01"}',
+        )
+        with pytest.raises(ValueError, match="only a summary"), db:
+            decision_run(db, args)
+        assert db.execute("SELECT count(*) FROM decisions").fetchone()[0] == 0
