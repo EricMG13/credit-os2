@@ -1,15 +1,26 @@
-import { ArrowRight } from "@untitledui/icons";
+import { ArrowDown, ArrowRight, ArrowUp } from "@untitledui/icons";
+import { StatusShape } from "@/components/status/shapes";
 import { cx } from "@/utils/cx";
 import { PublishedSource } from "../PublishedTrace";
 import { ToneMark } from "../ToneMark";
 import { Figure, GapNote } from "../overview/Tile";
+import { BETTER, WORSE } from "../../visuals/signal/scales";
 import { Dumbbell } from "./Dumbbell";
 import { UNRESOLVED, type Cause, type MeasureChange } from "./model";
 
-const TONE = {
+/** The row tint (colour-signal-build ruling C2): only a better or a worse row is tinted. */
+const TINT = { better: BETTER[1], worse: WORSE[1] } as const;
+
+/** The mark colour goes on the arrow and on the shape inside the tone mark, never on the words. */
+const ARROW = {
   better: "text-better-mark",
   worse: "text-worse-mark",
-  flat: "text-text-secondary",
+  flat: "text-text-tertiary",
+} as const;
+const SHAPE_INK = {
+  better: "**:data-shape:text-better-mark",
+  worse: "**:data-shape:text-worse-mark",
+  flat: "",
 } as const;
 
 const LINK =
@@ -20,7 +31,8 @@ function CauseLine({ cause, href }: { cause: Cause; href: string | undefined }) 
   switch (cause.kind) {
     case "written":
       return cause.text === UNRESOLVED ? (
-        <span className="justify-self-start rounded-ds-xs border border-warning-edge bg-warning-fill px-1.5 py-0.5 text-caption font-medium text-warning-text">
+        <span className="inline-flex items-center gap-1.5 justify-self-start text-caption font-medium text-text-secondary">
+          <StatusShape shape="triangle" />
           Cause: Unresolved
         </span>
       ) : (
@@ -76,6 +88,7 @@ function MeasureRow({
     beforeValue,
     afterValue,
     delta,
+    sign,
     tone,
     reason,
     cause,
@@ -83,9 +96,14 @@ function MeasureRow({
     href,
   } = item;
   const Name = level;
+  const Way = sign === 1 ? ArrowUp : ArrowDown;
   const mark = ranked && beforeValue !== null && afterValue !== null;
   return (
-    <li className="grid gap-2 border-t border-border-hairline py-4 first:border-t-0 first:pt-0 last:pb-0">
+    <li
+      data-tone={tone ?? "none"}
+      className="grid gap-2 rounded-ds-sm border-t border-border-hairline px-3 py-4 first:border-t-0"
+      style={tone === "better" || tone === "worse" ? { background: TINT[tone] } : undefined}
+    >
       <div className="flex items-start justify-between gap-3">
         <Name className="min-w-0 text-body font-medium text-text-primary wrap-anywhere">
           {label}
@@ -95,12 +113,19 @@ function MeasureRow({
             <span
               data-change
               className={cx(
-                "flex items-center gap-1.5 rounded-ds-xs bg-surface-subtle px-1.5 py-1 text-caption font-medium",
-                tone && TONE[tone],
+                "flex items-center gap-1.5 rounded-ds-xs px-1.5 py-1 text-caption font-medium text-text-primary",
+                tone === null && "bg-surface-subtle",
               )}
             >
+              {(sign === 1 || sign === -1) && (
+                <Way aria-hidden="true" className={cx("size-4 flex-none", ARROW[tone ?? "flat"])} />
+              )}
               <Figure className="text-small">{delta}</Figure>
-              {tone && <ToneMark tone={tone} />}
+              {tone && (
+                <span className={cx("inline-flex", SHAPE_INK[tone])}>
+                  <ToneMark tone={tone} />
+                </span>
+              )}
             </span>
           )}
           {href && (
@@ -112,7 +137,7 @@ function MeasureRow({
       </div>
       <Figure className="flex min-w-0 flex-wrap items-center gap-x-2 text-small">
         <span className="text-text-secondary">{before}</span>
-        <ArrowRight aria-hidden="true" className="size-4 flex-none text-text-tertiary" />
+        <ArrowRight aria-hidden="true" className="size-4 flex-none text-text-secondary" />
         <span className="font-medium">{after}</span>
       </Figure>
       {mark && (
@@ -143,13 +168,36 @@ function MeasureRow({
             </a>
           ) : effect.kind === "dash" ? (
             // The module's own dash, as written, beside the column it was written in.
-            <span className="text-caption text-text-tertiary">Effect on the credit view: —</span>
+            <span className="text-caption text-text-secondary">Effect on the credit view: —</span>
           ) : (
             <span className="text-gap-text">Effect not stated</span>
           )}
         </p>
       )}
     </li>
+  );
+}
+
+const SWATCH = "size-3 flex-none rounded-ds-xs border border-border-hairline";
+
+/** The row tints and the grey arrow in words, drawn once under a list that uses them. */
+function TintLegend() {
+  return (
+    <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-caption text-text-secondary">
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden="true" className={SWATCH} style={{ background: BETTER[1] }} />
+        Green: better
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden="true" className={SWATCH} style={{ background: WORSE[1] }} />
+        Orange: worse
+      </span>
+      <span className="flex items-center gap-1.5">
+        <ArrowUp aria-hidden="true" className="size-3 flex-none text-text-tertiary" />
+        Grey arrow: no better or worse is drawn; the owner's table gives this measure none, or the
+        comparison left its cause unresolved
+      </span>
+    </p>
   );
 }
 
@@ -170,18 +218,25 @@ export function MeasureList({
   quiet?: boolean;
 }) {
   if (items.length === 0) return <GapNote>None recorded</GapNote>;
+  const coloured = items.some(
+    ({ tone, sign }) =>
+      tone === "better" || tone === "worse" || (tone === null && (sign === 1 || sign === -1)),
+  );
   return (
-    <ul aria-label={label} className="grid">
-      {items.map((item) => (
-        <MeasureRow
-          key={item.key}
-          item={item}
-          ranked={ranked}
-          level={level}
-          evidence={evidence}
-          quiet={quiet}
-        />
-      ))}
-    </ul>
+    <div className="grid gap-3">
+      <ul aria-label={label} className="grid">
+        {items.map((item) => (
+          <MeasureRow
+            key={item.key}
+            item={item}
+            ranked={ranked}
+            level={level}
+            evidence={evidence}
+            quiet={quiet}
+          />
+        ))}
+      </ul>
+      {coloured && <TintLegend />}
+    </div>
   );
 }

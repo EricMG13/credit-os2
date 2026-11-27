@@ -213,12 +213,42 @@ describe("ModuleMatrix", () => {
         .find((node) => !node.matches("th, .sr-only"))
         ?.closest("[data-direction]") ?? null;
     expect(direction("Strengthened")).toHaveAttribute("data-direction", "better");
-    expect(direction("Strengthened")?.className).toMatch(/text-success-text/);
+    expect(direction("Strengthened")).toHaveClass("text-text-primary");
     expect(direction("Weakened")).toHaveAttribute("data-direction", "worse");
-    expect(direction("Weakened")?.className).toMatch(/text-warning-text/);
+    expect(direction("Weakened")).toHaveClass("text-text-primary");
     expect(direction("Weakened")?.querySelector("svg")).not.toBeNull();
     expect(direction("Reversed")).toBeNull();
     expect(direction("Unchanged")).toBeNull();
+  });
+
+  it("draws every status glyph and direction in ink, never in chrome blue or a better or worse colour", () => {
+    const status = (word: string) => ({ status: word, cause: "", why: "" });
+    const { container } = render(
+      <ModuleMatrix
+        change={{
+          ...change,
+          verdicts: {
+            modules: {
+              "CP-1": status("Strengthened"),
+              "CP-2": status("Weakened"),
+              "CP-3": status("New"),
+              "CP-4": status("Not run this time"),
+              "CP-5": status("Unchanged"),
+            },
+          },
+        }}
+        source={() => undefined}
+      />,
+    );
+    const cells = [...container.querySelectorAll("tbody td > span, [data-direction]")];
+    expect(cells.length).toBeGreaterThan(0);
+    const banned =
+      /^(text-action|text-success-.*|text-warning-.*|text-better-mark|text-worse-mark)$/;
+    for (const cell of cells)
+      for (const token of [cell, ...cell.querySelectorAll("*")].flatMap((n) => [...n.classList]))
+        expect(token).not.toMatch(banned);
+    const missing = container.querySelector('[data-shape="dashed ring"]')?.parentElement;
+    expect(missing).toHaveClass("text-gap-text");
   });
 
   // The first real pack titled its modules "Canonical data foundation", "Downside pathway": names the
@@ -260,6 +290,52 @@ describe("ModuleMatrix", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById("matrix-CP-1")).not.toHaveAttribute("hidden");
+  });
+});
+
+describe("MaturityPair amount fill", () => {
+  const draw = (rows: { period: string; prior: string | null; current: string | null }[]) =>
+    render(<MaturityPair profile={{ unit: "US$m", rows }} />).container;
+  const fill = (el: Element | null) => (el as HTMLElement | null)?.style.backgroundColor ?? "";
+
+  it("fills this run's bar by its share of the largest stated figure, and leaves the earlier run an outline", () => {
+    const c = draw([
+      { period: "FY2026", prior: "10", current: "5" },
+      { period: "FY2027", prior: null, current: "10" },
+    ]);
+    const current = [...c.querySelectorAll('[data-bar="current"]')];
+    expect(fill(current[0] ?? null)).toBe("var(--color-scale-amount-3)");
+    expect(fill(current[1] ?? null)).toBe("var(--color-scale-amount-5)");
+    expect(current[0]).toHaveClass("border", "border-scale-amount-edge");
+    const earlier = c.querySelector('[data-bar="earlier"]');
+    expect(fill(earlier)).toBe("");
+    expect(earlier).toHaveClass("border-chart-3");
+    expect(earlier?.className).not.toMatch(/bg-chart-1/);
+  });
+
+  it("steps a negative figure by its size and keeps a gap hatched with no amount fill", () => {
+    const c = draw([
+      { period: "FY2026", prior: "-10", current: "-5" },
+      { period: "FY2027", prior: "10", current: null },
+    ]);
+    expect(fill(c.querySelector('[data-bar="current"]'))).toBe("var(--color-scale-amount-3)");
+    const gap = c.querySelector("[data-gap]");
+    expect(gap).not.toBeNull();
+    expect(fill(gap)).toBe("");
+  });
+
+  it("draws an all-zero profile as ticks with no amount fill and no division by zero", () => {
+    const c = draw([{ period: "FY2026", prior: "0", current: "0" }]);
+    for (const bar of c.querySelectorAll<HTMLElement>("[data-bar]"))
+      expect(bar.style.backgroundColor).toBe("");
+  });
+
+  it("names the marks in its legend", () => {
+    draw([{ period: "FY2026", prior: "1", current: "2" }]);
+    expect(screen.getByText("Earlier run: grey outlined bar, left")).toBeVisible();
+    expect(
+      screen.getByText("This run: amber bar, right, deeper for a larger amount"),
+    ).toBeVisible();
   });
 });
 
