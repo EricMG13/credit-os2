@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { BookOpen01, SearchLg } from "@untitledui/icons";
+import { ArrowUp, BookOpen01, SearchLg } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Skeleton } from "@/components/gap/Skeleton";
@@ -11,9 +11,19 @@ import { useCanStart } from "./startAction";
 import { getLibraryIndex, type LibraryIndex } from "./publishedReport";
 import { isUnreachable } from "./useResource";
 import { ChipGroup } from "@/components/kit/Chip";
-import { groupIssuers, libraryChoices, matchesQuery, RUN_STATES } from "./libraryRows/group";
-import { figureName } from "./libraryRows/FigureMark";
-import { IssuerRow, ROW_COLUMNS } from "./libraryRows/IssuerRow";
+import {
+  groupIssuers,
+  libraryChoices,
+  matchesQuery,
+  RUN_STATES,
+  sectorSlots,
+  type IssuerGroup,
+  type SectorSlot,
+} from "./libraryRows/group";
+import { figureChange, figureName } from "./libraryRows/FigureMark";
+import { Legend, type LegendColour, type LegendEntry } from "./report/leads/kit/marks/Legend";
+import { BETTER, WORSE } from "./visuals/signal/scales";
+import { FIGURE_KEYS, IssuerRow, ROW_COLUMNS } from "./libraryRows/IssuerRow";
 import { stated } from "./reportView";
 
 type LibraryFilters = { query: string; sector: string; pathway: string; state: string };
@@ -26,6 +36,61 @@ function filtersFromAddress(): LibraryFilters {
     pathway: query.get("pathway") ?? "all",
     state: query.get("state") ?? "all",
   };
+}
+
+/** Whether a row draws a tint or an arrow-only cell, which the tint legend explains. */
+function drawsChange({ newest }: IssuerGroup) {
+  return FIGURE_KEYS.some((key) => {
+    const change = figureChange(key, newest.metrics[key]);
+    return (
+      change !== undefined &&
+      (change.kind === "better" ||
+        change.kind === "worse" ||
+        change.sign === 1 ||
+        change.sign === -1)
+    );
+  });
+}
+
+function TintSwatch({ colour }: { colour: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ backgroundColor: colour }}
+      className="size-3 rounded-ds-xs border border-border-hairline"
+    />
+  );
+}
+
+/** A sector slot as the legend names its colour. */
+const CATEGORY = {
+  3: "category-3",
+  4: "category-4",
+  5: "category-5",
+  6: "category-6",
+  8: "category-8",
+} as const satisfies Record<SectorSlot, LegendColour>;
+
+/** What a tinted cell and a grey arrow mean, in words beside each swatch. */
+function TintLegend() {
+  return (
+    <div role="group" aria-label="Tint colours">
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-secondary">
+        <li className="inline-flex items-center gap-1.5">
+          <TintSwatch colour={BETTER[1]} />
+          <span>Green: better</span>
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <TintSwatch colour={WORSE[1]} />
+          <span>Orange: worse</span>
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <ArrowUp aria-hidden="true" className="size-3 flex-none text-text-secondary" />
+          <span>Grey arrow: no better or worse is drawn</span>
+        </li>
+      </ul>
+    </div>
+  );
 }
 
 function MatchRuns({
@@ -61,6 +126,16 @@ function MatchRuns({
       (group) =>
         figureName("coverage", "Interest cover", group.newest.metrics.coverage) === coverageName,
     );
+  const slots = sectorSlots(snapshot);
+  const shownSectors = new Set(rows.map((group) => group.newest.sector).filter(Boolean));
+  const sectorLegend: LegendEntry[] = [...slots]
+    .filter(([sector]) => shownSectors.has(sector))
+    .map(([sector, slot]) => ({
+      kind: "dot",
+      tone: CATEGORY[slot],
+      text: sector,
+    }));
+  const tinted = rows.some(drawsChange);
   const choose = (change: Partial<LibraryFilters>) => {
     setFilters((previous) => ({ ...previous, ...change }));
   };
@@ -117,6 +192,16 @@ function MatchRuns({
           />
         )}
       </div>
+      {(sectorLegend.length > 0 || tinted) && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {sectorLegend.length > 0 && (
+            <div role="group" aria-label="Sector colours">
+              <Legend items={sectorLegend} />
+            </div>
+          )}
+          {tinted && <TintLegend />}
+        </div>
+      )}
       {rows.length === 0 ? (
         <div className={`${card} items-start`}>
           <p role="status">No issuers match these filters.</p>
@@ -138,16 +223,21 @@ function MatchRuns({
           >
             <span className="pl-9">Issuer</span>
             <span>Decision</span>
-            <span>Net leverage</span>
-            <span>{coverageInHeader ? coverageName : "Interest cover"}</span>
-            <span>Liquidity (cash)</span>
+            <span className="px-2">Net leverage</span>
+            <span className="px-2">{coverageInHeader ? coverageName : "Interest cover"}</span>
+            <span className="px-2">Liquidity (cash)</span>
             <span>Run</span>
             <span>Next event</span>
           </div>
           <h2 className="sr-only">Issuers</h2>
           <ul aria-label="Issuers" className="grid gap-2">
             {rows.map((group) => (
-              <IssuerRow key={group.key} group={group} coverageInHeader={coverageInHeader} />
+              <IssuerRow
+                key={group.key}
+                group={group}
+                coverageInHeader={coverageInHeader}
+                sectorSlot={slots.get(group.newest.sector)}
+              />
             ))}
           </ul>
           <p className="reading-copy max-w-3xl text-caption text-text-tertiary">

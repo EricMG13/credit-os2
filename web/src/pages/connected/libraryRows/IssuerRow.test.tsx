@@ -279,8 +279,11 @@ it("draws better and worse in the better and worse marks, each with its word", (
     ],
     ["acme-2026"],
   );
-  expect(screen.getByText("better").parentElement).toHaveClass("text-better-mark");
-  expect(screen.getByText("worse").parentElement).toHaveClass("text-worse-mark");
+  // Ruling C2: the mark colour is on the glyph only; the word stays in ink and the cell is tinted.
+  expect(screen.getByText("better").parentElement).toHaveClass("**:data-shape:text-better-mark");
+  expect(screen.getByText("worse").parentElement).toHaveClass("**:data-shape:text-worse-mark");
+  expect(screen.getByText("better")).not.toHaveClass("text-better-mark");
+  expect(screen.getByText("worse")).not.toHaveClass("text-worse-mark");
 });
 
 it("opens to the figures the row does not show, as one stats strip with its own trace controls", () => {
@@ -322,4 +325,57 @@ it("reads the report once for its dates, keeps the answer when the row closes an
   fireEvent.click(toggle);
   expect(screen.getByText(/could not be read against its as-of date/)).toBeVisible();
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+const states: [string, string[], string][] = [
+  ["Delivered", ["acme-2026"], "filled circle"],
+  ["No report published", [], "ring"],
+];
+
+it.each(states)("draws a status glyph beside the word %s", (word, published, shape) => {
+  draw([run("acme-2026", "2026-03-31")], published);
+  const chip = screen.getByText(word).closest("span") as HTMLElement;
+  expect(chip.querySelector(`[data-shape="${shape}"]`)).not.toBeNull();
+  if (word !== "Delivered") expect(chip.className).not.toMatch(/success|green|brand/);
+});
+
+it("draws a triangle beside Test preview in a gray chip, not brand blue or green", () => {
+  const [group] = groupIssuers({
+    ...index([run("acme-2026", "2026-03-31")], ["acme-2026"]),
+    preview: { reason: "test" },
+  });
+  if (!group) throw new Error("no group");
+  render(
+    <ul>
+      <IssuerRow group={group} />
+    </ul>,
+  );
+  const chip = screen.getByText("Test preview").closest("span") as HTMLElement;
+  expect(chip.querySelector('[data-shape="triangle"]')).not.toBeNull();
+  expect(chip.className).not.toMatch(/success|green|brand/);
+});
+
+it("draws a round sector dot in the slot colour before the sector word, none without a sector", () => {
+  const [group] = groupIssuers(index([run("acme-2026", "2026-03-31")], ["acme-2026"]));
+  if (!group) throw new Error("no group");
+  const { container, rerender } = render(
+    <ul>
+      <IssuerRow group={group} sectorSlot={4} />
+    </ul>,
+  );
+  const dot = container.querySelector("[data-sector-dot]") as HTMLElement;
+  expect(dot).toHaveAttribute("aria-hidden", "true");
+  expect(dot.style.backgroundColor).toBe("var(--color-category-4)");
+  expect(dot.nextSibling?.textContent).toBe("Industrial");
+  expect(dot).toBeEmptyDOMElement();
+  const none = groupIssuers(
+    index([run("acme-2026", "2026-03-31", { sector: "" })], ["acme-2026"]),
+  )[0];
+  if (!none) throw new Error("no group");
+  rerender(
+    <ul>
+      <IssuerRow group={none} sectorSlot={4} />
+    </ul>,
+  );
+  expect(container.querySelector("[data-sector-dot]")).toBeNull();
 });
