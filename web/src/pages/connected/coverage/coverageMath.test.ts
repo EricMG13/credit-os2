@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import cases from "./coverageMath.cases.json";
-import { band, compare, dec, difference, stats, sum, type Stats } from "./coverageMath";
+import { abs, band, compare, dec, difference, stats, sum, type Stats } from "./coverageMath";
 
 type StatsCase = { name: string; values: string[]; expect: Stats | null };
 
@@ -88,5 +88,13 @@ describe("properties", () => {
         },
       ),
     );
+  });
+});
+
+describe("abs", () => {
+  it("drops a leading minus and leaves other figures alone", () => {
+    expect(abs("-1.5")).toBe("1.5");
+    expect(abs("2")).toBe("2");
+    expect(abs("0")).toBe("0");
   });
 });

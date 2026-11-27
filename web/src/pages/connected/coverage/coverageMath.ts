@@ -1,4 +1,7 @@
-/** A written figure as an exact decimal string: optional "-", digits, optional "." digits. No exponent. */
+/**
+ * A written figure as an exact decimal string: optional "-", digits, optional "." digits. No exponent.
+ * `compare` and `abs` expect normalised values produced by `dec`, `stats` or `difference`.
+ */
 export type Dec = string;
 
 export type Stats = { count: number; min: Dec; q1: Dec; median: Dec; q3: Dec; max: Dec };
@@ -51,10 +54,12 @@ function parseAll(values: readonly string[]): Scaled[] | null {
   return out;
 }
 
+/** Magnitude of a normalised `Dec` (from `dec`, `stats` or `difference`). */
 export function abs(value: Dec): Dec {
   return value.startsWith("-") ? value.slice(1) : value;
 }
 
+/** Order of two normalised `Dec` values (from `dec`, `stats` or `difference`). */
 export function compare(a: Dec, b: Dec): -1 | 0 | 1 {
   const x = parse(a);
   const y = parse(b);
