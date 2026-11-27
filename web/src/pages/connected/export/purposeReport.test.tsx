@@ -1840,16 +1840,18 @@ it("counts only the candidates the check left out: no method note, printed passa
   expect(container.textContent).not.toMatch(/Module status|p\. 14|liquidity\.xlsx/);
 });
 
-it("counts a passage the check left out where an earlier-format report chooses one passage", () => {
+it("counts a passage the check left out and a passage shown only in part where an earlier-format report chooses one passage", () => {
   const market = archivedRelativeValuePublication([
     text("Security-selection view", "The price basis is reconciled in marks.xlsx.", 17),
   ]);
   open(market.snapshot, "relative-value");
-  expect(sectionText("Market-implied view")).toContain(oneWithheld);
+  expect(sectionText("Market-implied view")).toContain(
+    "2 passages in this section are not shown in this report.",
+  );
   cleanup();
   const clean = archivedRelativeValuePublication();
-  expect(open(clean.snapshot, "relative-value").container.textContent).not.toMatch(
-    /passages? in this section/,
+  expect(open(clean.snapshot, "relative-value").container.textContent).toContain(
+    "1 passage in this section is not shown in this report.",
   );
   cleanup();
 
@@ -1873,4 +1875,52 @@ it("counts a passage the check left out where an earlier-format report chooses o
   expect(
     open(archivedPortfolio().snapshot, "portfolio-decision").container.textContent,
   ).not.toMatch(/passages? in this section/);
+});
+
+it.each([
+  [
+    "Definition lock and top sheet",
+    "Periods are as the issuer reports them.",
+    "Reporting basis and limitations",
+  ],
+  [
+    "Monitoring and method changes justified by observed output",
+    "Watch the revolver.",
+    "What to watch",
+  ],
+])(
+  "counts a %s passage the earlier-format earnings report does not print",
+  (heading, body, section) => {
+    const earnings = legacyEarningsPublication();
+    Object.values(earnings.workspace.handoffs)[0]?.push(text(heading, body, 46));
+    const { container } = open(earnings, "earnings-update");
+    expect(container.textContent).not.toContain(body);
+    expect(sectionText(section)).toContain(oneWithheld);
+    expect(occurrences(container, oneWithheld)).toBe(1);
+  },
+);
+
+it("counts a posture passage the earlier-format portfolio report does not print", () => {
+  const portfolio = archivedPortfolio();
+  portfolio.snapshot.workspace.handoffs[portfolio.committee.sha256]?.push(
+    text("Final Sizing Posture", "The committee meets again in June.", 30),
+  );
+  const { container } = open(portfolio.snapshot, "portfolio-decision");
+  expect(container.textContent).not.toContain("meets again");
+  expect(sectionText("Portfolio decision and sizing")).toContain(oneWithheld);
+});
+
+it("keeps the price-trigger section with a count when its signal is reworded", () => {
+  const { snapshot } = archivedRelativeValuePublication();
+  const sections = Object.values(snapshot.workspace.handoffs)[0] ?? [];
+  const block = sections.find(({ heading }) => heading === "T3.9 — Observable monitoring triggers")
+    ?.blocks[0];
+  const row = block?.type === "table" ? block.rows[0] : undefined;
+  if (!row) throw new Error("fixture has no trigger row");
+  row.cells[1] = "Explicit price convention and two-way levels";
+  const { container } = open(snapshot, "relative-value");
+  expect(container.textContent).not.toContain("two-way levels");
+  expect(sectionText("What would change the view")).toBe(
+    `What would change the view${oneWithheld}`,
+  );
 });

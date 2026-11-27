@@ -148,6 +148,18 @@ const MILESTONES = {
   model_not_published: ["Not assessable", "The financial model was unavailable for publication."],
 } as const satisfies Record<RunEvent["kind"], [ActivityLine["state"], string]>;
 
+const warnedKinds = new Set<string>();
+
+/** The milestone for an event kind, or undefined (warned once per kind) for one this build does not
+ * list, such as a newer service's: the feed skips it rather than failing the page. */
+function milestoneFor(kind: string): readonly [ActivityLine["state"], string] | undefined {
+  if (Object.hasOwn(MILESTONES, kind)) return MILESTONES[kind as RunEvent["kind"]];
+  if (!warnedKinds.has(kind)) {
+    warnedKinds.add(kind);
+    console.warn(`Run progress skips an unlisted event kind: ${kind}`);
+  }
+}
+
 export function feedLines(run: Run): ActivityLine[] {
   const lines: ActivityLine[] = [];
   if (run.claimed_at)
@@ -160,7 +172,9 @@ export function feedLines(run: Run): ActivityLine[] {
   if (run.started_at)
     lines.push({ who: "Run", time: clock(run.started_at), state: "Running", text: "Run started." });
   for (const event of run.events ?? []) {
-    const [state, text] = MILESTONES[event.kind];
+    const milestone = milestoneFor(event.kind);
+    if (!milestone) continue;
+    const [state, text] = milestone;
     lines.push({
       who: event.module ? moduleName(event.module, run.pathway) : "Run",
       time: clock(event.at),

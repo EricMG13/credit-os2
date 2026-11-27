@@ -95,7 +95,7 @@ export function FindView({
         !DECISION_MODULES.includes(fields.get(fact.field)?.module ?? ""),
     );
     const matching = passages.filter((fact) =>
-      `${fact.text} ${fact.impact ?? ""}`.toLowerCase().includes(wanted),
+      `${prose(fact.text) ?? ""} ${prose(fact.impact) ?? ""}`.toLowerCase().includes(wanted),
     );
     const facts = matching.length > 0 ? matching : passages;
     return facts.length > 0 ? [{ issuer, run, facts }] : [];

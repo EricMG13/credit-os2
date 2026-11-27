@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { readerReason } from "../report/overview/reason";
+import { drawnReason } from "./drawnQualifications";
 import { ForecastTable } from "./ForecastTable";
 import { PathChart } from "@/components/chart/PathChart";
 import { ChartTable } from "@/components/chart/ChartTable";
@@ -225,7 +226,7 @@ const NOT_PUBLISHED = "Not published";
 
 function displayForecastCell(cell: Record<string, unknown>) {
   const display = word(cell.display);
-  const reason = word(cell.reason);
+  const reason = drawnReason(word(cell.reason));
   return reason ? `${display} ${reason}` : display || null;
 }
 
@@ -461,7 +462,7 @@ function cashProxyCaseRows(observations: CashProxyObservation[], names: CaseName
             : null,
         reason: duplicate
           ? `More than one published observation uses ${latestPeriod ?? "the same period"}; no single value is shown.`
-          : word(selected?.cell?.reason) || undefined,
+          : drawnReason(word(selected?.cell?.reason)) || undefined,
         duplicate,
       };
     });
@@ -533,9 +534,11 @@ function cashProxySeries(
     cells: matching.map((cell, index) => {
       const value = values[index];
       if (!cell) return NOT_PUBLISHED;
-      return typeof value === "number" ? twoPlaces.format(value) : word(cell.reason) || null;
+      return typeof value === "number"
+        ? twoPlaces.format(value)
+        : drawnReason(word(cell.reason)) || null;
     }),
-    reasons: matching.map((cell) => word(cell?.reason)),
+    reasons: matching.map((cell) => drawnReason(word(cell?.reason))),
   };
 }
 

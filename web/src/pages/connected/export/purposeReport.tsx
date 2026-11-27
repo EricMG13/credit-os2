@@ -38,7 +38,7 @@ import { printableTable } from "./printTable";
 type SafeText = (text: string) => string;
 type PurposePassage = SpecialistOverview["findings"][number];
 type Exhibit = { title: string; table: Table; notes: string[] };
-/** `withheld` counts the module passages of this section that the reference check left out. */
+/** `withheld` counts the module passages of this section that were read but not printed whole. */
 type PurposeSection = { title: string; bodies: string[]; withheld?: number };
 /** `withheld` is the same count for the decision's passages that no section below it counts. */
 type Purpose = {
@@ -197,6 +197,11 @@ function passageSection(
   if (!entry) return { title, bodies: [] };
   const { passages, withheld } = readPassages(entry, headings, safe);
   return { title, bodies: passages.map(({ body }) => body), withheld };
+}
+
+/** 1 when a module passage has text beyond the verified `printed` start that is not printed. */
+function unprinted(passage: string, printed: string) {
+  return passage.slice(printed.length).trim() ? 1 : 0;
 }
 
 type ChosenPassage = { body?: string; withheld: number };
@@ -447,6 +452,9 @@ function legacyEarnings(entry: OutputEntry, safe: SafeText): Purpose | null {
     ["Monitoring and method changes justified by observed output"],
     safe,
   );
+  const watch = monitoring.passages
+    .map(({ body }) => body)
+    .filter((body) => body.startsWith("Track dated cash after distributions"));
   return {
     title: "Earnings view",
     decision: [lead, challenge],
@@ -457,14 +465,12 @@ function legacyEarnings(entry: OutputEntry, safe: SafeText): Purpose | null {
       {
         title: "Reporting basis and limitations",
         bodies: [definitions],
-        withheld: basisNotes.withheld,
+        withheld: basisNotes.withheld + basisNotes.passages.length - 1,
       },
       {
         title: "What to watch",
-        bodies: monitoring.passages
-          .map(({ body }) => body)
-          .filter((body) => body.startsWith("Track dated cash after distributions")),
-        withheld: monitoring.withheld,
+        bodies: watch,
+        withheld: monitoring.withheld + monitoring.passages.length - watch.length,
       },
     ],
   };
@@ -520,13 +526,11 @@ function archivedPriceTrigger(entry: OutputEntry) {
     "Evidence ID",
   ]);
   const signal = "Explicit accrued/clean/dirty convention plus unrounded same-time two-way levels";
-  return table?.rows.some(
-    ({ cells }) =>
-      cells[0] === "RV01 Both actual price bases and precise values resolved" &&
-      cells[1] === signal,
-  )
-    ? [signal]
-    : [];
+  const rows = (table?.rows ?? []).filter(
+    ({ cells }) => cells[0] === "RV01 Both actual price bases and precise values resolved",
+  );
+  const bodies = rows.some(({ cells }) => cells[1] === signal) ? [signal] : [];
+  return { title: "What would change the view", bodies, withheld: rows.length - bodies.length };
 }
 
 function archivedRelativeValue(
@@ -573,11 +577,17 @@ function archivedRelativeValue(
     return null;
   const charts = archivedYieldFigures(table, safe);
   if (!charts.length) return null;
-  const findings = [{ ...held, body: held.body.match(ARCHIVED_RV_CLEAN)?.[1] ?? disposition }];
+  // A passage printed as its verified start, or as the bare disposition when the start does not
+  // match, counts as withheld when the module wrote more after it.
+  const heldBody = held.body.match(ARCHIVED_RV_CLEAN)?.[1] ?? disposition;
+  const findings = [{ ...held, body: heldBody }];
+  let cut = unprinted(held.body, heldBody);
   for (const passage of selection) {
     const body = passage.body.match(ARCHIVED_RV_DIRTY)?.[1];
-    if (body && !findings.some(({ line }) => passage.line === line))
+    if (body && !findings.some(({ line }) => passage.line === line)) {
       findings.push({ ...passage, body });
+      cut += unprinted(passage.body, body);
+    }
   }
   const treatment = decisionTreatment(view, run, "CP-3", "instrument", safe);
   const status = treatment?.status ?? "unavailable";
@@ -588,8 +598,8 @@ function archivedRelativeValue(
   return {
     title: label ?? "Market-implied view",
     decision: [...findings.map(({ body }) => body), ...(hold ? [hold] : [])],
-    withheld: written.withheld,
-    passages: [{ title: "What would change the view", bodies: archivedPriceTrigger(entry) }],
+    withheld: written.withheld + cut + selection.length - findings.length,
+    passages: [archivedPriceTrigger(entry)],
     restrictions: label ? [label] : [],
     overview: {
       title: "Published market comparison",
@@ -1190,9 +1200,10 @@ const PORTFOLIO_STRESS =
 
 function selectedPortfolioPassage(position: OutputEntry, pattern: RegExp, safe: SafeText) {
   return sectionPassages(position, ["Portfolio view"], safe).flatMap((passage) => {
-    const body = plainText(passage.body).match(pattern)?.[1];
-    return body ? [{ ...passage, body }] : [];
-  })[0];
+    const full = plainText(passage.body);
+    const body = full.match(pattern)?.[1];
+    return body ? [{ passage: { ...passage, body }, cut: unprinted(full, body) }] : [];
+  });
 }
 
 const HOLDING_HEADERS = [
@@ -1273,13 +1284,19 @@ function portfolioExposure(view: ReportView, safe: SafeText, requiredObservation
     (requiredObservation && !hasDatedPortfolioEvidence(position, requiredObservation))
   )
     return null;
-  const observed = selectedPortfolioPassage(position, PORTFOLIO_EXPOSURE, safe);
-  const stress = selectedPortfolioPassage(position, PORTFOLIO_STRESS, safe);
+  const exposures = selectedPortfolioPassage(position, PORTFOLIO_EXPOSURE, safe);
+  const stresses = selectedPortfolioPassage(position, PORTFOLIO_STRESS, safe);
+  const [observed] = exposures;
+  const [stress] = stresses;
+  const read = readPassages(position, ["Portfolio view"], safe);
+  // Each passage that is neither the printed exposure nor a stress passage is counted here.
+  const unprintedHere = read.passages.length - stresses.length - (observed ? 1 : 0);
   return {
-    observed,
+    observed: observed?.passage,
     exhibits: observed ? portfolioHoldings(position, safe) : [],
-    conditions: stress ? [stress.body] : [],
-    withheld: readPassages(position, ["Portfolio view"], safe).withheld,
+    conditions: stress ? [stress.passage.body] : [],
+    stressCut: stress ? stress.cut + stresses.length - 1 : 0,
+    withheld: read.withheld + unprintedHere + (observed?.cut ?? 0),
   };
 }
 
@@ -1299,16 +1316,21 @@ function archivedCommitteeChallenge(committee: OutputEntry, safe: SafeText) {
     "Required element",
     "Terminal portfolio view for separate delivery",
   ]);
-  if (memo?.headers.length !== 2) return [];
-  return memo.rows.flatMap(({ line, cells: [label = "", body = ""] }) => {
-    const challenge = Object.hasOwn(COMMITTEE_CHALLENGES, label)
-      ? COMMITTEE_CHALLENGES[label]
-      : undefined;
+  if (memo?.headers.length !== 2) return { rows: [], withheld: 0 };
+  const known = memo.rows.filter(({ cells: [label = ""] }) =>
+    Object.hasOwn(COMMITTEE_CHALLENGES, label),
+  );
+  const rows = known.flatMap(({ line, cells: [label = "", body = ""] }) => {
+    const challenge = COMMITTEE_CHALLENGES[label];
     if (!challenge || !safe(body)) return [];
     const trusted =
       body === challenge || body.startsWith(challenge + (challenge.endsWith(".") ? " " : "."));
-    return trusted ? [locatedPassage(committee, line, challenge)] : [];
+    if (!trusted) return [];
+    const rest = body.slice(challenge.length + (challenge.endsWith(".") ? 0 : 1));
+    return [{ ...locatedPassage(committee, line, challenge), cut: rest.trim() ? 1 : 0 }];
   });
+  const cut = rows.reduce((sum, row) => sum + row.cut, 0);
+  return { rows, withheld: known.length - rows.length + cut };
 }
 
 const PORTFOLIO_DISPOSITION = "Final Sizing Posture: Requires More Work.";
@@ -1320,11 +1342,12 @@ function archivedPortfolioDecision(entry: OutputEntry, safe: SafeText) {
     const body = plainText(passage.body);
     if (body !== PORTFOLIO_DISPOSITION && !body.startsWith(PORTFOLIO_DISPOSITION + " ")) return [];
     const supported = PORTFOLIO_DISPOSITION + " " + PORTFOLIO_EXPLANATION;
-    return [{ ...passage, body: body.startsWith(supported) ? supported : PORTFOLIO_DISPOSITION }];
+    const printed = body.startsWith(supported) ? supported : PORTFOLIO_DISPOSITION;
+    return [{ passage: { ...passage, body: printed }, cut: unprinted(body, printed) }];
   })[0];
 }
 
-type PortfolioChallenge = ReturnType<typeof archivedCommitteeChallenge>[number];
+type PortfolioChallenge = ReturnType<typeof archivedCommitteeChallenge>["rows"][number];
 
 function portfolioRestriction(
   label: string | undefined,
@@ -1345,17 +1368,20 @@ interface PortfolioParts {
   run: PublishedRun;
   safe: SafeText;
   archived: boolean;
-  archive: ReturnType<typeof archivedPortfolioDecision>;
+  archive: NonNullable<ReturnType<typeof archivedPortfolioDecision>>["passage"] | undefined;
+  archiveCut: number;
   position: ReturnType<typeof portfolioExposure>;
   hold: string;
   status: string;
 }
 
 function portfolioPurpose(parts: PortfolioParts): Purpose {
-  const { committee, run, safe, archived, archive, position, hold, status } = parts;
-  const challenge = archive ? archivedCommitteeChallenge(committee, safe) : [];
+  const { committee, run, safe, archived, archive, archiveCut, position, hold, status } = parts;
+  const challenge = archive
+    ? archivedCommitteeChallenge(committee, safe)
+    : { rows: [], withheld: 0 };
   const charts = portfolioFigure(committee, run, safe);
-  const constraint = challenge.find(
+  const constraint = challenge.rows.find(
     ({ body }) => body === COMMITTEE_CHALLENGES["Sizing constraint"],
   );
   const findings = [
@@ -1371,11 +1397,12 @@ function portfolioPurpose(parts: PortfolioParts): Purpose {
   // The decision is chosen from the archived posture passages and the exposure passages: those the
   // check left out are counted once, here, although the stress section reads the exposure passages
   // too.
-  const posture = archived ? readPassages(committee, ["Final Sizing Posture"], safe).withheld : 0;
+  const read = archived ? readPassages(committee, ["Final Sizing Posture"], safe) : undefined;
+  const posture = read ? read.withheld + read.passages.length - (archive ? 1 : 0) : 0;
   return {
     title,
     decision: [...findings.map(({ body }) => body), ...(hold ? [hold] : [])],
-    withheld: posture + (position?.withheld ?? 0),
+    withheld: posture + archiveCut + (position?.withheld ?? 0),
     restrictions: label ? [label] : [],
     overview: { title, findings, restriction },
     charts,
@@ -1384,9 +1411,14 @@ function portfolioPurpose(parts: PortfolioParts): Purpose {
     passages: [
       {
         title: "Committee challenge and binding limits",
-        bodies: challenge.map(({ body }) => body),
+        bodies: challenge.rows.map(({ body }) => body),
+        withheld: challenge.withheld,
       },
-      { title: "Conditional stress on reported exposure", bodies: position?.conditions ?? [] },
+      {
+        title: "Conditional stress on reported exposure",
+        bodies: position?.conditions ?? [],
+        withheld: position?.stressCut,
+      },
     ],
   };
 }
@@ -1399,7 +1431,8 @@ export function portfolioDecision(
   const committee = selectedOutput(view, "CP-6");
   if (!committee) return null;
   const archived = earlierScope(run);
-  const archive = archived ? archivedPortfolioDecision(committee, safe) : undefined;
+  const decided = archived ? archivedPortfolioDecision(committee, safe) : undefined;
+  const archive = decided?.passage;
   const treatment = decisionTreatment(view, run, "CP-6", "committee", safe);
   const hold = treatment?.status === "withheld" ? treatment.reason : "";
   if (!archive && !hold) return null;
@@ -1407,5 +1440,16 @@ export function portfolioDecision(
   const historicalFinding = archive?.body === PORTFOLIO_DISPOSITION + " " + PORTFOLIO_EXPLANATION;
   if (!historicalFinding && !position?.observed) return null;
   const status = treatment?.status ?? "unavailable";
-  return portfolioPurpose({ committee, run, safe, archived, archive, position, hold, status });
+  const archiveCut = decided?.cut ?? 0;
+  return portfolioPurpose({
+    committee,
+    run,
+    safe,
+    archived,
+    archive,
+    archiveCut,
+    position,
+    hold,
+    status,
+  });
 }

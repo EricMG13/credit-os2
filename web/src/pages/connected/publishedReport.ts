@@ -629,6 +629,21 @@ export function methodNote(text: string) {
   );
 }
 
+// A bracket that is only evidence ids: the marker letters C, D, E, G, K, R, S followed by digits,
+// widened to dotted and lettered ids ([E3.2], [E3a], [E1234]), plus dotted T register ids ([T4.4a],
+// [T2E.3.r03]). Items may be joined by , ; / dashes, "and" or "or", and led by "see". Period,
+// scenario and capital tokens (Q, H, FY, CY, P, an undotted T, CET1, AT1) are not markers and stay in
+// prose; an item followed by a year ("[S1 2025]") is not an id list at all. A scenario id [S02]
+// cannot be told from a source id [S12], so it moves to the basis with them.
+const MARKER_ITEM = String.raw`(?:[CDEGKRS]\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?)`;
+const MARKER_JOIN = String.raw`(?:\s*[,;/–-]\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)`;
+const MARKER_BRACKET = new RegExp(
+  String.raw`^\[\s*(?:see\s+)?${MARKER_ITEM}(?:${MARKER_JOIN}${MARKER_ITEM})*\s*\]$`,
+);
+// "[see T2DS.6]" stays in the sentence: the overview reason reader rejects a "see"-cited register id
+// (report/overview/reason.test.tsx), so it is not moved to the basis here.
+const SEE_REGISTER = /^\[\s*see\s+[^\]]*\bT[A-Z0-9]{0,5}\.\d/;
+
 export function readParagraph(text: string) {
   const lines = text.split("\n");
   const last = lines.at(-1) ?? "";
@@ -651,7 +666,8 @@ export function readParagraph(text: string) {
       if (!endsSentence) return cluster;
       return cluster.replace(/ ?(\[[^\]]*\]|【[^】]*】)/g, (item: string, citation: string) => {
         if (
-          !/CP-[A-Z0-9]+|\bpp?\.|\bpages?\b|\b[A-Z]\d{1,3}\b|†|^【/.test(citation) &&
+          !/CP-[A-Z0-9]+|\bpp?\.|\bpages?\b|†|^【/.test(citation) &&
+          !(MARKER_BRACKET.test(citation) && !SEE_REGISTER.test(citation)) &&
           !containsReference(citation)
         )
           return item;
@@ -716,7 +732,8 @@ function parenthesizedGap(text: string) {
 // count/duration phrase after it can continue a percentage-point quantity. Duration modifiers
 // have no word-count limit, but punctuation ends that phrase; bare/parenthesized locators
 // have no preceding quantity. Explicit locator cues take precedence. Word fragments, S&P and
-// p.p. are excluded at the token boundary; "front page 2025" is a headline, not a locator.
+// p.p. are excluded at the token boundary; a capital letter run straight into digits (P50, P90) is a
+// percentile or a label, not a locator (a lowercase "p12" still is one); "front page 2025" is a headline, not a locator.
 function pageCitation(text: string) {
   return contextualMatch(
     text,
@@ -724,6 +741,7 @@ function pageCitation(text: string) {
     (match, before, after) => {
       const marker = match[1]?.toLowerCase();
       if (match[2] || /\b(?:see|at|on|as)\s*$/i.test(before)) return true;
+      if (/^[a-z]+\d/i.test(match[0]) && match[1] !== marker) return false;
       if (marker === "pp") {
         if (/\d\s*$/.test(before)) return false;
         if (

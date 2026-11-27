@@ -211,6 +211,9 @@ function Dashboard({ data: served }: { data: Data }) {
     setGroupName("");
   };
   const detail = shown.find((issuer) => issuer.key === open);
+  // An issuer a filter or search removes is closed, so its return is not an opening: the detail
+  // takes focus only when the analyst opens it.
+  if (open !== null && !detail) setOpen(null);
   const column = data.columns.find((item) => item.code === filters.module);
   const choiceField = choices.find((item) => item.id === filters.choice);
   // Filters set in the disclosure show beside the chips and remove themselves.
@@ -666,7 +669,7 @@ function Dashboard({ data: served }: { data: Data }) {
             open={open}
             setOpen={setOpen}
           />
-          {detail && <IssuerDetail data={data} issuer={detail} />}
+          {detail && <IssuerDetail key={detail.key} data={data} issuer={detail} />}
         </>
       ) : view === "rank" ? (
         <RankView

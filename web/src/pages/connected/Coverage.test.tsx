@@ -121,6 +121,10 @@ function answer(body: unknown) {
 }
 
 afterEach(() => {
+  // Unmount before the address is reset: this hook runs before Testing Library's own cleanup, and a
+  // page still mounted writes its filters back to the address when a late update lands, so the
+  // next test would start with the last one's filters (seen: sector=Chemicals, "0 of 2 issuers").
+  cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState(null, "", "/coverage");
   window.localStorage.clear();

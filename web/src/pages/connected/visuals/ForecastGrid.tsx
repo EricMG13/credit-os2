@@ -4,6 +4,7 @@ import { Segmented } from "@/components/kit/Segmented";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import { cx } from "@/utils/cx";
 import { containsReference, readerText } from "../publishedReport";
+import { drawnReason } from "./drawnQualifications";
 import { Key } from "../report/overview/figureParts";
 import { word } from "./visualData";
 
@@ -38,7 +39,6 @@ interface CellRun {
   gap?: Gap;
 }
 
-const EVIDENCE_REASON = "Reason recorded in model evidence.";
 const NO_FIGURE = "the model wrote no figure here; none is interpolated or shown as zero.";
 const WITH_REASON = `${NO_FIGURE} Hover the cell or open the row's trace for the recorded reason.`;
 
@@ -50,8 +50,7 @@ function gapOf(cell: Cell): Gap | undefined {
       ? cell.status === "value"
       : !/^n\.[am]\.$/u.test(display) && !word(cell.reason);
   if (valued) return undefined;
-  const reason = readerText(word(cell.reason));
-  return { display, reason: containsReference(reason) ? EVIDENCE_REASON : reason };
+  return { display, reason: drawnReason(word(cell.reason)) };
 }
 
 const sameGap = (left?: Gap, right?: Gap) =>

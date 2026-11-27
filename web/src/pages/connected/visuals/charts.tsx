@@ -537,7 +537,7 @@ function recovery(table: SourceTable, descriptor: Descriptor, frame: Frame) {
     const found = groups.map((group) => sourceRows.get(group)?.get(name));
     const texts = found.map((row) => row?.[column] ?? "");
     const values = found.map((row) =>
-      row === undefined ? null : cellAmount(row[column] ?? "", scope),
+      row === undefined ? null : cellAmount(row[column] ?? "", scope, row.at(-2)),
     );
     return { name, values, labels: texts.map((value, i) => (values[i] === null ? null : value)) };
   });

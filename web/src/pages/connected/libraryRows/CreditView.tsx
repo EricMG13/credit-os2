@@ -40,6 +40,8 @@ function LinkedFinding({ body, href }: CardFinding) {
   );
 }
 
+const FINDING_FAILED = "The finding could not be loaded.";
+
 const cardFindings = new Map<string, Promise<CardFinding | null>>();
 
 /** One publication of one run: a republished folder or date is a different card. */
@@ -117,13 +119,17 @@ function SpecialistCardFinding({
   load: LoadSnapshot;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [finding, setFinding] = useState<CardFinding | null>();
+  const [finding, setFinding] = useState<CardFinding | null | "failed">();
   useEffect(() => {
     const target = root.current;
     if (!target) return;
     const controller = new AbortController();
     const read = async () => {
-      const result = await cachedCardFinding(run, date, load).catch(() => null);
+      // A failed reading is its own state, logged; only a real absence reads as unavailable.
+      const result = await cachedCardFinding(run, date, load).catch((error: unknown) => {
+        console.error(FINDING_FAILED, error);
+        return "failed" as const;
+      });
       if (!controller.signal.aborted) setFinding(result);
     };
     const observer =
@@ -143,7 +149,13 @@ function SpecialistCardFinding({
   }, [date, run, load]);
   return (
     <div ref={root} className="min-h-px">
-      {finding === null ? unavailable : finding && <LinkedFinding {...finding} />}
+      {finding === "failed" ? (
+        <p className="text-small text-gap-text">{FINDING_FAILED}</p>
+      ) : finding === null ? (
+        unavailable
+      ) : (
+        finding && <LinkedFinding {...finding} />
+      )}
     </div>
   );
 }
