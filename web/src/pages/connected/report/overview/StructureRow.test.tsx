@@ -368,3 +368,182 @@ it("draws a stated gap in the stack's cumulative leverage with its reason", () =
     within(tile).getByText("Secured · Cumulative leverage not calculated: no EBITDA for the year"),
   ).toBeVisible();
 });
+
+// Colour-signal-build ruling C4 and C6: expected values are written out by hand.
+const FILLS =
+  /better-mark|worse-mark|scale-better|scale-worse|cap-band|category-|success|error|warning/;
+const fillOf = (element: Element | null) => (element as SVGElement | null)?.style.fill;
+
+it("fills each maturity bar in the amount scale by its share of the largest, with the edge", () => {
+  const { wall } = wallOf([
+    ["FY2026", "1,000", "US$m", ""],
+    ["FY2027", "500", "US$m", ""],
+    ["FY2028", "300", "US$m", ""],
+    ["FY2029", "100", "US$m", ""],
+  ]);
+  const fills = ["FY2026", "FY2027", "FY2028", "FY2029"].map((label) => {
+    const bar = wall.querySelector(`[data-bar="${label}"]`);
+    expect(bar).toHaveClass("stroke-scale-amount-edge");
+    expect(bar).not.toHaveAttribute("fill");
+    return fillOf(bar);
+  });
+  expect(fills).toEqual([
+    "var(--color-scale-amount-5)",
+    "var(--color-scale-amount-3)",
+    "var(--color-scale-amount-2)",
+    "var(--color-scale-amount-1)",
+  ]);
+  expect(within(wall).getByText("Amount due: darker is larger")).toBeVisible();
+  expect(wall.innerHTML).not.toMatch(FILLS);
+});
+
+it("keeps the undated bucket hatched over its amount step, and a zero and a gap off the scale", () => {
+  const { wall } = wallOf([
+    ["FY2026", "1,000", "US$m", ""],
+    ["FY2027", "0", "US$m", ""],
+    ["FY2028", "Not supplied: not stated", "US$m", ""],
+    ["Thereafter", "500", "US$m", ""],
+  ]);
+  expect(fillOf(wall.querySelector('[data-underlay="Thereafter"]'))).toBe(
+    "var(--color-scale-amount-3)",
+  );
+  expect(wall.querySelector('[data-bar="Thereafter"]')).toHaveAttribute(
+    "fill",
+    "url(#wall-undated)",
+  );
+  expect(wall.querySelector('[data-bar="FY2027"]')).toHaveClass("stroke-scale-amount-edge");
+  const gap = wall.querySelector('[data-gap="FY2028"]');
+  expect(gap).not.toBeNull();
+  expect((gap as SVGElement).style.fill).toBe("");
+  expect(wall.querySelectorAll("[data-amount-swatch]")).toHaveLength(5);
+  expect(within(wall).getByText("After the axis break: no single year")).toBeVisible();
+  expect(wall.innerHTML).not.toMatch(FILLS);
+});
+
+const segmentFills = (tile: HTMLElement, labels: string[]) =>
+  labels.map((label) => fillOf(tile.querySelector(`[data-segment="${label}"]`)));
+
+it("colours the capital stack by claim group in the order the groups appear", () => {
+  render(
+    <StructureRow
+      {...rowProps([
+        foundation(
+          [["FY2026", "500", "US$m", ""]],
+          [
+            ["Term loan A", "1", "Yes", "100", "1.0", "US$m", ""],
+            ["Term loan B", "2", "Yes", "200", "2.0", "US$m", ""],
+            ["Revolver", "3", "Yes", "0", "2.0", "US$m", ""],
+            ["Senior notes", "4", "No", "300", "3.0", "US$m", ""],
+            ["Sub notes", "5", "No", "Not supplied: not stated", "n.a.", "US$m", ""],
+            ["Mezzanine", "6", "No", "50", "3.5", "US$m", ""],
+          ],
+        ),
+      ])}
+    />,
+  );
+  const tile = screen.getByRole("region", { name: "Capital structure by rank" });
+  expect(segmentFills(tile, ["Term loan A", "Term loan B", "Revolver"])).toEqual([
+    "var(--color-category-1)",
+    "var(--color-category-1)",
+    "var(--color-category-1)",
+  ]);
+  expect(segmentFills(tile, ["Senior notes", "Mezzanine"])).toEqual([
+    "var(--color-category-3)",
+    "var(--color-category-3)",
+  ]);
+  const gap = tile.querySelector('[data-gap="Sub notes"]');
+  expect(gap).not.toBeNull();
+  expect((gap as SVGElement).style.fill).toBe("");
+  expect(tile.innerHTML).not.toMatch(/category-2|category-7/);
+});
+
+it("gives a stack that starts not secured the first colour for that group", () => {
+  render(
+    <StructureRow
+      {...rowProps([
+        foundation(
+          [["FY2026", "500", "US$m", ""]],
+          [
+            ["Senior notes", "1", "No", "800", "4.0", "US$m", ""],
+            ["Term loan", "2", "Yes", "1,200", "2.4", "US$m", ""],
+          ],
+        ),
+      ])}
+    />,
+  );
+  const tile = screen.getByRole("region", { name: "Capital structure by rank" });
+  expect(segmentFills(tile, ["Senior notes", "Term loan"])).toEqual([
+    "var(--color-category-1)",
+    "var(--color-category-3)",
+  ]);
+});
+
+// Colour-review lows (colour-signal-build rulings C4, C6, R2): expected values written by hand.
+it("steps a wall at a bin boundary up, not down, whatever the float division says", () => {
+  const { wall } = wallOf([
+    ["FY2026", "3.0", "US$m", ""],
+    ["FY2027", "1.2", "US$m", ""],
+    ["FY2028", "0.6", "US$m", ""],
+  ]);
+  expect(
+    ["FY2026", "FY2027", "FY2028"].map((l) => fillOf(wall.querySelector(`[data-bar="${l}"]`))),
+  ).toEqual([
+    "var(--color-scale-amount-5)",
+    "var(--color-scale-amount-3)",
+    "var(--color-scale-amount-2)",
+  ]);
+});
+
+it("draws the undated hatch line inside its tile, one pixel wide, and the legend at the same pitch", () => {
+  const { wall } = wallOf([
+    ["FY2026", "1,000", "US$m", ""],
+    ["Thereafter", "500", "US$m", ""],
+  ]);
+  const line = wall.querySelector("#wall-undated line");
+  expect(line).toHaveAttribute("x1", "4");
+  expect(line).toHaveAttribute("x2", "4");
+  expect(line).toHaveAttribute("stroke-width", "1");
+  const mark = within(wall).getByText("After the axis break: no single year").querySelector("span");
+  expect(mark).not.toBeNull();
+  expect(mark).not.toHaveAttribute("data-amount-swatch");
+  expect((mark as HTMLElement).style.backgroundImage).toContain("repeating-linear-gradient");
+  expect((mark as HTMLElement).style.backgroundImage).toContain("8px");
+});
+
+const stackOf = (rows: string[][]) => {
+  render(<StructureRow {...rowProps([foundation([["FY2026", "500", "US$m", ""]], rows)])} />);
+  return screen.getByRole("region", { name: "Capital structure by rank" });
+};
+
+it("gives a claim group that is not stated the slate slot, whatever its order", () => {
+  const tile = stackOf([
+    ["Term loan", "1", "Yes", "100", "1.0", "US$m", ""],
+    ["Senior notes", "2", "No", "50", "2.0", "US$m", ""],
+    ["Other", "3", "", "30", "3.0", "US$m", ""],
+  ]);
+  expect(segmentFills(tile, ["Term loan", "Senior notes", "Other"])).toEqual([
+    "var(--color-category-1)",
+    "var(--color-category-3)",
+    "var(--color-category-8)",
+  ]);
+  tile.ownerDocument.body.innerHTML = "";
+  const first = stackOf([
+    ["Other", "1", "", "30", "1.0", "US$m", ""],
+    ["Senior notes", "2", "No", "50", "2.0", "US$m", ""],
+  ]);
+  expect(segmentFills(first, ["Other", "Senior notes"])).toEqual([
+    "var(--color-category-8)",
+    "var(--color-category-1)",
+  ]);
+});
+
+it("gives a group whose rows state no amount no colour slot", () => {
+  const tile = stackOf([
+    ["Term loan", "1", "Yes", "Not supplied: not stated", "n.a.", "US$m", ""],
+    ["Senior notes", "2", "No", "100", "2.0", "US$m", ""],
+  ]);
+  expect(segmentFills(tile, ["Senior notes"])).toEqual(["var(--color-category-1)"]);
+  const gap = tile.querySelector('[data-gap="Term loan"]');
+  expect(gap).not.toBeNull();
+  expect((gap as SVGElement).style.fill).toBe("");
+});
