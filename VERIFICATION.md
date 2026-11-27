@@ -9,7 +9,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
   only. No route uses it; no request to Microsoft, no model call, no network access; no new
   dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
-  the four oldest entries (2026-11-17).
+  the oldest entries, to stay under 1,000 lines.
 - Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
   (absolute path only; the command line has no `--root`, and refusing a folder under the root is
   slice 2's start-up check), WAL, one numbered migration, a made-here guard. On
@@ -36,6 +36,10 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   passcode log check. The changed-code gate and all three import contracts passed.
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+- Review fixes, 2026-11-27: a correct passcode no longer clears earlier failures; the made-here
+  check runs before WAL; the account commands refuse a missing store; `accounts enable`;
+  `--accounts-dir` after the sub-command; names keep U+200C and U+200D.
+
 ## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
 
 - Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
@@ -962,36 +966,3 @@ then 5; the narrow layout and the controls listed below.
   start, under the scheduler lock (0.12 s a run: 3.5 s at 30 runs), and `data.js` grows by about
   0.5 MB a synthetic run. The profile is flat, so this needs per-run publication, a design choice.
 - Not verified: a live run, real PDFs, Windows, the web gates in GitHub Actions before this PR.
-
-## 2026-11-18 — Copilot cutover, compact handoffs and connected publication
-
-- Astra's end-of-phase review and follow-up confirmed the pinned SDK disables background
-  compaction and autonomous continuations. The Opus hold prices one input token per serialized
-  byte plus runtime framing. Tests covered rejected direct HTTP routes, unavailable Luna effort
-  and disabled seat policy, first and later context checks, and the approved configuration and cap.
-- Confidence review exercised interrupted publication, stale uploads and on-disk edits to approved
-  inputs, including module list, model route and cap. A restart refused the changed queue entries
-  before dispatch. Failed capability checks opened the app offline with paid choices unavailable.
-- Read-only TDG inputs estimated CP-3 at 61,424, CP-5 at 48,098 and CP-6 at 50,061 initial tokens.
-  The prior full requests estimated 209,269, 252,017 and 223,679 respectively. These are serialized
-  request estimates. Offline tests passed an exact chunk through the continuation and validated
-  the resulting handoff. Unknown transport versions and source text with split credentials refused.
-- Clean extraction of ZIP SHA-256 `8b5c0a8f03f776a2fbc0a40b4882be419546d93e3daa04cecaaa60f6292ba1c7`
-  (local proof snapshot `08e281b9`) passed Chrome `20261118-020520-01` and Edge
-  `20261118-020552-01` on macOS. Both exercised intake, report pages and verified a downloaded
-  handoff against its published SHA-256. The old library URL redirected and its script returned
-  404. Zero non-loopback page requests. Static fixture checks passed.
-- The Python quality gate passed. Focused Python checks passed for launch, model, scheduler,
-  intake and publication. Embedded packaging verified that rebuilding removes retired files.
-- Follow-up confidence and Astra review checked the stored first-prompt estimate, the oversized
-  repair refusal before reservation, and the exact seat status in the review summary. A stale
-  picker cannot enable paid Submit. Passed 509 web and 402 targeted Python tests plus the repair check.
-- On macOS the pinned SDK 1.0.28 opened a local stdio connection to Copilot CLI 1.0.108 (protocol 3).
-  The isolated status check reported unauthenticated and created zero sessions.
-- Integrated with main `c1439225`. ZIP SHA-256 `593911cc8a84f6d2722daee9e7aa983564ef57b9ec0a735f50c79bfb8c2bf47d`
-  (proof snapshot `b7fcc73b`) passed clean-extraction Chrome `20261118-020828-01`
-  and Edge `20261118-020859-01` on macOS with zero non-loopback page requests.
-  Passed 232 targeted Python tests, 540 web tests, the quality gate, lint and typecheck.
-  Astra confirmed the merge retained the desktop styles and Copilot approval and cap checks.
-- Deployment-seat verification, the first authorized paid run and Windows work-PC acceptance
-  are pending. Native Copilot search stays unavailable pending evidence and cost verification.

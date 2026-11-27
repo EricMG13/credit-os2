@@ -79,7 +79,7 @@ No route uses it. Files: `accounts/__init__.py`, `store.py`, `passcodes.py`, `cl
    at least 12 characters; the two passcodes must differ (checked by verifying the new one against
    the other type's hash); setting replaces.
 4. **Lockout.** Five wrong passcodes for one identity within an hour refuse the sixth for an hour
-   from the fifth; a correct passcode clears the count; counted in the store. **order**: the count
+   from the fifth; a correct passcode neither counts nor clears the count (owner, 2026-11-27); counted in the store. **order**: the count
    and the check are one transaction.
 5. **Command line.** `python -m deploy_workflow.accounts --accounts-dir <folder> passcode set
    {analyst,admin}` reads the passcode twice with `getpass`, never from an argument, environment
