@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -236,6 +237,7 @@ def test_owner_override_and_rollback_are_audited(tmp_path):
     route_path.write_text(json.dumps(CHALLENGER))
     owner_route(registry, cohort_path, route_path, "owner-2", "try higher effort")
     rollback_route(registry, cohort_path, "rollback-1", "regression observed")
+    rollback_route(registry, cohort_path, "rollback-1", "regression observed")
     resolved = resolve_route(registry, Trial.model_validate(pilot()).cohort)
     assert resolved["route"] == INCUMBENT
     assert resolved["decision_id"] == "rollback-1"
@@ -336,3 +338,24 @@ def test_concurrent_canary_claims_cannot_exceed_five_slots(tmp_path):
     assert len({result["route"]["effort"] for result in results}) == 1
     resolved = resolve_route(registry, cohort)
     assert resolved["canary_remaining"] == 0
+
+
+def test_existing_route_registry_gains_canary_columns(tmp_path):
+    registry = tmp_path / "existing.sqlite"
+    with sqlite3.connect(registry) as db:
+        db.executescript(
+            """
+            CREATE TABLE active_routes (
+                cohort TEXT PRIMARY KEY, cohort_json TEXT NOT NULL, model TEXT NOT NULL,
+                effort TEXT NOT NULL, policy_epoch TEXT NOT NULL, updated INTEGER NOT NULL
+            );
+            CREATE TABLE route_events (
+                decision_id TEXT PRIMARY KEY, cohort TEXT NOT NULL, action TEXT NOT NULL,
+                previous TEXT, selected TEXT NOT NULL, reason TEXT NOT NULL,
+                created INTEGER NOT NULL
+            );
+            """
+        )
+    with connect_registry(registry) as db:
+        names = {row["name"] for row in db.execute("PRAGMA table_info(active_routes)")}
+        assert {"canary_model", "canary_effort", "canary_remaining"} <= names

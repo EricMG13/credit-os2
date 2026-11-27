@@ -184,6 +184,7 @@ def explain_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 
 def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    kind = getattr(args, "command", "decision")
     payload = json.loads(args.payload)
     if not isinstance(payload, dict):
         raise TypeError("decision payload must be an object")
@@ -193,9 +194,7 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         (args.run, f"decision:{args.id}"),
     ).fetchone()
     if previous is not None:
-        if previous["kind"] == args.command and previous["result"] == json.dumps(
-            payload, sort_keys=True
-        ):
+        if previous["kind"] == kind and previous["result"] == json.dumps(payload, sort_keys=True):
             db.rollback()
             emit({"ok": True, "replayed": True, "payload": payload})
             return
@@ -203,9 +202,9 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     row = db.execute("SELECT revision FROM runs WHERE id=?", (args.run,)).fetchone()
     if row is None or row["revision"] != args.expected_revision:
         raise ValueError("stale or unknown decision revision")
-    revision = args.expected_revision if args.command == "note" else args.expected_revision + 1
+    revision = args.expected_revision if kind == "note" else args.expected_revision + 1
     action = payload.get("action")
-    if args.command == "note" and action is not None:
+    if kind == "note" and action is not None:
         raise ValueError("a milestone note cannot change the run")
     if action in ("pause", "resume"):
         current, target = ("approved", "paused") if action == "pause" else ("paused", "approved")
@@ -219,7 +218,7 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         "INSERT INTO decisions VALUES(?,?,?,?)",
         (args.run, args.id, revision, json.dumps(payload, sort_keys=True)),
     )
-    event(db, args.run, f"decision:{args.id}", args.command, payload)
+    event(db, args.run, f"decision:{args.id}", kind, payload)
     db.commit()
     emit({"ok": True, "revision": revision, "decision": args.id, "payload": payload})
 

@@ -1,7 +1,7 @@
-"""Evaluate one Credit OS2 builder-route trial from independently scored evidence.
+"""Evaluate builder trials and maintain the Credit OS2 route registry.
 
-Usage: uv run python tools/dev_route.py path/to/trial.json
-This advisory command evaluates recorded evidence offline. The coordinator verifies its sources.
+Use evaluate for a read-only score and apply for a verified transition. The coordinator
+owns independent review provenance and binds each dispatch to the approved run policy.
 """
 
 import argparse
@@ -350,7 +350,8 @@ def start_canary(db: sqlite3.Connection, trial: Trial, decision_id: str, trial_d
         current["model"] != trial.incumbent.model or current["effort"] != trial.incumbent.effort
     ):
         raise ValueError("active route changed since the trial incumbent was evaluated")
-    if current is not None and current["canary_model"] is not None:
+    canary_active = current is not None and current["canary_model"] is not None
+    if canary_active:
         raise ValueError("a bounded canary is already active for this cohort")
     if current is None:
         record_route(
@@ -504,19 +505,41 @@ def owner_route(
         )
 
 
-def rollback_route(registry: Path, cohort_path: Path, decision_id: str, reason: str) -> None:
+def rollback_route(
+    registry: Path,
+    cohort_path: Path,
+    decision_id: str,
+    reason: str,
+    expected_decision: str | None = None,
+) -> None:
     cohort = Cohort.model_validate_json(cohort_path.read_bytes())
     key = cohort_key(cohort)
     with connect_registry(registry) as db:
-        row = db.execute(
-            "SELECT previous FROM route_events WHERE cohort=? "
-            "ORDER BY created DESC, rowid DESC LIMIT 1",
-            (key,),
-        ).fetchone()
-        if row is None or row["previous"] is None:
-            raise ValueError("no prior route is recorded for this cohort")
-        route = Route.model_validate_json(row["previous"])
-        write_route(db, RouteUpdate(cohort, route, decision_id, "rollback", reason))
+        db.execute("BEGIN IMMEDIATE")
+        try:
+            replay = db.execute(
+                "SELECT cohort,action,reason FROM route_events WHERE decision_id=?", (decision_id,)
+            ).fetchone()
+            if replay is not None:
+                if tuple(replay) != (key, "rollback", reason):
+                    raise ValueError("conflicting rollback decision ID")
+                db.rollback()
+                return
+            row = db.execute(
+                "SELECT decision_id, previous FROM route_events WHERE cohort=? "
+                "ORDER BY created DESC, rowid DESC LIMIT 1",
+                (key,),
+            ).fetchone()
+            if row is None or row["previous"] is None:
+                raise ValueError("no prior route is recorded for this cohort")
+            if expected_decision is not None and row["decision_id"] != expected_decision:
+                raise ValueError("route decision changed before rollback")
+            route = Route.model_validate_json(row["previous"])
+            record_route(db, RouteUpdate(cohort, route, decision_id, "rollback", reason))
+            db.commit()
+        except (sqlite3.Error, ValueError):
+            db.rollback()
+            raise
 
 
 def explain_route(registry: Path, decision_id: str) -> dict[str, object]:
@@ -649,14 +672,19 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     command_args = sys.argv[1:]
-    if command_args and command_args[0] not in {
-        "evaluate",
-        "apply",
-        "resolve",
-        "override",
-        "rollback",
-        "explain",
-    }:
+    if (
+        command_args
+        and not command_args[0].startswith("-")
+        and command_args[0]
+        not in {
+            "evaluate",
+            "apply",
+            "resolve",
+            "override",
+            "rollback",
+            "explain",
+        }
+    ):
         command_args.insert(0, "evaluate")
     args = parser.parse_args(command_args)
     try:
