@@ -239,11 +239,14 @@ describe("theme.css", () => {
 describe("signal scales", () => {
   const ROWS = 36;
   const TEXT_ROWS = 20;
-  const rows = section("Signal scales", "##")
+  const ROW_RE = /^\|[^|]*\|[^|]*\|\s*`([a-z0-9-]+)`\s*\|\s*`(#[0-9A-Fa-f]{6})`/;
+  const tableLines = section("Signal scales", "##")
     .split("\n")
+    .filter((line) => line.startsWith("|"));
+  const rows = tableLines
     .map((line) => ({
       line,
-      m: /^\|[^|]*\|[^|]*\|\s*`([a-z0-9-]+)`\s*\|\s*`(#[0-9A-Fa-f]{6})`/.exec(line),
+      m: ROW_RE.exec(line),
     }))
     .filter((r) => r.m !== null)
     .map((r) => ({
@@ -251,6 +254,22 @@ describe("signal scales", () => {
       hex: need(r.m?.[2], "hex"),
       cells: r.line.split("|").map((c) => c.trim()),
     }));
+
+  it("has no malformed row in the register table", () => {
+    const isHeader = (line: string): boolean => {
+      const cells = line.split("|").map((c) => c.trim());
+      return cells[1] === "Scale" && cells[2] === "Step" && cells[3] === "Token";
+    };
+    const isSeparator = (line: string): boolean =>
+      line
+        .split("|")
+        .slice(1, -1)
+        .every((c) => /^[-: ]+$/.test(c));
+    const malformed = tableLines
+      .filter((line) => !isHeader(line) && !isSeparator(line))
+      .filter((line) => !ROW_RE.test(line));
+    expect(malformed, `malformed signal-scale row: ${malformed[0] ?? ""}`).toEqual([]);
+  });
 
   function tokenHex(title: string, token: string): string {
     const m = new RegExp(`\\|\\s*\`${token}\`\\s*\\|\\s*\`(#[0-9A-Fa-f]{6})\``).exec(
