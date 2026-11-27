@@ -360,6 +360,7 @@ def _label_candidates(
     row_index: int,
     row_label: str,
     header_indexes: Collection[int],
+    omitted_indexes: Collection[int] = (),
 ) -> tuple[ExtractedLabelPart, ...]:
     """Exact contiguous label fragments above and on a row, bounded by blank/header/data lines."""
     first = row_index
@@ -370,6 +371,7 @@ def _label_candidates(
         if (
             not stripped
             or previous_index in header_indexes
+            or previous_index in omitted_indexes
             or _is_period_header(previous)
             or _STATEMENT_TITLE.search(previous)
             or _cells(previous) is not None
@@ -505,6 +507,31 @@ def _page_lines(text: str) -> tuple[list[str], list[str]]:
     return shown, [_GROUP_SPACE.sub(" ", line) for line in shown]
 
 
+def _with_candidates(
+    lines: Sequence[str],
+    printed: ExtractedLine,
+    final: ExtractedLine,
+    header_indexes: Collection[int],
+    omitted_indexes: Collection[int],
+) -> ExtractedLine:
+    """`final` with label candidates whose last is the row's own final label (after the
+    note-reference and kept-number rewrites), less the continuation lines offered above it."""
+    row_cells = _cells(lines[final.line_no - 1])
+    assert row_cells is not None
+    candidates = _label_candidates(
+        lines, final.line_no - 1, row_cells.label, header_indexes, omitted_indexes
+    )
+    prefix = printed.label.removesuffix(row_cells.label).rstrip()
+    own = final.label.removeprefix(prefix).strip()
+    return replace(
+        final,
+        label_candidates=(
+            *candidates[:-1],
+            ExtractedLabelPart(line_no=candidates[-1].line_no, text=own),
+        ),
+    )
+
+
 def extract_statement_lines(
     text: str, locator: str, source_id: str | None = None
 ) -> ExtractedTable:
@@ -603,24 +630,17 @@ def extract_statement_lines(
                 currency_values=printed.currency_values[1:],
             )
         flagged.append(replace(data, flags=_flags(data, years, footnote, integers)))
-    bounded: list[ExtractedLine] = []
-    for flagged_line in flagged:
-        row_cells = _cells(lines[flagged_line.line_no - 1])
-        assert row_cells is not None
-        bounded.append(
-            replace(
-                flagged_line,
-                label_candidates=_label_candidates(
-                    lines, flagged_line.line_no - 1, row_cells.label, header_boundaries
-                ),
-            )
-        )
     kept = {line.line_no - 1 for line in found}.union(header_at)
     omitted = tuple(
         OmittedLine(line_no=index + 1, text=shown[index])
         for index, text in enumerate(lines)
         if index not in kept and _is_omitted_candidate(text)
     )
+    omitted_at = {line.line_no - 1 for line in omitted}
+    bounded = [
+        _with_candidates(lines, printed, flagged_line, header_boundaries, omitted_at)
+        for printed, flagged_line in zip(found, flagged, strict=True)
+    ]
     return ExtractedTable(
         locator=locator,
         headers=headers,
