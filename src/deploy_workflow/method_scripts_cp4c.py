@@ -136,11 +136,18 @@ def _claim(cell: str, unit: str, tables: types.ModuleType) -> tuple[str, core.Am
     return name or _plain(cell), found
 
 
+def _is_note(bracketed: str) -> bool:
+    """A whole-cell bracket that holds a figure and a word that is no unit (`550 settlement`)."""
+    return bool(re.search(r"\d", bracketed) and re.search(r"[A-Za-z]", core.bare(bracketed)))
+
+
 def _allocation(cell: str) -> tuple[str, str]:
     """The allocation figure and the reason written after it, if any. A bracket is a reason only
     after a figure; a bracket of only a unit or `full` is the figure's own clarifier (`300 (USD
     m)`), and a whole cell in brackets is a negative figure (`(650m)`), neither a reason."""
     found = _NOTE.match(cell)
+    if found and not found["figure"] and _is_note(found["note"]):
+        return "", found["note"].strip()  # `(550 settlement)`: a figure and a word, a note
     if not found or not re.search(r"\d", found["figure"]):
         return cell, ""
     note = found["note"].strip()

@@ -113,7 +113,7 @@ def _kind(line: str) -> tuple[str, str]:
 
 def _is_total(label: str) -> bool:
     """A total or subtotal row: it sums claims already in the table, so reading past it is safe."""
-    return re.match(r"(?:sub ?)?total\b", label) is not None
+    return re.match(r"(?:(?:sub|grand) ?)?totals?\b|sum\b|aggregate\b", label) is not None
 
 
 def _states_gap(cell: str) -> bool:
@@ -258,6 +258,12 @@ def _full(cell: str) -> str:
     return _label(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
 
 
+def _extends(name: str, form: str) -> bool:
+    """``name`` is ``form`` with a note after it (`senior notes (2027)`, `senior notes - 2027`),
+    not a longer name that merely begins with it (`debt facility` for `debt`)."""
+    return name.startswith(form) and re.match(r"\s*(?:\(|[-—–]\s)", name[len(form) :]) is not None
+
+
 def _named(cell: str, claims: list[str]) -> str | None:
     """The claim (its `_full` name) or the no-fulcrum word a fulcrum cell names, None when it
     names neither or more than one. The full name is compared first; a trailing note (after a
@@ -268,9 +274,12 @@ def _named(cell: str, claims: list[str]) -> str | None:
     forms = _stripped(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
     for i, form in enumerate(forms):
         if form in full or form in NO_FULCRUM:
-            others = [f for f in full if f != form and f.startswith(form)]
+            others = [f for f in full if f != form and _extends(f, form)]
             if i == 0 or form in NO_FULCRUM or not others:
                 return form
+    exact = {f for f in forms[1:] if f in full}  # a claim's own name, once the note is off
+    if exact:
+        return exact.pop() if len(exact) == 1 else None
     noted = {_full(c): _stripped(_plain(c)) for c in claims}  # a claim written with a note
     found = {k for k, v in noted.items() if any(f in v[1:] for f in forms)}
     return found.pop() if len(found) == 1 else None

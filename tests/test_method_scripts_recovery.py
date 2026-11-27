@@ -155,3 +155,94 @@ def test_cp4c_a_reason_after_the_figure_is_still_a_note():
     out = found["Allocation: Senior secured TLB (Base, HoldCo)"]
     assert out.status == "not checked" and "settlement" in out.reason
     assert found["Fulcrum (Base)"].status == "not checked"
+
+
+# --- round 2: a fulcrum name beside a claim that begins with it; wider total rows -------------
+
+
+def stems(claims, ev, fulcrum):
+    """A CP-3 table: the claims in order (name, amount) against one Base EV; the fulcrum cell."""
+    rows = [
+        ("Enterprise value", "—", "—", ev, "—", "USD", "m"),
+        ("EV multiple", "—", "—", "4.2x", "—", "—", "—"),
+        ("EV metric", "—", "—", "100", "—", "USD", "m"),
+        ("EV basis", "—", "—", "FY2024 EBITDA; multiple from evidence S4", "—", "—", "—"),
+        *[(f"Claim: {n}", a, "—", "50%", "—", "USD", "m") for n, a in claims],
+        ("Fulcrum", "—", "—", fulcrum, "—", "—", "—"),
+        ("Residual to equity", "—", "—", "0", "—", "USD", "m"),
+    ]
+    return cp3(rows)
+
+
+def cp4c_stems(first, second, available, fulcrum):
+    """A CP-4C chain: `first` is paid `available` of its 300, `second` (400) gets nothing."""
+    rows = [
+        ("Base", "HoldCo", available, f"{first}: 300", available, "0"),
+        ("Base", "HoldCo", "0", f"{second}: 400", "0", "0"),
+    ]
+    return cp4c(t4e5(rows), base=fulcrum)
+
+
+DEBT = (("Debt", "300"), ("Debt Facility", "400"))
+NOTES = (("Senior Notes", "300"), ("Senior Notes (2027)", "400"))
+
+
+@pytest.mark.parametrize("cell", ["Debt (84%)", "Debt - 84% recovery", "Claim: Debt (84%)"])
+def test_cp3_a_noted_fulcrum_names_the_claim_that_another_claim_only_shares_a_word_with(cell):
+    found = by_case(ms.run("CP-3", stems(DEBT, "250", cell)), "Base")
+    assert found["Fulcrum"].status == "agreed", cell
+
+
+def test_cp3_a_noted_fulcrum_for_debt_is_disagreed_when_debt_facility_is_the_fulcrum():
+    found = by_case(ms.run("CP-3", stems(DEBT, "350", "Debt (66.7%)")), "Base")
+    assert found["Fulcrum"].status == "disagreed"
+
+
+@pytest.mark.parametrize("cell", ["Senior Notes (84%)", "Senior Notes - 84% recovery"])
+def test_cp3_a_noted_fulcrum_names_the_plain_claim_when_a_dated_claim_also_exists(cell):
+    found = by_case(ms.run("CP-3", stems(NOTES, "250", cell)), "Base")
+    assert found["Fulcrum"].status == "agreed", cell
+
+
+@pytest.mark.parametrize("cell", ["Debt (84%)", "Debt - 84% recovery"])
+def test_cp4c_a_noted_fulcrum_names_the_claim_that_another_claim_only_shares_a_word_with(cell):
+    found = {o.figure: o.status for o in cp4c_run(cp4c_stems("Debt", "Debt Facility", "250", cell))}
+    assert found["Fulcrum (Base)"] == "agreed", cell
+
+
+def test_cp4c_a_noted_fulcrum_for_debt_is_disagreed_when_debt_facility_is_the_fulcrum():
+    text = cp4c_stems("Debt", "Debt Facility", "350", "Debt (66.7%)")
+    assert {o.figure: o.status for o in cp4c_run(text)}["Fulcrum (Base)"] == "disagreed"
+
+
+@pytest.mark.parametrize("cell", ["Senior Notes (84%)", "Senior Notes - 84% recovery"])
+def test_cp4c_a_noted_fulcrum_names_the_plain_claim_when_a_dated_claim_also_exists(cell):
+    text = cp4c_stems("Senior Notes", "Senior Notes (2027)", "250", cell)
+    assert {o.figure: o.status for o in cp4c_run(text)}["Fulcrum (Base)"] == "agreed", cell
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["Totals", "Grand total", "Sum of claims", "Sum", "Aggregate claims", "Total debt"],
+)
+def test_cp3_a_total_row_by_any_common_name_is_named_and_the_rest_checked(label):
+    rows = [*WATERFALL[:5], (label, "550", "—", "—", "—", "USD", "m"), *WATERFALL[5:]]
+    outcomes = ms.run("CP-3", cp3(rows))
+    assert outcomes[0].figure == f"Row: {label}" and outcomes[0].status == "not checked"
+    assert {o.status for o in outcomes[1:]} == {"agreed"}
+
+
+@pytest.mark.parametrize("label", ["Gross claims", "Memo: senior debt"])
+def test_cp3_a_row_that_may_be_a_claim_still_aborts_the_check(label):
+    rows = [*WATERFALL[:5], (label, "550", "—", "—", "—", "USD", "m"), *WATERFALL[5:]]
+    outcomes = ms.run("CP-3", cp3(rows))
+    assert [o.status for o in outcomes] == ["not checked"]
+
+
+@pytest.mark.parametrize("cell", ["(550 settlement)", "(settlement 550)"])
+def test_cp4c_a_whole_cell_bracket_of_a_figure_and_a_word_is_a_note(cell):
+    rows = [("Base", "HoldCo", "900", "Senior secured TLB: 600", cell, "350")]
+    found = {o.figure: o for o in cp4c_run(cp4c(t4e5(rows)))}
+    out = found["Allocation: Senior secured TLB (Base, HoldCo)"]
+    assert out.status == "not checked" and "settlement" in out.reason, cell
+    assert found["Residual: Senior secured TLB (Base, HoldCo)"].status == "not checked"
