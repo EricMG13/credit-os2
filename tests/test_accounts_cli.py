@@ -189,9 +189,11 @@ def test_folder_resolution(tmp_path, capsys):
     assert cli.main(["accounts", "list"], environ={"CREDIT_OS_ACCOUNTS_DIR": ""}) == 2
     assert capsys.readouterr().err == NO_FOLDER
     env = {"CREDIT_OS_ACCOUNTS_DIR": str(tmp_path / "e")}
+    store.open_db(tmp_path / "e").close()
     assert cli.main(["accounts", "list"], environ=env) == 0
     assert capsys.readouterr().out == "no accounts\n"
     d1, d2 = tmp_path / "d1", tmp_path / "d2"
+    store.open_db(d1).close()
     code = cli.main(
         ["--accounts-dir", str(d1), "accounts", "list"],
         environ={"CREDIT_OS_ACCOUNTS_DIR": str(d2)},
@@ -256,6 +258,7 @@ def test_sqlite_error_is_reported(d, monkeypatch, capsys):
     def boom(folder: Path) -> sqlite3.Connection:
         raise sqlite3.OperationalError("disk I/O error")
 
+    store.open_db(d).close()
     monkeypatch.setattr(store, "open_db", boom)
     assert run(d, "accounts", "list") == 2
     assert capsys.readouterr().err == (
@@ -335,3 +338,79 @@ def test_no_abbreviated_options(tmp_path, capsys, flag):
     assert cli.main([*argv, "accounts", "list"], environ={}) == 2
     assert capsys.readouterr().err.splitlines()[-1] == NOT_UNDERSTOOD
     assert not d.exists()
+
+
+# --- review fixes, 2026-11-27 ------------------------------------------------------------------
+
+
+def _no_store(folder: Path) -> str:
+    return f"error: there is no account store in {folder}; check --accounts-dir\n"
+
+
+@pytest.mark.parametrize(
+    "tail", [["accounts", "list"], ["accounts", "disable", "1"], ["accounts", "enable", "1"]]
+)
+def test_account_commands_do_not_create_a_store(tmp_path, capsys, tail):
+    folder = tmp_path / "nothing"
+    assert run(folder, *tail) == 2
+    captured = capsys.readouterr()
+    assert captured.err == _no_store(folder)
+    assert captured.out == ""
+    assert not folder.exists()
+    assert run(folder, "accounts", "type", "1", "admin") == 2
+    assert capsys.readouterr().err == _no_store(folder)
+    assert not folder.exists()
+
+
+def test_account_command_in_folder_without_db_creates_nothing(d, capsys):
+    d.mkdir(mode=0o700)
+    assert run(d, "accounts", "list") == 2
+    assert capsys.readouterr().err == _no_store(d)
+    assert list(d.iterdir()) == []
+
+
+def test_extra_word_after_accounts_command_is_not_called_a_passcode(d, capsys):
+    seed(d)
+    assert run(d, "accounts", "disable", "3", "4") == 2
+    err = capsys.readouterr().err
+    assert "the command was not understood" in err
+    assert "never taken as an argument" not in err
+    assert err.splitlines()[-1] == NOT_UNDERSTOOD
+
+
+def test_extra_word_after_passcode_command_still_says_so(d, capsys):
+    assert run(d, "passcode", "set", "analyst", "x") == 2
+    assert capsys.readouterr().err == NO_ARGUMENT
+
+
+def test_accounts_dir_after_the_subcommand(d, capsys, monkeypatch):
+    seed(d)
+    assert cli.main(["accounts", "list", "--accounts-dir", str(d)], environ={}) == 0
+    assert capsys.readouterr().out.startswith("1\tA. Kovac")
+    terminal(monkeypatch, Script([AN, AN]))
+    assert cli.main(["passcode", "set", "analyst", "--accounts-dir", str(d)], environ={}) == 0
+    assert passcode_rows(d) == 1
+
+
+def test_accounts_dir_later_one_wins(tmp_path, capsys):
+    good, other = tmp_path / "good", tmp_path / "other"
+    seed(good)
+    argv = ["--accounts-dir", str(other), "accounts", "list", "--accounts-dir", str(good)]
+    assert cli.main(argv, environ={}) == 0
+    assert capsys.readouterr().out.startswith("1\tA. Kovac")
+    assert not other.exists()
+    argv = ["--accounts-dir", str(good), "accounts", "list"]
+    assert cli.main(argv, environ={"CREDIT_OS_ACCOUNTS_DIR": str(other)}) == 0
+    assert capsys.readouterr().out.startswith("1\tA. Kovac")
+
+
+def test_enable(d, capsys):
+    seed(d)
+    assert run(d, "accounts", "enable", "2") == 0
+    assert capsys.readouterr().out == "account 2 enabled\n"
+    db = store.open_db(d)
+    account = store.account_by_id(db, 2)
+    db.close()
+    assert account is not None and account.disabled is False
+    assert run(d, "accounts", "enable", "9") == 2
+    assert capsys.readouterr().err == "error: no account 9\n"

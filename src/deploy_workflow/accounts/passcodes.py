@@ -119,10 +119,14 @@ def _try_passcode_locked(
     ):
         return "locked"
     # Count first: if the store cannot take the count, this raises and no passcode is judged.
+    db.execute("SAVEPOINT failure_count")
     _record_failure(db, object_id, now)
     if MIN_LENGTH <= len(passcode) <= MAX_LENGTH and _is_text(passcode):
         for row in db.execute("SELECT profile_type, hash, salt FROM passcodes"):
             if _matches(passcode, row):
-                db.execute("DELETE FROM registration_attempts WHERE object_id=?", (object_id,))
+                # A correct passcode neither counts nor clears (owner, 2026-11-27).
+                db.execute("ROLLBACK TO failure_count")
+                db.execute("RELEASE failure_count")
                 return "analyst" if row["profile_type"] == "analyst" else "admin"
+    db.execute("RELEASE failure_count")
     return "wrong passcode"
