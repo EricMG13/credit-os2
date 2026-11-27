@@ -66,11 +66,13 @@ function FieldInput({
   field,
   values,
   missing,
+  isDisabled,
   onChange,
 }: {
   field: FormField;
   values: FormValues;
   missing: boolean;
+  isDisabled: boolean;
   onChange: (values: FormValues) => void;
 }) {
   const text = values.text[field.key] ?? "";
@@ -86,6 +88,7 @@ function FieldInput({
           typeof one === "string" ? { id: one, label: one } : one,
         )}
         value={text}
+        isDisabled={isDisabled}
         onChange={(key) => {
           setText(String(key));
         }}
@@ -104,6 +107,7 @@ function FieldInput({
             key={option}
             label={option}
             isSelected={on.includes(option)}
+            isDisabled={isDisabled}
             onChange={(selected) => {
               const next = selected ? [...on, option] : on.filter((one) => one !== option);
               onChange({ ...values, chosen: { ...values.chosen, [field.key]: next } });
@@ -121,6 +125,7 @@ function FieldInput({
     value: text,
     maxLength: field.maxLength,
     isInvalid: missing,
+    isDisabled,
     hint: missing ? field.missing : field.hint,
     onChange: setText,
   };
@@ -201,6 +206,7 @@ function Form({
           field={field}
           values={values}
           missing={missing === field.key}
+          isDisabled={busy}
           onChange={(next) => {
             setValues(next);
             setMissing(null);
