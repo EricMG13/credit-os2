@@ -505,7 +505,7 @@ export function DownsideTile({
       label={TITLE}
       title={TITLE}
       basis={readerDetail(control.anchor)}
-      legend={<Legend items={keyed} />}
+      legend={placed.length > 0 ? <Legend items={keyed} /> : undefined}
       trace={trace}
       controls={choice}
       className="wrap-anywhere"

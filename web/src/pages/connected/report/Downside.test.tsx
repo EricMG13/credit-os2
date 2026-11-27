@@ -339,3 +339,25 @@ it("does not repeat the control in the legend when the case's name already says 
   const entries = [...container.querySelectorAll('[data-part="legend"] li')];
   expect(entries[0]?.textContent).toBe("Control case");
 });
+
+// Colour-signal-build ruling R2/C6 (review): a legend of cases keys panels, so none without a panel.
+it("shows no case legend when no measure of the results can be placed", () => {
+  const source = entry("0.10 (10%)", "50.00");
+  const results = source.sections[1]?.blocks[0];
+  if (results?.type !== "table") throw new Error("fixture changed");
+  results.rows = results.rows.map((row) => ({
+    ...row,
+    cells: row.cells.map((cell, at) => (at === 1 || at === 2 ? "Not supplied" : cell)),
+  }));
+  const data = downsideView(source);
+  if (!data) throw new Error("Test scenario matrix was rejected");
+  const { container } = render(
+    <Downside data={data} href={(line) => `#evidence/0-${String(line)}`} />,
+  );
+  expect(
+    within(tile()).getByText(
+      "This page could not place any measure of these results on one stated basis.",
+    ),
+  ).toBeVisible();
+  expect(container.querySelector('[data-part="legend"]')).toBeNull();
+});
