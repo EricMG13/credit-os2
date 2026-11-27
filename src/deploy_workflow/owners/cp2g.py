@@ -545,6 +545,10 @@ def _year(
     )
 
 
+class AnalystDebtOverpayment(ValueError):
+    """An analyst repayment exceeds the known opening debt for its forecast year."""
+
+
 def forecast(
     *,
     operands: Operands,
@@ -562,6 +566,16 @@ def forecast(
     years: list[Year] = []
     with _exact_digits("the base case forecast" if shock is None else "the downside case forecast"):
         for t in range(3):
+            opening_debt = opening[1].amount
+            if (
+                schedule is None
+                and opening_debt is not None
+                and drivers.debt_repayment[t] > opening_debt
+            ):
+                raise AnalystDebtOverpayment(
+                    f"Analyst debt path, forecast year {t + 1}: "
+                    "repayment exceeds the opening debt balance"
+                )
             y = _year(opening, drivers, t, shock, None if schedule is None else schedule[t])
             years.append(y)
             opening = (y.revenue, y.closing_debt, y.closing_cash, y.undrawn)
