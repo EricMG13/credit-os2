@@ -31,7 +31,8 @@ import {
   type BottomLineSource,
   type TextBlock,
 } from "./moduleFrameModel";
-import { holdsCode, proseWithoutMachinery, readableTitle, unitCells } from "./moduleRecordsModel";
+import { unitCells } from "../moneyUnits";
+import { holdsCode, proseWithoutMachinery, readableTitle } from "./moduleRecordsModel";
 
 const MISSING_PASSAGE = "Not established for this run. The module wrote no such passage.";
 

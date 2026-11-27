@@ -13,7 +13,7 @@ import {
   type Table,
 } from "../publishedReport";
 import { PublishedTable } from "../ReportContent";
-import { unitCells } from "../report/moduleRecordsModel";
+import { unitCells, unitLabel } from "../moneyUnits";
 import {
   decisionTreatment,
   scopedLead,
@@ -33,7 +33,6 @@ import { LegacyVisuals } from "../visuals";
 import { qualificationBlocks } from "../visuals/drawnQualifications";
 import { portfolioLimits } from "../visuals/PortfolioLimits";
 import { amount, distinct, rangeTicks } from "../visuals/visualData";
-import { unitLabel } from "../moneyUnits";
 import { printableTable } from "./printTable";
 
 type SafeText = (text: string) => string;

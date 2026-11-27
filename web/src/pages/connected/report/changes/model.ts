@@ -44,6 +44,8 @@ export type MeasureChange = {
   beforeValue: number | null;
   afterValue: number | null;
   delta: string | null;
+  /** The direction of the comparison's difference; null where `delta` is null. */
+  sign: -1 | 0 | 1 | null;
   tone: MeasureTone | null;
   /** The comparability sentence of the verdict; a reference is replaced by a pointer to Evidence. */
   reason: string;
@@ -211,6 +213,7 @@ export function classifyMeasures(
       beforeValue: amountOf(measure.prior?.value),
       afterValue: amountOf(measure.current?.value),
       delta: shown && sign !== null ? delta : null,
+      sign: shown ? sign : null,
       tone: toned === "none" || unresolved ? null : toned,
       reason: stated(reason.replace(/ · Same-period analysis change$/, ""), pathway),
       cause,
@@ -447,22 +450,13 @@ export function passageItems(
   if (!entry) return null;
   const sections = passages(entry.sections).filter((section) => section.heading === heading);
   if (sections.length === 0) return null;
-  return sections
-    .flatMap(({ blocks }) => blocks)
-    .flatMap((block): PassageItem[] => {
-      if (block.type === "table") return [{ kind: "table", table: block }];
-      if (block.type !== "text" || methodNote(block.text)) return [];
-      const body = plain(readParagraph(block.text).body);
-      if (!body) return [];
-      return [
-        {
-          kind: "text",
-          line: block.line,
-          text: containsReference(body) ? null : words(body, pathway),
-          href: evidencePath(folder, entry, block.line),
-        },
-      ];
-    });
+  return blockItems(
+    sections.flatMap(({ blocks }) => blocks),
+    entry,
+    folder,
+    false,
+    pathway,
+  );
 }
 
 /**

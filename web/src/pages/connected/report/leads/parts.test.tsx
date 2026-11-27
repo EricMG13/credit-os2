@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it, vi } from "vitest";
 import { Bento } from "../overview/Tile";
 import {
+  caseStyle,
   CompactGap,
   DatedList,
   Disclosure,
@@ -12,6 +13,7 @@ import {
   LeadFigure,
   LeadGap,
   mapLayout,
+  MapTile,
   NodeList,
   Prose,
   statedGap,
@@ -708,4 +710,143 @@ it("lays named values key above value when asked, for long keys", () => {
   const list = screen.getByRole("term").closest("dl");
   expect(list).toHaveClass("grid-cols-1");
   expect(list).not.toHaveClass("grid-cols-[fit-content(55%)_minmax(0,1fr)]");
+});
+
+// Colour-signal-build ruling R2/C6: edge types take category colours only where a caller opts in.
+const TYPED = [
+  edge("Parent", "Holdco", 1, "Owns", "Ownership"),
+  edge("Holdco", "Issuer", 2, "Owns", "Ownership"),
+  edge("Issuer", "Notes", 3, "Issues", "Debt"),
+  edge("Parent", "Notes", 4, "Guarantees", "Guarantee"),
+];
+const BOX = {
+  x: 0,
+  y: 0,
+  top: 0,
+  left: 0,
+  right: 1200,
+  bottom: 300,
+  width: 1200,
+  height: 300,
+  toJSON: () => ({}),
+};
+const mapTile = (edges: typeof TYPED, typeColours?: boolean) => (
+  <MapTile
+    map={{ state: "ready", edges, gaps: [], line: 1 }}
+    span={12}
+    label="Ownership"
+    title="Ownership"
+    href={() => "#x"}
+    absent="none"
+    {...(typeColours === undefined ? {} : { typeColours })}
+  />
+);
+
+it("gives a case its colour and marker by register order: slots 3 to 6, then slot 8", () => {
+  expect([0, 1, 2, 3, 4, 9].map((at) => caseStyle(at))).toEqual([
+    { tone: "category-3", shape: "dot" },
+    { tone: "category-4", shape: "square" },
+    { tone: "category-5", shape: "diamond" },
+    { tone: "category-6", shape: "ring" },
+    { tone: "category-8", shape: "dot" },
+    { tone: "category-8", shape: "dot" },
+  ]);
+});
+
+it("keeps a map neutral unless the caller asks for type colours", () => {
+  measured(1200);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(BOX);
+  const { container } = render(mapTile(TYPED));
+  expect(container.querySelector("[data-map-columns] path.stroke-connector")).not.toBeNull();
+  expect(container.innerHTML).not.toMatch(/category-/);
+  expect(container.querySelector('[data-part="legend"]')).toBeNull();
+});
+
+it("colours each edge type in columns: 2 px connector, its own arrowhead, a line swatch and a legend in words", () => {
+  measured(1200);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(BOX);
+  const { container } = render(mapTile(TYPED, true));
+  const paths = [...container.querySelectorAll("[data-map-columns] svg > path")];
+  // Debt, Guarantee, Ownership by name: slots 3, 4, 5.
+  expect(paths.map((path) => path.getAttribute("class"))).toEqual([
+    "stroke-category-5",
+    "stroke-category-5",
+    "stroke-category-3",
+    "stroke-category-4",
+  ]);
+  expect(paths.every((path) => path.getAttribute("stroke-width") === "2")).toBe(true);
+  expect(
+    paths.map((path) => /-(category-\d)\)$/.exec(path.getAttribute("marker-end") ?? "")?.[1]),
+  ).toEqual(["category-5", "category-5", "category-3", "category-4"]);
+  const chips = [...container.querySelectorAll("[data-route] svg line")];
+  expect(chips).toHaveLength(4);
+  expect(container.querySelectorAll("marker")).toHaveLength(4);
+  const legend = [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(legend.map((item) => item.textContent)).toEqual(["Debt", "Guarantee", "Ownership"]);
+  expect(legend.every((item) => item.getAttribute("data-legend") === "line")).toBe(true);
+});
+
+it("orders the type colours by the type's name, not by the order the rows were written", () => {
+  measured(1200);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(BOX);
+  const first = render(mapTile(TYPED, true));
+  const forward = [
+    ...first.container.querySelectorAll('[data-part="legend"] li svg [data-swatch]'),
+  ].map((item) => item.getAttribute("class"));
+  first.unmount();
+  const second = render(mapTile([...TYPED].reverse(), true));
+  const backward = [...second.container.querySelectorAll('[data-part="legend"] li')].map((item) => [
+    item.textContent,
+    item.querySelector("[data-swatch]")?.getAttribute("class"),
+  ]);
+  expect(backward).toEqual([
+    ["Debt", "stroke-category-3"],
+    ["Guarantee", "stroke-category-4"],
+    ["Ownership", "stroke-category-5"],
+  ]);
+  expect(forward).toEqual(["stroke-category-3", "stroke-category-4", "stroke-category-5"]);
+});
+
+it("gives one type's spellings one colour and one legend word, the first as written", () => {
+  measured(1200);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(BOX);
+  const spellings = [
+    edge("Issuer", "Notes", 1, "Issues", "Debt"),
+    edge("Parent", "Notes", 2, "Guarantees", "Guarantee"),
+    edge("Sub", "Notes", 3, "Guarantees", "guarantee"),
+  ];
+  const { container } = render(mapTile(spellings, true));
+  const legend = [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(legend.map((item) => item.textContent)).toEqual(["Debt", "Guarantee"]);
+  const paths = [...container.querySelectorAll("[data-map-columns] svg > path")];
+  expect(paths.map((path) => path.getAttribute("class"))).toEqual([
+    "stroke-category-3",
+    "stroke-category-4",
+    "stroke-category-4",
+  ]);
+  // Each chip keeps its type's word as written.
+  expect([...container.querySelectorAll("[data-route]")].map((item) => item.textContent)).toEqual([
+    "IssuesDebt",
+    "GuaranteesGuarantee",
+    "Guaranteesguarantee",
+  ]);
+});
+
+it("colours the flow's left rule and the one-edge arrows by edge type", () => {
+  measured(300);
+  const flow = render(mapTile(TYPED.slice(0, 1).concat(TYPED.slice(2, 3)), true));
+  const rules = [...flow.container.querySelectorAll("li li > span.border-l-2")];
+  expect(rules.map((rule) => rule.className.match(/border-category-\d/)?.[0])).toEqual([
+    "border-category-4",
+    "border-category-3",
+  ]);
+  flow.unmount();
+  const inline = render(mapTile(TYPED.slice(0, 1), true));
+  const arrows = [...inline.container.querySelectorAll("ul[data-map] span.text-category-3")];
+  expect(arrows.map((arrow) => arrow.textContent)).toEqual(["→", "→"]);
+  // One type: its chip carries swatch and word, so no legend repeats it.
+  expect(inline.container.querySelector('[data-part="legend"]')).toBeNull();
+  expect(inline.container.querySelector("ul[data-map] svg [data-swatch=line]")).toHaveClass(
+    "stroke-category-3",
+  );
 });

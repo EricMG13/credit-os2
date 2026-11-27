@@ -35,3 +35,13 @@ it.each([1, 2, 3, 4, 5] as const)("draws amount-%i outlined, in its amount step"
   );
   expect(swatch(tone, "square")).toHaveAttribute("stroke-width", "1.5");
 });
+
+it("draws a diamond: a rotated square in its colour (colour-signal-build ruling R2/C6)", () => {
+  const { container } = render(
+    <Legend items={[{ kind: "diamond", tone: "category-5", text: "Case" }]} />,
+  );
+  const mark = container.querySelector('[data-swatch="diamond"]');
+  expect(mark).toHaveClass("fill-category-5");
+  expect(mark?.tagName).toBe("path");
+  expect(container.querySelector("li")).toHaveAttribute("data-legend", "diamond");
+});

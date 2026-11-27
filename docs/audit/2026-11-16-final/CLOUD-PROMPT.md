@@ -15,8 +15,9 @@ Run the final audit of this application as its lead coordinator.
 3. Run the waves in SESSIONS.md in order. You run stage 0, stage 4, repair steps 7 to 11 and
    stage 7 yourself, through sub-agents; you write no application code. Start every other stage as
    a sub-session with its prompt file under `docs/audit/2026-11-16-final/sessions/`, naming the
-   branch it starts from. If you cannot start a session, tell me the prompt file and the branch
-   and wait for me to confirm it has started.
+   branch it starts from. Hand Stage 6 to Codex with the sweep prompt, accepted repair commit,
+   target branch and current audit paths. If you cannot start a session, give me the launch
+   details and wait for me to confirm it has started.
 4. Before wave 5, split `tasks.md` into one to three groups that share no file, write each group's
    task ids into `output/4-register/groups.md`, and start one `repair` session per group.
 5. Collect each sub-session's outputs only after checking that they exist and are well formed.

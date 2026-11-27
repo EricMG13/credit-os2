@@ -82,3 +82,11 @@ describe("a stated zero and a negative stay values", () => {
     expect(difference("0", "0")).toBe("0");
   });
 });
+
+describe("readCell on a digit run too long to be a number", () => {
+  it("reads 400 digits as words as written, not a number and not zero", () => {
+    const digits = "9".repeat(400);
+    expect(readCell(digits)).toEqual({ kind: "text", text: digits });
+    expect(numberOf(digits)).toBeNull();
+  });
+});

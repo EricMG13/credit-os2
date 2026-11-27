@@ -359,3 +359,52 @@ it("states the baskets gap only for a basket register the page could not read", 
     ),
   ).toBeVisible();
 });
+
+// Colour-signal-build ruling R2/C6: CP-4's maps colour each edge type; a lone type is keyed by its
+// chip, several by a legend in words.
+it("colours each map's edge type with a line swatch in its category colour", () => {
+  render(<LegalLead {...leadProps(synthetic())} />);
+  for (const name of ["Legal entities", "Intercreditor"]) {
+    const tile = screen.getByRole("region", { name });
+    expect(tile.querySelector("[data-map] svg [data-swatch=line]")).toHaveClass(
+      "stroke-category-3",
+    );
+  }
+});
+
+it("keys a map of several edge types with a legend of their words, in name order", () => {
+  const deep = SYNTHETIC.replace(
+    "| Synthetic A | Synthetic link | Payment rank | Synthetic B | Synthetic p.1 |\n\n### T4C.5",
+    "| Synthetic A | Synthetic link | Payment rank | Synthetic B | Synthetic p.1 |\n| Synthetic B | Second link | Security rank | Synthetic C | Synthetic p.2 |\n\n### T4C.5",
+  );
+  const made = synthetic();
+  made.sections = sectionsOf(deep);
+  render(<LegalLead {...leadProps(made)} />);
+  const legend = screen
+    .getByRole("region", { name: "Intercreditor" })
+    .querySelectorAll('[data-part="legend"] li');
+  expect([...legend].map((item) => item.textContent)).toEqual(["Payment rank", "Security rank"]);
+});
+
+// Colour-signal-build ruling R1: the covenant bar is a measured amount, not a direction or a case.
+it("draws two neutral covenant marks and keys them beside the threshold tick", () => {
+  const { container } = render(<LegalLead {...leadProps(synthetic())} />);
+  const tile = screen.getByRole("region", { name: "Covenant headroom" });
+  const images = [...tile.querySelectorAll("[role=img]")];
+  expect(images).toHaveLength(2);
+  for (const image of images) {
+    expect(image.querySelector("[data-current]")).toHaveClass("bg-text-tertiary", "rounded-full");
+    expect(image.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
+    expect(image.querySelector("[data-bar]")).toBeNull();
+  }
+  const swatch = container.querySelector('svg [data-swatch="dot"]');
+  expect(swatch).toHaveClass("fill-text-tertiary");
+  expect(swatch?.closest("span")).toHaveTextContent("Current");
+  expect(
+    tile.querySelector("span.h-2\\.5.w-0\\.5.bg-text-primary")?.parentElement,
+  ).toHaveTextContent("Threshold");
+  // No share, band or percentage the handoff did not write: every "%" is in the handoff's own cells.
+  const written = SYNTHETIC.split("### Map")[0] ?? "";
+  const figure = tile.querySelector("[role=img]")?.parentElement?.textContent ?? "";
+  expect(figure.match(/%/g)?.length ?? 0).toBeLessThanOrEqual(written.match(/%/g)?.length ?? 0);
+});

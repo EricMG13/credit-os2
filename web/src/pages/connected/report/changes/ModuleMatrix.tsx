@@ -12,8 +12,8 @@ import { statusColumn, type StatusColumn } from "./model";
 
 const COLUMNS: { key: StatusColumn; label: string; shape: Shape; tint: string }[] = [
   { key: "unchanged", label: "Unchanged", shape: "ring", tint: "text-text-secondary" },
-  { key: "revised", label: "Revised", shape: "half-filled circle", tint: "text-action" },
-  { key: "new", label: "New", shape: "filled circle", tint: "text-action" },
+  { key: "revised", label: "Revised", shape: "half-filled circle", tint: "text-text-primary" },
+  { key: "new", label: "New", shape: "filled circle", tint: "text-text-primary" },
   { key: "missing", label: "Missing", shape: "dashed ring", tint: "text-gap-text" },
 ];
 
@@ -25,11 +25,11 @@ const DIRECTION: Record<string, Exclude<Tone, "flat">> = {
   Strengthened: "better",
   Weakened: "worse",
 };
-/** The same shapes and inks the measure list gives better and worse; the status word is the word. */
+/** The same shapes the measure list gives better and worse, in ink: the comparison's own word, not the owner's table, says the direction. */
 const DIRECTION_MARK = {
-  better: { shape: "filled circle", ink: "text-success-text" },
-  worse: { shape: "diamond", ink: "text-warning-text" },
-} as const satisfies Record<string, { shape: Shape; ink: string }>;
+  better: { shape: "filled circle" },
+  worse: { shape: "diamond" },
+} as const satisfies Record<string, { shape: Shape }>;
 
 /**
  * The module's name as the rest of the report writes it. The pack's own title is used only for a
@@ -140,10 +140,7 @@ export function ModuleMatrix({
                         {direction ? (
                           <span
                             data-direction={direction}
-                            className={cx(
-                              "inline-flex items-center gap-1 font-medium",
-                              DIRECTION_MARK[direction].ink,
-                            )}
+                            className="inline-flex items-center gap-1 font-medium text-text-primary"
                           >
                             <StatusShape shape={DIRECTION_MARK[direction].shape} />
                             {statusText}

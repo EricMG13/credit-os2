@@ -1,5 +1,6 @@
-import { AlertTriangle, Check, Minus } from "@untitledui/icons";
+import { Check, Minus, XClose } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
+import { cx } from "@/utils/cx";
 import { serviceText } from "../api";
 import type { ScriptCheckOutcome } from "../publishedReport";
 
@@ -68,19 +69,67 @@ export function groupOutcomes(outcomes: readonly ScriptCheckOutcome[]) {
   return [...groups.values()];
 }
 
-/** The icon drawn with a status word, so the word never rests on colour alone. */
-export function StatusIcon({ status }: { status: string }) {
-  const Icon = status === "agreed" ? Check : WARNED.includes(status) ? AlertTriangle : Minus;
-  return <Icon className="size-3 shrink-0" aria-hidden="true" />;
+/** How a recorded status word is drawn: pass, fail, not run, or any other word. */
+export type CheckMark = "pass" | "fail" | "not-run" | "other";
+
+const markOf = (status: string): CheckMark =>
+  status === "agreed"
+    ? "pass"
+    : WARNED.includes(status)
+      ? "fail"
+      : status === "not checked"
+        ? "not-run"
+        : "other";
+
+/** The hatch frame of a not-run status: the gap texture with the word on a plain chip. */
+const HATCH = "gap-hatch inline-flex rounded-ds-xs border border-dashed border-border-gap p-0.5";
+
+/**
+ * A status as an ink mark and its word, never colour alone: agreed a check, a failing word a cross,
+ * "not checked" the word on the grey hatch, any
+ * other word the neutral dash. The glyph is an `aria-hidden` icon, so the text is the word alone;
+ * `glyphOnly` draws the glyph without the word, for a heading that already says it.
+ */
+export function CheckStatusMark({
+  status,
+  glyphOnly = false,
+}: {
+  status: string;
+  glyphOnly?: boolean;
+}) {
+  const mark = markOf(status);
+  const glyph = "size-3 shrink-0";
+  const icon =
+    mark === "pass" ? (
+      <Check className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
+    ) : mark === "fail" ? (
+      <XClose className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
+    ) : mark === "other" ? (
+      <Minus className={cx(glyph, "text-text-primary")} aria-hidden="true" data-mark={mark} />
+    ) : null;
+  if (mark === "not-run") {
+    return glyphOnly ? (
+      <span aria-hidden="true" data-mark={mark} className={cx(HATCH, "size-4 shrink-0")} />
+    ) : (
+      <span data-mark={mark} className={HATCH}>
+        <span className="rounded-ds-xs bg-surface-card px-1.5 text-small text-text-primary">
+          {status}
+        </span>
+      </span>
+    );
+  }
+  return glyphOnly ? (
+    icon
+  ) : (
+    <span className="inline-flex items-center gap-1 text-small text-text-primary">
+      {icon}
+      <span>{status}</span>
+    </span>
+  );
 }
 
 function CheckStatus({ status }: { status: string }) {
-  const color = status === "agreed" ? "brand" : WARNED.includes(status) ? "warning" : "gray";
-  return (
-    <Badge color={color} className="gap-1" icon={<StatusIcon status={status} />}>
-      {status}
-    </Badge>
-  );
+  return <CheckStatusMark status={status} />;
 }
 
 function CheckField({ label, value }: { label: string; value: string | number | null }) {

@@ -44,10 +44,12 @@ import {
 const LABEL = "Earnings and debt";
 const KICKER = "Earnings against debt and leverage";
 
-const FILL = { primary: "fill-chart-1", secondary: "fill-chart-2" } as const;
-const STROKE = { primary: "stroke-chart-1", secondary: "stroke-chart-2" } as const;
+/** Earnings are category 3 and gross debt category 4 (this tile keeps 1, 2 and 7 for better and worse). */
+const FILL = { primary: "fill-category-3", secondary: "fill-category-4" } as const;
+const STROKE = { primary: "stroke-category-3", secondary: "stroke-category-4" } as const;
+const CATEGORY = { primary: 3, secondary: 4 } as const;
 
-/** One period: one bar per measure from zero, earnings blue, debt plum, gaps hatched with the reason. */
+/** One period: one bar per measure from zero, earnings category 3, debt category 4, gaps hatched with the reason. */
 function PeriodBars({ data, width }: { data: EarningsAgainstDebt; width: number }) {
   const layout = barLayout(data, width);
   const period = data.periods[0]?.label ?? "";
@@ -296,7 +298,10 @@ function Money({ data }: { data: EarningsAgainstDebt }) {
       <PeriodBars data={data} width={width} />
     ) : data.periods.length === 2 && comparison ? (
       <Dumbbell
-        rows={dumbbellRows(data)}
+        rows={dumbbellRows(data).map((row) => ({
+          ...row,
+          ...(row.series ? { category: CATEGORY[row.series] } : {}),
+        }))}
         width={width}
         periods={{ prior: comparison.from, current: comparison.to }}
         unit={data.unit}
@@ -539,7 +544,7 @@ function legendOf(data: EarningsAgainstDebt): LegendEntry[] {
       ? [
           {
             kind,
-            tone: "primary" as const,
+            tone: "category-3" as const,
             text: named ? `${latest} earnings` : "Earnings",
           },
         ]
@@ -548,7 +553,7 @@ function legendOf(data: EarningsAgainstDebt): LegendEntry[] {
       ? [
           {
             kind,
-            tone: "secondary" as const,
+            tone: "category-4" as const,
             text: named ? `${latest} gross debt` : "Gross debt",
           },
         ]

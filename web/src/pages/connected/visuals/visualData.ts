@@ -1,5 +1,5 @@
 import { containsReference, readerText } from "../publishedReport";
-import { unitCells } from "../report/moduleRecordsModel";
+import { unitCells } from "../moneyUnits";
 
 export function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)

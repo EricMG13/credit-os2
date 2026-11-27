@@ -5,7 +5,6 @@
 // On a service the form adds a digest or changes one of the viewer's, which are listed above it
 // with Run once now, Edit and Delete; what a run did is the service's own sentence. No model is
 // called by the page: the service decides, and says, whether an issue was written.
-import { useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
@@ -196,6 +195,7 @@ export function DigestsSection({
   digests,
   editing,
   onEdit,
+  onWrite,
 }: {
   form: SignalDigestForm;
   /** The form's current values (the delivered ones until a field is edited). */
@@ -206,30 +206,9 @@ export function DigestsSection({
   /** The id of the digest the form is changing; null while it holds a new one. */
   editing: string | null;
   onEdit: (edit: Edit) => void;
+  onWrite: (request: SignalWrite, clearsDraft: boolean) => void;
 }) {
   const page = usePageWrite();
-  const draftRef = useRef({});
-  useLayoutEffect(
-    () => () => {
-      draftRef.current = {};
-    },
-    [],
-  );
-  const selectEdit = (edit: Edit) => {
-    draftRef.current = {};
-    onEdit(edit);
-  };
-  const changeField = (field: keyof Value, text: string) => {
-    draftRef.current = {};
-    onChange(field, text);
-  };
-  const send = (request: SignalWrite, clearsDraft: boolean) => {
-    if (clearsDraft) draftRef.current = {};
-    const draft = draftRef.current;
-    void page?.send(request).then(({ refusal }) => {
-      if (clearsDraft && refusal === null && draftRef.current === draft) selectEdit(null);
-    });
-  };
   const edited = digests.find((digest) => digest.id === editing) ?? null;
   const missing = editing !== null && edited === null;
   return (
@@ -242,9 +221,9 @@ export function DigestsSection({
           <DigestList
             digests={digests}
             page={page}
-            onEdit={selectEdit}
+            onEdit={onEdit}
             onDelete={(id) => {
-              send(writes.dropDigest(id), editing === id);
+              onWrite(writes.dropDigest(id), editing === id);
             }}
             form={form}
           />
@@ -253,7 +232,7 @@ export function DigestsSection({
           label="Name"
           value={value.name}
           onChange={(text) => {
-            changeField("name", text);
+            onChange("name", text);
           }}
         />
         <Choice
@@ -262,7 +241,7 @@ export function DigestsSection({
           options={form.coversOptions}
           value={value.covers}
           onChange={(text) => {
-            changeField("covers", text);
+            onChange("covers", text);
           }}
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -271,7 +250,7 @@ export function DigestsSection({
             options={form.scheduleOptions}
             value={value.schedule}
             onChange={(text) => {
-              changeField("schedule", text);
+              onChange("schedule", text);
             }}
           />
           <Choice
@@ -279,7 +258,7 @@ export function DigestsSection({
             options={form.lengthOptions}
             value={value.length}
             onChange={(text) => {
-              changeField("length", text);
+              onChange("length", text);
             }}
           />
         </div>
@@ -289,7 +268,7 @@ export function DigestsSection({
           rows={3}
           value={value.brief}
           onChange={(text) => {
-            changeField("brief", text);
+            onChange("brief", text);
           }}
         />
         {missing ? (
@@ -304,11 +283,11 @@ export function DigestsSection({
             missing
               ? undefined
               : () => {
-                  send(writes.digest(editing, bodyOf(edited, value)), true);
+                  onWrite(writes.digest(editing, bodyOf(edited, value)), true);
                 }
           }
           onCancel={() => {
-            selectEdit(null);
+            onEdit(null);
           }}
         />
       </div>

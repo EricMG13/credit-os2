@@ -1,5 +1,5 @@
 import { moduleCodeName } from "../api";
-import { unitLabel } from "../moneyUnits";
+import { UNIT_HEADER } from "../moneyUnits";
 import { plainText } from "../richText";
 import {
   classifySections,
@@ -457,8 +457,6 @@ const NOT_AMOUNT =
   /\/|ratio|bps|%|rate|spread|margin|coupon|floor|multiple|cover|leverage|date|year|period|unit|basis|source|tier|status|growth|cagr|change|conversion|days|yield|\(x\)|\bto (?:ebitda|revenue|sales|equity|capital)\b/i;
 /** A column of places, tests or tallies: its figures are no amounts ("Debt maturing" is one). */
 const NOT_AMOUNT_WORD = /\b(?:rank|test|maturity|order|number|count|score)|#/i;
-/** A column that states each row's currency or unit: figures in two of them share no scale. */
-const UNIT_HEADER = /^(?:currency|unit|reporting unit|units?|ccy)$/i;
 const PERIOD_HEADER = /^(?:FY|H[12] |Q[1-4] |LTM |20\d\d)/;
 /** Rows that are different measures, a bridge, or totals: their figures are not peers. */
 const MEASURES_HEADER = /^(?:item|items|metric|metrics|measure|line item|kpi|indicator)s?$/i;
@@ -634,19 +632,6 @@ export function numericColumns(table: Table) {
     if (figures.length && figures.every((cell) => NUMERAL.test(cell))) columns.add(index);
   });
   return columns;
-}
-
-/** A table's cell drawer for its unit columns: a money unit as the currency's symbol ("$m"); any
- * other cell undefined, so the cell is drawn as written. */
-export function unitCells(table: { headers: readonly string[] }) {
-  const columns = new Set(
-    table.headers.flatMap((header, column) => (UNIT_HEADER.test(header.trim()) ? [column] : [])),
-  );
-  return (column: number, cell: string) => {
-    const written = cell.trim();
-    const drawn = columns.has(column) ? unitLabel(written) : written;
-    return drawn === written ? undefined : drawn;
-  };
 }
 
 /** A unit column that states one value in every row: the page states it once, above the table. */

@@ -20,6 +20,7 @@ from credit_os.source import (
     valid_date,
 )
 from deploy_workflow.derived import derived
+from deploy_vii.markdown_comments import inline_comments
 
 CASHFLOW_FILES = ("forecast_exact.json", "calculation.json", "annual.md", "quarter.md")
 # The CP-1 handoff table labels the cash flow reader matches, exactly as the handoffs print them
@@ -387,26 +388,6 @@ def table_row(line: str) -> str | None:
     without trailing whitespace; None for any other line."""
     found = TABLE_ROW.fullmatch(line)
     return None if found is None else found[1]
-
-
-def inline_comments(line: str) -> tuple[str, bool]:
-    """`line` without its complete HTML comments, and whether one is still open at its end.
-    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
-    kept = ""
-    while True:
-        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
-        opener = masked.find("<!--")
-        if opener < 0:
-            return kept + line, False
-        if masked.startswith(">", opener + 4):
-            end = opener + 5
-        elif masked.startswith("->", opener + 4):
-            end = opener + 6
-        elif (closer := masked.find("-->", opener + 4)) >= 0:
-            end = closer + 3
-        else:
-            return kept + line[:opener], True
-        kept, line = kept + line[:opener], line[end:]
 
 
 def shown_lines(lines: list[str]) -> list[str]:

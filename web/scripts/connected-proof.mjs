@@ -9,15 +9,24 @@ import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createOfflineProxy, installOfflineGuard } from "./offline-network.mjs";
+import {
+  assertManifestMatches,
+  builtBundleHashes,
+  requireCleanGitSource,
+  sourceProvenance,
+  verifyServedBundle,
+} from "./source-provenance.mjs";
 
-const desktopOnly = process.argv.includes("--desktop-only");
+// PRODUCT.md supports desktops at 1024px and wider. Keep narrow checks available for diagnostics.
+const desktopOnly = !process.argv.includes("--include-mobile");
 const project = path.resolve(import.meta.dirname, "../..");
 const runAsScript = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const builtSource = await sourceProvenance(project);
 const sourceCommit = await readFile(path.join(project, "SOURCE-COMMIT.txt"), "utf8").then(
   (text) => text.trim(),
   (error) => {
     if (error.code !== "ENOENT") throw error;
-    return null;
+    return builtSource.git_commit;
   },
 );
 const zipSha256 = process.env.CREDIT_OS_PROOF_ZIP_SHA256?.toLowerCase() ?? null;
@@ -29,11 +38,46 @@ if (zipSha256 !== null && (!sourceCommit || !/^[0-9a-f]{64}$/u.test(zipSha256)))
 }
 const provenance = {
   source_commit: sourceCommit,
+  source_git_available: builtSource.git_available,
+  source_git_commit: builtSource.git_commit,
+  source_git_tree: builtSource.git_tree,
+  source_git_clean: builtSource.git_clean,
+  source_tree_sha256: builtSource.source_sha256,
+  source_file_count: builtSource.source_file_count,
+  source_bytes: builtSource.source_bytes,
   zip_sha256: zipSha256,
   platform: process.platform,
   os_release: release(),
   architecture: arch(),
 };
+const requireCleanSource =
+  process.env.CREDIT_OS_REQUIRE_CLEAN_SOURCE === "1" || process.env.CI === "true";
+requireCleanGitSource(builtSource, runAsScript && requireCleanSource);
+
+let retainedBuildManifest = null;
+
+if (runAsScript) {
+  const manifestBytes = await readFile(
+    path.join(project, "proof-artifacts", "connected-build-manifest.json"),
+  );
+  retainedBuildManifest = JSON.parse(manifestBytes.toString("utf8"));
+  const servedBuildManifest = JSON.parse(
+    await readFile(
+      path.join(project, "web", "dist", "connected-assets", "source-provenance.json"),
+      "utf8",
+    ),
+  );
+  assertManifestMatches(servedBuildManifest, retainedBuildManifest);
+  assert.equal(retainedBuildManifest.source_sha256, provenance.source_tree_sha256);
+  assert.equal(retainedBuildManifest.git_commit, provenance.source_git_commit);
+  assert.equal(retainedBuildManifest.git_tree, provenance.source_git_tree);
+  assert.equal(retainedBuildManifest.git_clean, provenance.source_git_clean);
+  const localBundleHashes = await builtBundleHashes(
+    path.join(project, "web", "dist", "connected-assets"),
+  );
+  assertManifestMatches(localBundleHashes, retainedBuildManifest.built_bundles);
+  provenance.build_manifest_sha256 = createHash("sha256").update(manifestBytes).digest("hex");
+}
 const proofRoot = path.join(project, "proof-artifacts");
 if (runAsScript) await mkdir(proofRoot, { recursive: true });
 const artifacts = runAsScript ? await mkdtemp(path.join(proofRoot, "run-")) : null;
@@ -803,7 +847,7 @@ async function checkDownside(report, modules, artifacts, channel, page) {
   const reading = await chart.getAttribute("aria-label");
   assert.match(
     reading,
-    /Stressed FCF \(US\$m\): Control \(unstressed\) \(control\) 10\.00, Cost shock 0\.00, /u,
+    /Stressed FCF \(\$m\): Control \(unstressed\) \(control\) 10\.00, Cost shock 0\.00, /u,
   );
   assert.match(reading, /Cost and rate shock -5\.1250 \(−USD 5\.13 million\)\./u);
   await chart.locator('[data-bar="0.00"]').waitFor({ state: "attached" });
@@ -1091,16 +1135,19 @@ async function checkForecastPresentation(report, page, channel) {
     .getByRole("group", { name: "Net leverage view", exact: true })
     .getByRole("button", { name: "Table", exact: true })
     .click();
-  // From proof/handoffs/CP-2G.md: base 388 / 315 = 1.23x; downside 454.6 / 252 = 1.80x.
+  // The base is 388 / 315 = 1.23x and the downside is 454.6 / 252 = 1.80x.
+  // FY2026E follows reported FY2025; CP-1 prints 500 of maturities for that year.
   const byCase = leverage.getByRole("table", { name: "Net leverage by case", exact: true });
-  assert.deepEqual(
-    await byCase
-      .getByRole("row")
-      .filter({ has: page.getByRole("rowheader", { name: "FY2025E", exact: true }) })
-      .getByRole("cell")
-      .allInnerTexts(),
-    ["1.23x", "1.80x", ""],
-  );
+  const firstForecastYear = byCase
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader", { name: "FY2026E", exact: true }) });
+  await firstForecastYear.waitFor();
+  assert.deepEqual(await firstForecastYear.getByRole("cell").allInnerTexts(), [
+    "",
+    "1.23x",
+    "1.80x",
+    "500",
+  ]);
   await report.getByRole("table", { name: "Forecast grid", exact: true }).waitFor();
   await scope.evaluate((element) => element.scrollIntoView({ block: "start" }));
   await page.screenshot({ path: path.join(artifacts, `${channel}-forecast.png`) });
@@ -1172,8 +1219,8 @@ async function checkDebtEvidence(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Financial foundation, Delivered/u }).click();
   const debt = report.getByRole("region", { name: "Debt maturities", exact: true });
   assert.equal(
-    await debt.getByRole("img", { name: /^Debt maturities, US\$m: / }).getAttribute("aria-label"),
-    "Debt maturities, US$m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
+    await debt.getByRole("img", { name: /^Debt maturities, \$m: / }).getAttribute("aria-label"),
+    "Debt maturities, $m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
   );
   await debt.screenshot({ path: path.join(artifacts, `${channel}-debt-maturities.png`) });
   await showTable(debt, "Debt maturities");
@@ -1289,7 +1336,7 @@ async function checkForecastEvidence(report, artifacts, channel, page) {
     .click();
   await report
     .getByRole("group", { name: "Year", exact: true })
-    .getByRole("button", { name: "FY2025E", exact: true })
+    .getByRole("button", { name: "FY2026E", exact: true })
     .click();
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
   await ebitdaRow.getByRole("cell", { name: "252", exact: true }).waitFor();
@@ -1587,6 +1634,43 @@ function recordBrowserRequests(page) {
   return { errors, publicationRequests, scriptRequests, standingResponses };
 }
 
+function observeConnectedAssets(context, endpoint, builtBundles) {
+  const origin = new URL(endpoint).origin;
+  const observed = new Map();
+  const failures = [];
+  const pending = [];
+
+  context.on("page", (page) => {
+    page.on("response", (response) => {
+      const url = new URL(response.url());
+      if (
+        url.origin !== origin ||
+        !url.pathname.startsWith("/connected-assets/") ||
+        !/\.(?:js|css)$/u.test(url.pathname)
+      )
+        return;
+
+      const capture = (async () => {
+        assert.equal(response.status(), 200, `connected asset ${url.pathname} loaded`);
+        const sha256 = verifyServedBundle(url.pathname, await response.body(), builtBundles);
+        const hashes = observed.get(url.pathname) ?? new Set();
+        hashes.add(sha256);
+        observed.set(url.pathname, hashes);
+      })().catch((error) => failures.push(error));
+      pending.push(capture);
+    });
+  });
+
+  return async () => {
+    await Promise.all(pending);
+    if (failures.length > 0)
+      throw new AggregateError(failures, "A connected bundle failed build verification");
+    return [...observed.entries()]
+      .flatMap(([pathname, hashes]) => [...hashes].map((sha256) => ({ path: pathname, sha256 })))
+      .sort((left, right) => left.path.localeCompare(right.path));
+  };
+}
+
 async function checkStartRoute(page, endpoint, scriptRequests, brand) {
   await page.goto(new URL("/start", endpoint).href);
   await page.getByLabel("Issuer name", { exact: true }).waitFor();
@@ -1762,6 +1846,7 @@ function browserProofRecord({ channel, brand, browserVersion, run }) {
       "compact library index, repeated issuer searches and report-scoped browser requests",
       "Run loads only connected route bundles without the report reader or offline app",
       "route-based JavaScript loads only after navigation (run, library, and report chunks)",
+      "connected JavaScript and CSS received across run, report, library and Coverage match the retained build manifest",
       "overview",
       "issuer calendar date precision and originating row",
       "figure and row trace keyboard focus restoration",
@@ -1812,17 +1897,63 @@ async function checkBrowserRun(context, service, workspace, channel, brand) {
     run,
     publicationRequests,
   });
+  await page.screenshot({
+    path: path.join(artifacts, `${channel}-evidence.png`),
+    fullPage: true,
+  });
+  const coverage = await checkCoveragePage(page, service.endpoint, channel);
   assert.deepEqual(errors, []);
   assert.deepEqual(
     standingResponses.filter((status) => status >= 500),
     [],
     "the standing portfolios service answered with a server error",
   );
-  await page.screenshot({
-    path: path.join(artifacts, `${channel}-evidence.png`),
-    fullPage: true,
-  });
-  return browserProofRecord({ channel, brand, browserVersion: context.browser().version(), run });
+  return {
+    ...browserProofRecord({ channel, brand, browserVersion: context.browser().version(), run }),
+    coverage,
+  };
+}
+
+async function checkCoveragePage(page, endpoint, channel) {
+  const loaded = response(page, /\/connected\/coverage$/u, "GET");
+  await page.goto(new URL("/coverage", endpoint).href);
+  await page.getByRole("heading", { name: "Coverage", exact: true }).waitFor();
+  const result = await loaded;
+  assert.equal(result.status(), 200, "the connected Coverage endpoint responds successfully");
+  const data = await result.json();
+  const manifestResponse = await page.request.get(
+    new URL("/connected-assets/source-provenance.json", endpoint).href,
+  );
+  assert.equal(manifestResponse.status(), 200, "built app source manifest is served with the app");
+  const manifest = await manifestResponse.json();
+  assertManifestMatches(manifest, retainedBuildManifest);
+  assert.equal(manifest.source_sha256, provenance.source_tree_sha256);
+  assert.equal(manifest.git_commit, provenance.source_git_commit);
+  assert.equal(manifest.git_tree, provenance.source_git_tree);
+  assert.ok(Object.keys(manifest.built_bundles).some((bundle) => bundle.endsWith(".js")));
+  const outcome = {
+    issuers: data?.issuers?.length ?? 0,
+    current_views: [],
+    monitor_tab: false,
+    source_manifest: manifest,
+  };
+  if (outcome.issuers === 0) {
+    await page.getByText("No published runs yet", { exact: true }).waitFor();
+    outcome.state = "empty";
+  } else {
+    const view = page.getByRole("group", { name: "View", exact: true });
+    await view.getByRole("button", { name: "Modules", exact: true }).click();
+    outcome.current_views = await view.getByRole("button").allTextContents();
+    outcome.monitor_tab = outcome.current_views.includes("Monitor");
+    await page.getByRole("heading", { name: "What each module delivered, by issuer" }).waitFor();
+    await page
+      .getByRole("status")
+      .getByText(new RegExp(`of ${outcome.issuers} issuers shown`, "u"))
+      .waitFor();
+    outcome.state = "dashboard";
+  }
+  await page.screenshot({ path: path.join(artifacts, `${channel}-coverage.png`), fullPage: true });
+  return outcome;
 }
 
 function launchBrowser(channel, envName, proxy) {
@@ -1860,6 +1991,11 @@ for (const [channel, brand, envName] of browserCases) {
         browser = await launchBrowser(channel, envName, proxy.settings);
         context = await browser.newContext({ serviceWorkers: "block" });
         guard = await installOfflineGuard(context);
+        const connectedAssets = observeConnectedAssets(
+          context,
+          service.endpoint,
+          retainedBuildManifest.built_bundles,
+        );
         const blank = await context.newPage();
         await blank.goto("about:blank");
         await writeFile(
@@ -1876,6 +2012,13 @@ for (const [channel, brand, envName] of browserCases) {
         );
         await blank.close();
         record = await checkBrowserRun(context, service, workspace, channel, brand);
+        record.connected_assets = await connectedAssets();
+        for (const routeBundle of ["StartRun-", "ReportLibrary-", "Coverage-"])
+          assert.ok(
+            record.connected_assets.some((asset) => asset.path.includes(routeBundle)),
+            `the browser loaded the ${routeBundle} route bundle`,
+          );
+        assert.ok(record.connected_assets.some((asset) => asset.path.endsWith(".css")));
       } catch (error) {
         if (service !== undefined) console.error(service.stderr());
         await cp(path.join(workspace, "_engine", "logs"), path.join(artifacts, `${channel}-logs`), {

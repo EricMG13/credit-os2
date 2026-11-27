@@ -1,6 +1,6 @@
-import type { OutputEntry } from "../../../publishedReport";
+import { unitLabel, type OutputEntry } from "../../../publishedReport";
 import type { Reading } from "../kit/numbers";
-import { latestReported, type Period } from "../kit/tables";
+import { comparisonOf, latestReported, type Period } from "../kit/tables";
 import {
   cashLadder,
   earningsAgainstDebt,
@@ -59,14 +59,16 @@ export type PeriodStrip = {
   line: number | null;
 };
 
-type Cells = { label: string; cell: Reading | null }[];
+type Cells = { label: string; cell: Reading | null; unit?: string }[];
 
 const fromValues = (values: readonly PeriodCell[]): Cells =>
   values.map(({ label, cell }) => ({ label, cell }));
 
 type FigureCells = {
   figure: string;
-  cells: Cells;
+  series: Cells[];
+  /** Stated figures that do not qualify for the comparison edge. */
+  coverageOnly?: Cells[];
   line: number;
   compare?: (from: string, to: string) => boolean;
 };
@@ -78,9 +80,9 @@ function figureCells(entry: OutputEntry): FigureCells[] {
   if (earnings)
     out.push({
       figure: "Earnings against debt",
-      cells: [
-        ...earnings.measures.flatMap((measure) => fromValues(measure.values)),
-        ...(earnings.leverage ? fromValues(earnings.leverage.values) : []),
+      series: [
+        ...earnings.measures.map((measure) => fromValues(measure.values)),
+        ...(earnings.leverage ? [fromValues(earnings.leverage.values)] : []),
       ],
       line: earnings.tableLine,
     });
@@ -88,45 +90,48 @@ function figureCells(entry: OutputEntry): FigureCells[] {
   if (ladder)
     out.push({
       figure: "Cash conversion",
-      cells: ladder.steps.flatMap((step) => (step.stated ? fromValues(step.values) : [])),
+      series: ladder.steps.filter((step) => step.stated).map((step) => fromValues(step.values)),
       line: ladder.line,
     });
   const net = netDebtView(entry);
   if (net)
     out.push({
       figure: "Net debt",
-      cells: [
-        ...net.periods.flatMap((period) =>
-          [period.gross, period.cash, period.net, period.leverage].map((cell) => ({
-            label: period.label,
-            cell,
-          })),
+      series: [
+        ...(["gross", "cash", "net", "leverage"] as const).map((measure) =>
+          net.periods.map(({ label, [measure]: cell }) => ({ label, cell })),
         ),
-        ...net.liquidity.flatMap((period) =>
-          [period.cash, period.undrawn].map((cell) => ({ label: period.label, cell })),
+        ...(["cash", "undrawn"] as const).map((measure) =>
+          net.liquidity.map(({ label, [measure]: cell, unit }) => ({
+            label,
+            cell,
+            unit: unitLabel(unit),
+          })),
         ),
       ],
       line: net.tableLine,
     });
   const segments = segmentView(entry);
-  if (segments)
+  if (segments) {
+    const comparison = comparisonOf(segments.periods);
     out.push({
       figure: "Segments",
-      cells: [
+      series: [
         ...[...segments.segments, ...segments.apart].flatMap((segment) => [
-          ...fromValues(segment.sales),
-          ...fromValues(segment.ebitda),
+          fromValues(segment.sales),
+          fromValues(segment.ebitda),
         ]),
-        ...segments.mixedEbitda.flatMap(({ values }) => fromValues(values)),
       ],
+      coverageOnly: segments.mixedEbitda.map(({ values }) => fromValues(values)),
       line: segments.tableLine,
-      compare: (from, to) => segments.comparison?.from === from && segments.comparison.to === to,
+      compare: (from, to) => comparison?.from === from && comparison.to === to,
     });
+  }
   const cover = interestCover(entry);
   if (cover)
     out.push({
       figure: "Interest cover",
-      cells: fromValues(cover.values),
+      series: [fromValues(cover.values)],
       line: cover.tableLine,
       compare: (from, to) =>
         cover.change !== null && cover.comparison?.from === from && cover.comparison.to === to,
@@ -144,7 +149,7 @@ export function stateOf(cells: readonly (Reading | null)[]): PeriodState {
 }
 
 /** Years between the first and the last stated annual year that no table states, for a true axis. */
-function withUnstated(periods: readonly Period[]): (Period & { unstated?: true })[] {
+export function withUnstated(periods: readonly Period[]): (Period & { unstated?: true })[] {
   const first = periods[0];
   const last = periods.at(-1);
   const prefix = first ? /^(\D*)\d{4}$/.exec(first.label)?.[1] : undefined;
@@ -169,16 +174,22 @@ function withUnstated(periods: readonly Period[]): (Period & { unstated?: true }
   });
 }
 
-/** The two periods must have numeric coverage in a figure that can compare them. */
+/** The two periods must have numeric coverage for one measure in a figure that can compare them. */
 function coveredComparison(comparison: PeriodStrip["comparison"], figures: FigureCells[]) {
   if (!comparison) return null;
   const { from, to } = comparison;
   return figures.some(
-    ({ cells, compare }) =>
+    ({ series, compare }) =>
       (compare?.(from, to) ?? true) &&
-      [from, to].every((label) =>
-        cells.some((cell) => cell.label === label && cell.cell?.kind === "number"),
-      ),
+      series.some((cells) => {
+        const earlier = cells.find((cell) => cell.label === from);
+        const later = cells.find((cell) => cell.label === to);
+        return (
+          earlier?.cell?.kind === "number" &&
+          later?.cell?.kind === "number" &&
+          (earlier.unit === undefined || (earlier.unit !== "" && earlier.unit === later.unit))
+        );
+      }),
   )
     ? comparison
     : null;
@@ -188,15 +199,18 @@ function coveredComparison(comparison: PeriodStrip["comparison"], figures: Figur
 export function periodStrip(entry: OutputEntry): PeriodStrip {
   const stated = statedPeriods(entry);
   const found = figureCells(entry);
-  const figures: FigurePeriods[] = found.map(({ figure, cells }) => ({
-    figure,
-    states: Object.fromEntries(
-      stated.labels.map((label) => [
-        label,
-        stateOf(cells.filter((cell) => cell.label === label).map((cell) => cell.cell)),
-      ]),
-    ),
-  }));
+  const figures: FigurePeriods[] = found.map(({ figure, series, coverageOnly = [] }) => {
+    const cells = [...series, ...coverageOnly].flat();
+    return {
+      figure,
+      states: Object.fromEntries(
+        stated.labels.map((label) => [
+          label,
+          stateOf(cells.filter((cell) => cell.label === label).map((cell) => cell.cell)),
+        ]),
+      ),
+    };
+  });
   /** The lead's state for a period: numbers in any figure, else every figure's gaps, else words. */
   const overall = (label: string): PeriodState => {
     const states = figures.map((figure) => figure.states[label]);

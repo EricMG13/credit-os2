@@ -164,8 +164,9 @@ export function InterestCoverTile({ lead }: { lead: LeadProps }) {
   const table = coverTable(cover);
   const details: string[] = [];
   table.rows = table.rows.map(([label = "", value = "", basis = ""], at) => {
-    if (!separated.has(label)) return [label, value, basis];
-    const period = cover.periodWords[at] ?? label;
+    const detail = cover.periodDetails[at];
+    if (!separated.has(label) && !detail?.qualified) return [label, value, basis];
+    const period = detail?.text ?? label;
     details.push([period, basis].filter(Boolean).join(" · "));
     return [period, value, basis];
   });

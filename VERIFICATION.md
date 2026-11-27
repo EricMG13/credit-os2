@@ -4,6 +4,51 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Sectioned review integration against main
+
+- Combined draft `686d9837` with main `06e1c997`. Resolved twelve conflict paths. Kept main's
+  Foundation comparison rules, Colour legends and Signal claim ownership, and the draft's evidence
+  filtering, pathway labels and digest failure isolation.
+- Owner decisions D-04 and D-05. Refuse new manual requests during a digest claim. A failed write
+  advances the story mark only through the planned scope. The 113 ownership, recovery, concurrent
+  SQLite and digest scope tests passed. The browser web changes passed TypeScript and 487 focused
+  tests covering Foundation and Signal forms. This evidence uses fixtures. It records no paid run.
+
+## 2026-11-27 — Coordinator activity timeline
+
+Live Chrome and Edge exercised rejection, same-attempt recovery, refresh and retained drafts.
+The coordinating Codex chat received the native review. Claude start/stop used fixtures because Claude Code was signed out.
+
+## 2026-11-27 — Development coordinator and dashboard
+
+- Real Chrome and Edge on the local dashboard verified the run selector, ranked decisions,
+  decision details, reply drafting and copying, worker status, and unchanged ledger state.
+  Impeccable review of desktop and mobile led to a hidden-until-focused skip link and tighter
+  mobile worker columns. Fixture runs and worker decisions were synthetic.
+- Retained native Codex observation verified Astra medium through the ChatGPT subscription.
+  An isolated worker wrote the exact fixture and was accepted with zero reserved units.
+- A disposable GitHub target blocked stale, failed and wrongly attributed proof and allowed
+  the repaired tested tree. Claude subscription dispatch and production merge rules need
+  separate qualification. See the development coordinator rollout plan for the pilot scope.
+- The review repairs cover stale approvals, mismatched task and candidate evidence, canary
+  rollback, worker deadlines, and preservation of explicitly revalidated work.
+- The Windows ZIP retains the independent build manifest and hashes the same archived sources
+  when packaged and extracted on different hosts.
+
+
+## 2026-11-27 — Foundation and Signal integration
+
+- Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
+- Foundation and Modules used older TransDigm CP-1 data and synthetic cases for units, zero and gaps, and like-for-like comparisons. PR review added cases for equivalent, opposing and unrecognized swap scopes, source locators in Evidence, and comparable segment sales alongside mixed EBITDA.
+- Signal used synthetic DOM tests for draft ownership across Settings tabs. Two SQLite connections checked late results, recurring recovery after restart or a busy write, queued requests, and reservation ordering when a model call starts after the digest claim.
+- Not verified: live issuer or provider execution and the weekly full Python suite.
+
+## 2026-11-27 — Event timeline interaction fidelity
+
+The synthetic EventLane suite passed all 45 tests, including a marker click that focuses its row
+and hover in both directions. The change only shares the four event handlers for enter, leave,
+focus and blur. The marker and row still receive their own activation callbacks.
+
 ## 2026-11-27 — Sign-in parked Low and Info batch (after slice 6)
 
 - Scope: 19 of the 29 parked sign-in Low/Info rows still open on `main` at `f300698c`, gathered
@@ -907,81 +952,3 @@ then 5; the narrow layout and the controls listed below.
   where main's spec named navy and ultramarine; spec updated). The Export PDF control and preview
   keep main's markup, not yet restyled. Follow-on items 20 to 22 record what the merge left open.
 - Trimmed the oldest entries to keep this record under 1,000 lines.
-
-## 2026-11-25 — Frontend redesign: every screen rebuilt and merged
-
-- Scope: the ten redesign branches (Run activity and progress with the module pipeline; Evidence
-  and the trace drawer; Changes and Calendar; report header, Overview and History; Library and
-  Coverage; Forecast; the module page frame; the module leads for all 22 modules; Start run)
-  merged into `claude/exciting-albattani-v1zoug`, plus the coordinator's integration commits.
-  Design authority `DESIGN.md`; the map of what each screen shows is `docs/design/screen-map.md`.
-  Delivery still adds no analysis: every branch was reviewed adversarially for derived numbers,
-  page-made judgements, false gap reasons, hidden content and machinery in reader text, by
-  independent reviewers on each round and a final review before each merge, on retained TransDigm
-  FY2024 handoffs (outdated evidence, used for shape only), the proof handoffs and the synthetic
-  Northbridge run. No paid run, no provider call.
-- What the page sends at Start run is unchanged: 19 recorded request transcripts from 18 drives
-  match byte for byte in CI mode, and independent drives (every pathway, re-pressed options,
-  edits after review, failures and retries) are byte-identical to the old page's captures.
-  Consent gating, caps (Lite 15, Full 25, Deep 40, purpose pathways 20) and `X-Shown-Cap` are as
-  before.
-- Integration review (independent, of the coordinator's own commits): six defects, all repaired
-  in `3759f22` and `f708842` with tests that fail without the repair. A prose-only chart section
-  was drawn twice on four Financials leads, once denying it ("could not read"); a records address
-  (`#modules/<code>/records/<table>`) threw on a malformed escape and did nothing on a change
-  within the module; phone styles start below 480 px, not at it; several phone targets were
-  narrow or short; the limits disclosure had lost its chevron. The render check itself was
-  lenient (a hit on a parent counted, width unmeasured) and is now strict.
-- Fidelity check (presentation change): `docs/design/preview/check-render.cjs` on the final
-  build over the synthetic run, every page (14 module pages, a module's records, Overview,
-  Changes, Forecast, Evidence, Calendar, History, Library, Coverage, Run activity, Start run) at
-  1440, 1024, 480, 479 and 390: 113 of 125 passed on `f708842`; the 12 failures were all 24 px
-  event-lane marks sitting 2 px apart, fixed in `b40da32` and rechecked on every page with a lane
-  (30 page widths) with no failures (no sideways scroll, no unnamed scroll box, no cut
-  text, no target under 32 px or under 44 px below 480 px in either dimension, no text under
-  12 px, no overlapping chart label). Screenshots were looked at for the pages each review names.
-- Tests: full `npm run gates` on `b40da32` passes every step (lint, format, types, 454 files and
-  7,737 tests with coverage, audit, knip, duplication, build, 78 script tests, file gates). Python
-  front-end tests (15 files, 295 tests) passed on `c632e84`; the currency proof (5 tests, pound
-  and franc, reading the built pages) passes on `f708842`, and its new checks fail on a wrong
-  value. Quality gate 0 findings. Known timing-sensitive tests (pass alone,
-  fail only under load): the connected app's "reads the published handoff…" (wait raised to
-  10 s), `report.auditFollowups` T17, and `ReportLibrary.design` under parallel runs.
-- Not run: the confidence-review and rewrite-tournament skills are not in this session; the
-  independent review above stood in for the first, and a comparison of the changed parsers kept
-  one address parser (the scroll to the records reuses the router's).
-- Judged changes to record:
-  - Forecast prints the model's published display ("118"); exact values are in the calculation
-    download, which the currency proof now checks for the downside path and base interest.
-  - The Overview figure row is the financial foundation's own figures (revenue, EBITDA, cover,
-    leverage, cash with undrawn facilities), as the screen map asks; the catalogue's total
-    liquidity and free cash flow are in that module's records.
-  - "Will refuse" at Start run keeps the error red (`DESIGN.md` now allows red for a refusal).
-  - `DESIGN.md` reader words: machinery (handoff, registers, ids, file names) stays on Evidence;
-    "module" is the reader's word outside a lead, so gaps such as "The module wrote no such
-    passage" stay. Leads keep the stricter rule (no "the module"), enforced by test.
-- For the owner's local validation (rendering only; content findings were all fixed):
-  - Overview: with a three-sentence bottom line the first headline figure starts near y=900 at
-    1440×900; about 160 px empty under the call tile.
-  - Module pages: tiles take their content height, which leaves holes beside a taller neighbour
-    on several leads (about 500 px under Downside's break points and Rates' added interest);
-    Ratings and Covenants, and Liquidity and Restructuring, still look alike; a one-edge map on
-    Business & governance leaves space beside its side column; the paragraph trace sits beside
-    the text, not at the tile edge.
-  - Financial foundation: "1,158"/"1,160" labels collide at 390 on cash interest; three pro forma
-    marks at 4.88x overlap the dashed rule. Earnings delta, Ratings migration, Market-implied risk
-    and Restructuring are not in the synthetic run, so their leads were seen only in test renders;
-    nor is the portfolio limits disclosure (its chevron is checked in tests only).
-  - Forecast: 4,617 px at 1440 (target 4,500); at 390 it is longer than the old page (chart-table
-    list); headline figures are 20 px where the mockup has 36 (kit `StatsStrip` has no size
-    option yet).
-  - Top bar: between 480 and about 510 px the areas wrap to a second row (no sideways scroll).
-  - Coverage: the matrix has one tab stop per cell (no roving focus); seven issuers and part of an
-    eighth show at 1440×900.
-  - Start run: Submit sits just below the first screen at 1280×800 and 1024×768 for three limits,
-    and near 1,090 px with five at 1440; the dialog still says "Start a synthetic test?" (pinned
-    by the recorded transcripts and scripts; your call); the Documents step is restyled rather
-    than restructured.
-  - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
-- Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
-- Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.

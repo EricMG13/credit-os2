@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -247,6 +248,61 @@ def test_figures_keep_their_text_period_unit_and_basis_and_missing_is_not_zero()
         "series": "period",
     }
     assert fields["cp-4/covenant-headroom/current"]["series"] == "row"
+
+
+def test_market_yield_fact_projects_its_written_quote_date_separately_from_run_as_of(
+    tmp_path: Path,
+) -> None:
+    raw = (
+        "# CP-3D\n\n"
+        "### Chart data: yield against maturity\n\n"
+        "| Instrument | Maturity date | Yield | Spread | Quote date | Source class | "
+        "Reporting unit "
+        "| Basis and limitation |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Senior note 2030 | 2030-06-15 | 6.40 | Not supplied: no benchmark | 2025-02-14 "
+        "| Dealer indication | % | Indicative only. |\n"
+    )
+    path = tmp_path / "market.md"
+    path.write_text(raw, encoding="utf-8")
+    snapshot = _retained_at(path, "CP-3D")
+    page = coverage.coverage(snapshot)
+    assert page is not None
+    [fact] = [
+        item for item in page["facts"] if item["field"] == "cp-3d/yield-against-maturity/yield"
+    ]
+    assert fact["text"] == "6.40"
+    assert fact["quoteDate"] == "2025-02-14"
+    assert page["issuers"][0]["runs"][0]["asOf"] == "2025-03-31"
+
+
+def test_a_row_fact_carries_the_tables_direction_and_a_period_fact_carries_none() -> None:
+    snapshot = _snapshot()
+    table = copy.deepcopy(HEADROOM)
+    table["rows"].append(
+        {
+            "line": 33,
+            "cells": ["Interest cover", "2.0", "2.4", "0.4x", "Passes at or above", "x", "Basis."],
+        }
+    )
+    table["rows"].append(
+        {"line": 34, "cells": ["Gearing", "3.0", "2.0", "1.0x", "", "x", "Basis."]}
+    )
+    snapshot["workspace"]["handoffs"]["3" * 64][0]["blocks"] = [table]
+    page = coverage.coverage(snapshot)
+    assert page is not None
+    current = {f["row"]: f for f in page["facts"] if f["field"] == "cp-4/covenant-headroom/current"}
+    assert current["Net leverage"]["direction"] == "Passes below"
+    assert current["Interest cover"]["direction"] == "Passes at or above"
+    assert "direction" not in current["Gearing"]  # an empty cell states no direction
+    assert all(
+        "direction" not in f for f in page["facts"] if f["field"].startswith("cp-1/leverage/")
+    )
+    table["rows"][0]["cells"][4] = "Passes at or below"
+    again = coverage.coverage(snapshot)
+    assert again is not None
+    first = next(f for f in again["facts"] if f["field"] == "cp-4/covenant-headroom/threshold")
+    assert first["direction"] == "Passes at or below"
 
 
 def test_the_reader_summary_is_carried_as_the_module_wrote_it() -> None:

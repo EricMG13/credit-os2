@@ -252,7 +252,8 @@ export function statedPeriods(entry: OutputEntry): StatedPeriods {
     const same = found.filter((item) => item.heading === heading);
     const [only] = same;
     if (same.length > 1) gaps.push({ table: tableName(heading), reason: repeated(heading) });
-    else if (only) add(heading, periodRows(only.table));
+    else if (only)
+      add(heading, heading === COVER ? coverPeriodRows(only.table) : periodRows(only.table));
   }
   // A statement is read by its first table (`statementTable`): it is stated twice only when its
   // heading is written twice, never because further tables follow it under the heading.
@@ -1068,7 +1069,7 @@ type SegmentRead = {
 } & Placing;
 
 const EBITDA_WORDS =
-  /\b(?:(?:Adjusted|Reported) EBITDA\b|EBITDA\b(?: As Defined\b| \((?:Adjusted|Reported)\))?)/i;
+  /\b(?:(?:Adjusted|Reported|Unadjusted) EBITDA\b|EBITDA\b(?: As Defined\b| \((?:Adjusted|Reported|Unadjusted)\))?)/i;
 const SALES_WORDS = /\b(?:net sales|revenue|sales)\b/i;
 const SEPARATOR = /[\s,—–-]+/;
 
@@ -1282,9 +1283,9 @@ export type InterestCover = {
   values: PeriodCell[];
   /** The Basis and limitation words per period, sources left out. */
   bases: (string | null)[];
-  /** The complete period cell for every value, including any explicit date. */
-  periodWords: string[];
-  /** Consecutive figures the handoff places on different dates or EBITDA bases. */
+  /** The reader's period words for every value, including any explicit date and qualification. */
+  periodDetails: { text: string; qualified: boolean }[];
+  /** Consecutive figures the handoff places on different dates or qualifications, or cover bases. */
   separations: { from: string; to: string }[];
   /**
    * The two periods `change` is between: the latest reported period and the reported one before
@@ -1316,29 +1317,133 @@ function coverCell(text: string, unit: string): Reading {
 const isoEnd = (period: Period) => / \/ (\d{4})-(\d{2}-\d{2})$/.exec(period.cell ?? "");
 
 const COVER_EBITDA_WORDS = new RegExp(EBITDA_WORDS.source, `${EBITDA_WORDS.flags}g`);
+const CASH_INTEREST_BASIS =
+  /\b(?:(net|gross) cash interest\b|cash interest(?: paid)?,? (net|gross)\b)/gi;
+const CASH_INTEREST_SWAP_SCOPE =
+  /\bcash interest(?: paid)?(?:,?\s+(?:net|gross))?[\s,(]+(before|after|excluding|including)\s+(?:(?:the\s+)?effect\s+of\s+)?(?:interest[- ]rate\s+)?swaps?(?:\s+settlements?)?(?=\s*(?:$|[.,;:)\]]))/gi;
 
 /** Undefined means no explicit definition; null means conflicting definitions. */
-function coverBasis(basis: string): string | null | undefined {
-  let definition: string | undefined;
-  for (const [words] of basis.matchAll(COVER_EBITDA_WORDS)) {
-    const explicit = words
-      .toLowerCase()
-      .replace(/ebitda|[()]/g, "")
-      .trim();
-    if (!explicit) continue;
-    if (definition && definition !== explicit) return null;
-    definition = explicit;
-  }
-  return definition;
+function oneBasis(definitions: string[]): string | null | undefined {
+  const unique = new Set(definitions.filter(Boolean));
+  return unique.size > 1 ? null : unique.values().next().value;
 }
 
-function coverPeriodsDiffer(
-  prior: { period: Period; ebitdaDefinition: ReturnType<typeof coverBasis> },
-  latest: { period: Period; ebitdaDefinition: ReturnType<typeof coverBasis> },
-) {
-  const [from, to] = [prior.ebitdaDefinition, latest.ebitdaDefinition];
-  if (from === null || to === null) return true;
-  if (from && to && from !== to) return true;
+function coverBasis(basis: string) {
+  const numerator = [...basis.matchAll(COVER_EBITDA_WORDS)].map(([words]) =>
+    words
+      .toLowerCase()
+      .replace(/ebitda|[()]/g, "")
+      .trim(),
+  );
+  const denominator = [...basis.matchAll(CASH_INTEREST_BASIS)].map(([, prefix, suffix]) =>
+    (prefix ?? suffix ?? "").toLowerCase(),
+  );
+  const swapScope = [...basis.matchAll(CASH_INTEREST_SWAP_SCOPE)].map(([, scope = ""]) =>
+    /^(?:before|excluding)$/i.test(scope) ? "excluding" : "including",
+  );
+  const remainingBasis = basis.replace(CASH_INTEREST_SWAP_SCOPE, " ");
+  return {
+    numerator: oneBasis(numerator),
+    denominator: oneBasis(denominator),
+    swapScope: /\bswaps?\b/i.test(remainingBasis) ? null : oneBasis(swapScope),
+  };
+}
+
+const COVER_PERIOD_SOURCE =
+  /^(?:(?:the )?(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ](?:\s+filing)?|prospectus|[\w.-]+\.[a-z]{2,5}))?\s*(?:\(?p(?:p|g|ages?)?\.?\s*\d+(?:\s*[-–]\s*\d+)?(?:\s*(?:,\s*(?:and\s+)?|and\s+)\d+(?:\s*[-–]\s*\d+)?)*\)?)?\.?$/i;
+const COVER_PERIOD_SOURCE_LABEL = /^(?:per\s+)?(?:Source S?\d+|(?:the )?SEC filing)\.?$/i;
+const COVER_PERIOD_SOURCE_ID = /\bSource S\d+\b/i;
+const COVER_PERIOD_ATTRIBUTION = /^(.*?)(?:\s+(?:per|from|according to)\s+|:\s+)(.+)$/i;
+
+// A leading quantity ("10K units") can resemble a filing, but a delimited "10K" is a locator.
+const LEADING_PERIOD_QUANTITY = /^["“'‘]?\d+[KMB]\b(?=\s+(?:increase|decrease|units?|shares?)\b)/i;
+const coverPeriodCitesSource = (text: string) =>
+  COVER_PERIOD_SOURCE_LABEL.test(text.trim()) ||
+  COVER_PERIOD_SOURCE_ID.test(text) ||
+  citesSource(text.trimStart().replace(LEADING_PERIOD_QUANTITY, ""));
+
+function isCoverPeriodSource(text: string) {
+  const candidate = text.trim().replace(/,\s*(?=\(?p(?:p|g|ages?)?\.? *\d)/i, " ");
+  return COVER_PERIOD_SOURCE_LABEL.test(candidate) || COVER_PERIOD_SOURCE.test(candidate);
+}
+
+/** Retain separated qualifications. An inseparable mix of source and meaning stays in Evidence. */
+function coverPeriodQualifier(text: string) {
+  if (isCoverPeriodSource(text)) return "";
+  const attribution = COVER_PERIOD_ATTRIBUTION.exec(text);
+  const source = attribution?.[2];
+  const sourceOnly = source !== undefined && isCoverPeriodSource(source);
+  if (source && !sourceOnly && coverPeriodCitesSource(source)) return null;
+  const qualifier = sourceOnly ? (attribution?.[1] ?? "") : text;
+  const visible = safeText(qualifier);
+  return visible !== IN_EVIDENCE && !coverPeriodCitesSource(visible) ? visible : null;
+}
+
+/** Keep standalone calculation IDs in Evidence and flag an inseparable mixed clause. */
+function coverPeriodClause(clause: string) {
+  const raw = clause.replace(/;$/, "");
+  if (/^(?:(?:see|per)\s+)?[CD]\d{1,3}\.?$/i.test(raw)) return "";
+  const kept = coverPeriodQualifier(raw);
+  if (kept === null || SHORT_ID.test(kept)) return null;
+  return kept && clause.endsWith(";") ? `${kept};` : kept;
+}
+
+/** A dated period has a sortable identifier and a separate, readable qualification. */
+function coverPeriod(written: string) {
+  const stated = /^(.*? \/ \d{4}-\d{2}-\d{2})\b(.*)$/.exec(written.trim());
+  if (!stated?.[1]) {
+    const text = handoffWords(written);
+    return { key: text, text, qualifier: "" };
+  }
+  const key = handoffWords(stated[1]);
+  const tail = (stated[2] ?? "").trim();
+  const wrapped = tail.startsWith("(") && tail.endsWith(")");
+  const qualification = wrapped ? tail.slice(1, -1) : tail;
+  const parts = clauses(qualification).map(coverPeriodClause);
+  const qualifier = parts.filter(Boolean).join(" ").replace(/;$/, "");
+  const ambiguous = parts.includes(null);
+  const visible = qualifier ? `${key} ${wrapped ? `(${qualifier})` : qualifier}` : key;
+  return {
+    key,
+    text: ambiguous ? `${visible} · ${IN_EVIDENCE}` : visible,
+    qualifier: ambiguous ? null : qualifier,
+  };
+}
+
+function coverPeriodRows(table: Table) {
+  if (!table.rows.length) return { reason: "it has no rows" };
+  return orderByPeriod(
+    table.rows.map((row) => {
+      const detail = coverPeriod(row.cells[0] ?? "");
+      return { cell: detail.key, item: { row, ...detail } };
+    }),
+  );
+}
+
+type CoverBasis = {
+  period: Period;
+  definition: ReturnType<typeof coverBasis>;
+  qualifier: string | null;
+  unplaced: boolean;
+};
+
+function coverPeriodsDiffer(prior: CoverBasis, latest: CoverBasis) {
+  if (
+    prior.unplaced ||
+    latest.unplaced ||
+    prior.qualifier === null ||
+    latest.qualifier === null ||
+    prior.qualifier.toLowerCase() !== latest.qualifier.toLowerCase()
+  )
+    return true;
+  const differs = (from: string | null | undefined, to: string | null | undefined) =>
+    from === null || to === null || Boolean(from && to && from !== to);
+  if (
+    differs(prior.definition.numerator, latest.definition.numerator) ||
+    differs(prior.definition.denominator, latest.definition.denominator) ||
+    differs(prior.definition.swapScope, latest.definition.swapScope)
+  )
+    return true;
   if (!yearApart(prior.period, latest.period)) return false;
   const [earlierEnd, laterEnd] = [isoEnd(prior.period), isoEnd(latest.period)];
   return Boolean(
@@ -1352,22 +1457,25 @@ function coverPeriodsDiffer(
 function readCover(entry: OutputEntry): InterestCover | string {
   const table = tableUnder(entry, COVER);
   if (!table) return NOT_IN("interest cover");
-  const read = periodRows(table);
+  const read = coverPeriodRows(table);
   if ("reason" in read) return periodsGap("interest cover", read.reason);
   const at = columnOf(table, COVER_COLUMN);
   const unitAt = columnOf(table, "Reporting unit");
   const basisAt = columnOf(table, "Basis and limitation");
   if (at < 0 || unitAt < 0) return BECAUSE("interest cover", NOT_A_SHAPE);
-  const rows = read.periods.map(({ period, item }) => {
-    const unit = (item.cells[unitAt] ?? "").trim();
-    const statedBasis = item.cells[basisAt] ?? "";
+  const rows = read.periods.map(({ period, item: { row, text, qualifier } }) => {
+    const unit = (row.cells[unitAt] ?? "").trim();
+    const statedBasis = row.cells[basisAt] ?? "";
     return {
       period,
-      ebitdaDefinition: coverBasis(statedBasis),
+      definition: coverBasis(statedBasis),
       basis: basisText(statedBasis),
+      text,
+      qualifier,
+      unplaced: read.unplaced.includes(period.label),
       unit,
-      cell: coverCell(item.cells[at] ?? "", unit),
-      line: item.line,
+      cell: coverCell(row.cells[at] ?? "", unit),
+      line: row.line,
     };
   });
   const values = rows.map(({ period, cell, line }): PeriodCell => ({
@@ -1395,7 +1503,7 @@ function readCover(entry: OutputEntry): InterestCover | string {
     ...placing(read.unplaced),
     values,
     bases: rows.map(({ basis }) => basis),
-    periodWords: rows.map(({ period }) => period.cell ?? period.label),
+    periodDetails: rows.map(({ text, qualifier }) => ({ text, qualified: qualifier !== "" })),
     separations,
     comparison: comparable ? { from: prior.period.label, to: latest.period.label } : null,
     change,

@@ -18,7 +18,13 @@ export const DOWNSIDE = {
   bar: 12,
   foot: 26,
   labels: 48,
+  /** The case's colour swatch, and the gap between it and the name. */
+  swatch: 10,
+  swatchGap: 4,
 } as const;
+
+/** Where a case's name starts: after its swatch and the gap. */
+export const NAME_INDENT = DOWNSIDE.swatch + DOWNSIDE.swatchGap;
 
 /** How many panels sit side by side in a frame `width` pixels wide: at least one. */
 export function perRow(width: number) {
@@ -75,7 +81,7 @@ export function rowLayout(
     ...panelLayout(panel, room),
     x: DOWNSIDE.names + at * (room + DOWNSIDE.gutter),
   }));
-  const nameLines = names.map((name) => wrapText(name, DOWNSIDE.names - 8));
+  const nameLines = names.map((name) => wrapText(name, DOWNSIDE.names - 8 - NAME_INDENT));
   const most = Math.max(
     1,
     ...nameLines.map((lines) => lines.length),

@@ -143,3 +143,117 @@ it("names a figure on the heading the catalogue states it under when that is not
   expect(screen.getByText("Net debt / adjusted EBITDA")).toBeVisible();
   expect(screen.queryByText("Net leverage")).toBeNull();
 });
+
+const worse = {
+  value: "4.0",
+  unit: "x",
+  period: "FY2025",
+  prior: { value: "3.0", period: "FY2024" },
+  change: "1.0",
+};
+
+it("tints a better cell green and a worse cell orange, by its tone, and marks the cell", () => {
+  const { container, rerender } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={lev} />,
+  );
+  const better = container.querySelector("[data-tone]");
+  expect(better).toHaveAttribute("data-tone", "better");
+  expect((better as HTMLElement).style.backgroundColor).toBe("var(--color-scale-better-2)");
+  rerender(<FigureMark name="Net leverage" metricKey="net_leverage" figure={worse} />);
+  const bad = container.querySelector("[data-tone]");
+  expect(bad).toHaveAttribute("data-tone", "worse");
+  expect((bad as HTMLElement).style.backgroundColor).toBe("var(--color-scale-worse-2)");
+});
+
+it("puts the mark colour on the glyphs only: the words and figures stay in ink", () => {
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={lev} />,
+  );
+  expect(screen.getByText("better").parentElement).toHaveClass("**:data-shape:text-better-mark");
+  expect(screen.getByText("better")).not.toHaveClass("text-better-mark");
+  expect(screen.getByText("2.25x")).toHaveClass("text-text-primary");
+  expect(container.querySelector("svg:not([data-shape])")).toHaveClass("text-better-mark");
+});
+
+it("never tints a cash cell, whatever its change, and draws a grey arrow", () => {
+  const { container } = render(
+    <FigureMark
+      name="Cash"
+      metricKey="cash"
+      figure={{
+        value: "100",
+        unit: "US$m",
+        prior: { value: "80", period: "FY2023" },
+        change: "20",
+      }}
+    />,
+  );
+  const cell = container.querySelector("[data-tone]") as HTMLElement;
+  expect(cell).toHaveAttribute("data-tone", "none");
+  expect(cell.getAttribute("style") ?? "").toBe("");
+  for (const word of ["scale-better", "scale-worse", "better-mark", "worse-mark"])
+    expect(cell.outerHTML).not.toContain(word);
+  expect(container.querySelector("svg:not([data-shape])")).toHaveClass("text-text-secondary");
+});
+
+it("leaves the gap cell and a cell with no prior untinted", () => {
+  const { container, rerender } = render(
+    <FigureMark name="Interest cover" metricKey="coverage" figure={undefined} />,
+  );
+  expect((container.querySelector("[data-tone]") as HTMLElement).getAttribute("style") ?? "").toBe(
+    "",
+  );
+  rerender(
+    <FigureMark
+      name="Interest cover"
+      metricKey="coverage"
+      figure={{ value: "4.19", unit: "x", period: "FY2025" }}
+    />,
+  );
+  expect((container.querySelector("[data-tone]") as HTMLElement).getAttribute("style") ?? "").toBe(
+    "",
+  );
+});
+
+it("draws at most two content lines under the head, and no tertiary text or grey mark on a tint", () => {
+  const { container, rerender } = render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={lev}
+      trace={<button>t</button>}
+    />,
+  );
+  expect(container.querySelectorAll("[data-line]")).toHaveLength(2);
+  expect(container.querySelector(".text-text-tertiary")).toBeNull();
+  expect(container.querySelector(".bg-chart-3")).toBeNull();
+  rerender(<FigureMark name="Net leverage" metricKey="net_leverage" figure={undefined} />);
+  expect(container.querySelectorAll("[data-line]")).toHaveLength(2);
+  rerender(
+    <FigureMark
+      name="Interest cover"
+      metricKey="coverage"
+      figure={{ value: "4.19", unit: "x", period: "FY2025" }}
+    />,
+  );
+  expect(container.querySelectorAll("[data-line]")).toHaveLength(2);
+});
+
+it("draws no arrow and no tint for a change that is not a number", () => {
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={{ ...lev, change: "n/a" }} />,
+  );
+  expect(container.querySelector("svg:not([data-shape])")).toBeNull();
+  const cell = container.querySelector("[data-tone]") as HTMLElement;
+  expect(cell.getAttribute("style") ?? "").toBe("");
+});
+
+it("keeps the cell's right padding past the head's inset and the 32 px trace button at xl", () => {
+  // The head sits at xl:top-2 xl:right-2 (8 px) and the button is 32 px: 8 + 32 = 40 px = pr-10.
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={lev} />,
+  );
+  const cell = container.querySelector("[data-tone]");
+  expect(cell).toHaveClass("xl:pr-10");
+  expect(cell).not.toHaveClass("xl:pr-8");
+});

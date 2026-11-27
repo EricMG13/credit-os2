@@ -13,10 +13,11 @@ import {
   type PublishedRun,
   type Table,
 } from "../publishedReport";
-import { unitLabel } from "../moneyUnits";
+import { unitCells, unitLabel } from "../moneyUnits";
 import { FindingParagraph, isOneLine, PublishedTable } from "../ReportContent";
 import { plainText, richParts } from "../richText";
 import { traceKey } from "../reportView";
+import { Legend, type LegendEntry } from "./leads/kit/marks";
 import { GapNote, Tile } from "./overview/Tile";
 import {
   amountColumns,
@@ -28,7 +29,6 @@ import {
   scaleNote,
   statedGap,
   tableWithCellWords,
-  unitCells,
   unitColumn,
   type AmountColumn,
   type HeldRecord,
@@ -69,10 +69,40 @@ function amountsOf(bars: Map<number, AmountColumn>) {
           </span>
         ) : undefined;
       return (
-        <BarCell text={cell} share={share} tone={bar.negative(cell) ? "secondary" : "primary"} />
+        <BarCell text={cell} share={share} tone={bar.negative(cell) ? "secondary" : "amount"} />
       );
     },
   };
+}
+
+/** Which tones the drawn bars use, decided by the cells' own test: a share above zero (a fill), then negative or not. */
+function drawnTones(table: Table, bars: Map<number, AmountColumn>) {
+  const tones = { amount: false, negative: false };
+  for (const { cells, line } of table.rows)
+    for (const [column, bar] of bars) {
+      const cell = cells[column] ?? "";
+      const share = bar.share(cell, line);
+      // BarCell draws a fill only for a share above zero; zero is a grey tick, NaN none.
+      if (share === null || !(share > 0)) continue;
+      if (bar.negative(cell)) tones.negative = true;
+      else tones.amount = true;
+    }
+  return tones;
+}
+
+/** The bars' colours in words, each only where a bar of that colour is drawn. */
+function barLegend({ amount, negative }: { amount: boolean; negative: boolean }): LegendEntry[] {
+  return [
+    ...(amount
+      ? [
+          { kind: "bar" as const, tone: "amount-1" as const, text: "Smaller amount" },
+          { kind: "bar" as const, tone: "amount-5" as const, text: "Larger amount" },
+        ]
+      : []),
+    ...(negative
+      ? [{ kind: "bar" as const, tone: "secondary" as const, text: "Negative amount" }]
+      : []),
+  ];
 }
 
 /** A stated gap of the compact view: its leading words, the full text for every reader. */
@@ -296,9 +326,12 @@ function RecordDrawing({
         />
       )}
       {drawnBars.size > 0 && (
-        <p className="text-caption text-text-tertiary">
-          {scaleNote(record.table, record.title, run.pathway)}
-        </p>
+        <>
+          <Legend items={barLegend(drawnTones(record.table, drawnBars))} />
+          <p className="text-caption text-text-tertiary">
+            {scaleNote(record.table, record.title, run.pathway)}
+          </p>
+        </>
       )}
       {referenced.map((column) => (
         <p key={column} className="text-caption text-text-tertiary">

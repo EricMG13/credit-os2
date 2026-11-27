@@ -15,7 +15,7 @@ import { card, heading } from "./layout";
 import { drawnQualificationLines } from "./visuals/drawnQualifications";
 import { monitoringLabel, typedModuleTable } from "./report/ModuleTable";
 import { calculationNodes } from "./report/calculations";
-import { unitCells } from "./report/moduleRecordsModel";
+import { unitCells } from "./moneyUnits";
 import {
   classifySections,
   containsReference,

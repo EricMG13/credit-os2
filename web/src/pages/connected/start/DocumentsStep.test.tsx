@@ -302,3 +302,40 @@ describe("Documents step: missing for the modules", () => {
     expect(screen.getByRole("listitem")).toHaveTextContent("Whole run");
   });
 });
+
+describe("Documents step: the kind dot", () => {
+  const LEGAL = { ...AGREEMENT, source: "indenture.txt", kind: "indenture" };
+  it("draws a family dot inside the kind chip and keeps the chip words", () => {
+    renderStep(makeView({ documentRows: [row("credit-agreement.txt")], shownDocs: [AGREEMENT] }));
+    const chip = screen.getByText("Credit agreement");
+    expect(chip).toHaveTextContent(/^Credit agreement$/);
+    expect(chip.querySelector(".bg-category-4")).not.toBeNull();
+  });
+
+  it("draws no dot for an unrecognised row and no legend without a recognised kind", () => {
+    renderStep(makeView({ documentRows: [row("notes.md")], shownDocs: [OTHER] }));
+    expect(screen.getByText("Unrecognised").querySelector("[class*='bg-category']")).toBeNull();
+    expect(document.querySelector("[data-part='legend']")).toBeNull();
+  });
+
+  it("lists a family once in the legend for two legal rows", () => {
+    renderStep(
+      makeView({
+        documentRows: [row("credit-agreement.txt"), row("indenture.txt")],
+        shownDocs: [AGREEMENT, LEGAL],
+      }),
+    );
+    expect(screen.getAllByText("Legal and covenants", { selector: "span" })).toHaveLength(1);
+  });
+
+  it("treats an empty kind as no kind: no dot and no legend", () => {
+    renderStep(
+      makeView({
+        documentRows: [row("credit-agreement.txt")],
+        shownDocs: [{ ...AGREEMENT, kind: "" }],
+      }),
+    );
+    expect(document.querySelector("[class*='bg-category']")).toBeNull();
+    expect(document.querySelector("[data-part='legend']")).toBeNull();
+  });
+});

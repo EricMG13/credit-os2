@@ -124,7 +124,7 @@ def digest_pass(
     left any due for the next tick or holds any claim, so the loop's digest error says so."""
     with session(db, now, setup) as job:
         writer = None if job is None else ai_digest.Writer(db, job.model, job.guard, now)
-        ran = digests.run_due(db, now, writer)
+        ran = digests.run_due(db, now, writer, recovery_at=setup.clock())
     said = []
     if ran.left_due:
         said.append(f"{len(ran.left_due)} digests were left due for the next tick")

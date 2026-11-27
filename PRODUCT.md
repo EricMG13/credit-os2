@@ -77,6 +77,8 @@ real handoff carries (TransDigm FY2024 runs; see `DESIGN.md` § Evidence base).
 | CP-L10 Short snapshot | Ten-line view | The few figures that matter | Key-figure strip | No retained handoff | Prove on a real run first |
 | CP-MODEL | Compute the model | The gridded forecast | Forecast page | Calculation JSON | Code |
 
+Coverage analytics tabs are Monitor, Patterns, Refinancing, Headroom and Market.
+
 ## Methodology change against code change
 
 A frontend change can re-draw anything a handoff already states. It cannot create a figure,

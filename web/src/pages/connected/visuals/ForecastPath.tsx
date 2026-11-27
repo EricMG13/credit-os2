@@ -18,6 +18,7 @@ import { drawnAmount, drawnReason, EVIDENCE_AMOUNT, sentence } from "./drawnQual
 import { historyNotes, periodsInOrder, unplacedNote } from "./scenarioPeriods";
 import { ticks } from "./visualData";
 import { thinTicks } from "../report/overview/chartText";
+import { AMOUNT_BAR, amountTone } from "../report/leads/foundation/amountTone";
 
 /** The maturity schedule as its module publishes it, drawn under the fiscal years of the same axis. */
 export type PathSchedule = {
@@ -33,8 +34,22 @@ export type PathSchedule = {
 const MOST_CASES = 6;
 /** The axis reaches a scheduled maturity at most this many years after the last forecast year. */
 const REACH = 3;
-const SERIES = ["stroke-chart-1", "stroke-chart-2", "stroke-chart-5", "stroke-chart-6"] as const;
-const DOTS = ["fill-chart-1", "fill-chart-2", "fill-chart-5", "fill-chart-6"] as const;
+/** The first four cases use category slots 3, 4, 5 and 6 in written order; later cases share slot 8. */
+/** The five amount steps as swatches, smallest first (literal strings for Tailwind). */
+const AMOUNT_STEPS = [
+  "bg-scale-amount-1",
+  "bg-scale-amount-2",
+  "bg-scale-amount-3",
+  "bg-scale-amount-4",
+  "bg-scale-amount-5",
+] as const;
+const SERIES = [
+  "stroke-category-3",
+  "stroke-category-4",
+  "stroke-category-5",
+  "stroke-category-6",
+] as const;
+const DOTS = ["fill-category-3", "fill-category-4", "fill-category-5", "fill-category-6"] as const;
 /** Each case keeps one dash whichever case is selected, so none differs by colour alone; the
  * selected case is drawn heavier, never with another dash. */
 const DASHES = [undefined, "7 4", "2 3", "9 3 2 3", "4 2 1 2", "1 3"] as const;
@@ -200,15 +215,21 @@ function geometry(width: number, slots: Slot[], values: number[], lane: boolean,
 }
 type Geometry = ReturnType<typeof geometry>;
 
-/** A case's colour, dash and key, by its place among the drawn cases: the same whichever case is
- * selected. */
-function styleOf(drawn: MeasureCase[], item: MeasureCase) {
+/** A case's dash and key by its place among the drawn cases, its colour by its place in the cases as
+ * written (`measure.cases`): a case keeps its colour whichever cases are drawn or selected. */
+function keyOf(drawn: MeasureCase[], item: MeasureCase) {
   const at = Math.max(0, drawn.indexOf(item));
+  return KEYS[at] ?? String(at + 1);
+}
+
+function styleOf(measure: Measure, drawn: MeasureCase[], item: MeasureCase) {
+  const at = Math.max(0, drawn.indexOf(item));
+  const slot = measure.cases.indexOf(item);
   return {
-    stroke: SERIES[at % SERIES.length] ?? SERIES[0],
-    fill: DOTS[at % DOTS.length] ?? DOTS[0],
+    stroke: SERIES[slot] ?? "stroke-category-8",
+    fill: DOTS[slot] ?? "fill-category-8",
     dash: DASHES[at % DASHES.length],
-    key: KEYS[at] ?? String(at + 1),
+    key: keyOf(drawn, item),
   };
 }
 
@@ -363,7 +384,7 @@ function ringed(spots: Spot[]): Spot[] {
 /** The text of a case's end label: its figure and its name, or its key where names do not fit. */
 function endText(item: MeasureCase, last: MeasureCell, drawn: MeasureCase[], keyed: boolean) {
   if (drawn.length === 1) return last.display;
-  return `${last.display} ${keyed ? styleOf(drawn, item).key : item.name}`;
+  return `${last.display} ${keyed ? keyOf(drawn, item) : item.name}`;
 }
 
 function pointLabels(
@@ -537,11 +558,13 @@ function GapColumns({ selected, slots, g }: { selected: MeasureCase; slots: Slot
 
 /** A small hatched mark at the foot of each year another case does not give a figure for. */
 function OtherGaps({
+  measure,
   drawn,
   selected,
   slots,
   g,
 }: {
+  measure: Measure;
   drawn: MeasureCase[];
   selected: MeasureCase;
   slots: Slot[];
@@ -564,7 +587,7 @@ function OtherGaps({
               rx="2"
               fill="url(#forecast-path-hatch)"
               strokeDasharray="2 1"
-              className={styleOf(drawn, item).stroke}
+              className={styleOf(measure, drawn, item).stroke}
             />
           )),
       )}
@@ -573,11 +596,13 @@ function OtherGaps({
 }
 
 function Lines({
+  measure,
   drawn,
   selected,
   slots,
   g,
 }: {
+  measure: Measure;
   drawn: MeasureCase[];
   selected: MeasureCase;
   slots: Slot[];
@@ -588,7 +613,7 @@ function Lines({
   return (
     <g>
       {order.map((item) => {
-        const style = styleOf(drawn, item);
+        const style = styleOf(measure, drawn, item);
         const on = item === selected;
         return (
           <g key={item.group}>
@@ -840,7 +865,7 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
               y={LANE_BASE - height}
               width={width}
               height={height}
-              className="fill-chart-2"
+              className={AMOUNT_BAR[amountTone(amount, most)]}
             />
             <text
               x={x}
@@ -999,7 +1024,7 @@ function Legend({
       className="flex flex-wrap items-center gap-x-4 gap-y-2 text-caption text-text-secondary"
     >
       {drawn.map((item) => {
-        const style = styleOf(drawn, item);
+        const style = styleOf(measure, drawn, item);
         return (
           <li key={item.group} className="flex min-w-0 items-center gap-1.5">
             <Swatch dash={style.dash} stroke={style.stroke} heavy={item === selected} />
@@ -1029,9 +1054,14 @@ function Legend({
       )}
       {lane && (
         <li className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="h-2.5 w-2 bg-chart-2" />
+          <span aria-hidden="true" className="flex flex-none">
+            {AMOUNT_STEPS.map((step) => (
+              <span key={step} className={cx("h-2.5 w-2", step)} />
+            ))}
+          </span>
           Debt maturing, Financial foundation
           {schedule.trace}
+          <span>(lighter to darker: smaller to larger amount)</span>
         </li>
       )}
       {gapped(selected) && (
@@ -1055,7 +1085,7 @@ function Legend({
                 height="9"
                 rx="2"
                 strokeDasharray="2 1"
-                className={cx("fill-surface-canvas", styleOf(drawn, item).stroke)}
+                className={cx("fill-surface-canvas", styleOf(measure, drawn, item).stroke)}
               />
             </svg>
             Square at the foot: no figure for {item.name}
@@ -1281,9 +1311,9 @@ function Chart({
             <text ref={probe} aria-hidden="true" visibility="hidden" x="0" y="0" />
             <Grid g={g} />
             <GapColumns selected={selected} slots={slots} g={g} />
-            <OtherGaps drawn={drawn} selected={selected} slots={slots} g={g} />
+            <OtherGaps measure={measure} drawn={drawn} selected={selected} slots={slots} g={g} />
             <History measure={measure} slots={slots} g={g} />
-            <Lines drawn={drawn} selected={selected} slots={slots} g={g} />
+            <Lines measure={measure} drawn={drawn} selected={selected} slots={slots} g={g} />
             <Axis slots={slots} g={g} />
             {lane && <Lane schedule={schedule} slots={slots} g={g} />}
             {/* Labels last, over every mark, each placed clear of the marks and of one another. */}

@@ -24,6 +24,13 @@ export type DumbbellRow = {
    * earnings) reads apart; the page names it in its own legend. `tone: "worse"` still wins.
    */
   series?: "primary" | "secondary";
+  /**
+   * Opt-in category colour for the current dot (`fill-category-N`, marked `data-category`), for a
+   * page whose series are named categories. Precedence: `tone: "worse"`, then `category`, then
+   * `series`. Omitted: the dot is drawn as `series` says. The connecting line is not series-styled
+   * and stays as it is.
+   */
+  category?: 3 | 4 | 5 | 6 | 8;
 };
 
 export type DumbbellProps = {
@@ -45,6 +52,21 @@ export type DumbbellProps = {
    */
   caption?: string;
 };
+
+const CATEGORY_FILL = {
+  3: "fill-category-3",
+  4: "fill-category-4",
+  5: "fill-category-5",
+  6: "fill-category-6",
+  8: "fill-category-8",
+} as const;
+
+/** The current dot's fill: the worse signal, else the row's category, else its series. */
+function dotFill(row: DumbbellRow) {
+  if (row.tone === "worse") return "fill-worse-mark";
+  if (row.category !== undefined) return CATEGORY_FILL[row.category];
+  return row.series === "secondary" ? "fill-chart-2" : "fill-chart-1";
+}
 
 const known = (side: DumbbellSide): side is { value: number; text: string } => !("gap" in side);
 
@@ -301,17 +323,12 @@ function Pair({ one, f, reason }: { one: Laid; f: Frame; reason: string }) {
         <circle
           data-current={current.value}
           {...(row.series ? { "data-series": row.series } : {})}
+          {...(row.category === undefined ? {} : { "data-category": row.category })}
           {...(close ? { "data-offset": "below" } : {})}
           cx={f.x(current.value)}
           cy={close ? cy + 5 : cy}
           r={flat ? 4 : 6}
-          className={
-            row.tone === "worse"
-              ? "fill-worse-mark"
-              : row.series === "secondary"
-                ? "fill-chart-2"
-                : "fill-chart-1"
-          }
+          className={dotFill(row)}
         />
       )}
       <Figure spot={left} x={low - reach} anchor="end" cy={cy} />
