@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { SpendBlock } from "./runProgressParts";
 import { CapBandKey, CapReading, Meter, capBand } from "./runMeter";
 
 const CASES: [number, number, number, number][] = [
@@ -90,5 +91,17 @@ describe("CapBandKey", () => {
     expect(screen.getByText("Under 50%").closest('[aria-hidden="true"]')).not.toBeNull();
     expect(container.querySelector("ul, ol, li")).toBeNull();
     expect(container.textContent).not.toContain("USD");
+  });
+});
+
+describe("SpendBlock", () => {
+  it("fills the meter in its band and reads the percent beside it", () => {
+    const spend = {
+      value: "USD 7.40",
+      bar: { value: 7.4, max: 30, label: "USD 7.40 of USD 30.00 cap usage" },
+    };
+    render(<SpendBlock spend={spend} parts={{ cap: "USD 30.00", settled: null, held: null }} />);
+    expect(screen.getByRole("progressbar").firstElementChild).toHaveClass("bg-cap-band-1");
+    expect(screen.getByRole("region", { name: "Spend" })).toHaveTextContent("24%");
   });
 });

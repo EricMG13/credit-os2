@@ -18,6 +18,7 @@ function exactFraction(n: number): { num: bigint; den: bigint } {
  * Spend against a cap as a whole percent (rounded down; a negative value counts as 0) and the band
  * it falls in: under 50% is 1, under 70 is 2, under 85 is 3, under 100 is 4, 100 or more is 5.
  * The percent is exact on each number's decimal text, with no cent rounding and no float division.
+ * Callers pass the service's amount as `Number(decimalText)` (or exact cents / 100), never a float sum.
  * Throws RangeError when either input is not finite or `max` is not above 0: no cap, no band.
  */
 export function capBand(value: number, max: number): { percent: number; band: CapBandNumber } {

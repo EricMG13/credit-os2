@@ -125,7 +125,7 @@ describe("pathway cards", () => {
 
   it("draws no bar and no legend when no card has a capAmount", () => {
     draw(cards(() => "Cap USD 25.00"));
-    expect(screen.queryByText(/Bar: the cap/)).toBeNull();
+    expect(screen.queryByText(/the cap against the largest cap shown/)).toBeNull();
     expect(document.querySelector("[data-part=cap-fill]")).toBeNull();
   });
 });
