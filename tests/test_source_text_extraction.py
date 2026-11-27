@@ -28,7 +28,7 @@ def test_a_word_text_box_is_read_once_not_per_choice_and_fallback() -> None:
         + _alternate_text_box("Boxed revenue 100")
         + "</w:r></w:p>"
     )
-    assert docx_text(docx(body)) == "Before\nBoxed revenue 100"
+    assert docx_text(docx(body)) == "Before Boxed revenue 100"
 
 
 def test_a_text_box_inside_a_table_cell_is_read_once() -> None:
@@ -162,10 +162,43 @@ def test_text_box_paragraphs_in_a_cell_are_separated_by_spaces() -> None:
     assert docx_text(docx(body)) == "Cell Revenue 2023 1,234 | Next"
 
 
-def test_text_box_paragraphs_in_the_body_are_separated_by_paragraph_breaks() -> None:
+def test_text_box_paragraphs_in_the_body_are_separated_by_spaces() -> None:
     box = _alternate_text_box_paragraphs("Revenue", "2023", "1,234")
     body = f"<w:p><w:r><w:t>Before</w:t></w:r><w:r>{box}</w:r><w:r><w:t>After</w:t></w:r></w:p>"
-    assert docx_text(docx(body)) == "Before\nRevenue\n2023\n1,234\nAfter"
+    assert docx_text(docx(body)) == "Before Revenue 2023 1,234 After"
+
+
+def test_a_deleted_no_break_hyphen_is_not_read_so_the_sign_is_not_flipped() -> None:
+    body = (
+        "<w:p><w:del><w:r><w:noBreakHyphen/></w:r></w:del>"
+        "<w:ins><w:r><w:t>5.8</w:t></w:r></w:ins></w:p>"
+    )
+    assert docx_text(docx(body)) == "5.8"
+
+
+def test_a_text_box_inside_a_deleted_or_moved_run_is_not_read() -> None:
+    box = _alternate_text_box("k")
+    deleted = f"<w:p><w:r><w:t>gone</w:t></w:r><w:del><w:r>{box}</w:r></w:del></w:p>"
+    moved = f"<w:p><w:r><w:t>gone</w:t></w:r><w:moveFrom><w:r>{box}</w:r></w:moveFrom></w:p>"
+    assert docx_text(docx(deleted)) == "gone"
+    assert docx_text(docx(moved)) == "gone"
+
+
+def test_a_text_box_mid_sentence_keeps_the_host_paragraph_on_one_line() -> None:
+    body = (
+        '<w:p><w:r><w:t xml:space="preserve">Revenue was </w:t></w:r><w:r>'
+        + _alternate_text_box("note")
+        + '</w:r><w:r><w:t xml:space="preserve"> 5.8 m</w:t></w:r></w:p>'
+    )
+    assert docx_text(docx(body)) == "Revenue was note 5.8 m"
+
+
+def test_docx_pins_inserted_and_hyphen_text_unchanged() -> None:
+    body = (
+        "<w:p><w:ins><w:r><w:t>new </w:t></w:r></w:ins><w:r><w:noBreakHyphen/>"
+        "<w:t>5</w:t></w:r></w:p>"
+    )
+    assert docx_text(docx(body)) == "new -5"
 
 
 def test_deeply_nested_wrappers_in_a_cell_do_not_overflow_the_stack() -> None:

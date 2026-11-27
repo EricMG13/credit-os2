@@ -3,7 +3,7 @@
 Body paragraphs in document order, each table row as its cells joined by `` | ``, tabs and line
 breaks kept. A text box is read once (its ``mc:Choice``, else its fallback); a
 non-breaking hyphen is ``-``.
-Text a tracked change deleted (``w:delText``) is left out; headers, footers, footnotes
+Text a tracked change deleted (``w:del``, ``w:moveFrom``) is left out; headers, footers, footnotes
 and comments are not read. Standard library only, through the workbook reader's guarded XML parse
 (no DTD or entity declaration) and its expanded-size limit. Nothing in the file is run or followed.
 """
@@ -22,6 +22,7 @@ MC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
 _BOX = "\0"  # marks a text-box paragraph's edges; NUL cannot occur in parsed XML text
 _BREAKS = frozenset({f"{W}br", f"{W}cr"})
 # Paragraph and run properties hold formatting, including <w:tab> tab stops, never text.
+_DELETED = frozenset({f"{W}del", f"{W}moveFrom"})  # tracked-change deletions, read as absent
 _PROPERTIES = frozenset({f"{W}pPr", f"{W}rPr"})
 
 
@@ -60,9 +61,7 @@ def _lines(parent: Element) -> Iterator[str]:
         elif child.tag == f"{W}tbl":
             for row in (r for r in _through(child) if r.tag == f"{W}tr"):
                 cells = [c for c in _through(row) if c.tag == f"{W}tc"]
-                yield " | ".join(
-                    " ".join(_paragraph(p, " ") for p in _paragraphs(c)) for c in cells
-                )
+                yield " | ".join(" ".join(_paragraph(p) for p in _paragraphs(c)) for c in cells)
 
 
 def _paragraphs(node: Element) -> Iterator[Element]:
@@ -80,18 +79,23 @@ def _paragraphs(node: Element) -> Iterator[Element]:
             pending.pop()
 
 
-def _paragraph(paragraph: Element, separator: str = "\n") -> str:
-    """The paragraph's text. Paragraphs inside its text boxes are set apart from the anchor text
-    and from each other by ``separator`` (the module's paragraph separator in this context)."""
+def _paragraph(paragraph: Element) -> str:
+    """The paragraph's text. Paragraphs inside its text boxes are joined to the anchor text and to
+    each other by one space (none where whitespace is already there), so the host stays one line."""
     parts: list[str] = []
     _collect(paragraph, parts)
-    if _BOX in parts:
-        return separator.join(p for p in "".join(parts).split(_BOX) if p)
-    return "".join(parts)
+    text = ""
+    for piece in "".join(parts).split(_BOX):
+        if piece:
+            joined = text and not (text[-1].isspace() or piece[0].isspace())
+            text += (" " if joined else "") + piece
+    return text
 
 
 def _collect(node: Element, parts: list[str]) -> None:
     for child in node:
+        if child.tag in _DELETED:
+            continue
         if child.tag == f"{W}p":
             parts.append(_BOX)
             _collect(child, parts)
