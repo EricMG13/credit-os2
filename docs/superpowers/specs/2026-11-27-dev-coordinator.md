@@ -11,6 +11,10 @@ subscription route cannot be verified or has no capacity, queue that work and re
 2. Before building, show one spec revision and its associated plan revision together. State the intended user outcome, scope, acceptance examples, known limitations, decisions already made, delivery slices, development time/spend ceiling, permitted model routes and who authorizes merge. Record explicit approval of that pair. “Explain D-04” is always read-only. Approval of an earlier version cannot authorize changed product meaning or a larger budget.
 3. After approval, the coordinator applies its recommended reversible choices, dispatches only independent work, verifies, fixes and seeks owner authorization for merge. It answers side questions without interrupting independent work. A material change of scope, financial meaning, permission or ceiling pauses only dependent work until the owner approves the delta. A pause from the owner stops new dispatch and checkpoints active work.
 4. Use the current project’s task reviewer, fix limits and independent integrated review. Give workers the approved example, relevant context, owned scope and return destination. One writer per slice. The coordinator alone updates shared records. Preserve required reviews, exact amounts and missing-versus-zero behavior. Provider availability is checked per client and environment.
+   In Codex, use native subagents from the coordinating chat so the owner can follow their work on
+   its Sub-agents page. The approval card identifies where the owner can watch workers. Use a
+   separate worker session only with the owner's approval of ledger and artifact visibility for
+   that work.
 
 ## What the analyst sees
 
