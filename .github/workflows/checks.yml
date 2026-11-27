@@ -119,6 +119,11 @@ jobs:
             (cd web && node_modules/.bin/playwright install --with-deps chrome msedge)
           fi
           npm --prefix web run proof:connected
+      - name: run the development dashboard in live Chrome and Edge
+        if: steps.browser.outputs.required == 'true'
+        run: |
+          mkdir -p proof-artifacts/dev-dashboard
+          CREDIT_OS2_DASHBOARD_PROOF=proof-artifacts/dev-dashboard node web/scripts/dev-dashboard-proof.mjs
       - name: retain synthetic browser results
         if: always() && steps.browser.outputs.required == 'true'
         uses: actions/upload-artifact@v4
@@ -127,6 +132,7 @@ jobs:
           path: |
             proof-artifacts/run-*/*.json
             proof-artifacts/run-*/*.png
+            proof-artifacts/dev-dashboard
           if-no-files-found: warn
           retention-days: 7
 

@@ -14,8 +14,9 @@ import sqlite3
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any
 
 
 def connect(path: Path) -> sqlite3.Connection:
@@ -379,13 +380,48 @@ def recover_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     emit({"settled": settled, "awaiting_terminal_evidence": unresolved})
 
 
-def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
-    row = db.execute("SELECT * FROM runs WHERE id=?", (args.run,)).fetchone()
+DECISION_LABELS = {
+    "owner": "Needs your decision",
+    "applied": "Applied",
+    "verified": "Verified",
+    "resolved": "Resolved",
+}
+
+
+def decision_kind(payload: Mapping[str, object]) -> str:
+    kind = str(payload.get("kind", "applied"))
+    return kind if kind in DECISION_LABELS else "applied"
+
+
+def rank_decisions(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rank = {kind: index for index, kind in enumerate(DECISION_LABELS)}
+    return sorted(decisions, key=lambda decision: rank[decision_kind(decision["payload"])])
+
+
+def decision_summary(payload: Mapping[str, object]) -> str:
+    summary = payload.get("summary") or payload.get("choice") or payload.get("action")
+    return str(summary) if summary else json.dumps(dict(payload), sort_keys=True)
+
+
+def resolve_decision_history(decisions: list[dict[str, Any]]) -> None:
+    latest: dict[str, str] = {}
+    for decision in reversed(decisions):
+        replacement = latest.get(decision["id"])
+        if replacement:
+            decision["replaced_by"] = replacement
+            decision["payload"]["kind"] = "resolved"
+        previous = decision["payload"].get("supersedes")
+        if isinstance(previous, str):
+            latest.setdefault(previous, replacement or decision["id"])
+
+
+def run_status(db: sqlite3.Connection, run: str) -> dict[str, Any]:
+    row = db.execute("SELECT * FROM runs WHERE id=?", (run,)).fetchone()
     if row is None:
         raise ValueError("unknown run")
     attempts = db.execute(
         "SELECT id, revision, state, reserved, settled FROM attempts WHERE run=? ORDER BY id",
-        (args.run,),
+        (run,),
     ).fetchall()
     spend = dict(
         db.execute(
@@ -402,10 +438,11 @@ def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         }
         for item in db.execute(
             "SELECT id,revision,payload FROM decisions WHERE run=? ORDER BY revision",
-            (args.run,),
+            (run,),
         )
     ]
-    report: dict[str, object] = {
+    resolve_decision_history(choices)
+    return {
         "run": row["id"],
         "revision": row["revision"],
         "state": row["state"],
@@ -415,27 +452,26 @@ def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         "cap": row["cap"],
         "workers": row["workers"],
         "deadline_unix": db.execute(
-            "SELECT (SELECT expires FROM deadlines WHERE run=?)", (args.run,)
+            "SELECT (SELECT expires FROM deadlines WHERE run=?)", (run,)
         ).fetchone()[0],
         "project_spend": spend,
         "attempts": [dict(item) for item in attempts],
         "decisions": choices,
     }
-    if args.text:
-        print(f"{row['id']} · {row['state']} · revision {row['revision']}")
-        print(f"Project usage: {spend['spent']} spent, {spend['reserved']} reserved.")
-        priority = {"owner": 0, "applied": 1, "verified": 2}
-        for decision in sorted(
-            choices, key=lambda d: priority.get(str(d["payload"].get("kind", "applied")), 1)
-        ):
-            payload = decision["payload"]
-            label = {"owner": "Needs your decision", "verified": "Verified"}.get(
-                str(payload.get("kind")), "Applied"
-            )
-            detail = payload.get("summary") or payload.get("choice") or payload.get("action")
-            print(f"{decision['id']} · {label} · {detail or json.dumps(payload, sort_keys=True)}")
-    else:
+
+
+def status_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    report = run_status(db, args.run)
+    if not args.text:
         emit(report)
+        return
+    print(f"{report['run']} · {report['state']} · revision {report['revision']}")
+    spend = report["project_spend"]
+    print(f"Project usage: {spend['spent']} spent, {spend['reserved']} reserved.")
+    for decision in rank_decisions(report["decisions"]):
+        payload = decision["payload"]
+        label = DECISION_LABELS[decision_kind(payload)]
+        print(f"{decision['id']} · {label} · {decision_summary(payload)}")
 
 
 def commit_tree(sha: str) -> str:

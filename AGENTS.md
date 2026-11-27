@@ -161,7 +161,7 @@ is the primary checkout. Keep the database and local evidence there across sessi
    and a plain-English summary. A note preserves the current writer revision. For “explain D-04”, use `explain RUN D-04` on the
    ledger that issued the decision. Translate its consequence, reason and evidence into plain
    English. Record each redirect with its expected revision and a fresh decision ID. Preserve
-   the original ID in the redirect payload. On restart use `recover RUN` to settle any
+   the original ID in the redirect payload as `supersedes`. On restart use `recover RUN` to settle any
    terminal unmetered workers whose accounting was interrupted. Keep reservations for
    workers with unknown outcomes while checking their native session and worktree. A pause or resume uses the corresponding `action`.
    Identify the affected work when explaining why an earlier result cannot be integrated.
@@ -180,3 +180,8 @@ is the primary checkout. Keep the database and local evidence there across sessi
    English. Use the trial conditions in the approved spec to schedule eligible replay work.
    After a verified merge, record `python tools/dev_ledger.py --db DB merged RUN ATTEMPT
    CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.
+
+Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Credit OS2 checkout.
+The command prints a local URL. Run lookup, refresh, decision details, and prompts use the same
+ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
+change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.

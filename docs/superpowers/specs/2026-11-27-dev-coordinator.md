@@ -22,7 +22,7 @@ The chat is the first interface. Every update begins with decisions requiring th
 | D-05 · Decision needed. Two definitions of comparability change which issuers rank first. I recommend matching fiscal periods. Ranking work is paused. | “D-05 use matching fiscal periods” approves the exact delta if its replacement example, spec and plan revisions were shown with D-05. Otherwise the coordinator presents that delta once before dispatch. |
 | D-06 · Applied. Luna High will handle the next eligible table-parser fixes. The trial reduced rework within the approved budget. | “Change D-06 back” restores the previous route for future eligible work and identifies any active worker. |
 
-Coalesce routine updates at verified milestones. Escalate immediately on a decision only the owner can make, exhaustion of an approved limit, or an irreversible external action. Fix a reproducible in-scope defect immediately without asking. Queue cosmetic improvements outside the accepted outcome. Preserve evidence and cancel superseded work when feasible. A monitoring view, if later justified, reads these same decisions.
+Coalesce routine updates at verified milestones. Escalate immediately on a decision only the owner can make, exhaustion of an approved limit, or an irreversible external action. Fix a reproducible in-scope defect immediately without asking. Queue cosmetic improvements outside the accepted outcome. Preserve evidence and cancel superseded work when feasible. The local dashboard reads these same decisions and drafts replies for the coordinator chat.
 
 ## Acceptance at the product boundary
 
