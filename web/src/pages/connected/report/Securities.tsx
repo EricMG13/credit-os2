@@ -543,6 +543,11 @@ export function peerLevels(entry: OutputEntry) {
   return table ? { table, notes: sectionParagraphs(entry, PEERS) } : null;
 }
 
+/** Relative-value prose is separate evidence when the module supplies no peer-level table. */
+export function hasRelativeValueNarrative(entry: OutputEntry) {
+  return sectionParagraphs(entry, "Relative value").some(({ text }) => Boolean(text));
+}
+
 /** Peer and benchmark levels against the instrument, the module's passage and table as written. */
 export function PeerLevels({
   peers,

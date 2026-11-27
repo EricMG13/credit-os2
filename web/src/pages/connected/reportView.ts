@@ -81,6 +81,23 @@ function catalogueFor(snapshot: Snapshot, folder: string) {
   return matches.length === 1 ? matches[0] : undefined;
 }
 
+function retainedForecast(snapshot: Snapshot, run: PublishedRun, entries: OutputEntry[]) {
+  const replay = run.forecastReplay;
+  if (!snapshot.preview || !replay || run.publicationVerified) return undefined;
+  const selected = (module: string, digest: string) =>
+    entries.find(
+      (entry) =>
+        entry.selected &&
+        entry.output.module === module &&
+        entry.output.sha256 === digest &&
+        entry.sections.length > 0 &&
+        moduleState(entry) !== "Not assessable",
+    );
+  const forecast = selected("CP-2G", replay.forecastDigest);
+  if (!forecast || !selected("CP-1", replay.foundationDigest)) return undefined;
+  return { ...replay, handoff: forecast };
+}
+
 export function buildReportView(snapshot: Snapshot, routeKey: string, run: PublishedRun) {
   const order = moduleOrder(run).filter((id) => Object.hasOwn(run.modules, id));
   const published = outputEntries(snapshot, run, routeKey);
@@ -97,7 +114,10 @@ export function buildReportView(snapshot: Snapshot, routeKey: string, run: Publi
         outputs,
       };
     });
-  const scope: { folder?: string } = { folder: run.folder };
+  const scope: { folder?: string; previewForecast?: ReturnType<typeof retainedForecast> } = {
+    folder: run.folder,
+    previewForecast: retainedForecast(snapshot, run, entries),
+  };
   return {
     ...scope,
     entries,

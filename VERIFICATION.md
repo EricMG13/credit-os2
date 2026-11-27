@@ -4,6 +4,14 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Main-based TransDigm preview repairs
+
+- Local repairs build on GitHub main `f3e13da2`. The historical 2024-09-30 Deep retry has 18 accepted handoffs. Evidence validation and Committee are outstanding. The first attempt has one accepted handoff. The 19 individual HTTP downloads and both ZIP archives match retained response bytes.
+- Desktop browser fidelity covered all 18 module screens and the report tabs. Eight screens display the previously hidden findings and limitations with their source controls. The FY2024 and FY2023 cash charts show USD 1,880m and USD 1,236m after capex. Downside retains the exact threshold fractions and USD −86.4844m deep-case cash flow. The earnings bridge adds USD 21m and USD 52m to USD 3,813m and retains each excluded amount separately.
+- Restored calculation drawers preserve the operands and limitations in CP-2G C06/C07, CP-2H C03 and CP-3C C04. Forecast uses the existing calculator on the pinned CP-1 and CP-2G bytes. The test replay shows FY2027 base net leverage of 4.19x alongside 4.17x in the handoff. The USD 487m receivables balance is carried by the calculator instead of repaid at expiry. This is a partial, unpublished test preview.
+- History lists the 18-module retry ahead of the one-module attempt using the exact UTC receipt timestamps. Changes shows the stored first-run reason. Deliverables reports the partial run and shows no available artifacts.
+- Confidence review and rewrite tournament covered exact register headers and units, missing versus zero, run identity and timestamp ordering, and digest-checked downloads. The repairs reuse the normal download publisher. Targeted checks passed 981 frontend tests and 29 Python tests. The Python quality gate reported zero findings.
+
 ## 2026-11-26 — Sign-in slice 6, run preparation and submission by profile
 
 - Slice 6 is stacked on draft #133 at `ee4f5e9b`. With sign-in on, a Reader opens Start a run

@@ -151,13 +151,13 @@ describe("connected library and report design", () => {
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     const header = await screen.findByRole("region", { name: "Northbridge" }, { timeout: 5000 });
     expect(within(header).getByText("Synthetic test")).toBeInTheDocument();
-    // The header carries no run-state chip; Runs says once that every listed run is finished.
+    // The header carries no run-state chip; Runs explains its as-of and start-time order once.
     expect(within(header).queryByText("Finished")).toBeNull();
     cleanup();
     window.history.replaceState(null, "", "/report/northbridge-2026#history");
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     const runs = await screen.findByRole("region", { name: "Runs of Northbridge" });
-    expect(within(runs).getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
+    expect(within(runs).getAllByText(/As-of dates descend\./)).toHaveLength(1);
   }, 15_000); // Takes 3-4 s alone; times out at the 5 s default under load.
 
   it("draws the figures the row does not show as one stats strip with the value in mono", async () => {

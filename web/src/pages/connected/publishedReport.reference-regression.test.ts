@@ -94,6 +94,19 @@ it("separates a real Basis line without dropping the ordinary reader sentence", 
   });
 });
 
+it("separates an indented terminal Basis from a Markdown finding without hiding its prose", () => {
+  const passage = readParagraph(
+    "- **Recurring replacement demand is the core protection.** The installed fleet supports repeat sales.\n" +
+      "  Basis: TDG_2024-09-30_10-K.jsonl, pages 4–5; calculation C01; calculation C02\n",
+  );
+  expect(passage).toEqual({
+    body: "**Recurring replacement demand is the core protection.** The installed fleet supports repeat sales.",
+    basis: "TDG_2024-09-30_10-K.jsonl, pages 4–5; calculation C01; calculation C02",
+  });
+  expect(containsReference(passage.body)).toBe(false);
+  expect(containsReference(passage.basis ?? "")).toBe(true);
+});
+
 it("keeps ordinary values in an ambiguous Code column and excludes real citations", () => {
   expect(displayColumns(["Code"], false, [{ line: 1, cells: ["S&P. 3 notches lower."] }])).toEqual([
     0,

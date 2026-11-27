@@ -268,25 +268,46 @@ function oneYearBefore(date: string) {
 const dateOf = (period: string) => /(\d{4}-\d{2}-\d{2})$/.exec(period)?.[1];
 const NO_YEAR = "No period a year earlier to compare.";
 const ONE_PERIOD = "One period is stated, so no change is drawn.";
+const PERIOD_HEADERS = ["Period", "Start", "End"] as const;
+
+/** The explicit period table, or one canonical table under Limitations in retained handoffs. */
+function comparisonPeriods(entry: OutputEntry): Table | undefined {
+  const explicit = entry.sections.filter((section) => section.heading === "Period table");
+  if (explicit.length) return namedTable(entry, "Period table", PERIOD_HEADERS);
+  const limitations = entry.sections.filter((section) => section.heading === "Limitations");
+  const [only] = limitations;
+  if (limitations.length !== 1 || !only) return undefined;
+  const tables = only.blocks.filter((block): block is Table => block.type === "table");
+  const canonical = tables.filter(
+    (table) =>
+      table.headers.length === PERIOD_HEADERS.length &&
+      PERIOD_HEADERS.every((header, at) => table.headers[at] === header),
+  );
+  return canonical.length === 1 ? canonical[0] : undefined;
+}
 
 type Earlier = { prior?: Point; why?: string };
 
 /**
  * The period exactly a year before the latest, by the rule of `priorMetricColumn` in
- * `reportView.ts`: the handoff's period table names the latest once (by its name or its end date),
- * and exactly one period there both starts and ends a year earlier; the chart's row for that
- * period (by its name or its end date) is the prior.
+ * `reportView.ts`: when the chart names a fiscal period and end date, the table must match both;
+ * exactly one period there must start and end a year earlier, with one matching chart row.
  */
 function yearEarlier(entry: OutputEntry, latest: Point, ordered: Point[]): Earlier {
   // One stated period has nothing to move from: say that, not that a period table is wanting.
   if (ordered.length === 1) return { why: ONE_PERIOD };
-  const table = namedTable(entry, "Period table", ["Period", "Start", "End"]);
+  const table = comparisonPeriods(entry);
   const [name, start, end] = ["Period", "Start", "End"].map((h) => table?.headers.indexOf(h) ?? -1);
   const cell = (row: Row, at: number | undefined) => (row.cells[at ?? -1] ?? "").trim();
   const date = dateOf(latest.period);
-  const now = table?.rows.filter(
-    (row) => cell(row, name) === latest.period || (date !== undefined && cell(row, end) === date),
-  );
+  const periodName = latest.period.split(" / ")[0]?.trim() ?? latest.period;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(periodName);
+  const now = table?.rows.filter((row) => {
+    const nameMatches = cell(row, name) === latest.period || cell(row, name) === periodName;
+    return date === undefined
+      ? cell(row, name) === latest.period
+      : cell(row, end) === date && (nameMatches || dateOnly);
+  });
   const [current] = now ?? [];
   if (!table || now?.length !== 1 || !current)
     return {

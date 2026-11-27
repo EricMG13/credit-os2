@@ -82,6 +82,40 @@ it("draws net leverage by case as the model displays it, the highest year, the g
   expect(within(tile).getByRole("row", { name: /Downside case/ })).toHaveTextContent("7.10x");
 });
 
+it("labels a retained test-preview high year as calculated, not published", () => {
+  const cashflow = structuredClone(model.cashflow);
+  cashflow.columns.push({
+    label: "FY2027E",
+    group: "Downside case",
+    start: "2027-04-01",
+    end: "2028-03-31",
+  });
+  const [row] = cashflow.rows;
+  if (!row) throw new Error("one row");
+  row.cells.push(cell("n.a.", null));
+  const props = leadProps(high(), [], []);
+  props.view = {
+    ...props.view,
+    previewForecast: {
+      foundationDigest: "a".repeat(64),
+      forecastDigest: props.entry.output.sha256,
+      handoff: props.entry,
+      cashflow,
+      reconciliation: "Retained inputs; deterministic calculation replay.",
+      calculationLine: 286,
+    },
+  };
+  render(<ForwardLead {...props} />);
+  const tile = screen.getByRole("region", { name: "Net leverage path" });
+  expect(
+    within(tile).getByText(
+      "Highest calculated forecast year, Downside case: 7.10x (FY2026E); no calculated figure for FY2027E.",
+    ),
+  ).toBeVisible();
+  expect(within(tile).queryByText(/Highest published forecast year/)).toBeNull();
+  expect(within(tile).getByText("Test preview calculation")).toBeVisible();
+});
+
 // The real model publishes the upside case in `cashflow.other` (cashflow.py main_cases); the
 // figures are the replayed TDG forecast's own (net leverage 4.86x, 3.96x, 3.19x for FY2025-27).
 it("draws the upside case the model publishes in its other grid, beside the main grid's cases", () => {
