@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
 
 from tools.dev_ledger import valid_route
 from tools.dev_route import (
+    AuthorizedRegistry,
     Cohort,
     Route,
     Trial,
@@ -29,6 +30,7 @@ from tools.dev_route import (
     cohort_key,
     connect_registry,
     resolve_route,
+    resolve_route_db,
     rollback_route,
 )
 from tools.dev_route import (
@@ -189,6 +191,11 @@ def approved_route_policy(db: sqlite3.Connection, policy: RoutePolicy) -> Effect
     ).fetchone()
     if decision is None:
         raise ValueError("route policy lacks an owner-approved coordinator decision")
+    if db.execute(
+        "SELECT 1 FROM decisions WHERE run=? AND json_extract(payload, '$.supersedes')=?",
+        (policy.run_id, policy.approval_decision_id),
+    ).fetchone():
+        raise ValueError("route policy approval has been superseded")
     approval = json.loads(decision["payload"])
     expected = {
         "action": "approve-route-policy",
@@ -254,6 +261,11 @@ def open_db(path: Path) -> sqlite3.Connection:
             status TEXT NOT NULL, PRIMARY KEY(cohort_key,window_number)
         )"""
     )
+    db.execute(
+        """CREATE TABLE IF NOT EXISTS dev_route_notification_runs (
+            decision_id TEXT NOT NULL, run_id TEXT NOT NULL, PRIMARY KEY(decision_id,run_id)
+        )"""
+    )
     return db
 
 
@@ -275,7 +287,7 @@ def worker_facts(db: sqlite3.Connection, event: ReviewEvent) -> tuple[bool, int 
     records = {}
     for name, kind in (
         ("launch", "launch"),
-        ("route", "route"),
+        ("route", "route-resolved"),
         ("observed", "worker-result"),
         ("accept", "accept"),
     ):
@@ -293,13 +305,25 @@ def worker_facts(db: sqlite3.Connection, event: ReviewEvent) -> tuple[bool, int 
     route = json.loads(records["route"]["result"])
     observed = json.loads(records["observed"]["result"])
     elapsed = records["accept"]["created"] - records["launch"]["created"]
+    identity = {"task": event.task_id, "cohort_key": cohort_key(event.cohort)}
+    expected_route = {
+        **identity,
+        "model": event.route_resolved_model,
+        "effort": event.route_resolved_effort,
+    }
+    expected_observed = {
+        **identity,
+        "observed_model": event.route_resolved_model,
+        "observed_effort": event.route_resolved_effort,
+        "requested_model": event.route_requested_model,
+        "requested_effort": event.route_requested_effort,
+    }
     route_matches = (
-        route.get("model") == event.route_resolved_model
-        and route.get("effort") == event.route_resolved_effort
-        and observed.get("observed_model") == event.route_resolved_model
-        and observed.get("observed_effort") == event.route_resolved_effort
-        and observed.get("requested_model") == route.get("model")
-        and observed.get("requested_effort") == route.get("effort")
+        expected_route.items() <= route.items()
+        and expected_observed.items() <= observed.items()
+        and (event.route_requested_model, event.route_requested_effort)
+        == (event.route_resolved_model, event.route_resolved_effort)
+        and json.loads(records["accept"]["result"]).get("candidate_sha") == event.candidate_sha
     )
     valid = bool(
         attempt
@@ -395,42 +419,34 @@ def assess(
     window_number: int | None = None,
 ) -> dict[str, object]:
     rows = db.execute(
-        "SELECT payload, evidence_absolute_path, evidence_sha256 FROM dev_observations "
+        "SELECT task_id, payload, evidence_absolute_path, evidence_sha256 FROM dev_observations "
         "WHERE cohort_key=? AND json_extract(payload, '$.first_review')=1 "
         "AND json_extract(payload, '$.trial_id') IS NULL "
         "ORDER BY recorded_at, event_id",
         (cohort_key(cohort),),
     ).fetchall()
-    events: list[ReviewEvent] = []
-    invalid_provenance = 0
+    first_reviews: dict[str, sqlite3.Row] = {}
     for row in rows:
-        event = ReviewEvent.model_validate_json(row["payload"])
-        try:
-            source = Path(row["evidence_absolute_path"])
-            resolved = source.resolve(strict=True)
-            base = evidence_root.resolve(strict=True)
-            if not resolved.is_relative_to(base) or not resolved.is_file():
-                raise ValueError("outside evidence root")
-            digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
-            if digest != row["evidence_sha256"] or digest != event.evidence_sha256:
-                raise ValueError("changed evidence")
-        except (OSError, ValueError):
-            invalid_provenance += 1
-            continue
-        events.append(event)
-
-    first_reviews: dict[str, ReviewEvent] = {}
-    for item in events:
-        if item.first_review:
-            first_reviews.setdefault(item.task_id, item)
-    ordered_events = list(first_reviews.values())
-    if window_number is None:
-        events = ordered_events[-10:]
-    else:
-        first_index = (window_number - 1) * 10
-        events = ordered_events[first_index : first_index + 10]
+        first_reviews.setdefault(row["task_id"], row)
+    ordered = list(first_reviews.values())
+    selected = (
+        ordered[-10:]
+        if window_number is None
+        else ordered[(window_number - 1) * 10 : window_number * 10]
+    )
+    events = []
     facts: dict[str, tuple[bool, int | None, int | None]] = {}
-    for item in events:
+    invalid_provenance = 0
+    reported_causes = []
+    for row in selected:
+        item = ReviewEvent.model_validate_json(row["payload"])
+        events.append(item)
+        if not stored_review_evidence(row, evidence_root, item):
+            invalid_provenance += 1
+            reported_causes.append("unknown")
+            facts[item.event_id] = (False, None, None)
+            continue
+        reported_causes.append(item.cause)
         try:
             facts[item.event_id] = worker_facts(db, item)
         except sqlite3.Error:
@@ -438,7 +454,7 @@ def assess(
     eligible = [item for item in events if item.eligible and facts[item.event_id][0]]
     implementation = sum(item.serious_implementation_finding for item in eligible)
     causes = {
-        cause: sum(item.cause == cause for item in events)
+        cause: reported_causes.count(cause)
         for cause in ("implementation", "brief", "process", "mixed", "unknown", "clean")
     }
     recommendation = _recommendation(len(events), len(eligible), invalid_provenance, implementation)
@@ -486,7 +502,7 @@ def export_trial_review(
     if digest != row["evidence_sha256"] or digest != event.evidence_sha256:
         raise ValueError("trial evidence digest changed after ingestion")
     valid_route, seconds, cost = worker_facts(db, event)
-    valid_route = valid_route and event.independent_confirmed
+    valid_route = valid_route and event.eligible and event.first_review
     if event.trial_stage == "canary":
         valid_route = valid_route and valid_canary_claim(registry, event, policy.cohort)
     route = None
@@ -558,18 +574,13 @@ def export_trial(
         "max_trial_cost_units": policy.max_trial_cost_units,
         "attempt_deadline_seconds": policy.attempt_deadline_seconds,
         **groups,
-        "high_escape": any(event.linked_high_escape for event in events),
+        "high_escape": any(
+            event.linked_high_escape and worker_facts(db, event)[0] and verified_merge(db, event)
+            for event in events
+        ),
     }
     manifest: dict[str, object] = {"files": files}
-    validated = Trial.model_validate(trial)
-    reviews = (
-        validated.baseline
-        + validated.incumbent_replay
-        + validated.challenger_replay
-        + validated.canary
-    )
-    if sum(item.cost_units or 0 for item in reviews) > policy.max_trial_cost_units:
-        raise ValueError("recorded trial spend exceeds the approved run cap")
+    Trial.model_validate(trial)
     return trial, manifest
 
 
@@ -580,12 +591,15 @@ def apply_completed_reviews(
     policy: RoutePolicy,
 ) -> list[str]:
     """Reconcile persisted reviews to approved route state after each event batch."""
+    ledger = Path(db.execute("PRAGMA database_list").fetchone()["file"])
+    if ledger.resolve() != registry.resolve():
+        raise ValueError("automatic routing requires the shared coordinator ledger and registry")
     effective = approved_route_policy(db, policy)
     context = ObserverContext(registry, evidence_root, policy, effective)
     for row in high_escape_rows(db, policy):
         message = apply_high_escape(db, row, context)
         if message:
-            store_notice(db, message[0], message[1])
+            store_notice(db, message[0], message[1], {policy.run_id})
     process_trial_reviews(db, context)
     return take_notifications(db)
 
@@ -599,18 +613,38 @@ def high_escape_rows(db: sqlite3.Connection, policy: RoutePolicy) -> list[sqlite
     ).fetchall()
 
 
+def stored_review_evidence(row: sqlite3.Row, root: Path, event: ReviewEvent) -> bool:
+    try:
+        source = evidence_file(root, event)
+    except (OSError, ValueError):
+        return False
+    return (
+        source == Path(row["evidence_absolute_path"])
+        and row["evidence_sha256"] == event.evidence_sha256
+    )
+
+
 def apply_high_escape(
     db: sqlite3.Connection,
     row: sqlite3.Row,
     context: ObserverContext,
 ) -> tuple[str, str] | None:
     event = ReviewEvent.model_validate_json(row["payload"])
-    source = Path(row["evidence_absolute_path"]).resolve(strict=True)
-    base = context.evidence_root.resolve(strict=True)
-    if not source.is_relative_to(base) or not source.is_file():
-        return None
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    if digest != row["evidence_sha256"] or digest != event.evidence_sha256:
+    decision_id = "D-rollback-" + hashlib.sha256(event.event_id.encode()).hexdigest()[:12]
+    notice = (
+        decision_id,
+        (
+            f"{decision_id} applied. A verified High escaped on {event.merged_sha}. "
+            "The affected builder route returned to its previous setting."
+        ),
+    )
+    with connect_registry(context.registry) as routes:
+        if routes.execute(
+            "SELECT 1 FROM route_events WHERE decision_id=? AND cohort=? AND action='rollback'",
+            (decision_id, cohort_key(context.policy.cohort)),
+        ).fetchone():
+            return notice
+    if not stored_review_evidence(row, context.evidence_root, event):
         return None
     if (
         not event.linked_high_escape
@@ -618,13 +652,16 @@ def apply_high_escape(
         or not verified_merge(db, event)
     ):
         return None
-    decision_id = "D-rollback-" + hashlib.sha256(event.event_id.encode()).hexdigest()[:12]
     try:
         current = resolve_route(context.registry, context.policy.cohort)
     except ValueError:
         return None
     observed = {"model": event.route_resolved_model, "effort": event.route_resolved_effort}
-    route_decision = current["decision_id"]
+    route_decision = (
+        current["canary_decision_id"]
+        if current["canary_route"] == observed
+        else current["decision_id"]
+    )
     if not isinstance(route_decision, str) or (
         current["route"] != observed and current["canary_route"] != observed
     ):
@@ -633,19 +670,16 @@ def apply_high_escape(
         cohort_path = Path(temporary) / "cohort.json"
         cohort_path.write_text(context.policy.cohort.model_dump_json())
         rollback_route(
-            context.registry,
+            AuthorizedRegistry(
+                context.registry,
+                lambda locked: approved_route_policy(locked, context.policy),
+            ),
             cohort_path,
             decision_id,
             f"verified High escape {event.event_id} on merged revision {event.merged_sha}",
             expected_decision=route_decision,
         )
-    return (
-        decision_id,
-        (
-            f"{decision_id} applied. A verified High escaped on {event.merged_sha}. "
-            "The affected builder route returned to its previous setting."
-        ),
-    )
+    return notice
 
 
 def process_trial_reviews(
@@ -661,7 +695,7 @@ def process_trial_reviews(
     for row in rows:
         message = process_one_trial(db, context, row["trial_id"])
         if message:
-            store_notice(db, message[0], message[1])
+            store_notice(db, message[0], message[1], {context.policy.run_id})
 
 
 def process_one_trial(
@@ -679,17 +713,14 @@ def process_one_trial(
     prefix = (
         "D-route-" + hashlib.sha256(f"{context.policy.run_id}:{trial_id}".encode()).hexdigest()[:12]
     )
-    previous = db.execute(
-        "SELECT status FROM dev_route_assessments WHERE run_id=? AND trial_id=?",
-        (context.policy.run_id, trial_id),
-    ).fetchone()
-    record_assessment(db, context.policy.run_id, trial_id, outcome, prefix)
     applied = applied_trial_action(context.registry, cohort_key(context.policy.cohort), digest)
     if applied is not None:
+        record_assessment(db, context.policy.run_id, trial_id, outcome, prefix)
         suffix, message = route_notice(prefix, applied)
         return prefix + suffix, message
     if outcome not in {"start-canary", "eligible-to-promote", "restore-incumbent"}:
-        return _pending_trial_notice(previous, outcome, prefix)
+        record_assessment(db, context.policy.run_id, trial_id, outcome, prefix)
+        return _pending_trial_notice(outcome, prefix)
     decision_id = (
         prefix
         + {
@@ -698,7 +729,13 @@ def process_one_trial(
             "restore-incumbent": "-rollback",
         }[outcome]
     )
-    action = apply_trial_artifact(trial_bytes, manifest, context, decision_id)
+    try:
+        action = apply_trial_artifact(trial_bytes, manifest, context, decision_id)
+    except TrialHold as hold:
+        outcome = str(hold)
+        record_assessment(db, context.policy.run_id, trial_id, outcome, prefix)
+        return _pending_trial_notice(outcome, prefix)
+    record_assessment(db, context.policy.run_id, trial_id, outcome, prefix)
     suffix, message = route_notice(prefix, action)
     return prefix + suffix, message
 
@@ -726,14 +763,56 @@ def applied_trial_action(registry: Path, cohort: str, digest: str) -> str | None
 
 
 def _pending_trial_notice(
-    previous: sqlite3.Row | None,
     outcome: str,
     prefix: str,
 ) -> tuple[str, str] | None:
-    if previous and previous["status"] == outcome:
-        return None
-    decision_id = prefix + "-hold"
+    decision_id = prefix + "-" + outcome
     return decision_id, f"{decision_id} pending. Route evidence is {outcome.replace('-', ' ')}."
+
+
+class TrialHold(ValueError):
+    """A reconciled trial is pending a prerequisite for its proposed transition."""
+
+
+def check_route_authority(
+    db: sqlite3.Connection, context: ObserverContext, decision_id: str
+) -> None:
+    approved_route_policy(db, context.policy)
+    prefix, _, action = decision_id.rpartition("-")
+    if action in {"promote", "rollback"}:
+        try:
+            current = resolve_route_db(db, context.policy.cohort)
+        except ValueError:
+            current = {}
+        if (
+            current.get("canary_decision_id") != prefix + "-canary"
+            and current.get("decision_id") != prefix + "-promote"
+        ):
+            raise TrialHold("hold-failed-trial")
+    if action != "promote":
+        return
+    starts = db.execute(
+        """SELECT run, substr(id,7) AS attempt FROM events WHERE kind='route-resolved'
+           AND json_extract(result,'$.cohort_key')=? ORDER BY created DESC,rowid DESC LIMIT 10""",
+        (cohort_key(context.policy.cohort),),
+    )
+    for start in starts:
+        row = db.execute(
+            """SELECT payload FROM dev_observations WHERE cohort_key=? AND
+               json_extract(payload,'$.run_id')=? AND json_extract(payload,'$.attempt_id')=?
+               AND json_extract(payload,'$.first_review')=1
+               ORDER BY recorded_at,event_id LIMIT 1""",
+            (cohort_key(context.policy.cohort), start["run"], start["attempt"]),
+        ).fetchone()
+        if row is None:
+            raise TrialHold("hold-missing-start-outcome")
+        event = ReviewEvent.model_validate_json(row["payload"])
+        if not event.eligible or not worker_facts(db, event)[0]:
+            raise TrialHold("hold-missing-start-outcome")
+        try:
+            evidence_file(context.evidence_root, event)
+        except (OSError, ValueError) as error:
+            raise TrialHold("hold-missing-start-outcome") from error
 
 
 def apply_trial_artifact(
@@ -749,11 +828,22 @@ def apply_trial_artifact(
         manifest["trial_sha256"] = hashlib.sha256(trial_bytes).hexdigest()
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
         return apply_trial(
-            trial_path, manifest_path, context.evidence_root, context.registry, decision_id
+            trial_path,
+            manifest_path,
+            context.evidence_root,
+            AuthorizedRegistry(
+                context.registry,
+                lambda locked: check_route_authority(locked, context, decision_id),
+            ),
+            decision_id,
         )
 
 
-def store_notice(db: sqlite3.Connection, decision_id: str, message: str) -> None:
+def store_notice(db: sqlite3.Connection, decision_id: str, message: str, runs: set[str]) -> None:
+    db.executemany(
+        "INSERT OR IGNORE INTO dev_route_notification_runs VALUES(?,?)",
+        [(decision_id, run) for run in runs],
+    )
     db.execute(
         "INSERT OR IGNORE INTO dev_route_notifications(decision_id,message) VALUES(?,?)",
         (decision_id, message),
@@ -827,13 +917,11 @@ def assess_new_windows(db: sqlite3.Connection, evidence_root: Path) -> None:
             status, message = observation_notice(decision_id, report)
             db.execute("BEGIN IMMEDIATE")
             db.execute(
-                "INSERT INTO dev_observation_windows VALUES(?,?,?,?,?)",
+                "INSERT OR IGNORE INTO dev_observation_windows VALUES(?,?,?,?,?)",
                 (key, window_number, digest, decision_id, status),
             )
-            db.execute(
-                "INSERT OR IGNORE INTO dev_route_notifications(decision_id,message) VALUES(?,?)",
-                (decision_id, message),
-            )
+            batch = list(events.values())[(window_number - 1) * 10 : window_number * 10]
+            store_notice(db, decision_id, message, {item.run_id for item in batch})
             db.commit()
 
 
@@ -892,6 +980,7 @@ def _recommendation(
 
 
 def take_notifications(db: sqlite3.Connection) -> list[str]:
+    db.execute("BEGIN IMMEDIATE")
     with db:
         pending = db.execute(
             "SELECT decision_id,message FROM dev_route_notifications WHERE emitted=0 ORDER BY rowid"

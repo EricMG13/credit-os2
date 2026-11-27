@@ -344,3 +344,58 @@ def test_native_policy_enforces_subscription_and_medium_effort(tmp_path: Path) -
     assert approve("gpt-6-luna", "low") is not None
     with pytest.raises(ValueError, match="subscription client"):
         approve("gpt-6.2-astra", "medium", unmetered=False)
+
+
+def test_redirect_carries_only_reviewed_work_across_each_revision(tmp_path: Path) -> None:
+    db = tmp_path / "run.sqlite"
+    start(db)
+    for ident in ("source", "model"):
+        assert call(db, "launch", "run-a", ident, "1", "5", "spec-v1", "plan-v1").returncode == 0
+    reviewed = {"reason": "Source assumptions still hold", "revalidated_attempts": ["source"]}
+    assert call(db, "decision", "run-a", "D-1", "1", json.dumps(reviewed)).returncode == 0
+    for ident in ("source", "model"):
+        assert call(db, "settle", "run-a", ident, "3").returncode == 0
+    for invalid in (["source", "model"], ["source", "unknown"], ["source", "source"]):
+        payload = json.dumps({**reviewed, "revalidated_attempts": invalid})
+        assert call(db, "decision", "run-a", "D-2", "2", payload).returncode == 2
+    assert call(db, "decision", "run-a", "D-2", "2", json.dumps(reviewed)).returncode == 0
+    assert call(db, "accept", "run-a", "source", "2").returncode == 2
+    assert call(db, "accept", "run-a", "model", "3").returncode == 2
+    assert call(db, "accept", "run-a", "source", "3").returncode == 0
+    status = json.loads(call(db, "status", "run-a").stdout)
+    assert {attempt["revision"] for attempt in status["attempts"]} == {1}
+
+
+def test_revalidation_requires_redirect_evidence_and_cannot_survive_pause(tmp_path: Path) -> None:
+    db = tmp_path / "run.sqlite"
+    start(db)
+    assert call(db, "launch", "run-a", "w", "1", "0", "spec-v1", "plan-v1").returncode == 0
+    ids = {"revalidated_attempts": ["w"]}
+    reviewed = {**ids, "reason": "The same date still applies"}
+    assert call(db, "decision", "run-a", "D-1", "1", json.dumps(ids)).returncode == 2
+    assert call(db, "note", "run-a", "D-1", "1", json.dumps(reviewed)).returncode == 2
+    pause = json.dumps({**reviewed, "action": "pause"})
+    assert call(db, "decision", "run-a", "D-1", "1", pause).returncode == 2
+    assert call(db, "decision", "run-a", "D-1", "1", json.dumps(reviewed)).returncode == 0
+    assert call(db, "decision", "run-a", "D-2", "2", '{"action":"pause"}').returncode == 0
+    assert call(db, "settle", "run-a", "w", "0").returncode == 0
+    assert call(db, "decision", "run-a", "D-3", "3", '{"action":"resume"}').returncode == 0
+    assert call(db, "accept", "run-a", "w", "4").returncode == 2
+
+
+def test_competing_redirects_revalidate_only_the_winning_scope(tmp_path: Path) -> None:
+    db = tmp_path / "run.sqlite"
+    start(db)
+    for ident in ("a", "b"):
+        assert call(db, "launch", "run-a", ident, "1", "1", "spec-v1", "plan-v1").returncode == 0
+
+    def redirect(ident: str) -> int:
+        payload = json.dumps({"reason": "Checked dependencies", "revalidated_attempts": [ident]})
+        return call(db, "decision", "run-a", f"D-{ident}", "1", payload).returncode
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(redirect, ("a", "b")))
+    assert sorted(outcomes) == [0, 2]
+    for ident, result in zip(("a", "b"), outcomes, strict=True):
+        assert call(db, "settle", "run-a", ident, "1").returncode == 0
+        assert call(db, "accept", "run-a", ident, "2").returncode == result

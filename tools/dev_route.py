@@ -9,6 +9,7 @@ import hashlib
 import json
 import sqlite3
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
@@ -461,8 +462,31 @@ def restore_trial(application: TrialApplication) -> None:
     )
 
 
+@dataclass(frozen=True)
+class AuthorizedRegistry:
+    path: Path
+    check: Callable[[sqlite3.Connection], object]
+
+
+def begin_route_update(registry: Path | AuthorizedRegistry) -> sqlite3.Connection:
+    db = connect_registry(registry.path if isinstance(registry, AuthorizedRegistry) else registry)
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        if isinstance(registry, AuthorizedRegistry):
+            registry.check(db)
+    except BaseException:
+        db.rollback()
+        db.close()
+        raise
+    return db
+
+
 def apply_trial(
-    trial_path: Path, manifest_path: Path, evidence_root: Path, registry: Path, decision_id: str
+    trial_path: Path,
+    manifest_path: Path,
+    evidence_root: Path,
+    registry: Path | AuthorizedRegistry,
+    decision_id: str,
 ) -> str:
     trial_bytes = trial_path.read_bytes()
     trial = Trial.model_validate_json(trial_bytes)
@@ -470,8 +494,7 @@ def apply_trial(
     if outcome not in {"start-canary", "eligible-to-promote", "restore-incumbent"}:
         raise ValueError("trial is not eligible to promote")
     digest = hashlib.sha256(trial_bytes).hexdigest()
-    with connect_registry(registry) as db:
-        db.execute("BEGIN IMMEDIATE")
+    with begin_route_update(registry) as db:
         try:
             verify_manifest(trial_bytes, trial, manifest_path, evidence_root)
             key = cohort_key(trial.cohort)
@@ -521,7 +544,7 @@ def owner_route(
 
 
 def rollback_route(
-    registry: Path,
+    registry: Path | AuthorizedRegistry,
     cohort_path: Path,
     decision_id: str,
     reason: str,
@@ -529,8 +552,7 @@ def rollback_route(
 ) -> None:
     cohort = Cohort.model_validate_json(cohort_path.read_bytes())
     key = cohort_key(cohort)
-    with connect_registry(registry) as db:
-        db.execute("BEGIN IMMEDIATE")
+    with begin_route_update(registry) as db:
         try:
             replay = db.execute(
                 "SELECT cohort,action,reason FROM route_events WHERE decision_id=?", (decision_id,)

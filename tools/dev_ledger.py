@@ -54,6 +54,10 @@ def connect(path: Path) -> sqlite3.Connection:
             revision INTEGER NOT NULL, state TEXT NOT NULL, reserved INTEGER NOT NULL,
             settled INTEGER, PRIMARY KEY(run, id)
         );
+        CREATE TABLE IF NOT EXISTS revalidated_attempts (
+            run TEXT NOT NULL, attempt TEXT NOT NULL, revision INTEGER NOT NULL,
+            PRIMARY KEY(run,attempt), FOREIGN KEY(run,attempt) REFERENCES attempts(run,id)
+        );
         CREATE TABLE IF NOT EXISTS reconciliations (
             run TEXT NOT NULL, attempt TEXT NOT NULL, actual INTEGER NOT NULL,
             reason TEXT NOT NULL, PRIMARY KEY(run, attempt),
@@ -217,6 +221,31 @@ def explain_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     emit({"decision": args.id, "revision": row["revision"], "payload": json.loads(row["payload"])})
 
 
+def revalidate_attempts(
+    db: sqlite3.Connection, args: argparse.Namespace, payload: dict[str, Any]
+) -> None:
+    """Carry only explicitly reviewed work across this one redirect."""
+    attempts = payload["revalidated_attempts"]
+    reason = payload.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("record why the listed attempts' assumptions still hold")
+    if not isinstance(attempts, list) or not attempts:
+        raise ValueError("revalidated_attempts must be a non-empty list of attempt IDs")
+    for attempt in attempts:
+        if not isinstance(attempt, str) or not attempt.strip():
+            raise ValueError("supply an attempt ID for each revalidation")
+        cursor = db.execute(
+            """INSERT INTO revalidated_attempts(run,attempt,revision)
+               SELECT a.run,a.id,? FROM attempts a LEFT JOIN revalidated_attempts r
+               ON (r.run,r.attempt)=(a.run,a.id) WHERE a.run=? AND a.id=?
+               AND a.state IN ('active','settled') AND COALESCE(r.revision,a.revision)=?
+               ON CONFLICT(run,attempt) DO UPDATE SET revision=excluded.revision""",
+            (args.expected_revision + 1, args.run, attempt, args.expected_revision),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError(f"attempt {attempt!r} is ineligible or duplicated")
+
+
 def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     kind = getattr(args, "command", "decision")
     payload = json.loads(args.payload)
@@ -240,6 +269,10 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     action = payload.get("action")
     if kind == "note" and action is not None:
         raise ValueError("a milestone note cannot change the run")
+    if "revalidated_attempts" in payload:
+        if kind == "note" or action in ("pause", "resume"):
+            raise ValueError("only a redirect can revalidate attempts")
+        revalidate_attempts(db, args, payload)
     if action in ("pause", "resume"):
         current, target = ("approved", "paused") if action == "pause" else ("paused", "approved")
         changed = db.execute(
@@ -529,8 +562,10 @@ def accept_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
         raise ValueError("worker failed or could not confirm its route")
     cursor = db.execute(
         """UPDATE attempts SET state='accepted' WHERE run=? AND id=? AND state='settled'
-           AND revision=? AND revision=(SELECT revision FROM runs WHERE id=?)""",
-        (args.run, args.id, args.expected_revision, args.run),
+           AND COALESCE((SELECT r.revision FROM revalidated_attempts r
+               WHERE (r.run,r.attempt)=(attempts.run,attempts.id)),revision)=?
+           AND ?=(SELECT revision FROM runs WHERE id=? AND state='approved')""",
+        (args.run, args.id, args.expected_revision, args.expected_revision, args.run),
     )
     if cursor.rowcount != 1:
         raise ValueError("attempt is unknown, unsettled, already accepted, or superseded")

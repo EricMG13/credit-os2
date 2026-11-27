@@ -16,15 +16,19 @@ from tools.dev_observe import (
     ReviewEvent,
     RoutePolicy,
     apply_completed_reviews,
+    approved_route_policy,
     assess,
+    assess_new_windows,
     evidence_file,
     ingest,
     open_db,
+    worker_facts,
 )
 from tools.dev_route import (
     Route,
     canary_attempt_key,
     claim_canary,
+    cohort_key,
     connect_registry,
     owner_route,
     resolve_route,
@@ -144,11 +148,15 @@ def seed_worker_ledger(db_path: Path, event: ReviewEvent, *, merged: bool = Fals
                 "model": event.route_resolved_model,
                 "effort": event.route_resolved_effort,
                 "client": event.cohort.client,
+                "cohort_key": cohort_key(event.cohort),
+                "task": event.task_id,
             }
         )
         observation = json.dumps(
             {
                 "returncode": 0,
+                "cohort_key": cohort_key(event.cohort),
+                "task": event.task_id,
                 "requested_model": event.route_requested_model,
                 "observed_model": event.route_resolved_model,
                 "requested_effort": event.route_requested_effort,
@@ -160,9 +168,9 @@ def seed_worker_ledger(db_path: Path, event: ReviewEvent, *, merged: bool = Fals
         accepted = started + (event.accepted_seconds or 60)
         for suffix, kind, payload, timestamp in (
             ("launch", "launch", "{}", started),
-            ("route", "route", route, started),
+            ("route", "route-resolved", route, started),
             ("observed", "worker-result", observation, accepted),
-            ("accept", "accept", "{}", accepted),
+            ("accept", "accept", json.dumps({"candidate_sha": event.candidate_sha}), accepted),
         ):
             ledger.execute(
                 "INSERT INTO events VALUES(?,?,?,?,?)",
@@ -286,6 +294,7 @@ def test_sparse_unresolved_and_mixed_observations_hold_routing(tmp_path: Path) -
     report = assess(db, COHORT, root)
     assert report["eligible_first_reviews"] == 8
     assert report["ungraded_or_unresolved"] == 2
+    assert report["causes"]["mixed"] == 1
     assert report["implementation_HM"] == 3
     assert report["recommendation"] == "hold-incomplete-evidence"
     assert report["applies_route"] is False
@@ -341,6 +350,12 @@ def test_approved_trial_starts_canary_promotes_and_owner_can_reverse(tmp_path: P
             )
             route_db.commit()
     add_trial(db, root, db_path, stages=("canary",))
+    outstanding = make_event(root, task="unreviewed", event_id="missing-start")
+    seed_worker_ledger(db_path, outstanding)
+    held = apply_completed_reviews(db, registry, root, policy)
+    assert len(held) == 1 and "missing start outcome" in held[0]
+    assert resolve_route(registry, COHORT)["route"] == INCUMBENT
+    ingest(db, outstanding, evidence_file(root, outstanding))
     notices = apply_completed_reviews(db, registry, root, policy)
     assert len(notices) == 1
     assert "passed the verified canary" in notices[0]
@@ -448,3 +463,126 @@ def test_only_verified_high_escape_reverses_promoted_route(tmp_path: Path) -> No
 def _write_json(path: Path, value: object) -> Path:
     path.write_text(json.dumps(value))
     return path
+
+
+@pytest.mark.parametrize(
+    "changes", [{"task_id": "different"}, {"cohort": OTHER}, {"candidate_sha": "c" * 40}]
+)
+def test_worker_receipts_bind_each_identity(tmp_path: Path, changes: dict[str, object]) -> None:
+    event = make_event(tmp_path, task="original", event_id="receipt")
+    db_path = tmp_path / "dev.sqlite"
+    approved_policy(db_path)
+    seed_worker_ledger(db_path, event)
+    with open_db(db_path) as db:
+        assert worker_facts(db, event)[0]
+        assert not worker_facts(db, event.model_copy(update=changes))[0]
+        db.execute(
+            "UPDATE events SET result=json_remove(result,'$.task') WHERE kind='worker-result'"
+        )
+        assert not worker_facts(db, event)[0]
+
+
+def test_superseding_specific_approval_excludes_its_policy(tmp_path: Path) -> None:
+    db_path = tmp_path / "dev.sqlite"
+    policy = approved_policy(db_path)
+    with connect_ledger(db_path) as db:
+        decision_run(
+            db,
+            SimpleNamespace(
+                run="run-1",
+                id="D-NOTE",
+                command="note",
+                expected_revision=2,
+                payload=json.dumps({"summary": "unrelated progress"}),
+            ),
+        )
+        assert approved_route_policy(db, policy).incumbent == policy.incumbent
+        decision_run(
+            db,
+            SimpleNamespace(
+                run="run-1",
+                id="D-STOP",
+                expected_revision=2,
+                payload=json.dumps({"supersedes": policy.approval_decision_id}),
+            ),
+        )
+        with pytest.raises(ValueError, match="superseded"):
+            approved_route_policy(db, policy)
+
+
+def test_window_membership_survives_removed_evidence_and_duplicates(tmp_path: Path) -> None:
+    db_path = tmp_path / "dev.sqlite"
+    approved_policy(db_path)
+    with open_db(db_path) as db:
+        for i in range(20):
+            item = make_event(tmp_path, task=f"task-{i}", event_id=f"event-{i}")
+            ingest(db, item, evidence_file(tmp_path, item))
+            seed_worker_ledger(db_path, item)
+        (tmp_path / "event-0.txt").unlink()
+        duplicate = make_event(tmp_path, task="task-0", event_id="second")
+        ingest(db, duplicate, evidence_file(tmp_path, duplicate))
+        first = assess(db, COHORT, tmp_path, 1)
+        second = assess(db, COHORT, tmp_path, 2)
+        assert first["event_ids"] == [f"event-{i}" for i in range(10)]
+        assert first["invalid_provenance"] == 1
+        assert second["event_ids"] == [f"event-{i}" for i in range(10, 20)]
+        assert second["recommendation"] == "retain-incumbent"
+        assess_new_windows(db, tmp_path)
+        assert (
+            db.execute(
+                "SELECT count(*) FROM dev_route_notification_runs WHERE run_id='run-1'"
+            ).fetchone()[0]
+            == 2
+        )
+
+
+@pytest.mark.parametrize("live", [False, True])
+def test_overrun_holds_incumbent_or_stops_active_canary(tmp_path: Path, live: bool) -> None:
+    db_path = tmp_path / "dev.sqlite"
+    root = tmp_path / "evidence"
+    with open_db(db_path) as db:
+        policy = approved_policy(db_path)
+        add_trial(db, root, db_path, stages=("baseline", "incumbent_replay", "challenger_replay"))
+        db.execute(
+            "UPDATE dev_observations SET payload=json_set(payload,'$.cost_units',9) "
+            "WHERE event_id='baseline-0'"
+        )
+        if live:
+            assert "Five low-risk tasks" in apply_completed_reviews(db, db_path, root, policy)[0]
+        db.execute(
+            "UPDATE dev_observations SET payload=json_set(payload,'$.cost_units',1) "
+            "WHERE event_id='challenger_replay-0'"
+        )
+        notice = apply_completed_reviews(db, db_path, root, policy)
+        if live:
+            assert "restored the incumbent" in notice[0]
+            assert resolve_route(db_path, COHORT)["canary_route"] is None
+        else:
+            assert "failed trial" in notice[0]
+        assert apply_completed_reviews(db, db_path, root, policy) == []
+
+
+def test_verified_high_escape_stops_live_canary(tmp_path: Path) -> None:
+    db_path = tmp_path / "dev.sqlite"
+    root = tmp_path / "evidence"
+    with open_db(db_path) as db:
+        policy = approved_policy(db_path)
+        add_trial(db, root, db_path, stages=("baseline", "incumbent_replay", "challenger_replay"))
+        apply_completed_reviews(db, db_path, root, policy)
+        event = make_event(
+            root,
+            task="canary",
+            event_id="escaped",
+            route_requested_effort="high",
+            route_resolved_effort="high",
+            cause="implementation",
+            first_grade="Bad",
+            final_grade="Bad",
+            severity="H",
+            linked_high_escape=True,
+            merged_sha="b" * 40,
+        )
+        seed_worker_ledger(db_path, event, merged=True)
+        ingest(db, event, evidence_file(root, event))
+        assert "verified High escaped" in apply_completed_reviews(db, db_path, root, policy)[0]
+        assert resolve_route(db_path, COHORT)["canary_route"] is None
