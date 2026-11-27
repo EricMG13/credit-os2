@@ -633,7 +633,8 @@ def section_key(title: str) -> str | None:
 
 
 _NO_BREACH = re.compile(
-    r"(?<![a-z])(?:no|not|non|without|never)(?:[\s-]+[a-z]+){0,2}[\s-]+breach(?:ed)?(?![a-z])"
+    r"(?<![a-z0-9.,])(?:no|not|non|without|never|zero|0)(?:(?:\s+|-)[a-z]+){0,3}(?:\s+|-)"
+    r"breach(?:es|ed)?(?![a-z])"
 )
 
 
@@ -933,7 +934,26 @@ def recognise(files: Mapping[str, bytes]) -> dict[str, str]:
 _TITLE_PREFIX = re.compile(r"(?:[a-z]|\d+)[.):]\s|section\b")
 
 
-def _opens_section(row: Sequence[str], after_gap: bool, current: Section | None) -> bool:
+def _figure_like(text: str) -> bool:
+    """A cell no header holds: a figure, a date, a name with a figure (`Aster (29.80%)`) or a
+    marker (`N/A`, `#N/A`)."""
+    named = _NAME_AND_FIGURE.match(text)
+    figures = (text, named["figure"]) if named else (text,)
+    return cell_kind(text) != "value" or any(quantity(f) is not None for f in figures)
+
+
+def _header_like(row: Sequence[str] | None) -> bool:
+    """A row that can be a header: two filled cells or more, none `_figure_like`; the end of the
+    rows counts as one (a last one-cell section row opens its section, as before)."""
+    if row is None:
+        return True
+    filled = _cells(row)
+    return len(filled) > 1 and not any(_figure_like(cell) for cell in filled)
+
+
+def _opens_section(
+    row: Sequence[str], after_gap: bool, current: Section | None, following: Sequence[str] | None
+) -> bool:
     """Whether a one-cell row naming a section starts it. It does at the start of the file, after
     a blank row or a gap in the row numbers, before any header is read (a title directly under a
     title or the file's first row), or when it is lettered or numbered (`C. Sectors`, `3. Ratings`,
@@ -946,6 +966,7 @@ def _opens_section(row: Sequence[str], after_gap: bool, current: Section | None)
         or current is None
         or not current.header
         or _TITLE_PREFIX.match(folded(row[0])) is not None
+        or _header_like(following)
     )
 
 
@@ -954,11 +975,11 @@ def sections(rows: Sequence[tuple[int, Sequence[str]]]) -> dict[str, Section]:
     found: dict[str, Section] = {}
     current: Section | None = None
     previous: int | None = None
-    for number, row in rows:
-        if not _cells(row):
-            continue
+    filled = [(number, row) for number, row in rows if _cells(row)]
+    for at, (number, row) in enumerate(filled):
         was_blank, previous = previous is None or number != previous + 1, number
-        if _opens_section(row, was_blank, current) and (key := section_key(row[0])):
+        following = filled[at + 1][1] if at + 1 < len(filled) else None
+        if _opens_section(row, was_blank, current, following) and (key := section_key(row[0])):
             current = Section(key, row[0], [], [])
             found.setdefault(key, current)
         elif current is not None and not current.header:
@@ -1999,12 +2020,17 @@ def _yield_note(found: Recomputed) -> str:
 
 
 def _life_note(shape: Profile) -> str:
+    undated = (
+        f"; it leaves out {count(len(shape.undated), 'position')} with no maturity"
+        if shape.undated
+        else ""
+    )
     if not shape.centuries or shape.life_corrected is None:
-        return ""
+        return undated
     fixed = plain(shape.life_corrected.quantize(SHOWN, context=EXACT))
     return (
         f"; with the {count(shape.centuries, 'maturity')} before 1950 read as 20xx it would be "
-        f"{fixed} yrs (not applied)"
+        f"{fixed} yrs (not applied){undated}"
     )
 
 
@@ -3273,21 +3299,42 @@ def rating_bucket(holding: Holding) -> str:
 _NOT_IG = re.compile(r"(?<![a-z])(?:below|sub|non|not)[\s-]+(?:investment|ig(?![a-z]))")
 
 
+_WEAKER = re.compile(r"(?<![a-z])(?:below|lower|worse)(?![a-z])")
+BELOW_IG = ("BB", "B", "CCC")  # the buckets a below-investment-grade row covers
+
+
 def label_bucket(label: str) -> str | None:
-    """The bucket a report's rating row names, or None (e.g. Other) when it names none."""
+    """The bucket a report's rating row names, or None (e.g. Other) when it names none. A
+    below-investment-grade label names one only with one bucket word and no range (`CCC (below
+    IG)`); `Non-IG`, `Sub-IG (BB+ and below)` span several buckets: none of them."""
     text = folded(label)
-    if _NOT_IG.search(text) is not None:
-        return None  # a range (below investment grade) spans several buckets: none of them
-    for bucket, words in (
-        ("Unrated", ("unrated", "not rated", "nr")),
-        ("CCC", ("ccc", "caa")),
-        ("IG", ("ig", "investment", "baa", "bbb")),
-        ("BB", ("bb", "ba")),
-        ("B", ("b",)),
-    ):
-        if any(re.search(rf"(?<![a-z]){re.escape(w)}(?![a-z])", text) for w in words):
-            return bucket
-    return None
+    negated = _NOT_IG.search(text) is not None
+    text = _NOT_IG.sub(" ", text)
+    hits = [
+        bucket
+        for bucket, words in (
+            ("Unrated", ("unrated", "not rated", "nr")),
+            ("CCC", ("ccc", "caa")),
+            ("IG", ("ig", "investment", "baa", "bbb")),
+            ("BB", ("bb", "ba")),
+            ("B", ("b",)),
+        )
+        if any(re.search(rf"(?<![a-z]){re.escape(w)}(?![a-z])", text) for w in words)
+    ]
+    if negated and (len(hits) != 1 or hits[0] == "IG" or _WEAKER.search(text)):
+        return None
+    return hits[0] if hits else None
+
+
+def _row_buckets(name: str) -> tuple[str, ...]:
+    """The buckets a report's rating row covers: the one it names, or BB, B and CCC for a
+    below-investment-grade row that names none (`Non-IG`)."""
+    if _label_kind(name) != "row":
+        return ()
+    bucket = label_bucket(name)
+    if bucket is not None:
+        return (bucket,)
+    return BELOW_IG if _NOT_IG.search(folded(name)) else ()
 
 
 def corrected(when: date) -> date:
@@ -3311,6 +3358,7 @@ class Profile:
     life: Decimal | None = None
     life_corrected: Decimal | None = None
     by_maturity: list[tuple[date, date, Decimal]] = field(default_factory=list)  # given, fixed, mv
+    undated: list[tuple[int, Decimal]] = field(default_factory=list)  # priced, no maturity: row, mv
     centuries: int = 0
 
 
@@ -3333,6 +3381,8 @@ def profile(rows: Sequence[Holding], as_of: date | None) -> Profile:
             out.by_maturity.append((holding.maturity, fixed, value))
             if as_of is not None:
                 lives.append((par, years_to(holding.maturity, as_of), years_to(fixed, as_of)))
+        else:
+            out.undated.append((holding.row, value))
     out.life = _weighted((w, given) for w, given, _ in lives)
     out.life_corrected = _weighted((w, fixed) for w, _, fixed in lives)
     return out
@@ -3461,12 +3511,15 @@ def rating_section_findings(
     listed: set[str] = set()
     for number, row in section.rows:
         name = label_of(row, columns)
-        bucket = label_bucket(name) if _label_kind(name) == "row" else None
-        if bucket is None:
+        buckets = _row_buckets(name)
+        if not buckets:
             continue
-        listed.add(bucket)
-        borrowers = Decimal(len(shape.bucket_borrowers.get(bucket, ())))
-        value = share(shape.buckets.get(bucket, Decimal(0)), found.value)
+        listed.update(buckets)
+        held = set().union(*(shape.bucket_borrowers.get(b, set()) for b in buckets))
+        borrowers = Decimal(len(held))
+        held_value = sum((shape.buckets.get(b, Decimal(0)) for b in buckets), Decimal(0))
+        value = share(held_value, found.value)
+        bucket = ", ".join(buckets)
         for index, label, exact, how in (
             (columns.pct, "its share", value, {"marked": True, "shown": pct}),
             (columns.count, "its issuer count", borrowers, {"shown": _count}),
@@ -3500,13 +3553,17 @@ def maturity_section_findings(
     if section is None or not found.value:
         return
     file, columns = export.files["exposure"], section_columns(section.header)
+    spare = sum((value for _, value in shape.undated), Decimal(0))
+    if shape.undated and any(_comparable_bucket(row, columns) for _, row in section.rows):
+        problem = (
+            "no priced holding has a maturity, so the report's maturity buckets cannot be checked"
+            if not shape.by_maturity
+            else f"the priced holdings on {rows_named([row for row, _ in shape.undated])} "
+            f"({money(spare)}) have no maturity, so each maturity bucket is checked against a "
+            "range: the dated holdings' figure up to that amount more"
+        )
+        findings.add(file, section.title, "rows", problem, "maturity")
     if not shape.by_maturity:
-        if any(_comparable_bucket(row, columns) for _, row in section.rows):
-            problem = (
-                "no priced holding has a maturity, so the report's maturity buckets cannot be "
-                "checked"
-            )
-            findings.add(file, section.title, "rows", problem, "maturity")
         return
     for number, row in section.rows:
         name = label_of(row, columns)
@@ -3528,6 +3585,10 @@ def maturity_section_findings(
             text, stated = _stated(row, index)
             if stated is None:
                 continue
+            goal = exact
+            if spare:  # the undated holdings may fall in this bucket: any figure up to theirs
+                high = EXACT.add(exact, spare if shown is money else share(spare, found.value))
+                goal = min(max(stated.value, exact), high)
             note = (
                 f"; with the maturities before 1950 read as 20xx it would be {shown(other)} "
                 "(not applied)"
@@ -3539,7 +3600,7 @@ def maturity_section_findings(
                 file,
                 claim,
                 f"maturity bucket {name}: {label}",
-                exact,
+                goal,
                 findings,
                 fix="share",
                 marked=True,

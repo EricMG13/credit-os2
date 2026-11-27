@@ -3,6 +3,7 @@ synthetic one (tools/synthetic_portfolio_exports.py); expected values are writte
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
@@ -320,3 +321,141 @@ def test_the_maturity_finding_has_its_own_fix_text():
     report = validate_export(synth.files(spec), run_date=RUN_DATE)
     [issue] = [i for i in report.issues if "no priced holding has a maturity" in i.problem]
     assert issue.fix == "export the holdings with their maturity dates"
+
+
+# --- C8 round 2 review findings R1-R4 -----------------------------------------------------------
+
+
+def test_r1_unprefixed_title_directly_under_data_opens_its_section():
+    rows = [
+        ["Summary"],
+        ["Metric", "Value"],
+        ["NAV", "100"],
+        ["Rating Distribution"],
+        ["Bucket", "%"],
+        ["IG", "10%"],
+    ]
+    found = pe.sections(list(enumerate(rows, start=1)))
+    assert set(found) == {"summary", "ratings"}
+    assert [r[0] for _, r in found["ratings"].rows] == ["IG"]
+    assert [r[0] for _, r in found["summary"].rows] == ["NAV"]
+
+
+def test_r1_blank_valued_summary_row_before_a_named_figure_stays_data():
+    rows = [
+        ["A. Summary Metrics"],
+        ["Metric", "Value", "Notes"],
+        ["Max Single Sector", "", ""],
+        ["Max Single Issuer", "Aster (29.80%)", ""],
+        [],
+        ["C. Top 20 Sectors"],
+        ["Sector", "% NAV"],
+        ["Software", "40%"],
+    ]
+    found = pe.sections(list(enumerate(rows, start=1)))
+    assert found["sectors"].title == "C. Top 20 Sectors"
+    assert [r[0] for _, r in found["summary"].rows] == ["Max Single Sector", "Max Single Issuer"]
+
+
+def test_r1_the_report_without_blank_rows_or_letters_reads_as_before():
+    spec = synth.clean()
+    spec.exposure = [
+        [re.sub(r"^[A-E]\. ", "", r[0]), *r[1:]] if len(r) == 1 else r for r in spec.exposure if r
+    ]
+    assert problems(spec) == []
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("No breaches", False),
+        ("0 breaches", False),
+        ("No hard or soft breach", False),
+        ("Zero breaches", False),
+        ("2 breaches", True),
+        ("10 breaches", True),
+        ("Not compliant - breach", True),
+        ("Breach - cured", True),
+    ],
+)
+def test_r2_status(status, expected):
+    assert pe.is_breach_status(status) is expected
+
+
+def test_r2_no_breaches_on_a_compliant_row_is_consistent():
+    spec = synth.clean()
+    _monitor_row(spec, "C-05")[8] = "No breaches"
+    assert not any("status No breaches" in p for p in problems(spec))
+
+
+def _aster_undated(spec):
+    for row in spec.holdings:
+        if row[1] == "Aster Fictional Co":
+            row[MATURITY] = ""
+
+
+def test_r3_some_missing_maturities_are_named_not_compared_as_zero():
+    spec = synth.clean()
+    _aster_undated(spec)
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    found = [i.problem for i in report.issues]
+    assert not any(p.startswith("maturity bucket") for p in found)
+    [issue] = [i for i in report.issues if "have no maturity" in i.problem]
+    assert issue.problem.startswith(
+        "the priced holdings on rows 2, 3 (29,800,000) have no maturity"
+    )
+    assert issue.fix == "export the holdings with their maturity dates"
+    assert any(
+        p.startswith("the weighted average life")
+        and p.endswith("it leaves out 2 positions with no maturity")
+        for p in found
+    )
+
+
+def test_r3_a_bucket_beyond_what_the_undated_holdings_allow_is_still_reported():
+    spec = synth.clean()
+    _aster_undated(spec)
+    synth._set(spec.exposure, "2028", 1, "60.00%")
+    assert any(
+        p.startswith(
+            "maturity bucket 2028: its share is stated as 60.00%; the holdings give 55.0000%"
+        )
+        for p in problems(spec)
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "bucket"),
+    [
+        ("CCC (below IG)", "CCC"),
+        ("B (sub-IG)", "B"),
+        ("BB (Non-Investment Grade)", "BB"),
+        ("Non-IG (BB, B, CCC)", None),
+        ("Sub-IG (BB+ and below)", None),
+    ],
+)
+def test_r4_label_bucket(label, bucket):
+    assert pe.label_bucket(label) == bucket
+
+
+def _below_ig(spec, share):
+    start = spec.exposure.index(["B. Rating Distribution"])
+    spec.exposure[start + 2 : start + 5] = [["Below Investment Grade", share, "6"]]
+
+
+def test_r4_one_below_ig_row_covers_bb_b_and_ccc():
+    spec = synth.clean()
+    _below_ig(spec, "100.00%")
+    assert not any("lists no" in p or p.startswith("rating bucket") for p in problems(spec))
+
+
+def test_r4_the_below_ig_row_is_checked_against_bb_b_and_ccc():
+    spec = synth.clean()
+    _below_ig(spec, "90.00%")
+    assert any(
+        p.startswith(
+            "rating bucket Below Investment Grade (BB, B, CCC): its share is stated as 90.00%; "
+            "the holdings give 100.0000%"
+        )
+        for p in problems(spec)
+    )
