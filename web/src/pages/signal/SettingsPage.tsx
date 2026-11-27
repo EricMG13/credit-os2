@@ -8,7 +8,7 @@
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 import { cx } from "@/utils/cx";
-import { usePageWrite, useSignalActions } from "./actions";
+import { usePageWrite, useSignalActions, type SignalWrite } from "./actions";
 import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
 import { PageTitle } from "./parts/PageTitle";
@@ -65,19 +65,29 @@ const SECTIONS: { id: SectionId; name: string; reader: boolean }[] = [
   { id: "accounts", name: "Accounts", reader: false },
 ];
 
-export function SettingsPage({
-  scene,
-  section,
-  writer,
-  state,
-}: {
+type SettingsProps = {
   scene: SignalScene;
   /** The address's section segment: any word; an unknown one gets a stated state. */
   section: string;
   writer: boolean;
   /** An empty state with this title (the page's own, so every Signal page states itself alike). */
   state: (title: string) => ReactNode;
-}) {
+};
+
+type DigestDraft = {
+  values: ReadonlyMap<string, string>;
+  pendingClear: symbol | null;
+};
+
+function emptyDigestDraft(): DigestDraft {
+  return { values: new Map(), pendingClear: null };
+}
+
+export function SettingsPage(props: SettingsProps) {
+  return <AccountSettings key={props.scene.snapshot.viewer.name} {...props} />;
+}
+
+function AccountSettings({ scene, section, writer, state }: SettingsProps) {
   const { settings } = scene.snapshot;
   const page = usePageWrite();
   const signalActions = useSignalActions();
@@ -89,7 +99,23 @@ export function SettingsPage({
   );
   // A service keeps the thread rules by group; so does a sample whose groups carry their own.
   const rulesByGroup = page !== null || settings.groups.some((group) => group.rules !== null);
-  const [typed, setTyped] = useState<ReadonlyMap<string, string>>(new Map());
+  const [draft, setDraft] = useState(emptyDigestDraft);
+  // The draft and its active write outlive individual Settings tabs.
+  const writeDigest = (request: SignalWrite, clearsDraft: boolean) => {
+    if (page === null) return;
+    if (!clearsDraft) {
+      void page.send(request);
+      return;
+    }
+    const submission = Symbol();
+    setDraft((current) => ({ ...current, pendingClear: submission }));
+    void page.send(request).then(({ refusal }) => {
+      setDraft((current) => {
+        if (current.pendingClear !== submission) return current;
+        return refusal === null ? emptyDigestDraft() : { ...current, pendingClear: null };
+      });
+    });
+  };
   const [visible, setVisible] = useState<ReadonlyMap<string, string>>(new Map());
   const see = (groupId: string, value: string) => {
     setVisible(new Map(visible).set(groupId, value));
@@ -189,7 +215,7 @@ export function SettingsPage({
         );
       case "digests": {
         const form = settings.digestForm;
-        const field = (key: string, delivered: string) => typed.get(key) ?? delivered;
+        const field = (key: string, delivered: string) => draft.values.get(key) ?? delivered;
         return (
           <DigestsSection
             form={form}
@@ -201,17 +227,23 @@ export function SettingsPage({
               brief: field("brief", form.brief),
             }}
             onChange={(key, text) => {
-              setTyped(new Map(typed).set(key, text));
+              setDraft((current) => ({
+                values: new Map(current.values).set(key, text),
+                pendingClear: null,
+              }));
             }}
             digests={scene.snapshot.digests}
-            editing={typed.get("editing") ?? null}
+            editing={draft.values.get("editing") ?? null}
             onEdit={(edit) => {
-              setTyped(
-                edit === null
-                  ? new Map()
-                  : new Map([...Object.entries(edit.value), ["editing", edit.id]]),
-              );
+              setDraft({
+                values:
+                  edit === null
+                    ? new Map()
+                    : new Map([...Object.entries(edit.value), ["editing", edit.id]]),
+                pendingClear: null,
+              });
             }}
+            onWrite={writeDigest}
           />
         );
       }

@@ -4,6 +4,14 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+
+## 2026-11-27 — Foundation and Signal integration
+
+- Ported the focused follow-up from `ecc60c58` onto `cb0a438f`. Foundation kept only the data and chart changes needed for like-for-like comparisons and the previously approved Segments and Periods cases.
+- Foundation and Modules passed 512 tests on Node 24.16.0. Older TransDigm CP-1 data and synthetic cases checked units, zero and gaps, definitions, date validity, authored qualifiers, and source locators in Evidence.
+- Signal passed 1,238 web tests and 115 targeted Python tests. Synthetic DOM tests checked draft ownership across Settings tabs, and two-connection SQLite fixtures checked claim ownership after startup recovery and ordinary failure or retry.
+- Not verified: live issuer or provider execution and the weekly full Python suite.
+
 ## 2026-11-27 — Event timeline interaction fidelity
 
 The synthetic EventLane suite passed all 45 tests, including a marker click that focuses its row
@@ -985,12 +993,3 @@ then 5; the narrow layout and the controls listed below.
   were not run.
 - `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
   approved mockups to keep it.
-
-## 2026-11-24 — Review fixes on the issuer front page and report exports
-
-- Scope: eleven of the thirteen findings of the review of this branch, then the medium and high findings of two spec reviews and one adversarial review of those fixes. All under `web/src/pages/connected/`. Synthetic fixtures only; no provider was called, no retained handoff was read and no browser was used.
-- A report sentence the delivery writes now says only what the document shows, and is tied to the same lookup as the exhibit it names. Module passages print whole: the cuts of amounts and qualifications, and a prefix capture that could stop inside a figure, are removed. A passage left out by the reference check is counted in its section. An unshown decision reads "not shown in this report" in the PDF and "not shown on this page" on Overview, which names the module page. A held decision's limitations are left out of the Overview list with a pointer to the module.
-- References: a slash after a space is no longer a path; any `scheme://`, `//server/share`, drive and `file:/` forms are. The print check reads each block on its own, so neighbouring cells no longer block a PDF, and a content block has its own message.
-- Also: specialist Overviews keep Key charts; unparsed debt terms show as written; cash and undrawn facilities stay when their basis cannot be shown; the differing-rating notice stays on Overview; a specialist card's finding is cached per publication.
-- Checks on the final tree: 1,977 connected-page tests, TypeScript, lint and format on the changed files. The Python gate was not run; no Python changed.
-- Not changed: the selectors written for one retained case, which need a module-side contract. Known limitations left as low: single-segment and bare relative paths are not caught as references; "P50" and similar read as page citations; some PDF text still says "available in Evidence"; a readable action output with no decision in it is still described as "this decision".

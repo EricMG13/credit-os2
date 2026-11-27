@@ -94,6 +94,7 @@ describe("PeriodsTile on the retained handoffs", () => {
       ["Cash conversion", "Stated", "Stated"],
       ["Net debt", "Stated", "Stated"],
       ["Segments", "Stated", "Stated"],
+      ["Interest cover", "Stated", "Stated"],
     ]);
   });
   it("draws all SVG text at 11 px or more, and no source reference", () => {

@@ -235,6 +235,61 @@ function tableOf(view: SegmentView) {
   };
 }
 
+/** Every stated amount and gap, with its own measure label and period, without bars. */
+function scheduleRows(view: SegmentView) {
+  const rows = [...view.segments, ...view.apart].flatMap((segment) => [
+    { name: segment.name, definition: view.salesLabel, values: segment.sales },
+    { name: segment.name, definition: view.ebitdaLabel, values: segment.ebitda },
+    ...view.mixedEbitda.filter((row) => row.name === segment.name),
+  ]);
+  return rows.filter((row) => row.values.some(({ cell }) => cell !== null));
+}
+
+function StatedSchedule({ lead, view }: { lead: LeadProps; view: SegmentView }) {
+  const rows = scheduleRows(view);
+  const labels = view.periods.map((period) => period.label);
+  const mixed = view.mixedEbitda.length > 0;
+  return (
+    <FigureTile
+      props={lead}
+      span={6}
+      label={LABEL}
+      kicker={`${LABEL} · ${view.unit}`}
+      title={LABEL}
+      line={view.tableLine}
+      source="the segment figures"
+      notes={unplacedNotes(view.unplaced, view.periods.length)}
+      table={{
+        caption: `Segments, ${view.unit}, by period`,
+        headers: ["Segment", "Measure", ...labels],
+        rows: rows.map(({ name, definition, values }) => [
+          safeText(name),
+          safeText(definition),
+          ...labels.map((label) => segmentValue(values, label).text),
+        ]),
+      }}
+    >
+      {mixed && (
+        <p className="text-small text-text-secondary">
+          EBITDA definitions differ across the schedule.
+        </p>
+      )}
+      <ul className="flex flex-col gap-1.5 text-small text-text-secondary">
+        {rows.map(({ name, definition, values }) => (
+          <li key={`${name}-${definition}`}>
+            {safeText(name)} · {safeText(definition)} ·{" "}
+            {values
+              .flatMap(({ label, cell }) =>
+                cell ? [`${label} ${segmentValue(values, label).text}`] : [],
+              )
+              .join(" · ")}
+          </li>
+        ))}
+      </ul>
+    </FigureTile>
+  );
+}
+
 /** The note that names the drawn periods when the schedule states more than the figure draws. */
 function periodNote(periods: SegmentPeriods) {
   if (!periods.notDrawn.length) return [];
@@ -262,7 +317,10 @@ export function SegmentsTile({ lead }: { lead: LeadProps }) {
     segmentValue(segment.sales, periods.drawn),
     segmentValue(segment.ebitda, periods.drawn),
   ]);
-  if (!drawn.some((value) => value.kind === "number"))
+  if (view.mixedEbitda.length) return <StatedSchedule lead={lead} view={view} />;
+  if (!drawn.some((value) => value.kind === "number")) {
+    if (scheduleRows(view).some((row) => row.values.some(({ cell }) => cell?.kind === "number")))
+      return <StatedSchedule lead={lead} view={view} />;
     return (
       <GapTile span={6} label={LABEL} kicker={kicker}>
         {view.segments.length
@@ -270,6 +328,7 @@ export function SegmentsTile({ lead }: { lead: LeadProps }) {
           : "This page could not read a business unit of the segment schedule."}
       </GapTile>
     );
+  }
   const apart = view.apart.map((segment) => apartLine(view, segment, periods));
   return (
     <FigureTile
