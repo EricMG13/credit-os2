@@ -17,6 +17,7 @@ import type { forecastCaseOptions } from "../visuals/LegacyForecast";
 import {
   absentText,
   cellsOf,
+  cites,
   endOf,
   extremeOf,
   fundingGap,
@@ -37,6 +38,7 @@ import type { ForecastSource } from "./ForecastRecord";
 
 /** A case the switch offers; `absent` is the lead's words for why a hatched case draws no path. */
 export type CaseChoice = { name: string; rawGroup: string; hatched: boolean; absent?: string };
+const CASE_NOTE_IN_EVIDENCE = "The model's note on this case is in Evidence.";
 type CaseOption = ReturnType<typeof forecastCaseOptions>[number];
 
 const TARGET = "min-h-8 max-[480px]:min-h-11";
@@ -144,7 +146,10 @@ export function CaseFigure({
 }) {
   if (!option) return null;
   const { name, rawGroup, period, periodStart, periodEnd, description, reason, units } = option;
-  const described = description || caseRationale(handoff, rawGroup);
+  const recorded = description || caseRationale(handoff, rawGroup);
+  // A description or reason that cites a source, marker or note is not drawn: Evidence holds it.
+  const described = recorded && cites(readerText(recorded)) ? CASE_NOTE_IN_EVIDENCE : recorded;
+  const why = reason ? readerText(reason) : "";
   return (
     <div
       id="forecast-cases"
@@ -185,7 +190,11 @@ export function CaseFigure({
           {described || "Case description not recorded."}
         </p>
       )}
-      {reason && <p className="text-caption text-text-secondary">{readerText(reason)}</p>}
+      {why && (
+        <p className="text-caption text-text-secondary">
+          {cites(why) ? CASE_NOTE_IN_EVIDENCE : why}
+        </p>
+      )}
       {notice && (
         <p role="status" className="text-caption text-text-secondary">
           {notice}

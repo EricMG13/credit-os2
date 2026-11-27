@@ -33,3 +33,14 @@ it("C1b-4 keeps a blank item inside a stated list as a per-year gap", () => {
     only: false,
   });
 });
+
+it.each([[""], ["  "]])("C1b-R3 reads the blank scalar %j as not stated", (scalar) => {
+  const table = driverTable({
+    base_drivers: { interest_rate: { values: ["0.04", "0.04"] } },
+    upside_drivers: { interest_rate: scalar, revenue_growth: { values: ["0.07"] } },
+  });
+  expect(cells(table, "base_drivers.interest_rate")).toEqual([
+    { text: "0.04 each year", stated: true, differs: false, only: false },
+    NOT,
+  ]);
+});

@@ -119,6 +119,7 @@ function BasisNote({
     baseObservation?.cell?.status === "value" ? amount(word(baseObservation.cell.exact)) : null;
   const fiscal = period?.slice(0, -1);
   const bridge = recordedBridge(handoff, raw.units, fiscal, value);
+  const words = readerText(limitation);
   return (
     <section className="grid min-w-0 gap-2 border-t border-border-hairline pt-3">
       <h4 className="text-small font-medium text-text-primary">
@@ -143,9 +144,7 @@ function BasisNote({
           </PublishedSource>
         </div>
       )}
-      <p className="reading-copy text-body">
-        {cites(limitation) ? LIMIT_IN_EVIDENCE : readerText(limitation)}
-      </p>
+      <p className="reading-copy text-body">{cites(words) ? LIMIT_IN_EVIDENCE : words}</p>
     </section>
   );
 }

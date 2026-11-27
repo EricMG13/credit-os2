@@ -34,13 +34,15 @@ type Recorded = string | null;
 /** The recorded values, each exactly as recorded; null when the case states nothing. */
 function recordedValues(raw: unknown): Recorded[] | null {
   if (raw === undefined || raw === null) return null;
-  if (typeof raw === "string" || typeof raw === "number") return [String(raw)];
+  const blank = (text: Recorded) => text === null || text.trim() === "";
+  if (typeof raw === "string" || typeof raw === "number") {
+    return blank(String(raw)) ? null : [String(raw)];
+  }
   const values = record(raw).values;
   if (!Array.isArray(values)) return null;
   const recorded = values.map((item: unknown) =>
     item === null || item === undefined ? null : word(item) || String(item as string | number),
   );
-  const blank = (text: Recorded) => text === null || text.trim() === "";
   if (recorded.every(blank)) return null;
   return recorded.map((text) => (blank(text) ? null : text));
 }
