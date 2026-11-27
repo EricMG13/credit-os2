@@ -1,45 +1,19 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Coverage, Fact, Issuer } from "../coverageData";
-import { Patterns } from "./Patterns";
+import { Patterns, scaleWithReference } from "./Patterns";
 
 const debt = "cp-1/leverage/total-debt-ebitda";
 const cover = "cp-1/interest-cover/ebitda-cash-interest";
-const fields = [
-  {
-    id: debt,
-    label: "Total debt / EBITDA",
-    module: "CP-1",
-    group: "Leverage",
-    kind: "number" as const,
-    series: "period" as const,
-  },
-  {
-    id: cover,
-    label: "EBITDA / cash interest",
-    module: "CP-1",
-    group: "Cover",
-    kind: "number" as const,
-    series: "period" as const,
-  },
-];
+const field = (id: string, label: string, group: string) => ({
+  id, label, group, module: "CP-1", kind: "number" as const, series: "period" as const,
+});
+const fields = [field(debt, "Total debt / EBITDA", "Leverage"), field(cover, "EBITDA / cash interest", "Cover")];
 
 function fixture(): { data: Coverage; issuers: Issuer[] } {
-  const issuers = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"].map((name, index): Issuer => ({
-    key: `issuer-${String(index)}`,
-    name,
-    sector: ["Energy", "Industrials", "Transport", "Consumer", "Energy"][index] ?? null,
-    runs: [
-      {
-        key: `run-${String(index)}`,
-        folder: `folder-${String(index)}`,
-        asOf: "2025-12-31",
-        pathway: "full",
-        pathwayTitle: "Full",
-        cells: {},
-        other: [],
-      },
-    ],
+  const issuers: Issuer[] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"].map((name, index) => ({
+    key: `issuer-${String(index)}`, name, sector: ["Energy", "Industrials", "Transport", "Consumer", "Energy"][index] ?? null,
+    runs: [{ key: `run-${String(index)}`, folder: `folder-${String(index)}`, asOf: "2025-12-31", pathway: "full", pathwayTitle: "Full", cells: {}, other: [] }],
   }));
   const debtValues = [
     ["10", "8", "7"],
@@ -56,16 +30,9 @@ function fixture(): { data: Coverage; issuers: Issuer[] } {
       if (text !== null && text !== undefined)
         facts.push(fact(issuer, debt, period, text, "x", facts.length + 1));
     }
-    facts.push(
-      fact(
-        issuer,
-        cover,
-        "FY2026",
-        coverValues[index] ?? "0",
-        index === 4 ? "USD millions" : "x",
-        facts.length + 1,
-      ),
-    );
+    const coverText = coverValues[index];
+    if (coverText === undefined) throw new Error("issuer fixture has no cash interest cover value");
+    facts.push(fact(issuer, cover, "FY2026", coverText, index === 4 ? "USD millions" : "x", facts.length + 1));
   }
   return { data: { columns: [], issuers, fields, facts }, issuers };
 }
@@ -78,37 +45,50 @@ function fact(
   unit: string,
   line: number,
 ): Fact {
+  const run = issuer.runs[0];
+  if (!run) throw new Error("issuer fixture has no run");
   return {
     issuer: issuer.key,
-    run: issuer.runs[0]?.key ?? "",
+    run: run.key,
     field,
     period,
     row: null,
     text,
     at: Number(text),
     unit,
+    heading: field === debt ? "Reported debt / EBITDA" : "Reported cash interest cover",
+    basis: `${period} issuer basis`,
     line,
     output: "summary.md",
     sha256: "source",
   };
 }
 
+function unorder(data: Coverage, issuer?: string): Coverage {
+  return { ...data, facts: data.facts.map((item) => item.field === debt && (!issuer || item.issuer === issuer)
+    ? { ...item, period: item.period === "FY2024" ? "Earlier filing" : "Later filing" } : item) };
+}
+
 describe("Patterns", () => {
   it("draws exact level/difference and the two-measure intersection", () => {
     const { data, issuers } = fixture();
     render(<Patterns data={data} issuers={issuers} selected="issuer-0" onSelect={vi.fn()} />);
+    const scale = scaleWithReference(["7", "17", "28", "36"], "28");
+    expect(scale.points[2]).toBe(scale.reference);
+    expect(scale.reference).toBe(72.4137931);
+    expect(scaleWithReference(["7", "17", "28", "36"], "48")).toMatchObject({
+      bounds: ["7", "48"], reference: 100,
+    });
 
     expect(screen.getByLabelText("Measure")).toHaveValue(debt);
     expect(screen.getByLabelText("Period")).toHaveValue("FY2026");
     const level = screen.getByRole("table", { name: "Level versus difference data" });
-    expect(within(level).getByRole("row", { name: /Alpha.*FY2026/ })).toHaveTextContent("7x");
-    expect(within(level).getByRole("row", { name: /Alpha.*FY2026/ })).toHaveTextContent("−1x");
-    expect(within(level).getByRole("row", { name: /Median \(computed\)/ })).toHaveTextContent(
-      "28x",
-    );
-    expect(within(level).getByRole("row", { name: /Median \(computed\)/ })).toHaveTextContent(
-      "−2x",
-    );
+    const medianRow = within(level).getByRole("row", { name: /Median \(computed\)/ });
+    expect(
+      within(level).getByRole("columnheader", { name: "Reported debt / EBITDA (x)" }),
+    ).toBeInTheDocument();
+    expect(within(level).getByRole("row", { name: /Alpha.*FY2026/ })).toHaveTextContent(/7x.*−1x/);
+    expect(medianRow).toHaveTextContent(/28x.*−2x.*Current cohort: 5; paired: 4/);
     expect(
       within(level)
         .getByRole("row", { name: /Median \(computed\)/ })
@@ -121,25 +101,30 @@ describe("Patterns", () => {
     const two = screen.getByRole("table", { name: "Two measures data" });
     expect(within(two).getAllByRole("row")).toHaveLength(5);
     expect(within(two).getByRole("row", { name: /Alpha/ })).toHaveTextContent("7x");
+    expect(within(two).getByRole("columnheader", { name: "Reported debt / EBITDA (x)" })).toBeInTheDocument();
+    expect(within(two).getByRole("columnheader", { name: "Reported cash interest cover (x)" })).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Issuers left out of two measures" }),
     ).toHaveTextContent("Epsilon: EBITDA / cash interest: other unit");
 
     const selectedRow = within(two).getByRole("row", { name: /Alpha/ });
     expect(selectedRow).toHaveAttribute("aria-selected", "true");
+    expect(within(two).getAllByRole("link", { name: /Open run/ })).toHaveLength(4);
+    expect(within(selectedRow).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(
+      /X FY2026: 7x; basis FY2026 issuer basis; Y FY2026: 2x; basis FY2026 issuer basis/i,
+    );
+    const levelRow = within(level).getByRole("row", { name: /Alpha.*FY2026/ });
+    expect(within(levelRow).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(
+      /current FY2026: 7x; basis FY2026 issuer basis; prior FY2025: 8x; basis FY2025 issuer basis/i,
+    );
+    expect(within(level).getAllByRole("link", { name: /Open run/ })).toHaveLength(4);
+    expect(within(medianRow).queryByRole("link")).toBeNull();
     expect(screen.queryByRole("img", { name: /fitted line/i })).toBeNull();
   });
 
   it("does not draw time series when the selected field periods cannot be ordered", () => {
     const { data, issuers } = fixture();
-    const unordered = {
-      ...data,
-      facts: data.facts.map((item) =>
-        item.field === debt
-          ? { ...item, period: item.period === "FY2024" ? "Earlier filing" : "Later filing" }
-          : item,
-      ),
-    };
+    const unordered = unorder(data);
     const { rerender } = render(
       <Patterns data={unordered} issuers={issuers} selected={null} onSelect={vi.fn()} />,
     );
@@ -150,9 +135,11 @@ describe("Patterns", () => {
       facts: data.facts.filter((item) => item.period === "FY2026"),
     };
     rerender(<Patterns data={onePeriod} issuers={issuers} selected={null} onSelect={vi.fn()} />);
-    expect(
-      screen.getByRole("region", { name: "Issuers without an adjacent prior period" }),
-    ).toHaveTextContent("Alpha: no adjacent prior period");
+    const onePeriodTable = screen.getByRole("table", { name: "Level versus difference data" });
+    const alpha = within(onePeriodTable).getByRole("row", { name: /Alpha.*FY2026/ });
+    expect(alpha).toHaveTextContent("7x");
+    expect(alpha).toHaveTextContent("No adjacent prior period");
+    expect(within(alpha).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(/FY2026: 7x.*basis FY2026 issuer basis/i);
   });
 
   it("keeps the period control selection when changing the measure", () => {
@@ -161,5 +148,45 @@ describe("Patterns", () => {
     fireEvent.change(screen.getByLabelText("Period"), { target: { value: "FY2025" } });
     fireEvent.change(screen.getByLabelText("Measure"), { target: { value: cover } });
     expect(screen.getByLabelText("Period")).toHaveValue("FY2025");
+  });
+
+  it("lists an unorderable issuer in a mixed cohort beside its exact other-period reason", () => {
+    const { data, issuers } = fixture();
+    const mixed = unorder(data, "issuer-2");
+    render(<Patterns data={mixed} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    const leftOut = screen.getByRole("region", {
+      name: "Issuers not plotted in level versus difference",
+    });
+    expect(leftOut).toHaveTextContent(
+      "Gamma: Total debt / EBITDA: other period; Total debt / EBITDA: periods cannot be ordered",
+    );
+    expect(leftOut).toHaveTextContent("Epsilon: Total debt / EBITDA: other period");
+  });
+
+  it("keeps sparse table facts and states a gap without empty plots or zero medians", () => {
+    const { data, issuers } = fixture();
+    const sparse = issuers.slice(0, 2);
+    const { rerender } = render(
+      <Patterns data={data} issuers={sparse} selected={null} onSelect={vi.fn()} />,
+    );
+    expect(screen.queryByRole("img", { name: "Level against difference scatter chart" })).toBeNull();
+    expect(screen.queryByRole("img", { name: "Two measures scatter chart" })).toBeNull();
+    expect(screen.getByRole("table", { name: "Level versus difference data" })).toHaveTextContent(
+      "Alpha",
+    );
+    expect(screen.getByRole("table", { name: "Two measures data" })).toHaveTextContent("7x");
+    expect(within(screen.getByRole("table", { name: "Level versus difference data" })).queryByRole("row", { name: /Median/ })).toBeNull();
+    expect(screen.getAllByText(/fewer than three qualifying issuers/i)).toHaveLength(2);
+    expect(screen.queryByText(/paired 0|Current 0/i)).toBeNull();
+
+    rerender(<Patterns data={data} issuers={issuers.slice(0, 3)} selected={null} onSelect={vi.fn()} />);
+    expect(screen.getAllByRole("img")).toHaveLength(2);
+    expect(within(screen.getByRole("table", { name: "Level versus difference data" })).getByRole("row", { name: /Median/ })).toHaveTextContent("Current cohort: 3; paired: 3");
+
+    rerender(<Patterns data={data} issuers={[]} selected={null} onSelect={vi.fn()} />);
+    expect(screen.queryByRole("img", { name: "Level against difference scatter chart" })).toBeNull();
+    expect(screen.queryByRole("img", { name: "Two measures scatter chart" })).toBeNull();
+    expect(screen.queryByText(/0(?:x|; paired)/i)).toBeNull();
+    expect(screen.getAllByText(/no qualifying figures|no issuers qualify on both measures/i)).toHaveLength(2);
   });
 });

@@ -23,7 +23,6 @@ import { cohort, type Cohort, type Member } from "./cohort";
 import { compare, difference, stats, type Dec } from "./coverageMath";
 import { DIRECTION } from "./direction";
 import { fieldLabel, fraction, written, writtenText } from "./monitorMath";
-import { LeftOut } from "./LeftOut";
 
 type Props = {
   data: Coverage;
@@ -31,12 +30,10 @@ type Props = {
   selected: string | null;
   onSelect: (issuer: string) => void;
 };
-type Point = {
+type LevelPoint = {
   issuer: Issuer;
   member: Member;
   prior: Member;
-  x: number;
-  y: number;
   xValue: Dec;
   yValue: Dec;
 };
@@ -49,20 +46,14 @@ type TwoPoint = {
   xMember: Member;
   yMember: Member;
 };
-type OutRow = Cohort["out"][number] & { field: string };
+type OutRow = { issuer: Issuer; reason: string; field: string };
 
 function orderedIssuers(data: Coverage, issuers: readonly Issuer[], field: string): Issuer[] {
   return issuers.filter((issuer) => periodsOrdered(data, [issuer], field));
 }
 
 function orderedPeriods(data: Coverage, issuers: readonly Issuer[], field: string): string[] {
-  const values = periodsOf(data, issuers, field);
-  if (!periodsOrdered(data, issuers, field)) return values;
-  return [...values].sort((left, right) => {
-    const a = periodKey(left);
-    const b = periodKey(right);
-    return a && b ? comparePeriodKeys(a, b) : 0;
-  });
+  return periodsOf(data, issuers, field);
 }
 
 function range(values: readonly Dec[]): [Dec, Dec] {
@@ -78,6 +69,15 @@ function range(values: readonly Dec[]): [Dec, Dec] {
 
 function coordinate(value: Dec, bounds: readonly [Dec, Dec]): number {
   return fraction(value, bounds[0], bounds[1]) * 100;
+}
+
+export function scaleWithReference(values: readonly Dec[], reference?: Dec) {
+  const bounds = range([...values, ...(reference === undefined ? [] : [reference])]);
+  return {
+    bounds,
+    points: values.map((value) => coordinate(value, bounds)),
+    reference: reference === undefined ? null : coordinate(reference, bounds),
+  };
 }
 
 function signed(value: Dec, unit: string): string {
@@ -111,20 +111,37 @@ function dots(
 }
 
 function withField(out: Cohort | null, field: string): OutRow[] {
-  return (out?.out ?? []).map((item) => ({ ...item, field }));
+  return (out?.out ?? []).map(({ issuer, reason }) => ({ issuer, reason, field }));
+}
+
+function operand(label: string, member: Member): string {
+  return `${label} ${member.fact.period ?? "period not stated"}: ${written(member.fact)}; basis ${member.fact.basis ?? "not stated"}`;
+}
+
+function issuerButton(issuer: Issuer, selected: string | null, onSelect: Props["onSelect"]) {
+  return <button type="button" aria-pressed={issuer.key === selected} onClick={onSelect.bind(null, issuer.key)}>{issuer.name}</button>;
+}
+
+function openRun(issuer: Issuer, member: Member, details: string) {
+  const label = `Open run for ${issuer.name}; ${details}`;
+  return <a href={evidenceLink(member.run, member.fact)} title={label} aria-label={label}>Open run</a>;
 }
 
 function tableOut(out: readonly OutRow[], fields: ReadonlyMap<string, string>, title: string) {
-  const unique = [...new Map(out.map((item) => [item.issuer.key, item])).values()];
-  const details = new Map<string, string[]>();
+  const rows = new Map<string, { issuer: Issuer; details: string[] }>();
   for (const item of out) {
     const field = fields.get(item.field) ?? "Figure";
-    const reasons = details.get(item.issuer.key) ?? [];
+    const row = rows.get(item.issuer.key) ?? { issuer: item.issuer, details: [] };
     const text = `${field}: ${item.reason}`;
-    if (!reasons.includes(text)) reasons.push(text);
-    details.set(item.issuer.key, reasons);
+    if (!row.details.includes(text)) row.details.push(text);
+    rows.set(item.issuer.key, row);
   }
-  return <LeftOut out={unique} title={title} details={details} />;
+  return rows.size > 0 && (
+    <section aria-label={title}>
+      <h3>{title}</h3>
+      <ul>{[...rows.values()].map(({ issuer, details }) => <li key={issuer.key}>{issuer.name}: {details.join("; ")}</li>)}</ul>
+    </section>
+  );
 }
 
 export function Patterns({ data, issuers, selected, onSelect }: Props) {
@@ -205,8 +222,8 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
     [data, fields],
   );
 
-  const levelPoints = useMemo(() => {
-    if (!field || !current || !previous || !previousPeriod) return [] as Point[];
+  const levelPoints = useMemo((): LevelPoint[] => {
+    if (!field || !current || !previous || !previousPeriod) return [];
     const previousMembers = new Map(previous.members.map((member) => [member.issuer.key, member]));
     const issuerByKey = new Map(seriesIssuers.map((issuer) => [issuer.key, issuer]));
     const drawn = current.members.flatMap((member) => {
@@ -216,26 +233,28 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
       const change = difference(member.value, prior.value);
       return change === null
         ? []
-        : [{ issuer, member, prior, x: 0, y: 0, xValue: member.value, yValue: change }];
+        : [{ issuer, member, prior, xValue: member.value, yValue: change }];
     });
-    const [xLow, xHigh] = range(drawn.map((item) => item.xValue));
-    const [yLow, yHigh] = range(drawn.map((item) => item.yValue));
-    return drawn.map((item) => ({
-      ...item,
-      x: coordinate(item.xValue, [xLow, xHigh]),
-      y: coordinate(item.yValue, [yLow, yHigh]),
-    }));
+    return drawn;
   }, [current, field, previous, previousPeriod, seriesIssuers]);
-  const levelBounds = range([
-    ...levelPoints.map((point) => point.xValue),
-    ...(current?.members.map((member) => member.value) ?? []),
-  ]);
+  const levelScale = scaleWithReference(
+    levelPoints.map((point) => point.xValue),
+    current?.stats?.median,
+  );
   const diffBounds = range(levelPoints.map((point) => point.yValue));
+  const plotPoints = levelPoints.map((point) => ({
+    ...point,
+    x: coordinate(point.xValue, levelScale.bounds),
+    y: coordinate(point.yValue, diffBounds),
+  }));
   const levelMedian = current?.stats ?? null;
   const differenceMedian = stats(levelPoints.map((point) => point.yValue));
   const levelOut = [
     ...withField(current, field?.id ?? ""),
     ...withField(previous, field?.id ?? ""),
+    ...issuers
+      .filter((issuer) => field && !periodsOrdered(fieldData, [issuer], field.id))
+      .map((issuer) => ({ issuer, field: field?.id ?? "", reason: "periods cannot be ordered" })),
   ];
 
   const twoPoints = (() => {
@@ -246,26 +265,12 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
     const points = current.members.flatMap((member) => {
       const paired = secondMembers.get(member.issuer.key);
       return paired
-        ? [
-            {
-              issuer: member.issuer,
-              x: 0,
-              y: 0,
-              xValue: member.value,
-              yValue: paired.value,
-              xMember: member,
-              yMember: paired,
-            },
-          ]
+        ? [{ issuer: member.issuer, xValue: member.value, yValue: paired.value, xMember: member, yMember: paired }]
         : [];
     });
     const [xLow, xHigh] = range(points.map((point) => point.xValue));
     const [yLow, yHigh] = range(points.map((point) => point.yValue));
-    return points.map((point) => ({
-      ...point,
-      x: coordinate(point.xValue, [xLow, xHigh]),
-      y: coordinate(point.yValue, [yLow, yHigh]),
-    }));
+    return points.map((point) => ({ ...point, x: coordinate(point.xValue, [xLow, xHigh]), y: coordinate(point.yValue, [yLow, yHigh]) }));
   })();
   const twoXBounds = range(twoPoints.map((point) => point.xValue));
   const twoYBounds = range(twoPoints.map((point) => point.yValue));
@@ -344,9 +349,21 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
           ) : (
             <p className="text-caption text-gap-text">No adjacent prior period is available.</p>
           )}
-          {axis.length === 0 ? (
+          {!issuers.length ? (
+            <p role="status" className="text-small text-gap-text">
+              No qualifying figures; exact tables are empty, and the scatter and statistics are unavailable.
+            </p>
+          ) : axis.length === 0 ? (
             <p className="text-small text-gap-text">
-              Periods cannot be put in time order, so no difference plot is drawn.
+              {seriesIssuers.length === 0
+                ? "Periods cannot be put in time order, so no difference plot is drawn."
+                : "No qualifying figures; the difference view is unavailable."}
+            </p>
+          ) : levelPoints.length < 3 ? (
+            <p role="status" className="text-small text-gap-text">
+              {current?.members.length
+                ? "Fewer than three qualifying issuers have both current and prior facts; exact facts are listed below, and the scatter and difference median are unavailable."
+                : "No qualifying figures; exact facts are listed below, and the scatter and statistics are unavailable."}
             </p>
           ) : (
             <div
@@ -363,7 +380,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                     domain={[0, 100]}
                     tick={false}
                     label={{
-                      value: `${field ? fieldLabel(data, field.id) : "Level"} (${current?.unit || "unit not stated"})`,
+                      value: `${current?.heading || "Level"} (${current?.unit || "unit not stated"})`,
                       position: "insideBottom",
                       offset: -8,
                     }}
@@ -388,14 +405,14 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       return `${word ? `${word} ` : ""}${signed(endpoint, current?.unit ?? "")}`;
                     }}
                     label={{
-                      value: `Difference (${current?.unit || "unit not stated"})`,
+                      value: `Difference from prior (${current?.unit || "unit not stated"})`,
                       angle: -90,
                       position: "insideLeft",
                     }}
                   />
-                  {levelMedian && (
+                  {levelScale.reference !== null && (
                     <ReferenceLine
-                      x={coordinate(levelMedian.median, levelBounds)}
+                      x={levelScale.reference}
                       stroke="var(--color-text-tertiary)"
                       strokeDasharray="4 3"
                     />
@@ -407,7 +424,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       strokeDasharray="4 3"
                     />
                   )}
-                  <Scatter data={levelPoints} dataKey="y" shape={dots(selected, colours)} />
+                  <Scatter data={plotPoints} dataKey="y" shape={dots(selected, colours)} />
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
@@ -417,9 +434,9 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
               <tr>
                 <th>Issuer</th>
                 <th>Period</th>
-                <th>Level</th>
+                <th>{current?.heading ?? "Level"} ({current?.unit || "unit not stated"})</th>
                 <th>Basis</th>
-                <th>Difference</th>
+                <th>Difference from prior ({current?.unit || "unit not stated"})</th>
                 <th>Sector</th>
                 <th>Trace</th>
               </tr>
@@ -427,28 +444,24 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
             <tbody>
               {levelPoints.map((point) => (
                 <tr key={point.issuer.key} aria-selected={point.issuer.key === selected}>
-                  <th>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelect(point.issuer.key);
-                      }}
-                    >
-                      {point.issuer.name}
-                    </button>
-                  </th>
+                  <th>{issuerButton(point.issuer, selected, onSelect)}</th>
                   <td>{point.member.fact.period}</td>
                   <td>{written(point.member.fact)}</td>
                   <td>{point.member.fact.basis ?? "Basis not stated"}</td>
                   <td>{signed(point.yValue, current?.unit ?? "")}</td>
                   <td>{point.issuer.sector ?? "Sector not stated"}</td>
-                  <td>
-                    <a href={evidenceLink(point.member.run, point.member.fact)}>Current</a>{" "}
-                    <a href={evidenceLink(point.prior.run, point.prior.fact)}>Prior</a>
-                  </td>
+                  <td>{openRun(point.issuer, point.member, `${operand("current", point.member)}; ${operand("prior", point.prior)}`)}</td>
                 </tr>
               ))}
-              {(levelMedian || differenceMedian) && (
+              {!previousPeriod && current?.members.map((member) => (
+                <tr key={member.issuer.key} aria-selected={member.issuer.key === selected}>
+                  <th>{issuerButton(member.issuer, selected, onSelect)}</th><td>{member.fact.period}</td>
+                  <td>{written(member.fact)}</td><td>{member.fact.basis ?? "Basis not stated"}</td>
+                  <td>No adjacent prior period</td><td>{member.issuer.sector ?? "Sector not stated"}</td>
+                  <td>{openRun(member.issuer, member, operand("current", member))}</td>
+                </tr>
+              ))}
+              {levelPoints.length >= 3 && (levelMedian || differenceMedian) && (
                 <tr>
                   <th>Median (computed)</th>
                   <td>{period}</td>
@@ -459,58 +472,19 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       : "Basis not stated"}
                   </td>
                   <td>
-                    {differenceMedian ? signed(differenceMedian.median, current?.unit ?? "") : "—"}
+                    {differenceMedian
+                      ? signed(differenceMedian.median, current?.unit ?? "")
+                      : "No median (fewer than three paired issuers)"}
                   </td>
                   <td>
-                    Current {String(levelMedian?.count ?? 0)}; paired{" "}
-                    {String(differenceMedian?.count ?? 0)}
+                    Current cohort: {current?.members.length || "none"}; paired: {levelPoints.length || "none"}
                   </td>
-                  <td>
-                    {[
-                      ...(current?.members.map((member) => (
-                        <a
-                          key={`${member.issuer.key}-level-source`}
-                          href={evidenceLink(member.run, member.fact)}
-                        >
-                          {member.issuer.name} level
-                        </a>
-                      )) ?? []),
-                      " ",
-                      ...levelPoints.map((point) => (
-                        <a
-                          key={`${point.issuer.key}-prior`}
-                          href={evidenceLink(point.prior.run, point.prior.fact)}
-                        >
-                          {point.issuer.name} prior
-                        </a>
-                      )),
-                    ]}
-                  </td>
+                  <td>Current and paired figures are listed in their issuer rows.</td>
                 </tr>
               )}
             </tbody>
           </table>
           {tableOut(levelOut, fieldLabels, "Issuers not plotted in level versus difference")}
-          {!previousPeriod && current && (
-            <section aria-label="Issuers without an adjacent prior period">
-              <h4>Issuers left out</h4>
-              <ul>
-                {current.members.map((member) => (
-                  <li key={member.issuer.key}>{member.issuer.name}: no adjacent prior period</li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {axis.length === 0 && (
-            <section aria-label="Issuers left out of level versus difference ordering">
-              <h4>Issuers left out</h4>
-              <ul>
-                {issuers.map((issuer) => (
-                  <li key={issuer.key}>{issuer.name}: periods cannot be ordered</li>
-                ))}
-              </ul>
-            </section>
-          )}
           {axis.length > 0 && (
             <p className="text-caption">
               Level and differences are shown only for issuers with the same heading and unit at
@@ -529,7 +503,13 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
           <p className="text-caption text-text-secondary">
             {period}; only issuers qualifying on both measures are plotted.
           </p>
-          <div role="img" aria-label="Two measures scatter chart" className="h-56 w-full">
+          {twoPoints.length < 3 ? (
+            <p role="status" className="text-small text-gap-text">
+              {twoPoints.length
+                ? "Fewer than three qualifying issuers; exact facts are listed below, and the scatter is unavailable."
+                : "No issuers qualify on both measures; exact facts are listed below, and the scatter is unavailable."}
+            </p>
+          ) : <div role="img" aria-label="Two measures scatter chart" className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 12, right: 18, bottom: 16, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -544,7 +524,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       : writtenText(twoXBounds[1], current?.unit)
                   }
                   label={{
-                    value: `${field ? fieldLabel(data, field.id) : "Measure"} (${current?.unit || "unit not stated"})`,
+                    value: `${current?.heading || "Measure"} (${current?.unit || "unit not stated"})`,
                     position: "insideBottom",
                     offset: -8,
                   }}
@@ -560,7 +540,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                       : writtenText(twoYBounds[1], secondCurrent?.unit)
                   }
                   label={{
-                    value: `${second ? fieldLabel(data, second.id) : "Second measure"} (${secondCurrent?.unit || "unit not stated"})`,
+                    value: `${secondCurrent?.heading || "Second measure"} (${secondCurrent?.unit || "unit not stated"})`,
                     angle: -90,
                     position: "insideLeft",
                   }}
@@ -568,14 +548,14 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
                 <Scatter data={twoPoints} dataKey="y" shape={dots(selected, colours)} />
               </ScatterChart>
             </ResponsiveContainer>
-          </div>
+          </div>}
           <table aria-label="Two measures data" className="w-full text-small">
             <thead>
               <tr>
                 <th>Issuer</th>
-                <th>{field ? fieldLabel(data, field.id) : "Measure"}</th>
+                <th>{current?.heading ?? "Measure"} ({current?.unit || "unit not stated"})</th>
                 <th>Basis</th>
-                <th>{second ? fieldLabel(data, second.id) : "Second measure"}</th>
+                <th>{secondCurrent?.heading ?? "Second measure"} ({secondCurrent?.unit || "unit not stated"})</th>
                 <th>Basis</th>
                 <th>Sector</th>
                 <th>Trace</th>
@@ -584,25 +564,13 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
             <tbody>
               {twoPoints.map((point) => (
                 <tr key={point.issuer.key} aria-selected={point.issuer.key === selected}>
-                  <th>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelect(point.issuer.key);
-                      }}
-                    >
-                      {point.issuer.name}
-                    </button>
-                  </th>
+                  <th>{issuerButton(point.issuer, selected, onSelect)}</th>
                   <td>{written(point.xMember.fact)}</td>
                   <td>{point.xMember.fact.basis ?? "Basis not stated"}</td>
                   <td>{written(point.yMember.fact)}</td>
                   <td>{point.yMember.fact.basis ?? "Basis not stated"}</td>
                   <td>{point.issuer.sector ?? "Sector not stated"}</td>
-                  <td>
-                    <a href={evidenceLink(point.xMember.run, point.xMember.fact)}>X</a>{" "}
-                    <a href={evidenceLink(point.yMember.run, point.yMember.fact)}>Y</a>
-                  </td>
+                  <td>{openRun(point.issuer, point.xMember, `${operand("X", point.xMember)}; ${operand("Y", point.yMember)}`)}</td>
                 </tr>
               ))}
             </tbody>
