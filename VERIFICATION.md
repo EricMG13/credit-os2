@@ -53,7 +53,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
   only. No route uses it; no request to Microsoft, no model call, no network access; no new
   dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
-  the four oldest entries (2026-11-17).
+  the oldest entries, to stay under 1,000 lines.
 - Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
   (absolute path only; the command line has no `--root`, and refusing a folder under the root is
   slice 2's start-up check), WAL, one numbered migration, a made-here guard. On
@@ -80,6 +80,10 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   passcode log check. The changed-code gate and all three import contracts passed.
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+- Review fixes, 2026-11-27: a correct passcode no longer clears earlier failures; the made-here
+  check runs before WAL; the account commands refuse a missing store; `accounts enable`;
+  `--accounts-dir` after the sub-command; names keep U+200C and U+200D.
+
 ## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
 
 - Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
