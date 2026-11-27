@@ -85,7 +85,12 @@ function statementColumns(
 type StatementColumn = ReturnType<typeof statementColumns>[number];
 /** A column the grid draws: one of the grid's own, or a case that publishes no column for the
  * compared year (`source` null). */
-type ShownColumn = GridColumn & { source: StatementColumn | null; missing?: string };
+type ShownColumn = GridColumn & {
+  source: StatementColumn | null;
+  missing?: string;
+  /** The period a source-less case column would represent in the forecast series. */
+  forecast?: boolean;
+};
 
 const INTEREST_ROW = /^(?:Interest|Interest coverage(?: \(.*\))?)$/i;
 const NOT_PUBLISHED = "Not published";
@@ -151,6 +156,7 @@ function caseColumns(lead: StatementColumn[], kept: Kept) {
         band,
         source: null,
         missing: `This case publishes no ${period} column.`,
+        forecast: true,
       }));
     return orderPeriods(
       [...own.map((column) => shownOf(column, band)), ...absent],
@@ -182,7 +188,7 @@ function compareView(projections: StatementColumn[], period: string) {
     );
     return column
       ? shownOf(column, band, readerText(column.group))
-      : { label: readerText(member.group), band, source: null };
+      : { label: readerText(member.group), band, source: null, forecast: true };
   });
 }
 
@@ -321,7 +327,11 @@ function dateShape(column: StatementColumn, year: number): string | null {
 
 /** A trend uses only one row's own fiscal-year cells, on one case and one repeated annual basis. */
 function forecastTrend(row: Grid["rows"][number], shown: ShownColumn[]) {
-  const columns = shown.map(({ source }) => source);
+  const projections = shown.filter(({ source, forecast }) => forecast || source?.forecast);
+  const candidates = projections.length
+    ? projections
+    : shown.filter(({ source }) => source !== null);
+  const columns = candidates.map(({ source }) => source);
   if (columns.length < 3 || columns.some((column) => column === null)) return undefined;
   const comparable = columns.filter((column): column is StatementColumn => column !== null);
   const groups = new Set(comparable.map(({ rawGroup }) => rawGroup));

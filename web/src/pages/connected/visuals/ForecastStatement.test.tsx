@@ -440,6 +440,41 @@ it("leads the selected case with the latest actual year under an Actual band and
   expect(grid().queryByRole("columnheader", { name: "FY2026E" })).toBeNull();
 });
 
+it("keeps the latest reported period visible but trends only the selected case's fiscal years", () => {
+  renderGrid(revenueRow(["90", "100", "110", "120"]), [
+    { label: "LTM FY2024", group: "Last twelve months" },
+    { label: "FY2025E", group: "Base case" },
+    { label: "FY2026E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+  ]);
+
+  expect(grid().getByRole("columnheader", { name: "LTM FY2024" })).toBeInTheDocument();
+  const sparkline = within(rowOf("Revenue")).getByRole("img", {
+    name: "Revenue, FY2025E to FY2027E",
+  });
+  expect(sparkline.querySelector("path")).toHaveAttribute("data-values", "100 110 120");
+});
+
+it("keeps a history trend on its one written fiscal-year group", () => {
+  renderGrid(revenueRow(["90", "100", "110"]), [
+    { label: "FY2024", group: "Fiscal year" },
+    { label: "FY2025", group: "Fiscal year" },
+    { label: "FY2026", group: "Fiscal year" },
+  ]);
+  expect(
+    within(rowOf("Revenue")).getByRole("img", { name: "Revenue, FY2024 to FY2026" }),
+  ).toBeInTheDocument();
+});
+
+it("does not join history columns from separate written groups", () => {
+  renderGrid(revenueRow(["90", "100", "110"]), [
+    { label: "FY2024", group: "Earlier filing" },
+    { label: "FY2025", group: "Latest filing" },
+    { label: "FY2026", group: "Latest filing" },
+  ]);
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
+});
+
 it("reads Not published for a case that does not publish the compared year", () => {
   renderGrid(
     [

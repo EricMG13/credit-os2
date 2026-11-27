@@ -33,9 +33,7 @@ export type PathSchedule = {
 const MOST_CASES = 6;
 /** The axis reaches a scheduled maturity at most this many years after the last forecast year. */
 const REACH = 3;
-/** C6: a case's category slot is by its place in the cases as written: slots 3, 4 and 6 for the
- * first three (1 is chrome blue, 2 and 7 are left out, 5 shares its hex with the amount edge), and
- * slot 8 for the fourth and every later case, which the legend and direct labels name in words. */
+/** The first four cases use category slots 3, 4, 5 and 6 in written order; later cases share slot 8. */
 /** The five amount steps as swatches, smallest first (literal strings for Tailwind). */
 const AMOUNT_STEPS = [
   "bg-scale-amount-1",
@@ -47,10 +45,10 @@ const AMOUNT_STEPS = [
 const SERIES = [
   "stroke-category-3",
   "stroke-category-4",
+  "stroke-category-5",
   "stroke-category-6",
-  "stroke-category-8",
 ] as const;
-const DOTS = ["fill-category-3", "fill-category-4", "fill-category-6", "fill-category-8"] as const;
+const DOTS = ["fill-category-3", "fill-category-4", "fill-category-5", "fill-category-6"] as const;
 /** Each case keeps one dash whichever case is selected, so none differs by colour alone; the
  * selected case is drawn heavier, never with another dash. */
 const DASHES = [undefined, "7 4", "2 3", "9 3 2 3", "4 2 1 2", "1 3"] as const;
@@ -225,7 +223,7 @@ function keyOf(drawn: MeasureCase[], item: MeasureCase) {
 
 function styleOf(measure: Measure, drawn: MeasureCase[], item: MeasureCase) {
   const at = Math.max(0, drawn.indexOf(item));
-  const slot = Math.min(Math.max(0, measure.cases.indexOf(item)), SERIES.length - 1);
+  const slot = measure.cases.indexOf(item);
   return {
     stroke: SERIES[slot] ?? "stroke-category-8",
     fill: DOTS[slot] ?? "fill-category-8",

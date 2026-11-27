@@ -359,10 +359,10 @@ it("stacks the outside labels of one bar a text line apart so 0 and 92 do not ov
   expect(chart.getAttribute("aria-label")).toContain("Debt repayment FY2026E 92");
 });
 
-it("draws distributions in category slot 5 and debt repayment in slot 8 (ruling C6)", () => {
+it("draws distributions in category slot 3 and debt repayment in slot 4 (ruling C6)", () => {
   render(view());
   const chart = screen.getByRole("img");
-  expect(part(chart, "Distributions FY2025E")).toHaveClass("fill-category-5");
-  expect(part(chart, "Debt repayment FY2025E")).toHaveClass("fill-category-8");
+  expect(part(chart, "Distributions FY2025E")).toHaveClass("fill-category-3");
+  expect(part(chart, "Debt repayment FY2025E")).toHaveClass("fill-category-4");
   expect(chart.querySelector(".fill-chart-1, .fill-chart-2")).toBeNull();
 });

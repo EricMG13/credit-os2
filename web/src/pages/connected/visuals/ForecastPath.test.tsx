@@ -197,18 +197,18 @@ const fiveCases = () =>
 const strokeOf = (container: HTMLElement, group: string) =>
   container.querySelector(`[data-segment="${group}"]`)?.getAttribute("class");
 
-it("colours cases by category slots 3, 4, 6, then 8, by their place in the cases as written", () => {
+it("colours cases by category slots 3, 4, 5, 6, then 8, by written case order", () => {
   const { container } = draw(fiveCases());
   expect(strokeOf(container, "Base case")).toContain("stroke-category-3");
   expect(strokeOf(container, "Downside case")).toContain("stroke-category-4");
-  expect(strokeOf(container, "Upside case")).toContain("stroke-category-6");
-  expect(strokeOf(container, "Stress case")).toContain("stroke-category-8");
+  expect(strokeOf(container, "Upside case")).toContain("stroke-category-5");
+  expect(strokeOf(container, "Stress case")).toContain("stroke-category-6");
   expect(strokeOf(container, "Recovery case")).toContain("stroke-category-8");
 });
 
-it("keeps a case's colour when only the third case is drawn", () => {
+it("keeps a case's written-order colour when only the third case is drawn", () => {
   const { container } = draw(fiveCases(), { group: "Upside case", caseName: "Upside case" });
-  expect(strokeOf(container, "Upside case")).toContain("stroke-category-6");
+  expect(strokeOf(container, "Upside case")).toContain("stroke-category-5");
 });
 
 it("places every label inside the plot, clear of the other labels", () => {
