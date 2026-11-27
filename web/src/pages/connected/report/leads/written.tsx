@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { displayColumns, type OutputEntry, type Table } from "../../publishedReport";
 import type { SourceTable } from "../../visuals/visualData";
-import { unitCells } from "../moduleRecordsModel";
+import { unitCells } from "../../moneyUnits";
 import { Tile } from "../overview/Tile";
 import { CompactGap, Disclosure, LeadGap, TableRegion, Trace, type LeadTable } from "./parts";
 import { chartsStartingWith, IN_EVIDENCE, readerCell, rowName, WITHHELD, type Chart } from "./read";

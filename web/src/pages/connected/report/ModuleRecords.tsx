@@ -13,7 +13,7 @@ import {
   type PublishedRun,
   type Table,
 } from "../publishedReport";
-import { unitLabel } from "../moneyUnits";
+import { unitCells, unitLabel } from "../moneyUnits";
 import { FindingParagraph, isOneLine, PublishedTable } from "../ReportContent";
 import { plainText, richParts } from "../richText";
 import { traceKey } from "../reportView";
@@ -26,7 +26,6 @@ import {
   RECORD_KINDS,
   scaleNote,
   statedGap,
-  unitCells,
   unitColumn,
   type AmountColumn,
   type HeldRecord,

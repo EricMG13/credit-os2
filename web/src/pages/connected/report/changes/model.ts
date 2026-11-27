@@ -424,22 +424,11 @@ export function passageItems(
   if (!entry) return null;
   const sections = passages(entry.sections).filter((section) => section.heading === heading);
   if (sections.length === 0) return null;
-  return sections
-    .flatMap(({ blocks }) => blocks)
-    .flatMap((block): PassageItem[] => {
-      if (block.type === "table") return [{ kind: "table", table: block }];
-      if (block.type !== "text" || methodNote(block.text)) return [];
-      const body = plain(readParagraph(block.text).body);
-      if (!body) return [];
-      return [
-        {
-          kind: "text",
-          line: block.line,
-          text: containsReference(body) ? null : words(body),
-          href: evidencePath(folder, entry, block.line),
-        },
-      ];
-    });
+  return blockItems(
+    sections.flatMap(({ blocks }) => blocks),
+    entry,
+    folder,
+  );
 }
 
 /**

@@ -10,7 +10,7 @@ import { traceKey } from "../reportView";
 import { printableTable } from "../export/printTable";
 import { LegacyVisuals } from "../visuals";
 import { MaturityPair } from "./changes/MaturityPair";
-import { unitCells } from "./moduleRecordsModel";
+import { unitCells } from "../moneyUnits";
 import { typedModuleTable } from "./ModuleTable";
 
 afterEach(cleanup);
