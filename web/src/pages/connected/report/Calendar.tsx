@@ -185,10 +185,12 @@ function addCalendarEvent(
   const title = word(descriptor.lane);
   if (!title || descriptor.table <= 0 || seen.has(descriptor.table)) return;
   const block = blocks.find((item) => item.type === "table" && item.line === descriptor.table);
-  if (block?.type !== "table" || !block.rows.length) return;
+  if (block?.type !== "table") return;
+  const gap = word(descriptor.gap);
+  // A stated gap is the module's own record: it stands even when the table holds no rows.
+  if (!gap && !block.rows.length) return;
   seen.add(block.line);
   const href = evidencePath(folder, entry, block.line);
-  const gap = word(descriptor.gap);
   if (gap) {
     gaps.push({ owner, href, title, reason: gap });
     return;
