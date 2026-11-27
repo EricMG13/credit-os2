@@ -239,6 +239,22 @@ function readyField(text?: string) {
     : undefined;
 }
 
+/**
+ * The whole quotation after a page pointer: from its opening quote to the last matching closing
+ * quote, inner quotation marks included. Text that cannot be delimited without doubt (no closing
+ * quote, or unpaired straight quotes) yields nothing, never a part of the sentence.
+ */
+function filedQuotation(text: string) {
+  const opened = /^[A-Z] page:? \d+:\s*([“"])/.exec(text);
+  if (!opened) return undefined;
+  const rest = text.slice(opened[0].length);
+  const close = opened[1] === "“" ? "”" : '"';
+  const end = rest.lastIndexOf(close);
+  if (end <= 0) return undefined;
+  if (close === '"' && rest.split('"').length % 2 !== 0) return undefined;
+  return rest.slice(0, end);
+}
+
 function companyProfile(entry: OutputEntry | undefined) {
   if (!entry) return {};
   const table = frontTable(entry, "company_description — issuer profile", [
@@ -263,7 +279,7 @@ function companyProfile(entry: OutputEntry | undefined) {
   const business = fact("Business description");
   const sourceText = business?.cells[2] ?? "";
   // The quotation is the filed description. The adjacent page pointer and analyst view stay in Evidence.
-  const body = readyField(/^[A-Z] page:? \d+:\s*[“"]([^”"]+)[”"]/.exec(sourceText)?.[1]);
+  const body = readyField(filedQuotation(sourceText));
   const place = fact("Country and legal domicile");
   const country = readyField(/^([\p{L} -]+);/u.exec(place?.cells[2] ?? "")?.[1]);
   const sectorFact = namedRow(
@@ -378,11 +394,14 @@ function financialProfile(entry: OutputEntry): OwnedTable | undefined {
   };
 }
 
+/** A fiscal-year label names its year whatever date follows it: `FY2024 / 2025-02-01`. */
+const fiscalLabel = /^FY\d{4} \/ \d{4}-\d{2}-\d{2}$/;
+
 function datedColumn(table: Table, date: string | null | undefined) {
   if (!date || !reportDate(date)) return undefined;
   const dated = table.headers.flatMap((header, index) =>
     header === date ||
-    header === `FY${date.slice(0, 4)} / ${date}` ||
+    (fiscalLabel.test(header) && header.endsWith(` / ${date}`)) ||
     header === `Rolling reported periods to ${date}`
       ? [index]
       : [],
