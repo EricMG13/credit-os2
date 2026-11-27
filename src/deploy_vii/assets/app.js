@@ -561,7 +561,7 @@
     button.type = "button"; button.dataset.factId = fact.fact_id; button.dataset.moduleId = owner.module_id;
     button.setAttribute("aria-label", `Inspect ${fact.label}`);
     button.addEventListener("click", () => {
-      const kind = fact.status !== "known" ? "gap" : fact.calculation_id ? "calculated" : report.run.case_kind === "synthetic" ? "synthetic" : "cited";
+      const kind = fact.status !== "known" ? "gap" : fact.calculation_id ? "calculated" : fact.citations.length === 0 ? "uncited" : report.run.case_kind === "synthetic" ? "synthetic" : "cited";
       const fields = [["Field", `${moduleTitle(owner.title, owner.module_id)} / ${fact.table_id} / ${fact.row_id} / ${fact.field}`],
         ["Label", fact.label], ["Value class", fact.value_class], ["Source value", fact.source_amount], ["Stated comparison", fact.stated_amount],
         ["Calculation status", fact.calculation_status], ["Formula", fact.formula], ["Value", fact.display], ["Status", fact.status],
@@ -592,7 +592,7 @@
       const body = node("div"), text = node("p", null, "text-content");
       text.append(...runNodes(claim.runs, {title: "Finding", rows: []}, "")); body.append(text); body.dataset.claimId = claim.claim_id;
       const evidence = node("button", "Inspect supporting evidence", "source-button"); evidence.type = "button";
-      evidence.addEventListener("click", () => openInspector(() => passportCard(report.run.case_kind === "synthetic" ? "synthetic" : "cited", claim.claim_id, claim.plain, [
+      evidence.addEventListener("click", () => openInspector(() => passportCard(claim.citations.length === 0 ? "uncited" : report.run.case_kind === "synthetic" ? "synthetic" : "cited", claim.claim_id, claim.plain, [
         ["Claim", claim.claim_id], ["Evidence", sourceText(claim.citations) || "No citation supplied"], ["Limitation", claim.limitation], ["Artifact SHA-256", module.artifact_sha256]]), null, evidence));
       body.append(evidence); content.append(panel("Finding", body));
     });
