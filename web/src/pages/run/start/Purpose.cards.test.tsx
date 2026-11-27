@@ -109,7 +109,9 @@ describe("pathway cards", () => {
       expect(bar?.style.background).toBe(background);
     });
     expect(fill("No cap")).toBeNull();
-    expect(screen.getAllByText("Bar length and shade: the cap against the largest cap shown")).toHaveLength(1);
+    expect(
+      screen.getAllByText("Bar length and shade: the cap against the largest cap shown"),
+    ).toHaveLength(1);
   });
 
   it("draws empty tracks and no step when every cap is zero", () => {
