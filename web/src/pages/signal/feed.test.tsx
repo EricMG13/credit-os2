@@ -96,10 +96,10 @@ describe("the feed list and the story card", () => {
       card.getByText("The charge lands in the quarter its leverage covenant steps down."),
     ).toBeInTheDocument();
     const strong = card.getByRole("img", { name: "Strong signal" });
-    expect(strong.querySelectorAll("svg.fill-current")).toHaveLength(3);
+    expect(strong.querySelectorAll("svg.fill-scale-amount-5")).toHaveLength(3);
     expect(strong.querySelectorAll("svg")).toHaveLength(3);
     const light = story(BRIGHTWELL).getByRole("img", { name: "Light signal" });
-    expect(light.querySelectorAll("svg.fill-current")).toHaveLength(1);
+    expect(light.querySelectorAll("svg.fill-scale-amount-1")).toHaveLength(1);
   });
 
   it("draws the delivered also-in label with its monograms, and the shared-by line", () => {
