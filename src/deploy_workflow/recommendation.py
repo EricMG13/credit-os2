@@ -207,7 +207,9 @@ def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
     _finite_figures(instrument)
     in_bucket = [  # a position with no stated asset type is read as the instrument's
         row
-        for row in rows(portfolio, rating_bucket=instrument.rating_bucket)
+        for row in rows(
+            portfolio, rating_bucket=instrument.rating_bucket, read_as=instrument.asset_type
+        )
         if row.position.asset_type in (instrument.asset_type, None)
     ]
     bucket_rows = [row for row in in_bucket if row.spread is not None]
