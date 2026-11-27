@@ -51,12 +51,23 @@ function scenarioName(title: string) {
   return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : title;
 }
 
-/** A chart with nothing for a figure to place: the module states it as one gap, or every amount of
- * its step table as a gap. */
-function figureless(chart: Chart) {
-  if (chart.state === "gap") return true;
-  const read = bridgeOf(chart);
-  return Boolean(read?.steps.length) && read?.steps.every((step) => step.cell.value === null);
+type BridgeRead = ReturnType<typeof bridgeOf>;
+
+const NUMBERED_SCENARIO = /^Scenario \d+$/i;
+const UNPUBLISHED_SCENARIO =
+  /^(?:no (?:second |third |additional |further )?scenario(?: (?:exists|(?:is )?(?:published|supplied)))?|scenario (?:is |was )?not published)\.?$/i;
+
+/** Omit a numbered slot when its gap or every step explicitly says the scenario is absent. */
+function unpublishedPlaceholder(title: string, chart: Chart, read: BridgeRead) {
+  if (!NUMBERED_SCENARIO.test(scenarioName(title))) return false;
+  if (chart.state === "gap") return UNPUBLISHED_SCENARIO.test(chart.reason);
+  return Boolean(
+    read?.steps.length &&
+    read.steps.every(
+      ({ cell }) =>
+        cell.value === null && UNPUBLISHED_SCENARIO.test(statedGap(cell.text)?.reason ?? ""),
+    ),
+  );
 }
 
 /** The fulcrum as the module's register states it (a figure or its own stated gap), else null. */
@@ -95,9 +106,9 @@ function Fulcrum({ entry }: { entry: Entry }) {
 }
 
 function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
-  const all = chartsStartingWith(entry, TITLE);
-  // When no scenario carries a figure, the module's later scenarios restate one gap: draw the first.
-  const scenarios = all.some(({ chart }) => !figureless(chart)) ? all : all.slice(0, 1);
+  const scenarios = chartsStartingWith(entry, TITLE)
+    .map((item) => ({ ...item, read: bridgeOf(item.chart) }))
+    .filter(({ title, chart, read }) => !unpublishedPlaceholder(title, chart, read));
   const [chosen, choose] = useState(scenarios[0]?.title ?? "");
   const current = scenarios.find((item) => item.title === chosen) ?? scenarios[0];
   // An allocation the module wrote as prose only is the frame's, in the module's words.
@@ -108,8 +119,7 @@ function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
   );
   if (!current)
     return prose ? null : <LeadGap span={12} label={TITLE} title={TITLE} reason={NO_ALLOCATION} />;
-  const { chart } = current;
-  const read = bridgeOf(chart);
+  const { chart, read } = current;
   const table = read ? writtenTable(read.table, href) : undefined;
   const scenario = scenarios.length > 1 && (
     <Segmented
@@ -136,7 +146,7 @@ function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
         <div className="flex min-w-0 flex-col gap-3">
           {!read ? (
             <CompactGap>{chart.state === "gap" ? chart.reason : NO_ALLOCATION}</CompactGap>
-          ) : figureless(chart) ? (
+          ) : read.steps.length > 0 && read.steps.every((step) => step.cell.value === null) ? (
             <div className="flex flex-col gap-1.5">
               {read.steps.map((step) => (
                 <span key={step.line} className="flex flex-wrap items-baseline gap-x-2 text-small">
