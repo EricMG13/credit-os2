@@ -9,7 +9,12 @@ import {
   periodList,
   scenarioComparisonNotice,
 } from "../visuals/scenarioPeriods";
-import { drawnAmount, drawnReason, EVIDENCE_AMOUNT } from "../visuals/drawnQualifications";
+import {
+  drawnAmount,
+  drawnReason,
+  EVIDENCE_AMOUNT,
+  EVIDENCE_REASON,
+} from "../visuals/drawnQualifications";
 import { amount, record, word } from "../visuals/visualData";
 import {
   blocked,
@@ -59,7 +64,36 @@ export const drawnCellText = (text: string) =>
  * reason rule. It never says an amount is recorded where the module wrote a gap.
  */
 export const drawnGapText = (text: string) =>
-  citationFree(text) ?? (text.trim() ? drawnReason(text) : "");
+  citationFree(text) ?? (text.trim() ? drawnGapReason(text) : "");
+
+/** What drawnAmount judges in one piece: it returns null over this many characters. */
+const JUDGED = 160;
+
+/**
+ * Whether text cites a source, marker or note in a form drawnAmount recognises. Text over the
+ * judged length is read in overlapping word windows, because drawnAmount returns null for it
+ * whole; a window can only over-hide a reason, never let a citation through.
+ */
+function cites(text: string) {
+  const whole = text.trim();
+  if (whole.length <= JUDGED) return whole !== "" && drawnAmount(whole) !== whole;
+  const words = whole.split(/\s+/u);
+  for (let at = 0; at < words.length; at += 4) {
+    const piece = words.slice(at, at + 8).join(" ");
+    if (drawnAmount(piece) !== piece) return true;
+  }
+  return false;
+}
+
+/** A recorded reason as the reader rule draws it, with no citation in any form. */
+export function drawnGapReason(reason: string) {
+  const why = drawnReason(reason);
+  return cites(why) ? (drawnAmount(why) ?? EVIDENCE_REASON) : why;
+}
+
+/** Whether a cell with no parsed value is a gap the module wrote, not a stated level. */
+export const wroteGap = ({ text, reason }: { text: string; reason: string | null }) =>
+  reason !== null || /^Not (?:supplied|calculated)\b/u.test(text.trim());
 
 const byPeriod = <T extends { period: string }>(cells: readonly T[]) =>
   orderPeriods(cells, ({ period }) => period).ordered;
@@ -544,7 +578,7 @@ function gapFigure(header: string, cell: string): GapFigure {
   const text = cell.trim();
   const drawn = citationFree(text);
   if (drawn === null) {
-    return containsReference(text)
+    return cites(text)
       ? { header, text: NOT_STATED_IN_ROW, value: null }
       : { header, text: plain(text), value: amount(text.replaceAll("−", "-")) };
   }
@@ -595,10 +629,7 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
       figures: figures.length ? figures : [{ header: "", text: NOT_STATED_IN_ROW, value: null }],
       unit: gapUnit(table.headers, row.cells, values),
       unitInFigure: figures.some(
-        ({ text, value }) =>
-          value === null &&
-          text !== NOT_STATED_IN_ROW &&
-          OWN_UNIT.test(text.replace(/\([^()]*\)|\[[^[\]]*\]/gu, "")),
+        ({ text, value }) => value === null && text !== NOT_STATED_IN_ROW && OWN_UNIT.test(text),
       ),
       notes,
       horizon: horizonText && !containsReference(horizonText) ? plain(horizonText) : null,

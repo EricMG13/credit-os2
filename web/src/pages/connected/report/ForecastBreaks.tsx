@@ -4,10 +4,12 @@ import { cx } from "@/utils/cx";
 import { moduleName } from "../api";
 import { evidencePath, unitLabel, type OutputEntry } from "../publishedReport";
 import type { ReportView } from "../reportView";
-import { drawnReason, sentence } from "../visuals/drawnQualifications";
+import { sentence } from "../visuals/drawnQualifications";
 import {
   drawnCellText,
+  drawnGapReason,
   drawnGapText,
+  wroteGap,
   cellsOf,
   absentText,
   covenantTests,
@@ -133,13 +135,13 @@ type ListItem = {
 
 /** A gap's drawn words, then its recorded reason as the reader rule draws it, when it has one. */
 const reasoned = (text: string, reason = "") => {
-  const why = drawnReason(reason);
+  const why = drawnGapReason(reason);
   return why ? `${text}: ${why}` : text;
 };
 
 /** A cell as the page draws it: a value as written, a gap with its reason rule. */
-const drawnCell = ({ text, value }: { text: string; value: number | null }) =>
-  value === null ? drawnGapText(text) : drawnCellText(text);
+const drawnCell = (cell: { text: string; reason: string | null }) =>
+  wroteGap(cell) ? drawnGapText(cell.text) : drawnCellText(cell.text);
 
 /** A list of published figures, each on one scale from zero shared by the list only, each with
  * its own trace. A figure the module does not give keeps the module's words. */
@@ -230,7 +232,7 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
         items={items.map((item) => ({
           key: item.key,
           label: item.label,
-          text: drawnCell(item.cell ?? { text: "", value: null }),
+          text: drawnCell(item.cell ?? { text: "", reason: null }),
           value: item.cell?.value ?? null,
           trace: rowTrace(folder, schedule.entry, item.line, `debt maturing, ${item.label}`),
         }))}
@@ -305,17 +307,17 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
               <span>
                 Level{" "}
                 {test.threshold.value === null ? (
-                  <GapChip>{drawnGapText(test.threshold.text)}</GapChip>
+                  <GapChip>{drawnCell(test.threshold)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{drawnCellText(test.threshold.text)}</Figure>
+                  <Figure className="text-mono">{drawnCell(test.threshold)}</Figure>
                 )}
               </span>
               <span>
                 Current{" "}
                 {test.current.value === null ? (
-                  <GapChip>{drawnGapText(test.current.text)}</GapChip>
+                  <GapChip>{drawnCell(test.current)}</GapChip>
                 ) : (
-                  <Figure className="text-mono">{drawnCellText(test.current.text)}</Figure>
+                  <Figure className="text-mono">{drawnCell(test.current)}</Figure>
                 )}
               </span>
               {test.headroom && (
@@ -581,7 +583,9 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
           const words = gapText(cell);
           return words === null
             ? []
-            : [`${scenario}, ${panel.measure}: ${sentence(drawnReason(words))}`];
+            : [
+                `${scenario}, ${panel.measure}: ${sentence(wroteGap(cell) ? drawnGapReason(words) : drawnCellText(words))}`,
+              ];
         }
         const text = drawnCellText(cell.text);
         return lead(text) !== text ? [`${scenario}, ${panel.measure}: ${text}.`] : [];

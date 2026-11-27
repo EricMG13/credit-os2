@@ -14,7 +14,6 @@ import {
 } from "../publishedReport";
 import type { ReportView } from "../reportView";
 import type { forecastCaseOptions } from "../visuals/LegacyForecast";
-import { drawnReason } from "../visuals/drawnQualifications";
 import {
   absentText,
   cellsOf,
@@ -25,6 +24,7 @@ import {
   periodList,
   type MeasureCell,
   type MeasureRead,
+  drawnGapReason,
 } from "./forecastData";
 import { gapLine } from "./gapLine";
 import { caseRationale } from "./caseRationale";
@@ -374,7 +374,7 @@ export function ForecastHeader({
 
 /** A year with no figure, named with the model's reason as the reader rule draws it. */
 function notCalculated({ period, reason }: MeasureCell) {
-  const why = drawnReason(reason);
+  const why = drawnGapReason(reason);
   return `${period} not calculated${why ? `: ${why}` : ""}`;
 }
 

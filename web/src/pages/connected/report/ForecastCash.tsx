@@ -7,9 +7,9 @@ import {
   forecastMeasure,
   type Measure,
   type MeasureCell,
+  drawnGapReason,
 } from "./forecastData";
 import { unitLabel } from "../publishedReport";
-import { drawnReason } from "../visuals/drawnQualifications";
 import type { ForecastSource } from "./ForecastRecord";
 import { GapNote, Tile } from "./overview/Tile";
 
@@ -64,7 +64,7 @@ function stepFor(max: number) {
 }
 
 function reasonOf(cell: MeasureCell | undefined) {
-  return cell ? drawnReason(cell.reason) || "No value published" : "Not published";
+  return cell ? drawnGapReason(cell.reason) || "No value published" : "Not published";
 }
 
 const isNegative = (cell: MeasureCell | undefined) => (cell?.value ?? 0) < 0;
