@@ -21,7 +21,7 @@ import { MediaObject } from "./parts/MediaObject";
 import { useOnGone, useOpener, focusAgainIfLost } from "./parts/focus";
 import { FormDialog } from "./parts/FormDialog";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
-import { Composer, MessageList } from "./parts/Messages";
+import { Composer, MessageList, type ComposerProps } from "./parts/Messages";
 import type { OwnComments, ReactionWord } from "./parts/Messages";
 import type { SignalComment, SignalGroup, SignalScene, SignalStory, SignalThread } from "./slice";
 import { SignalViewerContext, useSignalViewer } from "./viewer";
@@ -92,18 +92,12 @@ function ConversationFooter({
   thread,
   writer,
   viewer,
-  replyTo,
-  box,
-  onSend,
-  onCancelReply,
+  composer,
 }: {
   thread: SignalThread;
   writer: boolean;
   viewer: ReturnType<typeof useSignalViewer>;
-  replyTo: SignalComment | null;
-  box: RefObject<HTMLTextAreaElement | null>;
-  onSend: (text: string) => void;
-  onCancelReply: () => void;
+  composer: Omit<ComposerProps, "name" | "initials">;
 }) {
   let footer;
   if (thread.archived) {
@@ -113,16 +107,7 @@ function ConversationFooter({
   } else if (viewer.name === null || viewer.initials === null) {
     footer = <p className={NOTE}>Your account details are unavailable.</p>;
   } else {
-    footer = (
-      <Composer
-        name={viewer.name}
-        initials={viewer.initials}
-        replyingTo={replyTo === null ? null : replyTo.author.name}
-        onCancelReply={onCancelReply}
-        onSend={onSend}
-        boxRef={box}
-      />
-    );
+    footer = <Composer name={viewer.name} initials={viewer.initials} {...composer} />;
   }
   return <SlideoutMenu.Footer>{footer}</SlideoutMenu.Footer>;
 }
@@ -322,10 +307,16 @@ function Conversation({
   const viewerContext = useContext(SignalViewerContext);
   const box = useRef<HTMLTextAreaElement>(null);
   const [moderating, setModerating] = useState<SignalComment | null>(null);
-  // A comment shows at once. On a service it is sent, and once answered the thread read again
-  // holds it (or the service refused it), so the page's own copy goes.
+  // Sample posts stay in memory. On a service the refreshed thread supplies accepted posts.
   const [added, setAdded] = useState<Added[]>([]);
-  const [replyTo, setReplyTo] = useState<SignalComment | null>(null);
+  const [draft, setDraft] = useState<{ text: string; replyTo: SignalComment | null }>({
+    text: "",
+    replyTo: null,
+  });
+  const [sending, setSending] = useState(false);
+  const setReplyTo = (replyTo: SignalComment | null) => {
+    setDraft((current) => ({ ...current, replyTo }));
+  };
   const [refused, setRefused] = useState({ count: 0, text: "" });
   const refuse = (text: string) => {
     setRefused((last) => ({ count: last.count + 1, text }));
@@ -353,34 +344,43 @@ function Conversation({
   const named = viewer.name !== null && viewer.initials !== null;
   const canWrite = writer && !thread.archived;
   const send = (text: string) => {
-    if (viewer.name === null || viewer.initials === null) {
-      throw new Error("the composer was drawn with no viewer name");
-    }
-    const comment: SignalComment = {
-      id: freshId(thread, added),
-      author: { initials: viewer.initials, name: viewer.name },
-      own: true,
-      time: null,
-      text,
-      edited: false,
-      removed: false,
-      reactions: [],
-      replies: [],
-    };
-    const entry: Added = { parentId: replyTo?.id ?? null, comment };
-    setAdded((held) => [...held, entry]);
-    setReplyTo(null);
+    const { replyTo } = draft;
     setRefused((last) => ({ ...last, text: "" }));
-    if (actions !== null) {
-      const request =
-        replyTo === null ? writes.comment(thread.id, text) : writes.reply(replyTo.id, text);
-      void actions.write(request).then(({ refusal, stale }) => {
-        setAdded((held) => held.filter((one) => one !== entry));
-        if (refusal !== null) refuse(refusal);
-        else if (stale === true) refuse(STALE_SENTENCE);
-      });
+    const accept = () => {
+      setDraft((current) => (current === draft ? { text: "", replyTo: null } : current));
+      say(replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`);
+    };
+    if (actions === null) {
+      if (viewer.name === null || viewer.initials === null) {
+        throw new Error("the composer was drawn with no viewer name");
+      }
+      const comment: SignalComment = {
+        id: freshId(thread, added),
+        author: { initials: viewer.initials, name: viewer.name },
+        own: true,
+        time: null,
+        text,
+        edited: false,
+        removed: false,
+        reactions: [],
+        replies: [],
+      };
+      setAdded((held) => [...held, { parentId: replyTo?.id ?? null, comment }]);
+      accept();
+      return;
     }
-    say(replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`);
+    setSending(true);
+    const request =
+      replyTo === null ? writes.comment(thread.id, text) : writes.reply(replyTo.id, text);
+    void actions.write(request).then(({ refusal, stale }) => {
+      setSending(false);
+      if (refusal !== null) {
+        refuse(refusal);
+        return;
+      }
+      accept();
+      if (stale === true) refuse(STALE_SENTENCE);
+    });
   };
   const onToggle = (comment: SignalComment, word: ReactionWord) => {
     reactions.toggle(pressKey(comment, word), mine(comment, word));
@@ -435,11 +435,20 @@ function Conversation({
         thread={thread}
         writer={writer}
         viewer={viewer}
-        replyTo={replyTo}
-        box={box}
-        onSend={send}
-        onCancelReply={() => {
-          setReplyTo(null);
+        composer={{
+          replyingTo: draft.replyTo?.author.name ?? null,
+          draft: {
+            text: draft.text,
+            sending,
+            onChange: (text) => {
+              setDraft((current) => ({ ...current, text }));
+            },
+          },
+          boxRef: box,
+          onSend: send,
+          onCancelReply: () => {
+            setReplyTo(null);
+          },
         }}
       />
     </>

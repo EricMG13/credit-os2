@@ -1,8 +1,7 @@
 // The conversation (I7, structure from sources/live-pages.md, look from mock/signal.css `.m`, `.bub`,
 // `.rx`, `.cmp`): an ordered list of comments with one level of replies, and the composer. Comment
-// text is plain text (never HTML, no link detection). Nothing here keeps state of its own except the
-// composer's text and an edit's text: the page owns what was posted, which reactions were toggled
-// and which comment is being edited. On a service a comment its author may still change (the
+// text is plain text (never HTML, no link detection). The page owns posted comments, reactions and
+// which comment is being edited. On a service a comment its author may still change (the
 // delivered `canEdit`, `canRemove`) has Edit, which puts the text in a box in place, and Remove.
 import { useEffect, useRef, useState, type RefObject, type SyntheticEvent } from "react";
 import { Button } from "@/components/base/buttons/button";
@@ -386,14 +385,16 @@ export function MessageList({ comments, ...rest }: ListProps) {
   );
 }
 
-type ComposerProps = {
+export type ComposerProps = {
   /** The viewer's name and initials, as the frame shows them under the box. */
   name: string;
   initials: string | null;
   /** The comment being replied to, or null for a new top-level comment. */
   replyingTo: string | null;
   onCancelReply: () => void;
-  /** Gets the text with its ends trimmed; the composer clears itself after. */
+  /** The thread can keep text and reply target together while a live request settles. */
+  draft?: { text: string; onChange: (text: string) => void; sending: boolean };
+  /** Gets the text with its ends trimmed. */
   onSend: (text: string) => void;
   boxRef: RefObject<HTMLTextAreaElement | null>;
 };
@@ -403,19 +404,26 @@ export function Composer({
   initials,
   replyingTo,
   onCancelReply,
+  draft,
   onSend,
   boxRef,
 }: ComposerProps) {
-  const [text, setText] = useState("");
+  const [localText, setLocalText] = useState("");
+  const { text, onChange, sending } = draft ?? {
+    text: localText,
+    onChange: setLocalText,
+    sending: false,
+  };
   const [empty, setEmpty] = useState(false);
   const submit = (event: SyntheticEvent) => {
     event.preventDefault();
+    if (sending) return;
     const sent = text.trim();
     if (sent === "") {
       setEmpty(true);
     } else {
       setEmpty(false);
-      setText("");
+      if (draft === undefined) setLocalText("");
       onSend(sent);
     }
     // Focus stays in the box after a send and after an empty one.
@@ -446,7 +454,7 @@ export function Composer({
           rows={3}
           value={text}
           onChange={(next) => {
-            setText(next);
+            onChange(next);
             setEmpty(false);
           }}
           textAreaRef={boxRef}
@@ -458,7 +466,13 @@ export function Composer({
             <Avatar size="xs" initials={initials} own />
             {name}
           </span>
-          <Button size="sm" color="link-color" className="min-h-8" type="submit">
+          <Button
+            size="sm"
+            color="link-color"
+            className="min-h-8"
+            type="submit"
+            isDisabled={sending}
+          >
             Send
           </Button>
         </div>

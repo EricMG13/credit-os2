@@ -370,7 +370,7 @@ export function GroupsSection({
         topics={topics}
         topicsHref={topicsHref}
         onClose={() => {
-          setForm({ ...form, open: false });
+          setForm((current) => (current === form ? { ...current, open: false } : current));
         }}
         onGone={opener.restore}
       />

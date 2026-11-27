@@ -5,10 +5,11 @@
 // On a service the form adds a digest or changes one of the viewer's, which are listed above it
 // with Run once now, Edit and Delete; what a run did is the service's own sentence. No model is
 // called by the page: the service decides, and says, whether an issue was written.
+import { useLayoutEffect, useRef } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
-import { usePageWrite, type SignalPageWrite } from "../actions";
+import { usePageWrite, type SignalPageWrite, type SignalWrite } from "../actions";
 import { TextArea } from "../parts/TextArea";
 import type { SignalDigest, SignalDigestForm } from "../slice";
 import { writes } from "../writes";
@@ -79,14 +80,14 @@ function bodyOf(edited: SignalDigest | null, value: Value): Record<string, unkno
 function DigestList({
   digests,
   page,
-  editing,
   onEdit,
+  onDelete,
   form,
 }: {
   digests: SignalDigest[];
   page: SignalPageWrite;
-  editing: string | null;
   onEdit: (edit: Edit) => void;
+  onDelete: (id: string) => void;
   form: SignalDigestForm;
 }) {
   if (digests.length === 0) return <p className="text-small text-text-tertiary">No digests yet.</p>;
@@ -94,11 +95,6 @@ function DigestList({
     void page.send(writes.runDigest(digest.id)).then(({ reply }) => {
       const message = (reply as { message?: unknown } | null)?.message;
       if (typeof message === "string") page.note(message);
-    });
-  };
-  const drop = (digest: SignalDigest) => {
-    void page.send(writes.dropDigest(digest.id)).then(({ refusal }) => {
-      if (refusal === null && editing === digest.id) onEdit(null);
     });
   };
   return (
@@ -136,7 +132,7 @@ function DigestList({
             color="tertiary"
             aria-label={`Delete: ${digest.name}`}
             onPress={() => {
-              drop(digest);
+              onDelete(digest.id);
             }}
           >
             Delete
@@ -156,7 +152,7 @@ function FormActions({
 }: {
   page: SignalPageWrite | null;
   editing: boolean;
-  onSave: () => void;
+  onSave: (() => void) | undefined;
   onCancel: () => void;
 }) {
   if (page !== null) {
@@ -167,7 +163,7 @@ function FormActions({
             Cancel edit
           </Button>
         ) : null}
-        <Button color="primary" onPress={onSave}>
+        <Button color="primary" onPress={onSave} isDisabled={onSave === undefined}>
           Save digest
         </Button>
       </div>
@@ -212,26 +208,52 @@ export function DigestsSection({
   onEdit: (edit: Edit) => void;
 }) {
   const page = usePageWrite();
-  const edited = digests.find((digest) => digest.id === editing) ?? null;
-  const save = () => {
-    void page?.send(writes.digest(edited?.id ?? null, bodyOf(edited, value))).then((answer) => {
-      if (answer.refusal === null) onEdit(null);
+  const draftRef = useRef({});
+  useLayoutEffect(
+    () => () => {
+      draftRef.current = {};
+    },
+    [],
+  );
+  const selectEdit = (edit: Edit) => {
+    draftRef.current = {};
+    onEdit(edit);
+  };
+  const changeField = (field: keyof Value, text: string) => {
+    draftRef.current = {};
+    onChange(field, text);
+  };
+  const send = (request: SignalWrite, clearsDraft: boolean) => {
+    if (clearsDraft) draftRef.current = {};
+    const draft = draftRef.current;
+    void page?.send(request).then(({ refusal }) => {
+      if (clearsDraft && refusal === null && draftRef.current === draft) selectEdit(null);
     });
   };
+  const edited = digests.find((digest) => digest.id === editing) ?? null;
+  const missing = editing !== null && edited === null;
   return (
     <Section
-      title={edited === null ? form.name : `Edit ${edited.name}`}
+      title={missing ? "Edit digest" : edited === null ? form.name : `Edit ${edited.name}`}
       hint="A digest is written by a model from the stories it covers, on its schedule."
     >
       <div className="flex max-w-[640px] flex-col gap-5">
         {page === null ? null : (
-          <DigestList digests={digests} page={page} editing={editing} onEdit={onEdit} form={form} />
+          <DigestList
+            digests={digests}
+            page={page}
+            onEdit={selectEdit}
+            onDelete={(id) => {
+              send(writes.dropDigest(id), editing === id);
+            }}
+            form={form}
+          />
         )}
         <Input
           label="Name"
           value={value.name}
           onChange={(text) => {
-            onChange("name", text);
+            changeField("name", text);
           }}
         />
         <Choice
@@ -240,7 +262,7 @@ export function DigestsSection({
           options={form.coversOptions}
           value={value.covers}
           onChange={(text) => {
-            onChange("covers", text);
+            changeField("covers", text);
           }}
         />
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -249,7 +271,7 @@ export function DigestsSection({
             options={form.scheduleOptions}
             value={value.schedule}
             onChange={(text) => {
-              onChange("schedule", text);
+              changeField("schedule", text);
             }}
           />
           <Choice
@@ -257,7 +279,7 @@ export function DigestsSection({
             options={form.lengthOptions}
             value={value.length}
             onChange={(text) => {
-              onChange("length", text);
+              changeField("length", text);
             }}
           />
         </div>
@@ -267,15 +289,26 @@ export function DigestsSection({
           rows={3}
           value={value.brief}
           onChange={(text) => {
-            onChange("brief", text);
+            changeField("brief", text);
           }}
         />
+        {missing ? (
+          <p role="status" className="text-small text-text-secondary">
+            This digest no longer exists. Cancel the edit to start a new digest.
+          </p>
+        ) : null}
         <FormActions
           page={page}
-          editing={edited !== null}
-          onSave={save}
+          editing={editing !== null}
+          onSave={
+            missing
+              ? undefined
+              : () => {
+                  send(writes.digest(editing, bodyOf(edited, value)), true);
+                }
+          }
           onCancel={() => {
-            onEdit(null);
+            selectEdit(null);
           }}
         />
       </div>
