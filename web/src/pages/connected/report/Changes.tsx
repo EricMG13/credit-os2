@@ -12,6 +12,7 @@ import {
   type PublishedChanges,
   type PublishedRun,
   type Snapshot,
+  withoutReferences,
 } from "../publishedReport";
 import { PublishedTable } from "../ReportContent";
 import { MaturityPair, usableProfile } from "./changes/MaturityPair";
@@ -45,13 +46,23 @@ const BUTTON = "min-h-8 max-[480px]:min-h-11";
 export function ComparisonTable({
   rows,
   source,
+  evidence = true,
 }: {
   rows: string[][];
   source?: (label: string, index: number) => string | undefined;
+  /** True (the Evidence page) draws a cell's references; false keeps only its own words. */
+  evidence?: boolean;
 }) {
+  // PublishedTable's reader mode would add its own link or "unavailable" note to a citing cell;
+  // the row already has its one trace control, so the cell's references are dropped here.
+  const drawn = evidence
+    ? rows
+    : rows.map((cells) =>
+        cells.map((cell) => (containsReference(cell) ? withoutReferences(cell) : cell)),
+      );
   return (
     <PublishedTable
-      rowHref={(line) => source?.(rows[line]?.[0] ?? "", line)}
+      evidence
       rowSource={
         source &&
         ((line, label) => {
@@ -76,7 +87,7 @@ export function ComparisonTable({
           "Comparability",
           "Analysis change",
         ],
-        rows: rows.map((cells, line) => ({ cells, line })),
+        rows: drawn.map((cells, line) => ({ cells, line })),
       }}
     />
   );
@@ -302,7 +313,11 @@ function Measures({
       )}
       {view === "table" ? (
         <section aria-label="Earlier against current">
-          <ComparisonTable rows={rows} source={(_label, index) => hrefs.get(index)} />
+          <ComparisonTable
+            rows={rows}
+            evidence={false}
+            source={(_label, index) => hrefs.get(index)}
+          />
         </section>
       ) : (
         <>
