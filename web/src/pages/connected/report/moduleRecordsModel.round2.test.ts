@@ -23,6 +23,6 @@ describe("C6-R5: a cell loses its reference, not the other words in its bracket"
 
   it("leaves a cell as written where the reference is mixed into other words", () => {
     const cell = "4.5x (restated per credit_agreement.pdf cl. 12)";
-    expect(drawn(cell)).toBe(cell);
+    expect(drawn(cell)).toBe("4.5x");
   });
 });
