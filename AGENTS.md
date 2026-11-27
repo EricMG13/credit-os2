@@ -136,3 +136,28 @@ the tested candidate and base. The owner authorizes the merge.
 Record confirmed finding and repair evidence, resolved model/effort, scope, time and available
 cost against the existing run. Treat unknown or mixed causation as ungraded for route changes.
 Apply only model routes within approved bounds and qualified for that client and environment.
+
+### Running the development coordinator locally
+
+Use the coordinator tools from the current approved checkout. All participating worktrees
+share one absolute ledger path under the primary checkout's ignored `.superpowers/` directory.
+For a standard Git worktree, the parent of `git rev-parse --path-format=absolute --git-common-dir`
+is the primary checkout. Keep the database and local evidence there across session restarts.
+
+1. Run `tools/dev_ledger.py card SPEC_FILE PLAN_FILE`. Verify the cached target against GitHub,
+   inspect applicable rulings, and show the resulting document digests in the approval card.
+   Include the deadline, workers, cost cap and unit, and the permitted client, model and effort.
+   Once the owner approves, call `tools/dev_ledger.py --db DB approve RUN SPEC_FILE PLAN_FILE
+   CAP WORKERS DEADLINE_UNIX SHOWN_SPEC_SHA256 SHOWN_PLAN_SHA256 --dispatch-policy POLICY_FILE
+   --shown-policy SHOWN_POLICY_SHA256`. The policy records the approved client, allowlisted
+   model and effort pairs, maximum attempt duration and billing mode. A changed file requires
+   a new approval card. Use `start` with symbolic revision names only for disposable tests.
+2. At each milestone read `status RUN`. For “explain D-04”, use `explain RUN D-04` on the
+   ledger that issued the decision. Translate its consequence, reason and evidence into plain
+   English. Record each redirect with its expected revision and a fresh decision ID. Preserve
+   the original ID in the redirect payload. A pause or resume uses the corresponding `action`.
+   Identify the affected work when explaining why an earlier result cannot be integrated.
+3. A model route needs recorded, independent outcomes for its client and task family. Feed
+   completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
+   Show changes to the selected route with their decision IDs. A model trial, a browser journey
+   and a merged change each have their own verification scope.
