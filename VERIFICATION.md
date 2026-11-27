@@ -4,6 +4,14 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Signal reservation and paid write follow-up
+
+- Independent review of `016302d3` found a stale worker could reserve after its claim had been
+  recovered and a paid write fault could allow a manual retry before the next slot. Both new
+  cases failed first with two SQLite connections and fake models. The repair checks ownership in
+  the transaction that reserves the call and records paid storage faults at the planned story
+  mark. 163 targeted tests passed, including the request handler and recovery tests. No live call.
+
 ## 2026-11-27 — Sectioned review integration against main
 
 - Combined draft `686d9837` with main `06e1c997`. Resolved twelve conflict paths. Kept main's

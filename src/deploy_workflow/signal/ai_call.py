@@ -168,6 +168,7 @@ def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuratio
     config_id: str,
     usd: Decimal,
     owner: str | None,
+    claim: ai_ledger.DigestClaim | None,
 ) -> int:
     """The gate checked again, then the hold; ai_ledger.Refused (nothing held) when it is off or
     no longer names `config_id`, or a limit refuses it."""
@@ -178,7 +179,7 @@ def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuratio
     if gate.config_id != config_id:
         raise ai_ledger.Refused(f"the ruling no longer allows {config_id}")
     return ai_ledger.reserve(
-        db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap, owner=owner
+        db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap, owner=owner, claim=claim
     )
 
 
@@ -259,6 +260,7 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
     prompt: Prompt,
     *,
     owner: str | None = None,
+    claim: ai_ledger.DigestClaim | None = None,
 ) -> Answer:
     """Check the gate, reserve, make one call, settle. ai_ledger.Refused when no call may be made
     (nothing is held then); a digest call names its digest's `owner` (the per-name limit). A
@@ -269,7 +271,7 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
     homes = Path.cwd() / HOMES  # where the adapter makes this exchange's home
     try:
         store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
-        call_id = _reserve(db, guard, purpose, model.config_id, usd, owner)
+        call_id = _reserve(db, guard, purpose, model.config_id, usd, owner, claim)
     except sqlite3.OperationalError as error:
         if not ai_ledger.is_busy(error):
             raise

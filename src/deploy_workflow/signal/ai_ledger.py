@@ -88,6 +88,16 @@ class Refused(Exception):
     """No call is made: no cap is set, the pass is switched off, or the call would pass the cap."""
 
 
+class ClaimLost(Refused):
+    """This digest claim has already been released, recovered or replaced."""
+
+
+@dataclass(frozen=True)
+class DigestClaim:
+    digest_id: int
+    claimed_at: str
+
+
 class NameFull(Refused):
     """No call is made: the digests of this name have made the day's calls a name may make."""
 
@@ -352,6 +362,18 @@ def _prune(db: sqlite3.Connection, now: datetime) -> None:
     )
 
 
+def _claim_refusal(
+    db: sqlite3.Connection, owner: str | None, claim: DigestClaim | None
+) -> ClaimLost | None:
+    if claim is None:
+        return None
+    row = db.execute(
+        "SELECT 1 FROM digests WHERE id=? AND owner=? AND claimed_at=?",
+        (claim.digest_id, owner, claim.claimed_at),
+    ).fetchone()
+    return ClaimLost("the digest claim is no longer held by this run") if row is None else None
+
+
 def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold, time) and its cap
     db: sqlite3.Connection,
     purpose: Purpose,
@@ -361,6 +383,7 @@ def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold
     *,
     ruled_cap: Decimal,
     owner: str | None = None,
+    claim: DigestClaim | None = None,
 ) -> int:
     """Hold `usd` for one call and return the call's id; Refused when no call may be made.
 
@@ -379,7 +402,9 @@ def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold
     with _write_transaction(db):
         _expire(db, now)  # committed whether or not the call is refused
         _prune(db, now)
-        refusal = _refusal(db, purpose, usd, now, ruled_cap, owner)
+        refusal = _claim_refusal(db, owner, claim) or _refusal(
+            db, purpose, usd, now, ruled_cap, owner
+        )
         if refusal is None:
             cur = db.execute(
                 "INSERT INTO ai_usage(purpose, owner, config_id, month, reserved_usd, status,"

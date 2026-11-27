@@ -184,10 +184,20 @@ class Writer:
 
     def draft(self, scope: digests.Scope) -> object:
         owner = scope.digest.owner
+        if scope.claim is None:
+            raise ai_ledger.ClaimLost("a digest draft requires a claim")
         try:
             answer = ai_call.call(
-                self.db, self.model, self.guard, "digest", prompt(scope, self.nonce()), owner=owner
+                self.db,
+                self.model,
+                self.guard,
+                "digest",
+                prompt(scope, self.nonce()),
+                owner=owner,
+                claim=ai_ledger.DigestClaim(scope.digest.id, scope.claim),
             )
+        except ai_ledger.ClaimLost:
+            raise
         except ai_ledger.NameFull as refused:
             self.full.add(owner)
             raise digests.WriterFailed(str(refused), again=True) from None

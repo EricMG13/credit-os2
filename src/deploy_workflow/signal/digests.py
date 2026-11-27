@@ -896,6 +896,21 @@ def _release(db: sqlite3.Connection, scope: Scope) -> bool:
     return restored is True
 
 
+class _PaidStoreFault(Exception):
+    """A paid draft could not be written. Its scheduler slot must not be retried manually."""
+
+
+@contextmanager
+def _storing_paid_draft(scope: Scope) -> Iterator[None]:
+    try:
+        with _holding(scope):
+            yield
+    except _ClaimHeld:
+        raise
+    except Exception as error:  # the caller records the specific failure after rollback
+        raise _PaidStoreFault(type(error).__name__) from error
+
+
 @contextmanager
 def _holding(scope: Scope) -> Iterator[None]:
     """A busy or locked database where the run must not be made due again (its call was or may
@@ -942,13 +957,15 @@ def _write(
     try:
         with _holding(scope):  # busy inside the call: whether it was paid is not known
             draft = writer.draft(scope)
+    except ai_ledger.ClaimLost:
+        return None
     except WriterFailed as failed:
         if failed.again:
             if not _release(db, scope):
                 return None  # the digest changed: its claim is cleared, nothing is left due
             raise _RetryLater(str(failed), fault=failed.fault, stories=count) from None
         return _record_failed_write(db, scope, failed, trigger, now)
-    with _holding(scope), _write_transaction(db):
+    with _storing_paid_draft(scope), _write_transaction(db):
         if not _owns_claim(db, scope):
             return None
         if not _unchanged(db, scope):
@@ -1170,7 +1187,7 @@ def _settle_stale_claims(db: sqlite3.Connection, now: datetime, results: Ran, re
 
 
 def _record_failure(
-    db: sqlite3.Connection, digest_id: int, now: datetime, name: str, planned: Scope | None
+    db: sqlite3.Connection, digest_id: int, now: datetime, reason: str, planned: Scope | None
 ) -> None:
     """A run that raised is recorded as skipped and the digest moves to its next slot, with its
     period ended, so one bad digest is not retried on every pass and its period does not grow. The
@@ -1183,7 +1200,6 @@ def _record_failure(
             return
         digest = _digest(db, row)
         scope = Scope(digest, min(digest.period_from, now), now, (), digest.story_mark)
-        reason = f"the run failed ({name}); see the log"
         _record(db, scope, Run("skipped", None, 0, reason), "schedule", now)
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute(
@@ -1198,7 +1214,11 @@ def _fail(
 ) -> bool:
     """Record a failed run; if recording fails too, log it, leave the digest due and say so."""
     try:
-        _record_failure(db, digest_id, now, type(error).__name__, planned)
+        kind = str(error) if isinstance(error, _PaidStoreFault) else type(error).__name__
+        prefix = NOT_WRITTEN if isinstance(error, _PaidStoreFault) else ""
+        _record_failure(
+            db, digest_id, now, f"{prefix}the run failed ({kind}); see the log", planned
+        )
     except sqlite3.Error:
         log.exception("digest %s: the failure could not be recorded", digest_id)
         return False

@@ -144,7 +144,10 @@ def test_storage_failure_rolls_back_and_records_the_still_owned_run(tmp_path):
         assert not ran and not ran.waiting and not ran.left_due
         assert count(db, "digest_issues") == 0
         row = db.execute("SELECT outcome, reason FROM digest_runs").fetchone()
-        assert tuple(row) == ("skipped", "the run failed (RuntimeError); see the log")
+        assert tuple(row) == (
+            "skipped",
+            f"{digests.NOT_WRITTEN}the run failed (RuntimeError); see the log",
+        )
         digest = digests.owned(db, "Mara L", ident)
         assert (digest.period_from, digest.next_run_at, digest.story_mark) == (DUE, NEXT_DUE, 1)
         assert db.execute("SELECT claimed_at FROM digests").fetchone()[0] is None
