@@ -31,7 +31,7 @@ def test_an_unread_cell_of_a_counted_facility_makes_its_totals_not_checked(cell,
     assert ms.issues("CP-3C", cp3c(funding=replaced(FUNDING, "Facility: RCF", **{cell: "—"}))) == ()
 
 
-def test_regression_pins():
+def test_facility_totals_regression_pins():
     assert statuses(ms.run("CP-3C", cp3c())) == dict.fromkeys(LINES, "agreed")
     # an uncommitted line needs no cell: its blank Drawn changes nothing (470 and 200 stand)
     funding = replaced(FUNDING, "Facility: Uncommitted line", drawn="—")
@@ -56,7 +56,7 @@ def test_a_derived_value_within_the_components_rounding_agrees():
     assert outcome.tolerance == pytest.approx(1.6)  # 0.1 (1 dp) + 3 x 0.5
 
 
-def test_regression_pins():
+def test_ltm_rounding_regression_pins():
     assert ltm("USD 1270m").status == "agreed"
     assert ltm("USD 1272.0m").status == "disagreed"  # 2.0 off, bound 1.5 + 0.1
     assert ltm("USD 1273m").status == "disagreed"  # 3 off, bound 1.5 + 0.5
