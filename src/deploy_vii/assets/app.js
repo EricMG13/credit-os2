@@ -157,7 +157,7 @@
     const close = node("button", null, "close"); close.type = "button"; close.setAttribute("aria-label", "Close inspector");
     close.append(icon("close", 12)); close.addEventListener("click", closeInspector); head.append(close);
     card.append(head, node("div", title, "passport-title"));
-    if (kind === "synthetic") card.append(node("div", "TEST DATA: invented for testing, not a fact about the issuer.", "banner"));
+    if (report.run.case_kind === "synthetic") card.append(node("div", "TEST DATA: invented for testing, not a fact about the issuer.", "banner"));
     card.append(dl(fields));
     return card;
   };

@@ -29,6 +29,9 @@ SHA = hashlib.sha256(b"passport").hexdigest()
 CITATION = Citation(source_id="S1", source_sha256=SHA, locator="p.1", quote="Cited quote.")
 
 
+BANNER = "TEST DATA: invented for testing, not a fact about the issuer."
+
+
 def page_text(case_kind: str) -> str:
     run = Run(
         run_id="passport-test",
@@ -104,6 +107,7 @@ PROBE = r"""(async () => {
       class: card.getAttribute("class"),
       heading: card.querySelector(".passport-head .caps").textContent.trim(),
       fields: card.querySelector("dl").textContent,
+      banner: card.querySelector(".banner") ? card.querySelector(".banner").textContent : null,
     };
   }
   const pre = document.createElement("pre"); pre.id = "probe";
@@ -131,6 +135,8 @@ def test_a_passport_is_cited_only_when_it_carries_a_citation(tmp_path):
         assert seen[name]["class"] == "passport uncited"
         assert seen[name]["heading"].lower() == "uncited"
         assert "No citation supplied" in seen[name]["fields"]
+    for name in ("f_cited", "f_bare", "c_cited", "c_bare"):
+        assert seen[name]["banner"] is None
 
 
 def test_a_synthetic_run_is_synthetic_only_with_a_citation(tmp_path):
@@ -140,3 +146,5 @@ def test_a_synthetic_run_is_synthetic_only_with_a_citation(tmp_path):
     for name in ("f_bare", "c_bare"):
         assert seen[name]["class"] == "passport uncited"
         assert seen[name]["heading"].lower() == "uncited"
+    for name in ("f_cited", "f_bare", "c_cited", "c_bare"):
+        assert seen[name]["banner"] == BANNER
