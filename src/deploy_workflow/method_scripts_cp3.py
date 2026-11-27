@@ -258,10 +258,21 @@ def _full(cell: str) -> str:
     return _label(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
 
 
-def _extends(name: str, form: str) -> bool:
-    """``name`` is ``form`` with a note after it (`senior notes (2027)`, `senior notes - 2027`),
-    not a longer name that merely begins with it (`debt facility` for `debt`)."""
-    return name.startswith(form) and re.match(r"\s*(?:\(|[-—–]\s)", name[len(form) :]) is not None
+def _extends(claim: str, form: str) -> bool:
+    """The claim, as written, is ``form`` with a note after it (`Senior Notes (2027)`, `Senior
+    Notes - 2027`), not a longer name that merely begins with it (`Debt Facility` for `Debt`).
+    The dash is read before `_label` turns it into a space."""
+    text = re.sub(r"^\s*claim\s*:\s*", "", _plain(claim), flags=re.IGNORECASE)
+    head = re.split(r"\s+[-—–]\s+|\s*\(", text, maxsplit=1)[0]
+    return _label(head) == form and head != text
+
+
+def _bracketed(claim: str) -> tuple[str, str] | None:
+    """A claim written `Name - note` as (`name (note)` label, its `_full` name): the bracketed
+    form a fulcrum cell may use for it (`Senior Notes - 2029` is `Senior Notes (2029)`)."""
+    text = re.sub(r"^\s*claim\s*:\s*", "", _plain(claim), flags=re.IGNORECASE)
+    parts = re.split(r"\s+[-—–]\s+", text, maxsplit=1)
+    return (_label(f"{parts[0]} ({parts[1]})"), _full(claim)) if len(parts) == 2 else None
 
 
 def _named(cell: str, claims: list[str]) -> str | None:
@@ -272,9 +283,12 @@ def _named(cell: str, claims: list[str]) -> str | None:
     `Senior Notes`, where `Senior Notes (2027)` is also a claim)."""
     full = {_full(c) for c in claims}
     forms = _stripped(re.sub(r"^\s*claim\s*:\s*", "", _plain(cell), flags=re.IGNORECASE))
+    dashed = dict(filter(None, map(_bracketed, claims)))
     for i, form in enumerate(forms):
+        if i == 0 and form in dashed and form not in full:  # `Senior Notes (2029)` for `... - 2029`
+            return dashed[form]
         if form in full or form in NO_FULCRUM:
-            others = [f for f in full if f != form and _extends(f, form)]
+            others = [c for c in claims if _full(c) != form and _extends(c, form)]
             if i == 0 or form in NO_FULCRUM or not others:
                 return form
     exact = {f for f in forms[1:] if f in full}  # a claim's own name, once the note is off

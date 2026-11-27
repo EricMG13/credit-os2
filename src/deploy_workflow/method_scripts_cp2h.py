@@ -149,8 +149,8 @@ def _values(cell: str, tables: types.ModuleType) -> list[_Figure]:
 
 def _is_range(text: str, joined: re.Match[str], bounds: list[list[_Figure]], unit: str) -> bool:
     """Whether a joined pair of figures is a range: both sides in the trigger's unit, or both
-    bare and not a fiscal-year pair; one bare side only after a range marker (`5.0-5.5x`), never
-    after `and` unless `between` leads it (`6.0x and 2 consecutive quarters` is one bound)."""
+    bare and not a fiscal-year pair; one bare side is a range (`5.0-5.5x`, `5.0 and 5.5x`) unless
+    a count or duration word follows it (`6.0x and 2 consecutive quarters` is one bound)."""
     kinds = [{f.unit for f in side} - {""} for side in bounds]
     units = kinds[0] | kinds[1]
     if unit and units and units != {unit}:  # a range is in the trigger's own unit
@@ -159,9 +159,7 @@ def _is_range(text: str, joined: re.Match[str], bounds: list[list[_Figure]], uni
         return True
     if not kinds[0] and not kinds[1]:
         return not _FISCAL.search(text[: joined.start(1)])
-    if not re.search(r"\band\b", text[joined.end(1) : joined.start(2)], re.IGNORECASE):
-        return True
-    return bool(re.search(r"\bbetween\s+$", text[: joined.start(1)], re.IGNORECASE))
+    return not _COUNTED.match(text[joined.end() :])  # `6.0x and 2 consecutive quarters`
 
 
 def _thresholds(cell: str, unit: str, tables: types.ModuleType) -> list[_Figure]:

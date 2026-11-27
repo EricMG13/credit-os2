@@ -246,3 +246,20 @@ def test_cp4c_a_whole_cell_bracket_of_a_figure_and_a_word_is_a_note(cell):
     out = found["Allocation: Senior secured TLB (Base, HoldCo)"]
     assert out.status == "not checked" and "settlement" in out.reason, cell
     assert found["Residual: Senior secured TLB (Base, HoldCo)"].status == "not checked"
+
+
+def test_cp3_an_ascii_hyphen_dated_claim_does_not_block_the_shorter_claim_name():
+    # BASE 030805f: EV 350 pays Senior Notes (300) in full and 50 of the 2029 notes (400): the
+    # fulcrum is `Senior Notes - 2029`, and `Senior Notes (2029)` names it; agreed
+    rows = [
+        ("Enterprise value", "—", "—", "350", "—", "USD", "m"),
+        ("EV multiple", "—", "—", "3.5x", "—", "—", "—"),
+        ("EV metric", "—", "—", "100", "—", "USD", "m"),
+        ("EV basis", "—", "—", "FY2024 EBITDA; multiple from evidence S4", "—", "—", "—"),
+        ("Claim: Senior Notes", "300", "—", "100%", "—", "USD", "m"),
+        ("Claim: Senior Notes - 2029", "400", "—", "12.5%", "—", "USD", "m"),
+        ("Fulcrum", "—", "—", "Senior Notes (2029)", "—", "—", "—"),
+        ("Residual to equity", "—", "—", "0", "—", "USD", "m"),
+    ]
+    found = by_case(ms.run("CP-3", cp3(rows)), "Base")
+    assert found["Fulcrum"].status == "agreed"

@@ -223,3 +223,9 @@ def test_negated_breaching_is_still_not_a_breach():
     assert found["Status: Lev"] == "disagreed"
     risk = cp2h_by(cp2h("maximum", "6.0x", "5.2x", "0.8x", "Breach risk low"))
     assert risk["Status: Lev"] == "agreed"
+
+
+def test_and_pair_with_one_sided_unit_is_a_range_without_between():
+    # BASE 030805f: range 5.0-5.5, value 5.2x: headroom -0.2x / 0.3x, Breached; both agreed
+    found = cp2h_by(cp2h("maximum", "5.0 and 5.5x", "5.2x", "-0.2x / 0.3x", "Breached"))
+    assert found == {"Headroom: Lev": "agreed", "Status: Lev": "agreed"}
