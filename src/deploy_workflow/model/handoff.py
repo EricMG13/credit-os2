@@ -91,6 +91,7 @@ from deploy_workflow.research.weblookup import (
     Runtime,
     WebLookup,
     bare_host_problem,
+    _fetch_key,
     known_pages,
     names_web_source,
     neutralise,
@@ -457,8 +458,14 @@ def _is_workbook(raw: bytes) -> bool:
 
 
 def _cell_label(span: Span) -> str:
-    """One stored cell as the model reads it: numbers as their exact stored lexeme, text quoted,
-    a formula with its stored cache (``[absent]``, never zero) and a non-General number format."""
+    """One stored cell as the model reads it, tagged `` hidden`` when it lies in a hidden sheet,
+    row or column."""
+    return _cell_value(span) + (" hidden" if span.hidden else "")
+
+
+def _cell_value(span: Span) -> str:
+    """One stored cell's value: numbers as their exact stored lexeme, text quoted, a formula
+    with its stored cache (``[absent]``, never zero) and a non-General number format."""
     address = span.locator.partition("!")[2]
     if span.formula is not None:
         formula = span.text.partition("\n")[0].removeprefix("Formula: ")
@@ -488,11 +495,17 @@ def _workbook_pages(raw: bytes) -> list[str]:
         row = address.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
         rows[sheet].setdefault(row, []).append(_cell_label(span))
     notes = "\n".join(extraction.limitations)
-    return [
+    pages = [
         f"Sheet {unquote(sheet.removeprefix('sheet:'))}\n{notes}\n"
         + "\n".join(" | ".join(cells) for cells in rows[sheet].values())
         for sheet in sheets
     ]
+    comments = [
+        f"{span.locator.partition('!')[2]} by {span.note or 'unknown author'}: {span.text!r}"
+        for span in extraction.spans
+        if span.locator.startswith("part:") and span.text
+    ]
+    return [*pages, "Cell comments\n" + "\n".join(comments)] if comments else pages
 
 
 # The page text of sources already read in this process, by the sha256 of their bytes and whether
@@ -697,6 +710,9 @@ class ModuleTools:
             result: str = getattr(self, name)(**args)
             return result
         except (TypeError, KeyError, ValueError, DecimalException) as exc:
+            # The model is told, as before; the cause is also logged so a fault in the checker or
+            # in I/O (not only a bad argument) is not lost after paid writes.
+            log.warning("%s failed with %s: %s", name, type(exc).__name__, exc, exc_info=True)
             return f"ERROR: {type(exc).__name__}: {exc}"
         except (OSError, ResearchError) as exc:
             if name not in LOOKUP_NAMES:
@@ -725,7 +741,12 @@ class ModuleTools:
         """Record one index row; a page already registered under its id (the same bytes at a
         second address) is not read again. A body that cannot be read is logged and recorded as
         unreadable, never raised: the row still counts and the caller moves on."""
-        if item.source_id not in self.web:
+        known = self.web.get(item.source_id)
+        if known is not None and _fetch_key(known.url) == _fetch_key(item.url):
+            # The id's own address, fetched or re-dated again: the latest row is what the checker
+            # (weblookup._latest_rows) judges it by. The pages are not read again.
+            self.web[item.source_id] = self.sources[item.source_id]["web"] = item
+        if known is None:
             try:
                 pages = lookup.page_text(item)
             except OSError as exc:
