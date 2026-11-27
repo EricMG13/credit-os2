@@ -119,6 +119,23 @@ export function eventRecords(table: SourceTable) {
 export type EventRecord = ReturnType<typeof eventRecords>[number];
 type Active = { index: number; from: "row" | "marker" } | null;
 
+function activeHandlers(onActive: (active: boolean) => void) {
+  return {
+    onMouseEnter: () => {
+      onActive(true);
+    },
+    onMouseLeave: () => {
+      onActive(false);
+    },
+    onFocus: () => {
+      onActive(true);
+    },
+    onBlur: () => {
+      onActive(false);
+    },
+  };
+}
+
 const MARK_SHAPES = {
   Historical: "filled circle",
   Scheduled: "half-filled circle",
@@ -221,18 +238,7 @@ function Marker({
       onClick={() => {
         focusRow(rowId);
       }}
-      onMouseEnter={() => {
-        onActive(true);
-      }}
-      onMouseLeave={() => {
-        onActive(false);
-      }}
-      onFocus={() => {
-        onActive(true);
-      }}
-      onBlur={() => {
-        onActive(false);
-      }}
+      {...activeHandlers(onActive)}
     >
       <Mark category={category} />
     </button>
@@ -386,18 +392,7 @@ function EventRow({
           ? "@3xl:grid-cols-[7.5rem_auto_minmax(0,5fr)_minmax(0,4fr)_13rem_auto]"
           : "@3xl:grid-cols-[7.5rem_auto_minmax(0,5fr)_minmax(0,4fr)_auto]",
       )}
-      onMouseEnter={() => {
-        onActive(true);
-      }}
-      onMouseLeave={() => {
-        onActive(false);
-      }}
-      onFocus={() => {
-        onActive(true);
-      }}
-      onBlur={() => {
-        onActive(false);
-      }}
+      {...activeHandlers(onActive)}
     >
       <div className="flex items-center gap-2 @3xl:contents">
         <span className="tabular-nums text-text-secondary">

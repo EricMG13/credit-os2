@@ -4,6 +4,12 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Event timeline interaction fidelity
+
+The synthetic EventLane suite passed all 45 tests, including a marker click that focuses its row
+and hover in both directions. The change only shares the four event handlers for enter, leave,
+focus and blur. The marker and row still receive their own activation callbacks.
+
 ## 2026-11-27 — Sign-in parked Low and Info batch (after slice 6)
 
 - Scope: 19 of the 29 parked sign-in Low/Info rows still open on `main` at `f300698c`, gathered
