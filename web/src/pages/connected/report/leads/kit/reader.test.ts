@@ -17,6 +17,21 @@ describe("safeText", () => {
     expect(namesSource(text)).toBe(true);
     expect(safeText(text)).toBe(IN_EVIDENCE);
   });
+  it("sends a standalone filing locator to Evidence and keeps filing-related findings", () => {
+    expect(safeText("Annual Form 10-K subsequent-events note")).toBe(IN_EVIDENCE);
+    expect(safeText("The annual Form 10-K, subsequent-events note.")).toBe(IN_EVIDENCE);
+    expect(safeText("10K")).toBe("10K");
+    expect(safeText("The annual report was delayed by six weeks [H1].")).toBe(
+      "The annual report was delayed by six weeks [H1].",
+    );
+    expect(safeText("The prospectus is due in [FY26E].")).toBe("The prospectus is due in [FY26E].");
+  });
+  it("recognizes standalone filing sections and keeps factual sentences about them", () => {
+    expect(safeText("Annual Form 10-K, non-GAAP reconciliation")).toBe(IN_EVIDENCE);
+    expect(safeText("Annual Form 10-K, balance sheet and debt note")).toBe(IN_EVIDENCE);
+    const finding = "The Form 10-K non-GAAP reconciliation leaves a USD 4m difference.";
+    expect(safeText(finding)).toBe(finding);
+  });
   it("does not mistake ordinary words, quarters or amounts for identifiers", () => {
     for (const text of [
       "Q3 results",
@@ -34,9 +49,53 @@ describe("inline reference markers (review L10)", () => {
     ["Remediate [E12, E14] before committee", "Remediate before committee"],
     ["Leverage rose [C07] in the year", "Leverage rose in the year"],
     ["Two items [E3; E5] and [E7–E9] remain", "Two items and remain"],
+    ["Cash [see T2E.3.r03] remains available [K3 and R9].", "Cash remains available."],
   ])("strips the marker from %s", (text, drawn) => {
     expect(safeText(text)).toBe(drawn);
     expect(namesSource(text)).toBe(false);
+  });
+  it.each(["[FY26E]", "[CET1]", "[H1]"])("preserves %s as written", (token) => {
+    expect(safeText(`Credit observation ${token}.`)).toBe(`Credit observation ${token}.`);
+  });
+  it("preserves bracketed periods, capital metrics and units alongside evidence IDs", () => {
+    expect(safeText("Ratio [CET1] is 12.4% [H1] and 13.0% [FY26E] [E3–E5/T4.4].")).toBe(
+      "Ratio [CET1] is 12.4% [H1] and 13.0% [FY26E].",
+    );
+    expect(safeText("Cash [USDm] is 0 [Q4], and production [P99.9] is 1.2x [E3].")).toBe(
+      "Cash [USDm] is 0 [Q4], and production [P99.9] is 1.2x.",
+    );
+  });
+  it.each([
+    ["Ratio [H1, E3] was 12.4%.", "Ratio [H1] was 12.4%."],
+    ["Ratio [E3, H1] was 12.4%.", "Ratio [H1] was 12.4%."],
+    ["Ratio [H1/E3] was 12.4%.", "Ratio [H1] was 12.4%."],
+    ["Periods [H1 and E3 or H2] apply.", "Periods [H1 or H2] apply."],
+    ["Capital [C07; CET1, AT1; T4.4] rose.", "Capital [CET1, AT1] rose."],
+    ["Cover [FY25–FY26E; E3–E5/T4.4; 1.0x–1.25x] rose.", "Cover [FY25–FY26E; 1.0x–1.25x] rose."],
+    [
+      "Cash [EUR 1,234.50m, see E3; EUR −20m] was stated.",
+      "Cash [EUR 1,234.50m; EUR −20m] was stated.",
+    ],
+    ["Production [S1-2025 and P99.9, E3] fell.", "Production [S1-2025 and P99.9] fell."],
+  ])("keeps the financial items in %s", (text, drawn) => {
+    expect(safeText(text)).toBe(drawn);
+    expect(namesSource(text)).toBe(false);
+  });
+  it.each([
+    ["Scenario [S1 / 2025] applied.", "Scenario [S1 / 2025] applied."],
+    ["Scenario [S1/ 2025, E3] applied.", "Scenario [S1/ 2025] applied."],
+    ["Scenario [S1 /2025, E3] applied.", "Scenario [S1 /2025] applied."],
+    ["Ratio [H1 / E3] was 12.4%.", "Ratio [H1] was 12.4%."],
+  ])("distinguishes a numeric slash from a citation separator in %s", (text, drawn) => {
+    expect(safeText(text)).toBe(drawn);
+  });
+  it("strips a bracket group containing only citations", () => {
+    expect(safeText("Cover rose [see E3–E5/T4.4, C07].")).toBe("Cover rose.");
+    expect(safeText("Cover rose [E3,\n E5].")).toBe("Cover rose.");
+  });
+  it("leaves a financial-only bracket list and range intact", () => {
+    const text = "Range [EUR −5,000m–USD 7,500m; 1.25x/1.50x; S1-2025; S1/2025].";
+    expect(safeText(text)).toBe(text);
   });
   it("still sends text that names a source to Evidence", () => {
     expect(safeText("See TDG_10-K.htm page 45 [E3]")).toBe(IN_EVIDENCE);

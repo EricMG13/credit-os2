@@ -4,6 +4,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun } from "../../publishedReport";
+import { traceDetails } from "../../ReportContent";
 import { creditScreeningEntry, leadProps } from "./fixtures/load";
 import { readScreens, SCREEN_HEADERS, SCREEN_TITLES } from "./shortSnapshotData";
 import { ShortSnapshotLead } from "./shortSnapshot";
@@ -115,6 +116,45 @@ describe("readScreens reader text", () => {
     expect(
       cell(withCell("Credit screen", 0, 1, "Leverage rose (TL10.2)."), "credit_screening")[1],
     ).not.toMatch(/TL\d/);
+  });
+
+  it("draws the credit-screen finding and sends the filing locator to Evidence", () => {
+    const entry = withCell("Credit screen", 0, 3, "Annual Form 10-K subsequent-events note");
+    render(<ShortSnapshotLead {...props(entry)} />);
+
+    const tile = screen.getByRole("region", { name: "Credit screen" });
+    const [row] = within(tile).getAllByRole("listitem");
+    expect(row?.textContent).toContain("Medium · Detail is in Evidence.");
+    expect(row?.textContent).toContain("Demand is stable and the customer base is broad.");
+    expect(row?.textContent).toContain("No further work now");
+    expect(tile.textContent).not.toContain("Annual Form 10-K subsequent-events note");
+
+    const section = entry.sections.find((item) => item.heading === "Credit screen");
+    const table = section?.blocks.find((item) => item.type === "table");
+    if (!section || table?.type !== "table") throw new Error("Credit screen table missing");
+    const { basis } = traceDetails(
+      { ...props(entry).snapshot, chips: {} },
+      entry,
+      section,
+      table,
+      table.line,
+    );
+    expect(basis?.split("\n")).toContain("Annual Form 10-K subsequent-events note");
+  });
+
+  it("draws bracketed periods, metrics and units in the finding after removing its marker", () => {
+    const entry = withCell(
+      "Credit screen",
+      0,
+      1,
+      "Ratio [CET1] is 12.4% [H1, E3]; cash [USDm] is 0 [FY26E] [E3–E5/T4.4].",
+    );
+    render(<ShortSnapshotLead {...props(entry)} />);
+
+    const tile = screen.getByRole("region", { name: "Credit screen" });
+    const [row] = within(tile).getAllByRole("listitem");
+    expect(row?.textContent).toContain("Ratio [CET1] is 12.4% [H1]; cash [USDm] is 0 [FY26E].");
+    expect(tile.textContent).not.toContain("E3–E5/T4.4");
   });
 
   it("leaves all 150 fixture cells unchanged", () => {
