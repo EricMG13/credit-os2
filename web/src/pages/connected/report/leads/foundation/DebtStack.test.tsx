@@ -71,8 +71,8 @@ describe("debt stack: the accepted CP-1", () => {
     // First claim at the top, each segment below the one before it.
     const tops = bars.map((bar) => num(bar, "y"));
     expect(tops).toEqual([...tops].sort((a, b) => a - b));
-    // Ranking 1 fills category slot 3 (ruling C6); the ranking is written beside it too.
-    expect(bars.every((bar) => bar.classList.contains("fill-category-3"))).toBe(true);
+    // Secured "Yes" in the primary colour; the word is written beside it too.
+    expect(bars.every((bar) => bar.getAttribute("class")?.includes("fill-chart-1"))).toBe(true);
   });
 
   it("writes each facility's name, amount, ranking, secured flag and cumulative leverage as written", () => {
@@ -92,7 +92,7 @@ describe("debt stack: the accepted CP-1", () => {
     expect(tile.querySelector("svg")?.textContent).not.toMatch(/0\.55x|senior|junior|priority/i);
   });
 
-  it("reads every facility in the aria-label; legend by ranking; the module's own note", () => {
+  it("reads every facility in the aria-label; legend by the secured flag; the module's own note", () => {
     const { tile, svg } = draw(cp1Entry());
     expect(svg?.getAttribute("aria-label")).toBe(
       "Debt stack, $m, in ranking order, first claim at the top: " +
@@ -104,7 +104,7 @@ describe("debt stack: the accepted CP-1", () => {
         "2033 secured notes 1,500, Ranking 1 · Secured: Yes · Cumulative leverage 2.88.",
     );
     expect([...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent)).toEqual([
-      "Ranking 1",
+      "Secured: Yes",
     ]);
     expect(tile.textContent).toContain(
       "Only notes with both affirmative security descriptions and relative payment rank established are included; omitted instruments prevent this from representing a complete capital structure or recovery waterfall.",
@@ -147,7 +147,7 @@ describe("debt stack: the accepted CP-1", () => {
 });
 
 describe("debt stack: other handoffs and mutations", () => {
-  it("relative value: ten facilities, a break between ranking 1 and ranking 2, ranking 2 in its own slot", () => {
+  it("relative value: ten facilities, a break between ranking 1 and ranking 2, Secured: No in plum", () => {
     const { tile } = draw(relativeValueCp1Entry());
     const bars = segments(tile);
     expect(bars).toHaveLength(10);
@@ -168,54 +168,11 @@ describe("debt stack: other handoffs and mutations", () => {
     const lastRankOne = num(bars[6], "y") + num(bars[6], "height") + 1;
     expect(num(bars[7], "y") - lastRankOne).toBe(14);
     expect(num(bars[2], "y") - (num(bars[1], "y") + num(bars[1], "height") + 1)).toBeCloseTo(0, 6);
-    expect(bars[7]).toHaveClass("fill-category-4");
+    expect(bars[7]?.getAttribute("class")).toContain("fill-chart-2");
     expect(words(tile)[7]?.[2]).toBe("Ranking 2 · Secured: No · Cumulative leverage 6.37");
     expect([...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent)).toEqual([
-      "Ranking 1",
-      "Ranking 2",
-    ]);
-  });
-
-  it("rankings 1 to 6 (mutated fixture, not a handoff): slots 3, 4, 5, 6, 8, 8 and a legend entry each", () => {
-    // Relative value rows 2..7 are ranking 1 (six notes); rows 8..10 are ranking 2. Re-rank the
-    // ten rows 1,2,3,4,5,6,6,6,6,6 (never falling down the rows): bars 0..4 are rankings 1..5.
-    let entry = relativeValueCp1Entry();
-    const ranks = ["1", "2", "3", "4", "5", "6", "6", "6", "6", "6"];
-    for (const [at, rank] of ranks.entries()) entry = setCell(entry, STACK, at, "Ranking", rank);
-    const { tile } = draw(entry);
-    const slots = segments(tile).map((bar) =>
-      [...bar.classList].find((name) => name.startsWith("fill-category-")),
-    );
-    // Hand: ranking 1 -> 3, 2 -> 4, 3 -> 5, 4 -> 6, 5 and above -> 8.
-    expect(slots.slice(0, 6)).toEqual([
-      "fill-category-3",
-      "fill-category-4",
-      "fill-category-5",
-      "fill-category-6",
-      "fill-category-8",
-      "fill-category-8",
-    ]);
-    expect([...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent)).toEqual([
-      "Ranking 1",
-      "Ranking 2",
-      "Ranking 3",
-      "Ranking 4",
-      "Ranking 5",
-      "Ranking 6",
-    ]);
-  });
-
-  it("a ranking whose every facility is a stated gap has no legend entry (mutated fixture, not a handoff)", () => {
-    // Relative value rows 8..10 (index 7..9) are ranking 2: state each as a gap.
-    let entry = relativeValueCp1Entry();
-    for (const at of [7, 8, 9])
-      entry = setCell(entry, STACK, at, "Amount", "Not supplied: not read");
-    const { tile } = draw(entry);
-    expect(tile.querySelectorAll("[data-gap]")).toHaveLength(3);
-    // Hand: ranking 1 still draws filled rects; ranking 2 draws none; the hatch is keyed.
-    expect([...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent)).toEqual([
-      "Ranking 1",
-      "Not stated",
+      "Secured: Yes",
+      "Secured: No",
     ]);
   });
 
