@@ -10,7 +10,8 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createOfflineProxy, installOfflineGuard } from "./offline-network.mjs";
 
-const desktopOnly = process.argv.includes("--desktop-only");
+// PRODUCT.md supports desktops at 1024px and wider. Keep narrow checks available for diagnostics.
+const desktopOnly = !process.argv.includes("--include-mobile");
 const project = path.resolve(import.meta.dirname, "../..");
 const runAsScript = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 const sourceCommit = await readFile(path.join(project, "SOURCE-COMMIT.txt"), "utf8").then(
@@ -803,7 +804,7 @@ async function checkDownside(report, modules, artifacts, channel, page) {
   const reading = await chart.getAttribute("aria-label");
   assert.match(
     reading,
-    /Stressed FCF \(US\$m\): Control \(unstressed\) \(control\) 10\.00, Cost shock 0\.00, /u,
+    /Stressed FCF \(\$m\): Control \(unstressed\) \(control\) 10\.00, Cost shock 0\.00, /u,
   );
   assert.match(reading, /Cost and rate shock -5\.1250 \(−USD 5\.13 million\)\./u);
   await chart.locator('[data-bar="0.00"]').waitFor({ state: "attached" });
@@ -1081,16 +1082,19 @@ async function checkForecastPresentation(report, page, channel) {
     .getByRole("group", { name: "Net leverage view", exact: true })
     .getByRole("button", { name: "Table", exact: true })
     .click();
-  // From proof/handoffs/CP-2G.md: base 388 / 315 = 1.23x; downside 454.6 / 252 = 1.80x.
+  // The base is 388 / 315 = 1.23x and the downside is 454.6 / 252 = 1.80x.
+  // FY2026E follows reported FY2025; CP-1 prints 500 of maturities for that year.
   const byCase = leverage.getByRole("table", { name: "Net leverage by case", exact: true });
-  assert.deepEqual(
-    await byCase
-      .getByRole("row")
-      .filter({ has: page.getByRole("rowheader", { name: "FY2025E", exact: true }) })
-      .getByRole("cell")
-      .allInnerTexts(),
-    ["1.23x", "1.80x", ""],
-  );
+  const firstForecastYear = byCase
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader", { name: "FY2026E", exact: true }) });
+  await firstForecastYear.waitFor();
+  assert.deepEqual(await firstForecastYear.getByRole("cell").allInnerTexts(), [
+    "",
+    "1.23x",
+    "1.80x",
+    "500",
+  ]);
   await report.getByRole("table", { name: "Forecast grid", exact: true }).waitFor();
   await scope.evaluate((element) => element.scrollIntoView({ block: "start" }));
   await page.screenshot({ path: path.join(artifacts, `${channel}-forecast.png`) });
@@ -1162,8 +1166,8 @@ async function checkDebtEvidence(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Financial foundation, Delivered/u }).click();
   const debt = report.getByRole("region", { name: "Debt maturities", exact: true });
   assert.equal(
-    await debt.getByRole("img", { name: /^Debt maturities, US\$m: / }).getAttribute("aria-label"),
-    "Debt maturities, US$m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
+    await debt.getByRole("img", { name: /^Debt maturities, \$m: / }).getAttribute("aria-label"),
+    "Debt maturities, $m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
   );
   await debt.screenshot({ path: path.join(artifacts, `${channel}-debt-maturities.png`) });
   await showTable(debt, "Debt maturities");
@@ -1279,7 +1283,7 @@ async function checkForecastEvidence(report, artifacts, channel, page) {
     .click();
   await report
     .getByRole("group", { name: "Year", exact: true })
-    .getByRole("button", { name: "FY2025E", exact: true })
+    .getByRole("button", { name: "FY2026E", exact: true })
     .click();
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
   await ebitdaRow.getByRole("cell", { name: "252", exact: true }).waitFor();
