@@ -516,3 +516,69 @@ it("names each case detail by the module's own header and draws the control's de
   ).toHaveAttribute("href", "#evidence/0-5");
   expect(tile().textContent).not.toMatch(/Assumption basis|Scope limits/);
 });
+
+// Colour-signal-build ruling R2/C6: category colours by case, a legend in words, no better/worse.
+it("gives each case its own category bar colour and marker, listed in a legend with the case names", () => {
+  const data = downsideView(entry("0.10 (10%)", "50.00"));
+  if (!data) throw new Error("Test scenario matrix was rejected");
+  const { container } = render(
+    <Downside data={data} href={(line) => `#evidence/0-${String(line)}`} />,
+  );
+  const figure = within(tile()).getByRole("img");
+  const control = figure.querySelector('[data-bar="62.00"]');
+  const stressed = figure.querySelector('[data-bar="50.00"]');
+  expect(control).toHaveClass("bg-category-3");
+  expect(stressed).toHaveClass("bg-category-4");
+  expect(figure.querySelector('[data-bar="1.70"]')).toHaveClass("bg-category-3");
+  expect(figure.querySelector('[data-bar="1.00"]')).toHaveClass("bg-category-4");
+  const entries = [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(entries.map((item) => item.textContent)).toEqual([
+    "Observed period (control)",
+    "Lower margin",
+  ]);
+  expect(entries.map((item) => item.getAttribute("data-legend"))).toEqual(["dot", "square"]);
+  // Each panel row carries the case's marker before its name.
+  expect(figure.querySelectorAll('[data-swatch="dot"]')).toHaveLength(2);
+  expect(figure.querySelectorAll('[data-swatch="square"]')).toHaveLength(2);
+  expect(tile().innerHTML).not.toMatch(/better-mark|worse-mark|scale-better|scale-worse/);
+  expect(tile().innerHTML).not.toContain("✕");
+  // The old role colours are gone: no blue, plum or grey bar for control / chosen / other.
+  expect(figure.innerHTML).not.toMatch(/bg-chart-[123]/);
+});
+
+it("does not repeat the control in the legend when the case's name already says control", () => {
+  const source = entry("0.10 (10%)", "50.00");
+  const first = source.sections[0]?.blocks[0];
+  if (first?.type !== "table") throw new Error("fixture changed");
+  const row = first.rows[0];
+  if (row) row.cells[1] = "Control case";
+  const data = downsideView(source);
+  if (!data) throw new Error("Test scenario matrix was rejected");
+  const { container } = render(
+    <Downside data={data} href={(line) => `#evidence/0-${String(line)}`} />,
+  );
+  const entries = [...container.querySelectorAll('[data-part="legend"] li')];
+  expect(entries[0]?.textContent).toBe("Control case");
+});
+
+// Colour-signal-build ruling R2/C6 (review): a legend of cases keys panels, so none without a panel.
+it("shows no case legend when no measure of the results can be placed", () => {
+  const source = entry("0.10 (10%)", "50.00");
+  const results = source.sections[1]?.blocks[0];
+  if (results?.type !== "table") throw new Error("fixture changed");
+  results.rows = results.rows.map((row) => ({
+    ...row,
+    cells: row.cells.map((cell, at) => (at === 1 || at === 2 ? "Not supplied" : cell)),
+  }));
+  const data = downsideView(source);
+  if (!data) throw new Error("Test scenario matrix was rejected");
+  const { container } = render(
+    <Downside data={data} href={(line) => `#evidence/0-${String(line)}`} />,
+  );
+  expect(
+    within(tile()).getByText(
+      "This page could not place any measure of these results on one stated basis.",
+    ),
+  ).toBeVisible();
+  expect(container.querySelector('[data-part="legend"]')).toBeNull();
+});

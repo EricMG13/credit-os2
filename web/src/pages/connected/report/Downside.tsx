@@ -11,10 +11,10 @@ import { namedTable } from "../reportView";
 import { amount, distinct, sharePosition } from "../visuals/visualData";
 import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
-import { Key } from "./overview/figureParts";
 import { Bento } from "./overview/Tile";
 import {
   BarRow,
+  caseStyle,
   CompactGap,
   GapCell,
   KeyValues,
@@ -22,6 +22,7 @@ import {
   statedGap,
   Trace,
 } from "./leads/parts";
+import { Legend, MarkSwatch } from "./leads/kit/marks/Legend";
 import { closed, IN_EVIDENCE, readerCell } from "./leads/read";
 import { sourceOf, writtenTable } from "./leads/written";
 
@@ -318,10 +319,8 @@ export function scenarioShareLabel(text: string) {
 /** A share of an axis as a CSS length, rounded only past the sixth decimal of a percent. */
 export const share = (at: number) => `${String(Number((at * 100).toFixed(6)))}%`;
 
-type CaseRole = "control" | "chosen" | "other";
+type CaseRole = "control" | "other";
 type MultiplePanel = { measure: string; bars: { text: string; value: number }[] };
-
-const BAR_TONE = { control: "prior", chosen: "primary", other: "secondary" } as const;
 
 /** A figure and nothing else ("10.00", "-5.1250", "3.1x", "12%"): it is never broken across lines. */
 const PLAIN_FIGURE = /^[\u2212-]?[\d,]+(?:\.\d+)?[x%]?$/;
@@ -347,16 +346,28 @@ function PanelRows({
       <ul className="flex flex-col gap-2">
         {panel.bars.map((bar, index) => {
           const item = cases[index];
+          const style = caseStyle(index);
           return (
             <li key={index} className="flex min-w-0 flex-col gap-1">
               <span className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 text-small wrap-anywhere text-text-secondary">
-                  {item?.name}
-                  {item?.role === "control" && !/control/i.test(item.name) && (
-                    <span className="ml-1.5 rounded-ds-xs border border-border-hairline px-1 text-text-tertiary">
-                      control
-                    </span>
-                  )}
+                <span className="flex min-w-0 items-baseline gap-1.5 text-small wrap-anywhere text-text-secondary">
+                  <svg
+                    viewBox="0 0 12 12"
+                    width="12"
+                    height="12"
+                    aria-hidden="true"
+                    className="flex-none translate-y-px overflow-visible"
+                  >
+                    <MarkSwatch kind={style.shape} tone={style.tone} x={0} y={0} />
+                  </svg>
+                  <span>
+                    {item?.name}
+                    {item?.role === "control" && !/control/i.test(item.name) && (
+                      <span className="ml-1.5 rounded-ds-xs border border-border-hairline px-1 text-text-tertiary">
+                        control
+                      </span>
+                    )}
+                  </span>
                 </span>
                 <span
                   className={cx(
@@ -372,7 +383,7 @@ function PanelRows({
                 start={zero}
                 end={at(bar.value)}
                 zero={zero}
-                tone={BAR_TONE[item?.role ?? "other"]}
+                tone={style.tone}
                 bar={{ "data-bar": bar.text }}
               />
             </li>
@@ -385,7 +396,7 @@ function PanelRows({
 
 /**
  * Few cases across a few measures: one panel a measure, every case a bar on that measure's own
- * scale from zero, each value as written. The control and the chosen case are named in words.
+ * scale from zero, each value as written. Each case has its colour and marker by register order; the control is named in words.
  */
 function SmallMultiples({
   label,
@@ -578,9 +589,13 @@ export function DownsideTile({
     );
   const { placed, unplaced } = casePanels(matrix, cases);
   const roles = cases.map((item) => {
-    const role: CaseRole =
-      item.id === control.id ? "control" : item.id === selected.id ? "chosen" : "other";
+    const role: CaseRole = item.id === control.id ? "control" : "other";
     return { name: caseName(item), role };
+  });
+  const keyed = roles.map(({ name, role }, index) => {
+    const { shape, tone } = caseStyle(index);
+    const text = role === "control" && !/control/i.test(name) ? `${name} (control)` : name;
+    return { kind: shape, tone, text };
   });
   const choice = (
     <Segmented
@@ -596,13 +611,7 @@ export function DownsideTile({
       label={TITLE}
       title={TITLE}
       basis={readerDetail(control.anchor)}
-      legend={
-        <>
-          <Key tone="prior">Control</Key>
-          <Key tone="primary">{caseName(selected)}</Key>
-          {alternatives.length > 1 && <Key tone="secondary">Other cases</Key>}
-        </>
-      }
+      legend={placed.length > 0 ? <Legend items={keyed} /> : undefined}
       trace={trace}
       controls={choice}
       className="wrap-anywhere"
