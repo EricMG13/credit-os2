@@ -24,6 +24,7 @@ from deploy_vii.display import format_value
 _SOURCED = frozenset({"source"})
 _ALLOCATION_SERIES = "Value allocation"
 _WATERFALL_IDS = ("DR.3", "DR.4", "DR.5")
+_NO_CLASSES_REASON = "No creditor classes are supplied."
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +165,8 @@ def _recovery(
             raise ValueError(f"CP-4C equity recovery is not n.m.: {fact_id}")
     ids = [p.fact_id for p in points]
     plottable = any(facts[i].status == "known" for i in ids)
+    # With no creditor class there is no point to state a limitation of: the frame says so.
+    reason = None if plottable else (_reason(facts, ids) if ids else _NO_CLASSES_REASON)
     return RestructuringFigureSeries(
         fig_id="DR.2",
         title="Recovery by class",
@@ -173,7 +176,7 @@ def _recovery(
         currency=None,
         series=tuple(s.label for s in scenarios),
         points=tuple(points),
-        reason=None if plottable else _reason(facts, ids),
+        reason=reason,
         dropped_fact_ids=dropped,
     )
 

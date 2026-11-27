@@ -3173,7 +3173,7 @@ register_figure_producer(
 # --- Stage 3 chart wiring W2, group c: CR.2 (CP-2D) and CR.3 (CP-3C) ------------------------------
 
 
-def _liquidity_figure(
+def _liquidity_figure(  # noqa: PLR0913 -- one figure's fixed wiring; the options are keyword-only
     block_id: str,
     module: ModuleView,
     refs: Mapping[tuple[str, str], tuple[str, ...]],
@@ -3223,7 +3223,9 @@ def _liquidity_figure(
         row_header=row_header,
         columns=(record.axis_label,) if len(record.series) == 1 else tuple(record.series),
         rows=rows,
-        note=record.reason,
+        # The shell draws a plotted chart's twin note under it; a figure's `summary` only for a
+        # figure set beside a table, so the record's limitation note travels on the twin.
+        note=" ".join(text for text in (record.reason, record.note) if text) or None,
     )
     return Figure(
         fig_id=record.fig_id,
@@ -3267,7 +3269,7 @@ def _cr2_figures(
             owner="CP-2D",
             row_header="Step",
             placement="above",
-            summary=record.note,
+            summary=None,
         )
         for record in cp2d_chart_series(module)
     )
