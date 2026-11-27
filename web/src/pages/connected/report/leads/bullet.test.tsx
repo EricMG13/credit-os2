@@ -217,3 +217,15 @@ it("S16-2-3 says a unit gap once and prints no figure or axis end with it", () =
   expect(within(item).getAllByText(/only a ratio/i)).toHaveLength(1);
   expect(item.textContent).not.toMatch(/\d Not supplied/);
 });
+
+// Colour-signal-build ruling R1: a bar that is only a measured amount may take the neutral tone.
+it("draws the bar in the primary tone by default and in the tone it is given", () => {
+  const { container, rerender } = render(<Bullets label="Tests" tests={TESTS} />);
+  expect(container.querySelector(".bg-chart-1")).not.toBeNull();
+  expect(container.querySelector(".bg-text-tertiary:not(span span)")).toBeNull();
+  rerender(<Bullets label="Tests" tests={TESTS} tone="neutral" />);
+  expect(container.querySelector(".bg-chart-1")).toBeNull();
+  expect(container.querySelector(".bg-text-tertiary")).not.toBeNull();
+  // The threshold tick keeps the primary text colour.
+  expect(container.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
+});

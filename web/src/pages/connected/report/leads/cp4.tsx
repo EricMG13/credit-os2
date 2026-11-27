@@ -1,10 +1,10 @@
 import { unitLabel } from "../../publishedReport";
 import { word } from "../../visuals/visualData";
-import { Key } from "../overview/figureParts";
 import { Bento, Tile } from "../overview/Tile";
 import { basisNotes } from "../overview/figureData";
 import { Bullets, leadTests } from "./bullet";
 import { withDraws } from "./draws";
+import { MarkSwatch, SWATCH } from "./kit/marks/Legend";
 import { Beside, KeyValues, LeadFigure, LeadGap, MapTile, Trace } from "./parts";
 import {
   chartOf,
@@ -92,7 +92,18 @@ function Headroom({
       }
       legend={
         <>
-          <Key tone="primary">Current</Key>
+          <span className="flex items-center gap-1.5 text-caption text-text-secondary">
+            <svg
+              viewBox={`0 0 ${String(SWATCH)} ${String(SWATCH)}`}
+              width={SWATCH}
+              height={SWATCH}
+              aria-hidden="true"
+              className="flex-none overflow-visible"
+            >
+              <MarkSwatch kind="bar" tone="neutral" x={0} y={0} />
+            </svg>
+            Current
+          </span>
           <span className="flex items-center gap-1.5 text-caption text-text-secondary">
             <span aria-hidden="true" className="h-2.5 w-0.5 bg-text-primary" />
             Threshold
@@ -100,7 +111,7 @@ function Headroom({
         </>
       }
       trace={<Trace href={href(table.line)} name={TITLE} />}
-      figure={<Bullets label="Covenant tests" tests={tests} href={rowHref} />}
+      figure={<Bullets label="Covenant tests" tests={tests} href={rowHref} tone="neutral" />}
       table={writtenTable(table, href)}
       notes={[
         // A basis every test shares is one note; tests with their own carry it on their rows.

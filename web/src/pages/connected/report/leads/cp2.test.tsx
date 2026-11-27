@@ -273,6 +273,10 @@ it("shows leverage and cover from CP-1 with period, basis and owner, and headroo
   expect(within(headroom).getByText("5.5x")).toBeVisible();
   expect(within(headroom).getByText("7.5x")).toBeVisible();
   expect(within(headroom).getByText("27%")).toBeVisible();
+  // Colour-signal-build ruling R1: CP-2's bullet stays blue (its file is not part of that build).
+  expect(headroom.querySelector("[data-threshold]")?.parentElement?.firstElementChild).toHaveClass(
+    "bg-chart-1",
+  );
 });
 
 it("draws no comparison when the prior row has another basis or is not the year before", () => {

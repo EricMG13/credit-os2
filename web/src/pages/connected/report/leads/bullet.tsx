@@ -5,7 +5,7 @@ import type { SourceTable } from "../../visuals/visualData";
 import { columnAt } from "../overview/figureData";
 import { BULLET, bulletGeometry, headroomTests, type HeadroomTest } from "../overview/stressData";
 import { Figure } from "../overview/Tile";
-import { BarRow, GapCell, statedGap, Trace, type LeadTable } from "./parts";
+import { BarRow, GapCell, statedGap, Trace, type BarTone, type LeadTable } from "./parts";
 import { closed, IN_EVIDENCE, readerCell, readerCellOf, withStatedUnit } from "./read";
 
 /** A test as a lead draws it: `headroomGap` is the reason the module gives for no headroom. */
@@ -94,7 +94,7 @@ function Term({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
-function BulletRow({ test, href }: { test: LeadTest; href?: string }) {
+function BulletRow({ test, href, tone }: { test: LeadTest; href?: string; tone: BarTone }) {
   const geometry = bulletGeometry(test);
   const ends = geometry ? [geometry.ticks[0], geometry.ticks.at(-1)] : [];
   return (
@@ -138,6 +138,7 @@ function BulletRow({ test, href }: { test: LeadTest; href?: string }) {
       {geometry ? (
         <div role="img" aria-label={reading(test)} className="flex flex-col gap-1">
           <BarRow
+            tone={tone}
             start={Math.min(geometry.share.zero, geometry.share.current)}
             end={Math.max(geometry.share.zero, geometry.share.current)}
           >
@@ -168,15 +169,18 @@ function BulletRow({ test, href }: { test: LeadTest; href?: string }) {
  * Value against limit, one row a test, each on its own scale from zero: every stated cell as written
  * (current, threshold, headroom, direction), the missing one as a gap with its reason, and a bar only
  * when current and threshold are both plain numbers. `href(index)` is the trace of `tests[index]`.
+ * The bar takes `tone` (primary blue unless a lead says it is only a measured amount: neutral).
  */
 export function Bullets({
   label,
   tests,
   href,
+  tone = "primary",
 }: {
   label: string;
   tests: readonly LeadTest[];
   href?: (index: number) => string;
+  tone?: BarTone;
 }) {
   const reader = useId();
   return (
@@ -189,7 +193,12 @@ export function Bullets({
       </span>
       <ul aria-label={label} aria-describedby={reader} className="flex min-w-0 flex-col gap-3">
         {tests.map((test, at) => (
-          <BulletRow key={`${String(at)}-${test.label}`} test={test} href={href?.(at)} />
+          <BulletRow
+            key={`${String(at)}-${test.label}`}
+            test={test}
+            href={href?.(at)}
+            tone={tone}
+          />
         ))}
       </ul>
     </>

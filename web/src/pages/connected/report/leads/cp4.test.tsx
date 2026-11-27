@@ -385,3 +385,27 @@ it("keys a map of several edge types with a legend of their words, in name order
     .querySelectorAll('[data-part="legend"] li');
   expect([...legend].map((item) => item.textContent)).toEqual(["Payment rank", "Security rank"]);
 });
+
+// Colour-signal-build ruling R1: the covenant bar is a measured amount, not a direction or a case.
+it("draws the covenant bars neutral, keyed by a neutral Current swatch beside the threshold tick", () => {
+  const { container } = render(<LegalLead {...leadProps(synthetic())} />);
+  const tile = screen.getByRole("region", { name: "Covenant headroom" });
+  const bars = [...tile.querySelectorAll("[role=img] > span > span:not([data-threshold])")].filter(
+    (node) => node.className.includes("rounded-ds-xs"),
+  );
+  expect(bars).toHaveLength(2);
+  for (const bar of bars) {
+    expect(bar).toHaveClass("bg-text-tertiary");
+    expect(bar).not.toHaveClass("bg-chart-1");
+  }
+  const swatch = container.querySelector('svg [data-swatch="bar"]');
+  expect(swatch).toHaveClass("fill-text-tertiary");
+  expect(swatch?.closest("span")).toHaveTextContent("Current");
+  expect(
+    tile.querySelector("span.h-2\\.5.w-0\\.5.bg-text-primary")?.parentElement,
+  ).toHaveTextContent("Threshold");
+  // No share, band or percentage the handoff did not write: every "%" is in the handoff's own cells.
+  const written = SYNTHETIC.split("### Map")[0] ?? "";
+  const figure = tile.querySelector("[role=img]")?.parentElement?.textContent ?? "";
+  expect(figure.match(/%/g)?.length ?? 0).toBeLessThanOrEqual(written.match(/%/g)?.length ?? 0);
+});
