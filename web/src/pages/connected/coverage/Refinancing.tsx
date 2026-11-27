@@ -12,6 +12,7 @@ import { AMOUNT, SECTOR, step } from "../visuals/signal/scales";
 import { abs, sum, compare, type Dec } from "./coverageMath";
 import { fraction } from "./monitorMath";
 import { MiniColumns } from "../visuals/signal/Sparkline";
+import { unitLabel, writtenUnit } from "../moneyUnits";
 import { orderPeriods } from "@/utils/periodOrder";
 
 const REFI = "cp-3c/refinancing-need/debt-maturing";
@@ -51,7 +52,7 @@ function sourceName(source: string): string {
 }
 
 function amountText(fact: Fact): string {
-  return fact.unit ? `${fact.text} ${fact.unit}` : fact.text;
+  return writtenUnit(fact.text, fact.unit);
 }
 
 function amountReading(label: string, facts: readonly Fact[], value: Dec | null): string {
@@ -223,7 +224,7 @@ export function Refinancing({ data, issuers, selected, onSelect }: Props) {
           >
             {units.map((option) => (
               <option key={option} value={option}>
-                {option || "No unit stated"}
+                {unitLabel(option) || "No unit stated"}
               </option>
             ))}
           </select>
@@ -253,7 +254,7 @@ export function Refinancing({ data, issuers, selected, onSelect }: Props) {
         )}
       </div>
       <h3 className="text-small font-semibold text-text-primary">
-        Debt maturing by period ({unit || "no unit stated"})
+        Debt maturing by period ({unitLabel(unit) || "no unit stated"})
       </h3>
       <div role="img" aria-label="Maturity wall, stacked by issuer" className="h-56 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
@@ -305,8 +306,7 @@ export function Refinancing({ data, issuers, selected, onSelect }: Props) {
                   <span
                     title={`Total of drawn amounts: ${item.drawn.map(({ fact }) => amountText(fact)).join(" + ")}`}
                   >
-                    {item.total}
-                    {unit ? ` ${unit}` : ""}
+                    {writtenUnit(item.total, unit)}
                   </span>
                 )}
               </td>

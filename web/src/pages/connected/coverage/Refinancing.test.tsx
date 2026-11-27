@@ -132,14 +132,14 @@ describe("Refinancing synthetic reply", () => {
     const totals = screen.getByRole("table", { name: "Maturity wall totals" });
     const fy27 = within(totals).getByRole("row", { name: /FY2027/ });
     expect(within(fy27).getAllByRole("cell")[0]).toHaveTextContent(
-      "9007199254740993.1 USD millions",
+      "$9007199254740993.1m",
     );
     expect(within(fy27).getAllByRole("cell")[1]).toHaveTextContent("2");
     const sourceLinks = within(fy27).getAllByRole("link", { hidden: true });
     expect(sourceLinks).toHaveLength(2);
     expect(sourceLinks[0]).toHaveAttribute("href", expect.stringContaining("folder-0"));
     const fy28 = within(totals).getByRole("row", { name: /FY2028/ });
-    expect(within(fy28).getAllByRole("cell")[0]).toHaveTextContent("-75 USD millions");
+    expect(within(fy28).getAllByRole("cell")[0]).toHaveTextContent("-$75m");
     expect(
       within(
         screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
@@ -149,7 +149,7 @@ describe("Refinancing synthetic reply", () => {
       within(
         screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
       ).getByRole("row", { name: /Alpha/ }),
-    ).toHaveTextContent("Debt: 9,007,199,254,740,993.01 USD millions; Resources: 800 USD millions");
+    ).toHaveTextContent("Debt: $9,007,199,254,740,993.01m; Resources: $800m");
     expect(
       within(
         screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
@@ -177,7 +177,7 @@ describe("Refinancing synthetic reply", () => {
     ).getByRole("row", { name: /FY2028/ });
     expect(within(thousandsRow).getAllByRole("cell")[0]).toHaveTextContent("10 USD thousands");
     expect(
-      screen.getByText(/Debt maturing 25 USD millions in FY2028 \(other unit\)/),
+      screen.getByText(/Debt maturing \$25m in FY2028 \(other unit\)/),
     ).toBeInTheDocument();
   });
 
@@ -211,12 +211,12 @@ describe("Refinancing synthetic reply", () => {
       "row",
       { name: /Second period/ },
     );
-    expect(within(total).getAllByRole("cell")[0]).toHaveTextContent("-100 USD millions");
+    expect(within(total).getAllByRole("cell")[0]).toHaveTextContent("-$100m");
     const issuerRows = screen.getByRole("table", {
       name: "Debt maturing and committed resources by issuer",
     });
     expect(within(issuerRows).getByRole("row", { name: /Alpha/ })).toHaveTextContent(
-      "Debt: 0 USD millions",
+      "Debt: $0m",
     );
   });
 
@@ -234,12 +234,12 @@ describe("Refinancing synthetic reply", () => {
       name: "Debt maturing and committed resources by issuer",
     });
     const alpha = within(issuerTable).getByRole("row", { name: /Alpha/ });
-    expect(alpha).toHaveTextContent("10 USD millions; 20 USD millions");
+    expect(alpha).toHaveTextContent("$10m; $20m");
     expect(within(alpha).getByText("Open source runs (2)")).toBeInTheDocument();
     const heat = screen.getByRole("table", { name: "Debt maturity heat grid" });
     const alphaHeat = within(heat).getByRole("row", { name: /Alpha/ });
     expect(alphaHeat).toHaveTextContent(
-      "Multiple amounts left out: 10 USD millions; 20 USD millions",
+      "Multiple amounts left out: $10m; $20m",
     );
     expect(within(alphaHeat).getByText("Open source runs (4)")).toBeInTheDocument();
   });
@@ -266,7 +266,7 @@ describe("Refinancing synthetic reply", () => {
     const wall = screen.getByRole("img", { name: "Maturity wall, stacked by issuer" });
     expect(wall.querySelectorAll(".recharts-bar-rectangle path").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
-      "-75 USD millions",
+      "-$75m",
     );
   });
 
@@ -288,7 +288,7 @@ describe("Refinancing synthetic reply", () => {
       screen.getByRole("img", { name: "Maturity wall, stacked by issuer" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Maturity wall totals" })).toHaveTextContent(
-      "9007199254740993.1 USD millions",
+      "$9007199254740993.1m",
     );
   });
 
@@ -308,7 +308,7 @@ describe("Refinancing synthetic reply", () => {
       screen.getByRole("table", { name: "Debt maturing and committed resources by issuer" }),
     ).getByRole("row", { name: /Alpha/ });
     expect(row).toHaveTextContent(
-      "Resources: multiple amounts left out (800 USD millions; 900 USD millions)",
+      "Resources: multiple amounts left out ($800m; $900m)",
     );
     expect(row.querySelector('[data-mark="debt maturing"]')).toBeInTheDocument();
     expect(row.querySelector('[data-mark="committed resources"]')).not.toBeInTheDocument();
