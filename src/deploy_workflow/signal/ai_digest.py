@@ -215,7 +215,10 @@ class Writer:
             raise digests.WriterFailed(failed)
         draft = read(answer.text, scope)
         if draft is None:
-            ai_ledger.relabel(self.db, answer.call_id, "result failed its check")
+            try:
+                ai_ledger.relabel(self.db, answer.call_id, "result failed its check")
+            except sqlite3.Error:
+                log.exception("Signal digest call %s: could not record validation", answer.call_id)
             log.warning("Signal digest call %s: the result failed its check", answer.call_id)
             raise digests.WriterFailed("the model's result failed its check")
         return draft

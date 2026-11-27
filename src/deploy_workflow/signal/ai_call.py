@@ -49,6 +49,7 @@ from deploy_workflow.model.pricing import PricingError, price_usage
 from deploy_workflow.model.turn import Message, TurnRequest, Usage
 from deploy_workflow.signal import ai_gate, ai_ledger
 from deploy_workflow.signal.ai_price import FRAMING_TOKENS, Prompt, reservation_usd
+from deploy_workflow.signal.store import StoreError
 
 log = logging.getLogger(__name__)
 
@@ -159,6 +160,19 @@ def _release(model: Model, digest: str) -> None:
             release(digest)
         except Exception as error:  # noqa: BLE001 -- advisory: the call is settled already
             log.warning("could not release a Signal model session: %s", type(error).__name__)
+
+
+class SettlementFault(Exception):
+    """An already attempted call could not be settled. Its reservation stays open."""
+
+
+def _settle(
+    db: sqlite3.Connection, call_id: int, actual: Decimal | None, outcome: str, now: datetime
+) -> None:
+    try:
+        ai_ledger.settle(db, call_id, actual, outcome, now)
+    except (sqlite3.Error, StoreError) as error:
+        raise SettlementFault(f"call {call_id} could not be settled") from error
 
 
 def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuration, hold and owner
@@ -296,12 +310,12 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
         if not there:
             guard.homes.append(home)  # it may have been sent: the home is this call's
-        ai_ledger.settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
+        _settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
         return Answer(None, "raised", call_id)
     if _caused(there, reply, home):
         guard.homes.append(home)
     outcome = _outcome(reply)
-    ai_ledger.settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
+    _settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None

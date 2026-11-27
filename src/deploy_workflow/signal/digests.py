@@ -79,7 +79,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
-from deploy_workflow.signal import ai_ledger, groups, schedule
+from deploy_workflow.signal import ai_call, ai_ledger, groups, schedule
 from deploy_workflow.signal.store import (
     KINDS,
     Conflict,
@@ -931,7 +931,7 @@ def _record_failed_write(
     """A paid call that wrote no issue: record it in one transaction (the period stays where it
     was). Never made due again on a busy database: that would pay twice for the period."""
     run = Run("skipped", None, len(scope.stories), f"{NOT_WRITTEN}{failed}")
-    with _holding(scope), _write_transaction(db):
+    with _storing_paid_draft(scope), _write_transaction(db):
         if not _owns_claim(db, scope):
             return None
         if not _unchanged(db, scope):
@@ -957,6 +957,8 @@ def _write(
     try:
         with _holding(scope):  # busy inside the call: whether it was paid is not known
             draft = writer.draft(scope)
+    except ai_call.SettlementFault as error:
+        raise _ClaimHeld(str(error)) from error
     except ai_ledger.ClaimLost:
         return None
     except WriterFailed as failed:
@@ -1199,8 +1201,9 @@ def _record_failure(
         if row is None or row["claimed_at"] != claim:
             return
         digest = _digest(db, row)
-        scope = Scope(digest, min(digest.period_from, now), now, (), digest.story_mark)
-        _record(db, scope, Run("skipped", None, 0, reason), "schedule", now)
+        scope = planned or Scope(digest, min(digest.period_from, now), now, (), digest.story_mark)
+        trigger: Trigger = "manual" if row["claimed_by"] == "manual" else "schedule"
+        _record(db, scope, Run("skipped", None, len(scope.stories), reason), trigger, now)
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute(
             "UPDATE digests SET next_run_at=?, period_from=?, story_mark=MAX(story_mark, ?),"

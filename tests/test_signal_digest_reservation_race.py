@@ -37,19 +37,45 @@ def test_expired_worker_cannot_send_after_successor_recovery(tmp_path, monkeypat
         assert ai_ledger.totals(db, "2026-11").spent == Decimal("0.004")
 
 
-def test_paid_storage_fault_refuses_manual_retry_before_next_slot(tmp_path, monkeypatch):
+@pytest.mark.parametrize("valid_reply", [True, False])
+def test_paid_storage_fault_refuses_manual_retry_before_next_slot(
+    tmp_path, monkeypatch, valid_reply
+):
     with closing(store.open_db(tmp_path)) as db:
         ident = _ready(db)
-        model = FakeModel([ok(REPLY)])
+        model = FakeModel([ok(REPLY if valid_reply else "invalid digest text")])
         ai_ledger.set_cap(db, Decimal(15), DUE)
 
         def cannot_store(*args):
             raise sqlite3.IntegrityError("simulated write failure")
 
-        monkeypatch.setattr(ai_digest.Writer, "store", cannot_store)
+        if valid_reply:
+            monkeypatch.setattr(ai_digest.Writer, "store", cannot_store)
+        else:
+            monkeypatch.setattr(digests, "_close", cannot_store)
         ai_run.digest_pass(db, DUE, setup(tmp_path, model, clock=DUE))
 
         assert len(model.requests) == 1
         assert digests.owned(db, "Mara L", ident).next_run_at == NEXT_DUE
         with pytest.raises(digests.Conflict, match="next scheduled time"):
+            digests.request_run(db, "Mara L", ident, DUE + timedelta(minutes=31))
+
+
+def test_failed_settlement_keeps_claim_and_prevents_second_paid_call(tmp_path, monkeypatch):
+    with closing(store.open_db(tmp_path)) as db:
+        ident = _ready(db)
+        ai_ledger.set_cap(db, Decimal(15), DUE)
+        model = FakeModel([ok(REPLY)])
+
+        def cannot_settle(*args):
+            raise sqlite3.IntegrityError("simulated ledger write failure")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(ai_ledger, "settle", cannot_settle)
+            with pytest.raises(ai_run.DigestsLeftDue, match="hold their claim"):
+                ai_run.digest_pass(db, DUE, setup(tmp_path, model, clock=DUE))
+
+        assert len(model.requests) == 1
+        assert ai_ledger.totals(db, "2026-11").open_calls == 1
+        with pytest.raises(digests.Conflict, match="being written now"):
             digests.request_run(db, "Mara L", ident, DUE + timedelta(minutes=31))

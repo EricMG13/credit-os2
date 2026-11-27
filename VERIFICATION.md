@@ -11,6 +11,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   cases failed first with two SQLite connections and fake models. The repair checks ownership in
   the transaction that reserves the call and records paid storage faults at the planned story
   mark. 163 targeted tests passed, including the request handler and recovery tests. No live call.
+- Review of `9a2078f2` found that an unsettled call or an unwritten failure receipt could still
+  release a manual slot early. The two follow-up regressions failed first with synthetic model
+  replies and SQLite faults. The repair keeps unsettled calls held and applies the post-call
+  storage recovery to failure receipts. The fallback records the original trigger and planned
+  story scope. 165 targeted tests passed, including the loopback request and hosted Signal paths.
 
 ## 2026-11-27 — Sectioned review integration against main
 
