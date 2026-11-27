@@ -73,6 +73,44 @@
   --color-waterfall-up: var(--color-chart-1);
   --color-waterfall-down: var(--color-chart-4);
 
+  /* Signal scales: one scale per meaning (docs/rulings/2026-11-27-colour-signal-build.md) */
+  --color-scale-position-1: #ffffff;
+  --color-scale-position-2: #eff6ff;
+  --color-scale-position-3: #dbeafe;
+  --color-scale-position-4: #bfdbfe;
+  --color-scale-better-1: #dcfce7;
+  --color-scale-better-2: #bbf7d0;
+  --color-scale-better-3: #86efac;
+  --color-scale-worse-1: #ffedd5;
+  --color-scale-worse-2: #fed7aa;
+  --color-scale-worse-3: #fdba74;
+  --color-scale-neutral-1: #f4f4f5;
+  --color-scale-neutral-2: #e4e4e7;
+  --color-scale-neutral-3: #d4d4d8;
+  --color-scale-diverging-1: #dbeafe;
+  --color-scale-diverging-2: #ffedd5;
+  --color-scale-amount-1: #fef3c7;
+  --color-scale-amount-2: #fde68a;
+  --color-scale-amount-3: #fcd34d;
+  --color-scale-amount-4: #f59e0b;
+  --color-scale-amount-5: #d97706;
+  --color-scale-amount-edge: #b45309;
+  --color-category-1: #1d4ed8;
+  --color-category-2: #ea580c;
+  --color-category-3: #0f766e;
+  --color-category-4: #7e22ce;
+  --color-category-5: #b45309;
+  --color-category-6: #be123c;
+  --color-category-7: #15803d;
+  --color-category-8: #475569;
+  --color-better-mark: #15803d;
+  --color-worse-mark: #c2410c;
+  --color-cap-band-1: #15803d;
+  --color-cap-band-2: #777c22;
+  --color-cap-band-3: #d97706;
+  --color-cap-band-4: #da4e16;
+  --color-cap-band-5: #dc2626;
+
   /* Blue scale: 700 = accent, link and focus; 800 = hover; 900 = pressed; 50 = accent tint */
   --color-brand-50: #eff6ff;
   --color-brand-100: #dbeafe;

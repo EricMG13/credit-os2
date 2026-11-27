@@ -64,6 +64,7 @@ describe("theme.css", () => {
       ["Status", "###"],
       ["Gap states", "###"],
       ["Space, radius, elevation, borders", "##"],
+      ["Signal scales", "##"],
     ] as const) {
       expect(sectionOf(lf(crlf), title, level), title).toBe(section(title, level));
     }
@@ -232,6 +233,83 @@ describe("theme.css", () => {
       .filter((f) => new RegExp(HEX.source).test(readFileSync(f, "utf8")))
       .map((f) => path.relative(webRoot, f));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("signal scales", () => {
+  const ROWS = 36;
+  const TEXT_ROWS = 20;
+  const rows = section("Signal scales", "##")
+    .split("\n")
+    .map((line) => ({
+      line,
+      m: /^\|[^|]*\|[^|]*\|\s*`([a-z0-9-]+)`\s*\|\s*`(#[0-9A-Fa-f]{6})`/.exec(line),
+    }))
+    .filter((r) => r.m !== null)
+    .map((r) => ({
+      token: need(r.m?.[1], "token"),
+      hex: need(r.m?.[2], "hex"),
+      cells: r.line.split("|").map((c) => c.trim()),
+    }));
+
+  function tokenHex(title: string, token: string): string {
+    const m = new RegExp(`\\|\\s*\`${token}\`\\s*\\|\\s*\`(#[0-9A-Fa-f]{6})\``).exec(
+      section(title, "###"),
+    );
+    return need(m?.[1], `${token} hex`);
+  }
+
+  // WCAG 2.x contrast ratio of two six-digit hex colours.
+  function ratio(a: string, b: string): number {
+    const light = (hex: string): number => {
+      const [r = 0, g = 0, bl = 0] = [1, 3, 5].map((i) => {
+        const v = Number.parseInt(hex.slice(i, i + 2), 16) / 255;
+        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    };
+    const [hi = 0, lo = 0] = [light(a), light(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  it("declares every register row in theme.css with the register's hex", () => {
+    expect(rows).toHaveLength(ROWS);
+    for (const { token, hex } of rows) {
+      expect(declared(`color-${token}`)?.toUpperCase(), token).toBe(hex.toUpperCase());
+    }
+  });
+
+  it("keeps the documented contrast equal to the computed ratio, with distinct tokens", () => {
+    const ink = tokenHex("Text", "text-primary");
+    expect(new Set(rows.map((r) => r.token)).size).toBe(ROWS);
+    for (const { token, hex, cells } of rows) {
+      expect(cells[5], token).toBe(ratio(ink, hex).toFixed(2));
+    }
+  });
+
+  it("keeps text-primary at 4.5:1 or more on every scale step that carries text", () => {
+    const ink = tokenHex("Text", "text-primary");
+    const carrying = rows.filter(
+      (r) =>
+        /^scale-(position|better|worse|neutral|diverging|amount)-/.test(r.token) &&
+        r.token !== "scale-amount-edge",
+    );
+    expect(carrying).toHaveLength(TEXT_ROWS);
+    for (const { token, hex } of carrying) {
+      expect(ratio(ink, hex), token).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("keeps the better and worse marks at 4.5:1 or more on the card and subtle grounds", () => {
+    for (const mark of ["better-mark", "worse-mark"]) {
+      const hex = need(rows.find((r) => r.token === mark)?.hex, mark);
+      for (const ground of ["surface-card", "surface-subtle"]) {
+        expect(
+          ratio(hex, tokenHex("Surface", ground)),
+          `${mark} on ${ground}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 });
 

@@ -495,6 +495,53 @@ and legends use text colours, never the series colour. Status colours are
 never used as a series. A missing value is never drawn at zero: the mark is left out and the
 slot reads "n.a." (see Gap states).
 
+## Signal scales
+
+One scale per meaning, never reused for another (`DESIGN.md` § "Colour as signal in charts, tables and visuals"; ruling `docs/rulings/2026-11-27-colour-signal-build.md`). These scales supersede the older magnitude and baseline scales above for every visual the colour-as-signal build touches. The diverging scale (difference from a base) is its own scale with its own tokens, although its hexes equal position-3 and worse-1. Contrast is WCAG 2.x of `text-primary` on the step, two decimals; the contrast of `scale-amount-edge`, the category colours, the marks and the cap bands is not a text ground and is recorded for reference.
+
+- C1: status never uses green, except cap band 1, told apart from a status by its form.
+- C2: better and worse are one level each, a mark plus a tint, always with the up or down glyph and the word; the direction comes only from `signal.ts`.
+- C6: the category palette is the eight colours in order; slots 1, 2 and 7 are left out where better/worse, status marks or blue chrome are present.
+
+| Scale | Step | Token | Hex | Contrast of text-primary on it |
+| :--- | :--- | :--- | :--- | :--- |
+| position | 1 | `scale-position-1` | `#FFFFFF` | 19.80 |
+| position | 2 | `scale-position-2` | `#EFF6FF` | 18.19 |
+| position | 3 | `scale-position-3` | `#DBEAFE` | 16.23 |
+| position | 4 | `scale-position-4` | `#BFDBFE` | 13.93 |
+| better | 1 | `scale-better-1` | `#DCFCE7` | 18.03 |
+| better | 2 | `scale-better-2` | `#BBF7D0` | 16.34 |
+| better | 3 | `scale-better-3` | `#86EFAC` | 14.10 |
+| worse | 1 | `scale-worse-1` | `#FFEDD5` | 17.28 |
+| worse | 2 | `scale-worse-2` | `#FED7AA` | 14.63 |
+| worse | 3 | `scale-worse-3` | `#FDBA74` | 11.74 |
+| neutral | 1 | `scale-neutral-1` | `#F4F4F5` | 18.01 |
+| neutral | 2 | `scale-neutral-2` | `#E4E4E7` | 15.60 |
+| neutral | 3 | `scale-neutral-3` | `#D4D4D8` | 13.40 |
+| diverging | lower | `scale-diverging-1` | `#DBEAFE` | 16.23 |
+| diverging | higher | `scale-diverging-2` | `#FFEDD5` | 17.28 |
+| amount | 1 | `scale-amount-1` | `#FEF3C7` | 17.78 |
+| amount | 2 | `scale-amount-2` | `#FDE68A` | 15.90 |
+| amount | 3 | `scale-amount-3` | `#FCD34D` | 13.73 |
+| amount | 4 | `scale-amount-4` | `#F59E0B` | 9.22 |
+| amount | 5 | `scale-amount-5` | `#D97706` | 6.21 |
+| amount edge | edge | `scale-amount-edge` | `#B45309` | 3.94 |
+| category | blue | `category-1` | `#1D4ED8` | 2.95 |
+| category | orange | `category-2` | `#EA580C` | 5.56 |
+| category | teal | `category-3` | `#0F766E` | 3.62 |
+| category | purple | `category-4` | `#7E22CE` | 2.84 |
+| category | amber | `category-5` | `#B45309` | 3.94 |
+| category | rose | `category-6` | `#BE123C` | 3.15 |
+| category | green | `category-7` | `#15803D` | 3.95 |
+| category | slate | `category-8` | `#475569` | 2.61 |
+| better/worse marks | better | `better-mark` | `#15803D` | 3.95 |
+| better/worse marks | worse | `worse-mark` | `#C2410C` | 3.82 |
+| cap band | under 50% | `cap-band-1` | `#15803D` | 3.95 |
+| cap band | 50 to under 70 | `cap-band-2` | `#777C22` | 4.42 |
+| cap band | 70 to under 85 | `cap-band-3` | `#D97706` | 6.21 |
+| cap band | 85 to under 100 | `cap-band-4` | `#DA4E16` | 4.79 |
+| cap band | 100 or more | `cap-band-5` | `#DC2626` | 4.10 |
+
 ## Motion
 
 Three rules (ruling 6): only live run state loops; anything else is a one-off transition of at
