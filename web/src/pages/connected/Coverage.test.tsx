@@ -807,13 +807,23 @@ test("Coverage opens Monitor by default and keeps named analytics regions honest
     ),
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("row", { name: /Beta SA/ }));
-  for (const view of ["Patterns", "Refinancing", "Headroom", "Market"]) {
+  for (const view of ["Refinancing", "Headroom", "Market"]) {
     fireEvent.click(screen.getByRole("button", { name: view }));
     expect(screen.getByRole("region", { name: view })).toHaveTextContent(
       `${view} analysis is not available yet.`,
     );
     expect(screen.getByRole("combobox", { name: "Selected issuer" })).toHaveValue("beta");
   }
+});
+
+test("Coverage renders the Patterns analytics when its tab is selected", async () => {
+  window.history.replaceState(null, "", "/coverage?view=patterns");
+  answer(data);
+  render(<Coverage />);
+  expect(
+    await screen.findByRole("table", { name: "Level versus difference data" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Patterns" })).toBeInTheDocument();
 });
 
 test("Modules and Rank deep links continue to select their existing views", async () => {
