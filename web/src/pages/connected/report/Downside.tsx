@@ -373,7 +373,7 @@ function PanelRows({
                   className={cx(
                     "text-right font-mono text-small text-text-primary tabular-nums",
                     // A plain figure never breaks inside itself ("10." / "00"); words may wrap.
-                    PLAIN_FIGURE.test(bar.text) ? "whitespace-nowrap" : "wrap-anywhere",
+                    PLAIN_FIGURE.test(bar.text) ? "whitespace-nowrap" : "max-w-[60%] wrap-anywhere",
                   )}
                 >
                   {bar.text}
