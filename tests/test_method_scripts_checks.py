@@ -147,3 +147,50 @@ def test_an_unreadable_cell_is_not_checked_with_a_reason_that_names_it():
     assert "no change is stated" not in outcome.reason
     assert joined("—").status == "not checked"
     assert joined("1355; 10 to 12%").status == "not checked"
+
+
+# --- C11 fix round 2: three round-1 regressions restored to BASE ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        "Tax on profit",
+        "Taxes on income",
+        "Cash taxes on income",
+        "Interest expense, net of interest income",
+        "Costs and expenses excluding EBITDA",
+    ],
+)
+def test_cost_lines_naming_profit_or_income_keep_the_unfavourable_sign(item):
+    # 100 -> 110 is +10.0%; a cost line may carry either sign (ruling 2026-11-15)
+    assert t44_line(item, "(10.0%)") == "agreed"
+    assert t44_line(item, "10.0%") == "agreed"
+    assert t44_line(item, "(12.0%)") == "disagreed"
+
+
+@pytest.mark.parametrize(
+    ("cell", "status"),
+    [
+        ("-10; 10.0%", "agreed"),
+        ("-10, 10.0%", "agreed"),
+        ("-10 (10.0%)", "agreed"),
+        ("-10; -10.0%", "agreed"),
+        ("-10; 12.0%", "disagreed"),
+        ("-10 / 10.0%", "disagreed"),
+    ],
+)
+def test_percentage_after_punctuation_inherits_the_absolute_sign(cell, status):
+    # 90 / 100 - 1 = -10.0%
+    t44 = (
+        "### T4.4 - Performance\n\n| Line Item | FY2023 | FY2024 | YoY Abs/% |\n|---|---|---|---|\n"
+        f"| Revenue | 100 | 90 | {cell} |\n\n"
+    )
+    outcomes = [o for o in ms.run("CP-1B", cp1b(t44=t44)) if o.register == "T4.4"]
+    assert outcomes[0].status == status, cell
+
+
+def test_a_blank_cell_on_a_facility_expiring_inside_the_horizon_does_not_block_the_totals():
+    # Bilateral line expires at 1.0y, inside the 2y Horizon: not in the totals (470 and 200 stand).
+    funding = replaced(FUNDING, "Facility: Bilateral line", drawn="—")
+    assert statuses(ms.run("CP-3C", cp3c(funding=funding))) == dict.fromkeys(LINES, "agreed")

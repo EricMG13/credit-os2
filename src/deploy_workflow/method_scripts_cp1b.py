@@ -68,7 +68,9 @@ _COST = re.compile(
 # A line that is a profit, income, coverage or margin is no cost even where it names tax or
 # interest (`Net income after tax`, `Interest income`); `income tax` is itself a cost.
 _NOT_COST = re.compile(
-    r"\b(?:income|profit|profits|earnings|coverage|ebitda|margin|(?:after|before)[- ]tax)\b",
+    r"\b(?:net\s+income|operating\s+income|gross\s+profit|(?:profit|profits|income|earnings)\s+"
+    r"(?:before|after)|(?:after|before)[- ]tax|(?<!net of )interest\s+income|"
+    r"interest\s+coverage|coverage|margin|retained\s+earnings|adjusted\s+ebitda)\b",
     re.IGNORECASE,
 )
 _INCOME_TAX = re.compile(r"\bincome\s+tax(?:es)?\b", re.IGNORECASE)
@@ -141,7 +143,7 @@ _ANNOTATED = re.compile(
     rf"^\s*(?P<abs>{_NUMBER})\s*\(\s*(?P<pct>{_NUMBER}\s*%)\s*\){_QUALIFIER}", re.IGNORECASE
 )
 _ENDING = re.compile(
-    rf"^\s*(?:{_NUMBER}(?:\s*[;,/]\s*|\s+))?(?P<pct>\(?{_NUMBER}\s*%\)?){_QUALIFIER}",
+    rf"^\s*(?:(?P<abs>{_NUMBER})(?:\s*(?P<sep>[;,/])\s*|\s+))?(?P<pct>\(?{_NUMBER}\s*%\)?){_QUALIFIER}",
     re.IGNORECASE,
 )
 
@@ -346,7 +348,12 @@ def _abs_pct(cell: str, change: float | None) -> tuple[str, str]:
         negative = _dash(annotated["abs"]).lstrip().startswith("-")
         return own if re.match(r"[-+−–]", own) else ("-" if negative else "") + own, ""
     if ending:
-        return ending["pct"], ""
+        own = ending["pct"]  # after `;` or `,` the percentage takes the absolute figure's sign too
+        punctuated = ending["sep"] in (";", ",") or (ending["abs"] or "").endswith(",")
+        if punctuated and not re.match(r"[(\-+−–]", own):  # `(5.0%)` is the accounting negative
+            negative = _dash(ending["abs"]).lstrip().startswith("-")
+            return ("-" if negative else "") + own, ""
+        return own, ""
     why = "holds no percentage" if "%" not in cell else "does not end in its one percentage"
     return "", f"the Abs/% cell {why}"
 

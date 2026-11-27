@@ -833,14 +833,27 @@ def _facility(
     }
 
 
-def _unread_cells(facilities: list[dict[str, Any]]) -> tuple[str, ...]:
+def _expires_inside(years: float | None, horizon: float | None) -> bool:
+    """Whether a facility's read Years fall below the Horizon (the script leaves it out)."""
+    return years is not None and horizon is not None and years < horizon
+
+
+def _unread_cells(
+    facilities: list[dict[str, Any]], horizon: float | None = None
+) -> tuple[str, ...]:
     """The cells of each committed facility that the liquidity total needs and the table does not
-    state (the script would drop the facility, so the reduced total is not the model's)."""
+    state (the script would drop the facility, so the reduced total is not the model's). A facility
+    whose read Years are below the Horizon is not in the totals; its blank cells change nothing."""
     needed = (("commitment", "Amount"), ("drawn", "Drawn"), ("years_to_expiry", "Years"))
     return tuple(
         f"`Facility: {f['facility']}` {column}"
         for f in facilities
         if f["committed"]
+        and not (
+            horizon is not None
+            and f["years_to_expiry"] is not None
+            and f["years_to_expiry"] < horizon
+        )
         for key, column in needed
         if f[key] is None
     )
@@ -892,8 +905,9 @@ def _read_funding(text: str, tables: types.ModuleType) -> _Funding:
         for k, r in rows.items()
         if k.startswith("facility:")
     ]
+    horizon = single("Horizon", "Years", "year")
     payload = {
-        "horizon_years": single("Horizon", "Years", "year"),
+        "horizon_years": horizon,
         "currency": currency,
         "cash": single("Cash", "Amount"),
         "forecast_fcf": single("Forecast free cash flow", "Amount"),
@@ -904,7 +918,7 @@ def _read_funding(text: str, tables: types.ModuleType) -> _Funding:
         line: rows[_label(line)][cols["Amount"]] for line in FUNDING_RESULTS if _label(line) in rows
     }
     halves = _funding_halves(text, rows, cols, tables)
-    unread = _unread_cells(facilities)
+    unread = _unread_cells(facilities, horizon)
     return _Funding(payload, stated, f"{currency} {scale}", halves, unread)
 
 
