@@ -101,6 +101,8 @@ export function segmentLayout(
   view: SegmentView,
   periods: SegmentPeriods,
   width: number,
+  /** Width kept clear at the right of the figure for the sales rows' sparkline (0: none drawn). */
+  reserve = 0,
 ): SegmentLayout {
   const layout = width < NARROW ? "narrow" : "wide";
   const cells = view.segments.map((segment) => ({
@@ -130,7 +132,7 @@ export function segmentLayout(
       : []),
   ];
   const from = nameWidth + 2;
-  const to = Math.max(from + 80, width - Math.max(40, ...labels) - 10);
+  const to = Math.max(from + 80, width - Math.max(40, ...labels) - 10 - reserve);
   const x = (value: number) => axis.place(value, from, to);
   const zero = x(0);
 
@@ -150,7 +152,7 @@ export function segmentLayout(
       labelX = current.value < 0 ? zero + 6 : zero + size + 6;
     } else {
       labelX = zero + (current.kind === "gap" ? SEG.gapSlot + 6 : 4);
-      lines = wrap(current.text, Math.max(60, width - labelX), 11);
+      lines = wrap(current.text, Math.max(60, width - labelX - reserve), 11);
     }
     const priorMark =
       prior && periods.prior

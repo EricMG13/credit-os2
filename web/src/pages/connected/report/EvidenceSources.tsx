@@ -13,12 +13,50 @@ import {
   type Snapshot,
 } from "../publishedReport";
 import { GapText } from "@/pages/library/parts/GapText";
+import { cx } from "@/utils/cx";
+import { AMOUNT, step } from "../visuals/signal/scales";
+import { Legend, type LegendEntry } from "./leads/kit/marks/Legend";
 import { STACK } from "./evidenceKit";
 import { handoffName } from "./evidenceLabels";
 import { Tile } from "./overview/Tile";
 
 export type SourceGroup = { label: string; rows: PublishedRun["evidence"]["sources"] };
 type SourceRow = SourceGroup["rows"][number];
+
+// Literal class strings, so Tailwind generates each. Slots 1, 2 and 7 are not used on this page.
+const TYPE_DOT = {
+  3: "bg-category-3",
+  4: "bg-category-4",
+  5: "bg-category-5",
+  6: "bg-category-6",
+  8: "bg-category-8",
+} as const;
+type TypeSlot = keyof typeof TYPE_DOT;
+const TYPE_TONE: Record<TypeSlot, `category-${TypeSlot}`> = {
+  3: "category-3",
+  4: "category-4",
+  5: "category-5",
+  6: "category-6",
+  8: "category-8",
+};
+const SLOTS: readonly TypeSlot[] = [3, 4, 5, 6];
+
+/**
+ * The category slot of each distinct non-empty type word across all groups, unfiltered, in first
+ * appearance: slots 3 to 6 in turn, then every further word shares slot 8 with its own word.
+ */
+function typeSlots(groups: readonly SourceGroup[]) {
+  const slots = new Map<string, TypeSlot>();
+  for (const { type } of groups.flatMap(({ rows }) => rows))
+    if (type && !slots.has(type)) slots.set(type, SLOTS[slots.size] ?? 8);
+  return slots;
+}
+
+const USED_LEGEND: LegendEntry = {
+  kind: "square",
+  tone: "amount-4",
+  text: "Shade: the module count against the most-read file shown",
+};
 
 /** The id of one file's row: its place across the groups in the order they are given. */
 export const sourceRowId = (index: number) => `evidence-source-${String(index)}`;
@@ -128,11 +166,14 @@ function UsedBy({
   modules,
   group,
   pathway,
+  largest,
 }: {
   source: SourceRow;
   modules: string[];
   group: string;
   pathway?: string | null;
+  /** The most modules reading any shown file: the chip's shade is this file's count against it. */
+  largest: number;
 }) {
   if (source.readBy.length === 0)
     return (
@@ -142,11 +183,18 @@ function UsedBy({
     );
   const all = modules.length > 0 && modules.every((id) => source.readBy.includes(id));
   return (
-    <>
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span
+        data-part="used-by-count"
+        style={{ backgroundColor: step(source.readBy.length / largest, AMOUNT) }}
+        className="inline-flex min-w-6 justify-center rounded-ds-xs border border-scale-amount-edge px-1.5 font-mono text-small text-text-primary tabular-nums"
+      >
+        {source.readBy.length}
+      </span>
       {all && source.readBy.length === modules.length
         ? `Read by all ${String(modules.length)} modules`
         : `Read by ${source.readBy.map((id) => moduleName(id, pathway)).join(" · ")}`}
-    </>
+    </span>
   );
 }
 
@@ -158,6 +206,8 @@ function SourceTable({
   pathway,
   places,
   rowTarget,
+  slots,
+  largest,
 }: {
   group: SourceGroup;
   modules: string[];
@@ -167,6 +217,8 @@ function SourceTable({
   /** Each file's place across all groups, for its row's address. */
   places: Map<SourceRow, number>;
   rowTarget?: number;
+  slots: ReadonlyMap<string, TypeSlot>;
+  largest: number;
 }) {
   const headings = [
     "File",
@@ -244,7 +296,21 @@ function SourceTable({
                       data-label={headings[1]}
                       className={`${STACK.cell} text-text-secondary`}
                     >
-                      {source.type || <GapText>Document type n.a.</GapText>}
+                      {source.type ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            aria-hidden="true"
+                            data-part="type-dot"
+                            className={cx(
+                              "size-2 shrink-0 rounded-full",
+                              TYPE_DOT[slots.get(source.type) ?? 8],
+                            )}
+                          />
+                          {source.type}
+                        </span>
+                      ) : (
+                        <GapText>Document type n.a.</GapText>
+                      )}
                     </td>
                     <td
                       role="cell"
@@ -308,6 +374,7 @@ function SourceTable({
                         modules={modules}
                         group={group.label}
                         pathway={pathway}
+                        largest={largest}
                       />
                     </td>
                     <td
@@ -415,6 +482,18 @@ export function EvidenceSources({
   const places = new Map(
     sourceGroups.flatMap(({ rows }) => rows).map((source, index) => [source, index] as const),
   );
+  const slots = typeSlots(sourceGroups);
+  const shownRows = shown.flatMap(({ rows }) => rows);
+  const largest = Math.max(0, ...shownRows.map(({ readBy }) => readBy.length));
+  const typeWords = [...new Set(shownRows.flatMap(({ type }) => (type ? [type] : [])))];
+  const legend: LegendEntry[] = [
+    ...typeWords.map((word) => ({
+      kind: "dot" as const,
+      tone: TYPE_TONE[slots.get(word) ?? 8],
+      text: word,
+    })),
+    ...(largest > 0 ? [USED_LEGEND] : []),
+  ];
   const none = shown.every(({ rows }) => rows.length === 0);
   return (
     <Tile
@@ -439,18 +518,23 @@ export function EvidenceSources({
           </EmptyState.Content>
         </EmptyState>
       ) : (
-        shown.map((group) => (
-          <SourceTable
-            key={group.label}
-            group={group}
-            modules={modules}
-            cited={cited}
-            scope={module}
-            pathway={pathway}
-            places={places}
-            rowTarget={rowTarget}
-          />
-        ))
+        <>
+          <Legend items={legend} />
+          {shown.map((group) => (
+            <SourceTable
+              key={group.label}
+              group={group}
+              modules={modules}
+              cited={cited}
+              scope={module}
+              pathway={pathway}
+              places={places}
+              rowTarget={rowTarget}
+              slots={slots}
+              largest={largest}
+            />
+          ))}
+        </>
       )}
     </Tile>
   );

@@ -78,6 +78,36 @@ describe("MaturityTile on the accepted handoff", () => {
     );
     expect(tile.querySelector("[data-axis-break]")).not.toBeNull();
   });
+  it("tints each bar by its amount against the largest (ruling C4), legend in words", () => {
+    const tile = draw(cp1Entry());
+    // Largest |amount| 12,637 (Thereafter). Shares by hand: 580/12637 = 0.0459, 92/12637 = 0.0073
+    // (both amount-1); 6637/12637 = 0.5252 (amount-3); 4768/12637 = 0.3773 (amount-2); 1 (amount-5).
+    const expected: [string, string][] = [
+      ["FY2025", "amount-1"],
+      ["FY2026", "amount-1"],
+      ["FY2027", "amount-1"],
+      ["FY2028", "amount-3"],
+      ["FY2029", "amount-2"],
+      ["Thereafter", "amount-5"],
+    ];
+    for (const [label, tone] of expected) {
+      const mark = bar(tile, label);
+      expect(mark).toHaveClass(`fill-scale-${tone}`);
+      expect(mark).toHaveClass("stroke-scale-amount-edge");
+    }
+    // The undated bar keeps its inset and 1.5 stroke; dated bars have a 1 px stroke.
+    expect(bar(tile, "Thereafter")?.getAttribute("stroke-width")).toBe("1.5");
+    expect(bar(tile, "FY2028")?.getAttribute("stroke-width")).toBe("1");
+    const legend = [...tile.querySelectorAll("[data-legend]")].map((item) => item.textContent);
+    expect(legend).toEqual([
+      "Shade by size against the biggest bar: smallest",
+      "smaller",
+      "middle",
+      "bigger",
+      "biggest",
+    ]);
+    expect(tile.textContent).not.toMatch(/Dated period|After the axis break/);
+  });
   it("draws the two small years at the 2 px minimum, with no note about it", () => {
     const tile = draw(cp1Entry());
     expect(num(bar(tile, "FY2026"), "height")).toBe(2);

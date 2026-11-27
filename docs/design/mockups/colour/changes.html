@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1440">
+<title>Report · Changes: colour as signal (illustration)</title>
+<style>
+/* shared: tokens and colour scales. Paste verbatim; do not edit. */
+@font-face{font-family:"Geist";font-weight:400;src:url("../../../../web/public/fonts/Geist-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist";font-weight:500;src:url("../../../../web/public/fonts/Geist-Medium.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:400;src:url("../../../../web/public/fonts/GeistMono-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url("../../../../web/public/fonts/GeistMono-Medium.woff2") format("woff2")}
+:root{--canvas:#FAFAFA;--tile:#FFFFFF;--well:#F4F4F5;--hair:#E4E4E7;--ink:#0A0A0A;--sec:#52525B;--label:#6B6B74;--acc:#1D4ED8;--tint:#EFF6FF;--prior:#8E8E96;
+--bt:#15803D;--ws:#C2410C;--fail:#DC2626;--blocked:#EA580C;
+--c1:#1D4ED8;--c2:#EA580C;--c3:#0F766E;--c4:#7E22CE;--c5:#B45309;--c6:#BE123C;--c7:#15803D;--c8:#475569;
+--mono:"Geist Mono",ui-monospace,Menlo,monospace;--sans:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 12px/16px var(--sans);width:1440px}
+.banner{background:var(--well);border-bottom:1px solid var(--hair);color:var(--sec);font-size:12px;line-height:16px;text-align:center;padding:5px 0}
+/* position in a cohort or order: sequential blue */
+[data-band="p1"]{background:#FFFFFF}[data-band="p2"]{background:#EFF6FF}[data-band="p3"]{background:#DBEAFE}[data-band="p4"]{background:#BFDBFE}
+/* better / worse: only where the direction table gives a direction */
+[data-band="bt1"]{background:#DCFCE7}[data-band="bt2"]{background:#BBF7D0}[data-band="bt3"]{background:#86EFAC}
+[data-band="ws1"]{background:#FFEDD5}[data-band="ws2"]{background:#FED7AA}[data-band="ws3"]{background:#FDBA74}
+[data-band="d0"]{background:#FFFFFF}
+/* amount: sequential amber */
+[data-band="a1"]{background:#FEF3C7}[data-band="a2"]{background:#FDE68A}[data-band="a3"]{background:#FCD34D}[data-band="a4"]{background:#F59E0B}[data-band="a5"]{background:#D97706}
+/* share of a limit used: bar fills only, never under text */
+[data-band="s1"]{background:#15803D}[data-band="s2"]{background:#777C22}[data-band="s3"]{background:#D97706}[data-band="s4"]{background:#DA4E16}[data-band="s5"]{background:#DC2626}
+[data-band^="p"],[data-band^="bt"],[data-band^="ws"],[data-band^="a"],[data-band="d0"]{color:#0A0A0A}
+.hatch{background:repeating-linear-gradient(135deg,transparent 0 5px,#E4E4E7 5px 6px);color:#52525B}
+.gapline{display:inline-block;border:1px dashed var(--prior);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,#EDEDF0 5px 6px);padding:1px 8px;color:#52525B}
+/* end shared */
+
+.top{height:44px;background:#fff;border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:16px;padding:0 16px}
+.top .brand{font:500 14px/20px var(--sans);color:var(--acc)}
+.top .iss{font:500 14px/20px var(--sans)}
+.top .chip{border:1px solid var(--hair);border-radius:6px;padding:1px 8px;color:var(--sec);background:var(--well)}
+.top .sp1{flex:1}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--hair);background:#fff;padding:0 16px}
+.tabs a{height:32px;padding:0 14px;display:flex;align-items:center;color:var(--sec);font:500 13px/18px var(--sans);border-bottom:2px solid transparent;border-radius:8px 8px 0 0;text-decoration:none}
+.tabs a[aria-current=page]{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+main{padding:12px 16px 24px}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.head h1{margin:0;font:500 18px/24px var(--sans)}
+a.lnk,.btnl{color:var(--acc);font:500 12px/16px var(--sans);text-decoration:underline;text-underline-offset:2px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}
+.s12{grid-column:span 12}.s7{grid-column:span 7}.s5{grid-column:span 5}
+.tile{background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.tile>header{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.tile h2{margin:0;font:500 14px/20px var(--sans)}
+.tile .cap{color:var(--label);font-size:11px;line-height:14px}
+.fgn,.fg,.rk,table td,.pl,.ml,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.verdict{margin:0;font:500 26px/32px var(--sans);max-width:62ch;text-wrap:balance}
+.verdict .gl{font-size:20px;margin-right:6px;color:var(--ws)}
+.chips{display:flex;gap:8px;align-items:center;color:var(--sec)}
+.chips span.c{border-radius:6px;background:var(--well);padding:2px 8px}
+.chips span.c.cur{background:var(--tint);color:var(--acc)}
+.tally{display:flex;gap:14px;align-items:center;margin-left:8px;color:var(--ink)}
+.tally b{font-weight:500}
+.lgl{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px;font-size:11px;line-height:16px;color:var(--label)}
+.lgi{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sw{display:inline-block;width:14px;height:10px;border:1px solid #CBD5E1}
+.mk{display:inline-block;font-size:11px}
+ul.mlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.mrow{display:grid;grid-template-columns:18px 178px 104px 130px 96px 64px;column-gap:8px;align-items:center;padding:4px 8px;border-radius:6px;min-height:42px;grid-template-areas:"rk nm fg db dl sp" ". cs cs cs cs cs"}
+.mrow .rk{grid-area:rk;color:var(--ink);font-size:11px}
+.mrow .nm{grid-area:nm;font-weight:500}
+.mrow .fg{grid-area:fg;color:var(--ink)}
+.mrow .fg i{font-style:normal;color:var(--ink)}
+.mrow svg.dmb{grid-area:db}
+.mrow .dl{grid-area:dl;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.mrow .dl .gl{font-size:11px}
+.mrow .dl .wd{font-size:11px}
+.mrow .sp{grid-area:sp;height:16px}
+.mrow .cs{grid-area:cs;font-size:11px;line-height:14px;color:var(--ink)}
+.gapline.sm{font-size:11px;line-height:14px;padding:0 6px}
+.gl.g{color:#52525B}
+table{border-collapse:collapse;width:100%}
+table.mx th,table.mx td{height:28px;padding:0 4px;text-align:left;font-weight:400;border-top:1px solid var(--hair)}
+table.mx thead th{height:24px;color:var(--label);font-size:11px;border-top:0}
+table.mx td.cell{font-size:11px;white-space:nowrap;color:var(--ink)}
+table.mx .mg{display:inline-block;width:12px;text-align:center;font:500 13px/14px var(--mono)}
+table.mx tr.stg th{height:22px;background:var(--well);color:var(--ink);font-weight:500;font-size:11px;letter-spacing:.02em}
+table.mx tr.stg th span{color:var(--label);font-weight:400;margin-left:4px}
+table.mx th[scope=row]{font-weight:400}
+table.mx td.hatch{color:var(--ink)}
+.mtally{display:flex;gap:14px;font-size:11px;color:var(--ink)}
+.chart{display:flex;gap:16px;align-items:flex-end}
+.mgroups{display:flex;flex:1;gap:12px;align-items:flex-end}
+.mg2{flex:1;display:flex;flex-direction:column;align-items:stretch}
+.pair{display:flex;justify-content:center;align-items:flex-end;gap:8px;height:166px}
+.mb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;width:72px}
+.ml{font-size:11px;line-height:14px}
+.bar{display:block;width:56px;border-radius:4px 4px 0 0}
+.bar.earlier{border:2px solid var(--prior);background:#fff}
+.bar.now{border:1px solid #B45309}
+.zero{display:block;width:56px;height:2px;background:#52525B}
+.gapbar{display:block;width:56px;height:24px;border:1px dashed var(--prior);border-radius:4px 4px 0 0}
+.base{height:1px;background:var(--hair)}
+.pl{text-align:center;font-size:11px;color:var(--sec);margin-top:4px}
+.pd{text-align:center;height:18px;margin-top:2px;font-size:11px}
+.nm0{color:#52525B;font:400 12px/16px var(--mono)}
+.tot{width:300px;border:1px solid var(--hair);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:4px;align-self:stretch;justify-content:center}
+.tot div{display:flex;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;color:var(--sec);font:500 12px/16px var(--sans);height:24px;padding:0 10px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--tint);color:var(--acc)}
+.seg button:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.tile[data-view=table] .fig{display:none}
+.tile:not([data-view=table]) .tv{display:none}
+table.mt th,table.mt td{height:28px;padding:0 8px;text-align:right;border-top:1px solid var(--hair);font-weight:400}
+table.mt th{text-align:left;font-family:var(--mono)}
+table.mt thead th{color:var(--label);font:400 11px/16px var(--sans);border-top:0;text-align:right}
+table.mt thead th:first-child{text-align:left}
+ol.kf{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:18px}
+.prose h3{margin:0 0 2px;font:500 12px/16px var(--sans);color:var(--ink)}
+.prose p{margin:0 0 8px;font-size:13px;line-height:18px;max-width:70ch}
+.lg2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.lg2 h3{margin:0 0 6px;font:500 12px/16px var(--sans)}
+.lg2 ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.lg2 li{display:flex;gap:8px;font-size:13px;line-height:18px}
+.lg2 .pm{font:500 14px/18px var(--mono);width:14px;flex:none;text-align:center}
+.lg2 .add{color:var(--blocked)}
+details summary{cursor:pointer;color:var(--acc);font:500 12px/16px var(--sans);min-height:24px;display:flex;align-items:center}
+details summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+ul.un{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:0 24px}
+ul.un li{display:grid;grid-template-columns:1fr auto 14px;gap:8px;align-items:center;min-height:28px;border-top:1px solid var(--hair)}
+ul.un .fg{color:var(--ink)}
+ul.un .fg i{font-style:normal;color:var(--ink)}
+
+
+/* shell (copied from library.html top bar and forecast.html report header; prefixed sh-) */
+.sh-top{display:flex;align-items:center;gap:20px;height:48px;padding:0 24px;background:#fff;border-bottom:1px solid var(--hair)}
+.sh-brand{display:flex;align-items:center;gap:8px;font:500 14px/16px var(--sans)}
+.sh-brand i{width:20px;height:20px;border-radius:6px;background:var(--acc);display:block}
+.sh-top nav{display:flex;gap:4px;margin-left:12px}
+.sh-top nav a{padding:14px 10px 12px;color:var(--sec);text-decoration:none;border-bottom:2px solid transparent;font-size:13px}
+.sh-top nav a.cur{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.sh-start{margin-left:auto;background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;font:500 13px/16px var(--sans);text-decoration:none}
+.sh-page{padding:0 16px}
+.sh-bc{color:var(--sec);margin:12px 0 4px}
+.sh-bc a{color:var(--acc);text-decoration:none}
+.sh-ph{display:flex;align-items:flex-end;justify-content:space-between}
+.sh-ph h1{font:500 28px/34px var(--sans);margin:0;display:inline}
+.sh-ph .sh-sec{color:var(--sec);margin-left:10px;font-size:13px}
+.sh-chips{display:flex;gap:6px;margin-top:6px}
+.sh-chip{border:1px solid var(--hair);border-radius:6px;padding:2px 8px;color:var(--sec);background:var(--tile)}
+.sh-seg{display:inline-flex;background:var(--well);border:1px solid var(--hair);border-radius:10px;padding:2px;gap:2px}
+.sh-seg span{padding:6px 14px;border-radius:8px;color:var(--sec);font-size:13px}
+.sh-seg span.cur{background:var(--tint);color:var(--acc);outline:1.5px solid var(--acc);outline-offset:-1.5px;font-weight:500}
+</style></head><body>
+<div class="banner">Illustration of form. Figures are invented, not a delivered run.</div>
+<header class="sh-top"><div class="sh-brand"><i></i>Credit OS</div><nav><a class="cur" href="#">Library</a><a href="#">Coverage</a><a href="#">Run activity</a><a href="#">Signal</a></nav><a class="sh-start" href="#">Start run</a></header>
+<div class="sh-page"><div class="sh-bc"><a href="#">Library</a> / <a href="#">Calderwick Packaging Inc.</a> / Full assessment</div>
+<div class="sh-ph"><div><h1>Calderwick Packaging Inc.</h1><span class="sh-sec">US industrials</span>
+<div class="sh-chips"><span class="sh-chip">Full credit assessment</span><span class="sh-chip">As of 14 March 2027 · FY2026</span><span class="sh-chip">USD millions</span></div></div>
+<div class="sh-seg" aria-label="Report sections"><span>Overview</span><span class="cur" aria-current="page">Changes</span><span>Modules 17</span><span>Forecast</span><span>Evidence</span><span>Calendar</span><span>Deliverables</span></div></div></div>
+<main>
+<div class="head"><h1>Changes since the last run</h1><a class="lnk" href="#">Review comparison evidence →</a></div>
+<div class="grid">
+
+<section class="tile s12" aria-label="Verdict"><header><h2>Verdict</h2></header>
+<p class="verdict"><span class="gl" aria-hidden="true">▼</span>Worse. Debt rose 7.0% while Adjusted EBITDA rose 2.7%, so leverage is higher, interest cover and covenant headroom are thinner, and committed resources fell from 360 to 351.</p>
+<div class="chips"><span class="c">Earlier run, as of 11 March 2026</span><span aria-hidden="true">→</span><span class="c cur">This run, as of 14 March 2027</span>
+<span class="tally"><span class="lgi"><b style="color:var(--bt)">▲</b> <b>3</b> better</span><span class="lgi"><b style="color:var(--ws)">▼</b> <b>7</b> worse</span><span class="lgi"><b style="color:#52525B">▲▼</b> <b>3</b> no ruled direction</span></span></div>
+<div><span class="gapline">Stance, earlier → current: the comparison does not state it</span></div>
+</section>
+
+<section class="tile s7" aria-label="Measures that moved"><header><h2>Measures that moved</h2><span class="cap">Earlier → current, largest move against the earlier figure first</span></header>
+<div class="lgl" aria-label="Legend: better and worse">
+<span class="lgi"><span class="sw" data-band="bt2"></span><b style="color:var(--bt)">▲▼</b> green row: better</span>
+<span class="lgi"><span class="sw" data-band="ws2"></span><b style="color:var(--ws)">▲▼</b> red-orange row: worse</span>
+<span class="lgi"><span class="sw" style="background:#fff"></span><b style="color:#52525B">▲▼</b> white row, grey: no ruled direction</span>
+</div>
+<div class="lgl"><span class="lgi"><svg width="10" height="14" viewBox="0 0 10 14" role="img" aria-label="earlier figure tick"><rect x="4" y="0" width="2" height="14" fill="#3F3F46"/></svg> earlier figure</span>
+<span class="lgi"><svg width="10" height="10" viewBox="0 0 10 10" role="img" aria-label="current figure dot"><circle cx="5" cy="5" r="4" fill="#52525B"/></svg> current figure, axis from zero</span>
+<span class="lgi"><svg width="44" height="12" viewBox="0 0 60 16" role="img" aria-label="sparkline key"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3,12 17,9 31,10 45,6"/><circle cx="55" cy="3" r="2" fill="#52525B"/></svg> FY2022 to FY2026, where earlier runs published more than two periods; a dashed tick is a period not stated</span></div>
+<ul class="mlist" aria-label="Measures that moved">
+<li class="mrow" data-band="d0"><span class="rk">1</span><span class="nm">Debt maturing in 2027</span><span class="fg">26 <i>→</i> <b>150</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Debt maturing in 2027, 26 to 150; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="33.1" y1="10" x2="124.0" y2="10" stroke="#52525B" stroke-width="2.5"/><rect x="32.1" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#52525B"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+124</span><span class="wd"></span></span><span class="sp"></span><span class="cs"><span class="cause">Cause: the revolving facility drawn (50) and other debt (100) both fall due in 2027; only 26 did before.</span></span></li><li class="mrow" data-band="bt2"><span class="rk">2</span><span class="nm">Cash</span><span class="fg">110 <i>→</i> <b>151</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Cash, 110 to 151; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="94.1" y1="10" x2="124.0" y2="10" stroke="#15803D" stroke-width="2.5"/><rect x="93.1" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#15803D"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+41</span><span class="wd">better</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Cash, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,12.7 30.0,13.6 43.5,10.9 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#15803D"/></svg></span><span class="cs"><span class="cause">Cause: cash retained from operations, plus the 50 drawn on the revolving facility.</span></span></li><li class="mrow" data-band="ws2"><span class="rk">3</span><span class="nm">Undrawn committed facility</span><span class="fg">250 <i>→</i> <b>200</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Undrawn committed facility, 250 to 200; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="124.0" y1="10" x2="102.0" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="123.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="102.0" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▼</span><span class="fgn">−50</span><span class="wd">worse</span></span><span class="sp"></span><span class="cs"><span class="cause">Cause: 50 drawn on the revolving facility.</span></span></li><li class="mrow" data-band="ws2"><span class="rk">4</span><span class="nm">Covenant headroom, cover</span><span class="fg">31.5% <i>→</i> <b>25.9%</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Covenant headroom, cover, 31.5% to 25.9%; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="124.0" y1="10" x2="104.4" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="123.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="104.4" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▼</span><span class="fgn">−5.6 pts</span><span class="wd">worse</span></span><span class="sp"></span><span class="cs"><span class="cause">Cause: cash interest grew 11.1% (126 to 140) while Adjusted EBITDA grew 2.7% (368 to 378).</span></span></li><li class="mrow" data-band="d0"><span class="rk">5</span><span class="nm">Cash interest</span><span class="fg">126 <i>→</i> <b>140</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Cash interest, 126 to 140; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="113.0" y1="10" x2="124.0" y2="10" stroke="#52525B" stroke-width="2.5"/><rect x="112.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#52525B"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+14</span><span class="wd"></span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Cash interest, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,12.3 30.0,10.0 43.5,6.0 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#52525B"/></svg></span><span class="cs"><span class="gapline sm">Cause: Unresolved</span></span></li><li class="mrow" data-band="d0"><span class="rk">6</span><span class="nm">Total debt</span><span class="fg">1,766 <i>→</i> <b>1,890</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Total debt, 1,766 to 1,890; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="116.8" y1="10" x2="124.0" y2="10" stroke="#52525B" stroke-width="2.5"/><rect x="115.8" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#52525B"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+124</span><span class="wd"></span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Total debt, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,11.6 30.0,10.2 43.5,8.0 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#52525B"/></svg></span><span class="cs"><span class="cause">Cause: the 50 revolver draw and other debt up 74 (26 to 100).</span></span></li><li class="mrow" data-band="ws2"><span class="rk">7</span><span class="nm">EBITDA / cash interest</span><span class="fg">2.9x <i>→</i> <b>2.7x</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="EBITDA / cash interest, 2.9x to 2.7x; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="124.0" y1="10" x2="116.4" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="123.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="116.4" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▼</span><span class="fgn">−0.2x</span><span class="wd">worse</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="EBITDA / cash interest, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,2.0 16.5,7.1 30.0,8.9 43.5,10.6 57.0,14.0"/><circle cx="57.0" cy="14.0" r="2" fill="#C2410C"/></svg></span><span class="cs"><span class="cause">Cause: interest grew 11.1% against EBITDA 2.7%.</span></span></li><li class="mrow" data-band="ws2"><span class="rk">8</span><span class="nm">Covenant headroom, leverage</span><span class="fg">25.0% <i>→</i> <b>23.3%</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Covenant headroom, leverage, 25.0% to 23.3%; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="124.0" y1="10" x2="116.5" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="123.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="116.5" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▼</span><span class="fgn">−1.7 pts</span><span class="wd">worse</span></span><span class="sp"></span><span class="cs"><span class="cause">Cause: net debt grew 5.0% (1,656 to 1,739) against EBITDA 2.7%.</span></span></li><li class="mrow" data-band="bt2"><span class="rk">9</span><span class="nm">Revenue</span><span class="fg">1,840 <i>→</i> <b>1,932</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Revenue, 1,840 to 1,932; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="118.8" y1="10" x2="124.0" y2="10" stroke="#15803D" stroke-width="2.5"/><rect x="117.8" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#15803D"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+92</span><span class="wd">better</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Revenue, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,10.3 30.0,7.6 43.5,4.8 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#15803D"/></svg></span><span class="cs"><span class="gapline sm">Cause: Unresolved</span></span></li><li class="mrow" data-band="ws2"><span class="rk">10</span><span class="nm">Total debt / EBITDA</span><span class="fg">4.8x <i>→</i> <b>5.0x</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Total debt / EBITDA, 4.8x to 5.0x; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="119.6" y1="10" x2="124.0" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="118.6" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+0.2x</span><span class="wd">worse</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Total debt / EBITDA, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,10.0 30.0,8.0 43.5,6.0 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#C2410C"/></svg></span><span class="cs"><span class="cause">Cause: debt up 7.0% against EBITDA up 2.7%.</span></span></li><li class="mrow" data-band="bt2"><span class="rk">11</span><span class="nm">Adjusted EBITDA</span><span class="fg">368 <i>→</i> <b>378</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Adjusted EBITDA, 368 to 378; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="121.1" y1="10" x2="124.0" y2="10" stroke="#15803D" stroke-width="2.5"/><rect x="120.1" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#15803D"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+10</span><span class="wd">better</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Adjusted EBITDA, FY2022 to FY2026"><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,11.2 30.0,8.2 43.5,3.6 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#15803D"/></svg></span><span class="cs"><span class="cause">Cause: revenue up 5.0%, margin down from 20.0% to 19.6%.</span></span></li><li class="mrow" data-band="ws2"><span class="rk">12</span><span class="nm">Committed resources</span><span class="fg">360 <i>→</i> <b>351</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Committed resources, 360 to 351; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="124.0" y1="10" x2="121.2" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="123.0" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="121.2" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▼</span><span class="fgn">−9</span><span class="wd">worse</span></span><span class="sp"></span><span class="cs"><span class="cause">Cause: cash up 41, undrawn facility down 50.</span></span></li><li class="mrow" data-band="ws2"><span class="rk">13</span><span class="nm">Net debt / EBITDA</span><span class="fg">4.5x <i>→</i> <b>4.6x</b></span><svg class="dmb" width="130" height="20" viewBox="0 0 130 20" role="img" aria-label="Net debt / EBITDA, 4.5x to 4.6x; the axis starts at zero"><text x="0" y="13" font-size="11" fill="#0A0A0A" font-family="Geist Mono,monospace">0</text><line x1="14" y1="10" x2="124" y2="10" stroke="#D4D4D8" stroke-width="1"/><line x1="14" y1="4" x2="14" y2="16" stroke="#A1A1AA" stroke-width="1"/><line x1="121.6" y1="10" x2="124.0" y2="10" stroke="#C2410C" stroke-width="2.5"/><rect x="120.6" y="1" width="2" height="18" fill="#3F3F46"/><circle cx="124.0" cy="10" r="4" fill="#C2410C"/></svg><span class="dl"><span class="gl">▲</span><span class="fgn">+0.1x</span><span class="wd">worse</span></span><span class="sp"><svg class="spk" width="60" height="16" viewBox="0 0 60 16" role="img" aria-label="Net debt / EBITDA, FY2022 to FY2026, FY2024 not stated"><line x1="30.0" y1="1" x2="30.0" y2="15" stroke="#8E8E96" stroke-width="1" stroke-dasharray="2 2"/><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="3.0,14.0 16.5,9.2"/><polyline fill="none" stroke="#52525B" stroke-width="1.25" points="43.5,4.4 57.0,2.0"/><circle cx="57.0" cy="2.0" r="2" fill="#C2410C"/></svg></span><span class="cs"><span class="cause">Cause: net debt up 83 (1,656 to 1,739) against EBITDA up 10.</span></span></li>
+</ul></section>
+
+<section class="tile s5" aria-label="What changed in the analysis"><header><h2>What changed in the analysis</h2><span class="cap">17 modules compared, by stage</span></header>
+<div class="lgl" aria-label="Legend: module status"><span class="lgi"><b class="mono">=</b> unchanged <b>6</b></span><span class="lgi"><b class="mono">↻</b> revised <b>8</b></span><span class="lgi"><b class="mono">+</b> new <b>1</b></span><span class="lgi"><span class="sw hatch"></span> missing <b>2</b></span><span class="lgi">not a better or worse reading</span></div>
+<table class="mx"><caption style="position:absolute;left:-9999px">Module conclusions against the earlier run</caption>
+<thead><tr><th scope="col">Module</th><th scope="col">Unchanged</th><th scope="col">Revised</th><th scope="col">New</th><th scope="col">Missing</th></tr></thead>
+<tbody>
+<tr class="stg"><th colspan="5" scope="colgroup">Sources <span>1</span></th></tr><tr><th scope="row">Source readiness</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr class="stg"><th colspan="5" scope="colgroup">Financials <span>4</span></th></tr><tr><th scope="row">Financial foundation</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Earnings changes</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Peer benchmark</th><td></td><td></td><td></td><td class="hatch cell"><span class="mg">⊘</span> not assessable</td></tr><tr><th scope="row">Earnings quality</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr class="stg"><th colspan="5" scope="colgroup">Credit <span>7</span></th></tr><tr><th scope="row">Business &amp; governance</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr><th scope="row">Research questions</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr><th scope="row">Fundamental credit</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Downside</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Liquidity</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Rates, FX &amp; hedging</th><td></td><td></td><td></td><td class="hatch cell"><span class="mg">–</span> missing</td></tr><tr><th scope="row">Forward credit model</th><td></td><td></td><td class="cell"><span class="mg">+</span> new</td><td></td></tr><tr class="stg"><th colspan="5" scope="colgroup">Structure and market <span>3</span></th></tr><tr><th scope="row">Security selection</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr><th scope="row">Refinancing &amp; LME</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr><tr><th scope="row">Legal &amp; covenants</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr class="stg"><th colspan="5" scope="colgroup">Validation and decision <span>2</span></th></tr><tr><th scope="row">Evidence validation</th><td class="cell"><span class="mg">=</span> unchanged</td><td></td><td></td><td></td></tr><tr><th scope="row">Committee decision</th><td></td><td class="cell"><span class="mg">↻</span> revised</td><td></td><td></td></tr>
+</tbody></table>
+<div><span class="gapline sm">Rates, FX &amp; hedging: missing, because the earlier run has no output for it</span> <span class="gapline sm">Peer benchmark: not assessable, because no peer data was supplied</span></div>
+</section>
+
+<section class="tile s12" id="mat" data-view="chart" aria-label="Maturities then and now"><header><div><h2>Debt maturities, earlier run against this run</h2><span class="cap">Debt maturing by period, USD millions</span></div>
+<div class="seg" role="group" aria-label="Maturities view"><button type="button" aria-pressed="true" data-v="chart">Chart</button><button type="button" aria-pressed="false" data-v="table">Table</button></div></header>
+<div class="fig"><div class="chart">
+<div class="mgroups" role="img" aria-label="Debt maturing by period, earlier run as outlined bars and this run as amber bars. 2027: 26 then 150. 2028: 640 then 640. 2029: not stated then none. 2030: 700 then 700. Thereafter: 400 then 400."><div class="mg2"><div class="pair"><div class="mb"><span class="ml">26</span><span class="bar earlier" style="height:6.0px"></span></div><div class="mb"><span class="ml">150</span><span class="bar now" data-band="a2" style="height:30.0px"></span></div></div><div class="base"></div><div class="pl">2027</div><div class="pd"><span class="gl g">▲</span> <span class="fgn">+124</span></div></div><div class="mg2"><div class="pair"><div class="mb"><span class="ml">640</span><span class="bar earlier" style="height:128.0px"></span></div><div class="mb"><span class="ml">640</span><span class="bar now" data-band="a4" style="height:128.0px"></span></div></div><div class="base"></div><div class="pl">2028</div><div class="pd"><span class="nm0">–</span></div></div><div class="mg2"><div class="pair"><div class="mb"><span class="ml">Not stated</span><span class="gapbar hatch"></span></div><div class="mb"><span class="ml">None</span><span class="zero"></span></div></div><div class="base"></div><div class="pl">2029</div><div class="pd"><span class="gapline sm">no earlier figure</span></div></div><div class="mg2"><div class="pair"><div class="mb"><span class="ml">700</span><span class="bar earlier" style="height:140.0px"></span></div><div class="mb"><span class="ml">700</span><span class="bar now" data-band="a5" style="height:140.0px"></span></div></div><div class="base"></div><div class="pl">2030</div><div class="pd"><span class="nm0">–</span></div></div><div class="mg2"><div class="pair"><div class="mb"><span class="ml">400</span><span class="bar earlier" style="height:80.0px"></span></div><div class="mb"><span class="ml">400</span><span class="bar now" data-band="a3" style="height:80.0px"></span></div></div><div class="base"></div><div class="pl">Thereafter</div><div class="pd"><span class="nm0">–</span></div></div></div>
+<div class="tot"><div><span>Earlier run total</span><span class="fgn">1,766</span></div><div><span>This run total</span><span class="fgn">1,890</span></div><div><span>Change</span><span class="fgn"><span class="gl g">▲</span> +124</span></div></div></div>
+<div class="lgl" style="margin-top:8px"><span class="lgi"><span class="sw" style="background:#fff;border:2px solid var(--prior);width:14px;height:10px"></span> earlier run (outline)</span>
+<span class="lgi">this run, amber by amount:</span>
+<span class="lgi"><span class="sw" data-band="a1" style="border-color:#B45309"></span> under 100</span><span class="lgi"><span class="sw" data-band="a2" style="border-color:#B45309"></span> 100 to 299</span><span class="lgi"><span class="sw" data-band="a3" style="border-color:#B45309"></span> 300 to 499</span><span class="lgi"><span class="sw" data-band="a4" style="border-color:#B45309"></span> 500 to 699</span><span class="lgi"><span class="sw" data-band="a5" style="border-color:#B45309"></span> 700 or more</span>
+<span class="lgi"><span class="gl g">▲▼</span> grey: debt maturing has no ruled direction</span><span class="lgi"><span class="sw hatch"></span> not stated</span></div>
+<div style="margin-top:6px"><span class="gapline sm">2029, earlier run: the earlier schedule does not list 2029, so no figure is drawn and no change is stated</span></div></div>
+<div class="tv"><table class="mt"><thead><tr><th scope="col">Period</th><th scope="col">Earlier run</th><th scope="col">This run</th><th scope="col">Change</th></tr></thead><tbody><tr><th scope="row">2027</th><td>26</td><td>150</td><td><span class="gl g">▲</span> +124</td></tr><tr><th scope="row">2028</th><td>640</td><td>640</td><td><span class="nm0">–</span></td></tr><tr><th scope="row">2029</th><td><span class="gapline sm">Not stated</span></td><td>None</td><td><span class="gapline sm">no earlier figure</span></td></tr><tr><th scope="row">2030</th><td>700</td><td>700</td><td><span class="nm0">–</span></td></tr><tr><th scope="row">Thereafter</th><td>400</td><td>400</td><td><span class="nm0">–</span></td></tr></tbody></table></div>
+</section>
+
+<section class="tile s7" aria-label="Key findings"><header><h2>Key findings</h2></header>
+<ol class="kf"><li>Leverage rose on both measures: total debt / EBITDA 4.8x to 5.0x, net debt / EBITDA 4.5x to 4.6x.</li>
+<li>Liquidity fell: committed resources went from 360 to 351 as 50 of the revolving facility was drawn.</li>
+<li>Debt due in 2027 grew from 26 to 150, with no refinancing stated.</li></ol></section>
+<section class="tile s5 prose" aria-label="Contrary evidence and what would change the view"><header><h2>Contrary evidence and what would change the view</h2></header>
+<div><h3>Contrary evidence</h3><p>Revenue and Adjusted EBITDA rose and cash rose by 41. Neither covenant is breached: EBITDA can fall 23.3% before the leverage limit.</p>
+<h3>What would change the view</h3><p>A stated refinancing of the 150 due in 2027 would remove the nearest maturity.</p></div></section>
+
+<section class="tile s12" aria-label="Limitations ledger"><header><h2>Limitations ledger</h2><span class="cap">Added and removed since the earlier run</span></header>
+<div class="lgl"><span class="lgi"><b class="mono" style="color:var(--blocked)">+</b> added</span><span class="lgi"><b class="mono">−</b> removed</span></div>
+<div class="lg2"><section aria-label="Added"><h3>Added (2)</h3><ul>
+<li><span class="pm add" aria-hidden="true">+</span><span><b style="font-weight:500">Added.</b> Interest cover uses cash interest only; capitalised interest is not disclosed.</span></li>
+<li><span class="pm add" aria-hidden="true">+</span><span><b style="font-weight:500">Added.</b> The 2027 maturities of 150 have no stated refinancing plan.</span></li></ul></section>
+<section aria-label="Removed"><h3>Removed (1)</h3><ul>
+<li><span class="pm" aria-hidden="true">−</span><span><b style="font-weight:500">Removed.</b> The earlier undrawn facility figure could not be matched to the facility terms; it now can.</span></li></ul></section></div>
+</section>
+
+<section class="tile s12" aria-label="Measures that did not move"><header><h2>Measures that did not move</h2><span class="cap">Grey – means no change</span></header>
+<details open><summary>Show the 7 measures</summary><ul class="un"><li><span class="nm">Term loan B</span><span class="fg">640 <i>→</i> 640</span><span class="nm0">–</span></li><li><span class="nm">Senior secured notes</span><span class="fg">700 <i>→</i> 700</span><span class="nm0">–</span></li><li><span class="nm">Senior unsecured notes</span><span class="fg">400 <i>→</i> 400</span><span class="nm0">–</span></li><li><span class="nm">Debt maturing in 2028</span><span class="fg">640 <i>→</i> 640</span><span class="nm0">–</span></li><li><span class="nm">Debt maturing in 2030</span><span class="fg">700 <i>→</i> 700</span><span class="nm0">–</span></li><li><span class="nm">Covenant limit, net debt / EBITDA (at most)</span><span class="fg">6.0x <i>→</i> 6.0x</span><span class="nm0">–</span></li><li><span class="nm">Covenant limit, EBITDA / cash interest (at least)</span><span class="fg">2.0x <i>→</i> 2.0x</span><span class="nm0">–</span></li></ul></details>
+</section>
+
+</div></main>
+<script>
+(function(){var t=document.getElementById("mat");var b=t.querySelectorAll(".seg button");
+b.forEach(function(x){x.addEventListener("click",function(){var v=x.getAttribute("data-v");t.setAttribute("data-view",v);b.forEach(function(y){y.setAttribute("aria-pressed",y===x?"true":"false")})})})})();
+</script>
+</body></html>

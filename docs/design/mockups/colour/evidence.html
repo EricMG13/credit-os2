@@ -1,0 +1,172 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=1440"><title>Evidence: colour as signal</title><style>
+/* shared: tokens and colour scales. Paste verbatim; do not edit. */
+@font-face{font-family:"Geist";font-weight:400;src:url("../../../../web/public/fonts/Geist-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist";font-weight:500;src:url("../../../../web/public/fonts/Geist-Medium.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:400;src:url("../../../../web/public/fonts/GeistMono-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url("../../../../web/public/fonts/GeistMono-Medium.woff2") format("woff2")}
+:root{--canvas:#FAFAFA;--tile:#FFFFFF;--well:#F4F4F5;--hair:#E4E4E7;--ink:#0A0A0A;--sec:#52525B;--label:#6B6B74;--acc:#1D4ED8;--tint:#EFF6FF;--prior:#8E8E96;
+--bt:#15803D;--ws:#C2410C;--fail:#DC2626;--blocked:#EA580C;
+--c1:#1D4ED8;--c2:#EA580C;--c3:#0F766E;--c4:#7E22CE;--c5:#B45309;--c6:#BE123C;--c7:#15803D;--c8:#475569;
+--mono:"Geist Mono",ui-monospace,Menlo,monospace;--sans:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 12px/16px var(--sans);width:1440px}
+.banner{background:var(--well);border-bottom:1px solid var(--hair);color:var(--sec);font-size:12px;line-height:16px;text-align:center;padding:5px 0}
+/* position in a cohort or order: sequential blue */
+[data-band="p1"]{background:#FFFFFF}[data-band="p2"]{background:#EFF6FF}[data-band="p3"]{background:#DBEAFE}[data-band="p4"]{background:#BFDBFE}
+/* better / worse: only where the direction table gives a direction */
+[data-band="bt1"]{background:#DCFCE7}[data-band="bt2"]{background:#BBF7D0}[data-band="bt3"]{background:#86EFAC}
+[data-band="ws1"]{background:#FFEDD5}[data-band="ws2"]{background:#FED7AA}[data-band="ws3"]{background:#FDBA74}
+[data-band="d0"]{background:#FFFFFF}
+/* amount: sequential amber */
+[data-band="a1"]{background:#FEF3C7}[data-band="a2"]{background:#FDE68A}[data-band="a3"]{background:#FCD34D}[data-band="a4"]{background:#F59E0B}[data-band="a5"]{background:#D97706}
+/* share of a limit used: bar fills only, never under text */
+[data-band="s1"]{background:#15803D}[data-band="s2"]{background:#777C22}[data-band="s3"]{background:#D97706}[data-band="s4"]{background:#DA4E16}[data-band="s5"]{background:#DC2626}
+[data-band^="p"],[data-band^="bt"],[data-band^="ws"],[data-band^="a"],[data-band="d0"]{color:#0A0A0A}
+.hatch{background:repeating-linear-gradient(135deg,transparent 0 5px,#E4E4E7 5px 6px);color:#52525B}
+.gapline{display:inline-block;border:1px dashed var(--prior);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,#EDEDF0 5px 6px);padding:1px 8px;color:#52525B}
+/* end shared */
+
+
+a{color:var(--acc);text-decoration:none}
+.page{padding:12px;display:flex;flex-direction:column;gap:8px}
+.head{display:flex;align-items:center;gap:16px}
+h2{margin:0;font:500 20px/24px var(--sans)}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;background:var(--tile);overflow:hidden}
+.seg a{padding:4px 12px;color:var(--sec);border-left:1px solid var(--hair)}.seg a:first-child{border-left:0}
+.seg a.on{background:var(--tint);color:var(--acc);font-weight:500;box-shadow:inset 0 -2px 0 var(--acc)}
+.sel{margin-left:auto;border:1px solid var(--hair);border-radius:8px;background:var(--tile);padding:4px 10px;color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:8px;min-width:0}
+.tile{background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.s12{grid-column:span 12}.s7{grid-column:span 7}.s5{grid-column:span 5}.s6{grid-column:span 6}.s4{grid-column:span 4}.s8{grid-column:span 8}
+.th{display:flex;align-items:baseline;gap:8px}.th h3{margin:0;font:500 13px/16px var(--sans)}.th .k{color:var(--label);font-size:11px}.th .tr{margin-left:auto;font-size:11px}
+.div{display:flex;align-items:center;gap:12px;margin:14px 0 2px;color:var(--label);font:500 11px/16px var(--sans);text-transform:uppercase;letter-spacing:.04em}
+.div:before,.div:after{content:"";flex:1;border-top:1px solid var(--hair)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sec{color:var(--sec)}.lab{color:var(--label);font-size:11px}
+.lgl{display:flex;flex-wrap:wrap;align-items:center;gap:0 14px;font-size:11px;line-height:16px;color:var(--label)}
+.lgi{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.sw{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid var(--hair)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.bsw{display:inline-block;width:18px;height:6px;border-radius:1px}
+table{border-collapse:collapse;width:100%}
+th{font:500 11px/16px var(--sans);color:var(--label);text-align:left;padding:0 8px;height:28px;border-bottom:1px solid var(--hair)}
+td{padding:0 8px;height:28px;border-bottom:1px solid var(--hair);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.r{text-align:right}.c{text-align:center}
+.claim{font-size:14px;line-height:20px}
+mark{background:var(--tint);color:var(--ink);outline:1px solid var(--acc);border-radius:2px;padding:0 2px}
+.quote{background:var(--well);border-radius:8px;padding:8px 10px;font-size:12px;line-height:18px}
+.hl{background:var(--tint);outline:1px solid var(--acc);border-radius:2px;padding:0 2px}
+.cnt{display:flex;gap:24px;align-items:baseline}
+.cnt div{display:flex;flex-direction:column}.cnt b{font:500 20px/24px var(--mono)}
+.sevbar{display:flex;height:12px;border-radius:2px;overflow:hidden;gap:2px}
+.sevlab{display:flex;gap:2px;font-size:11px;line-height:14px}
+.sg{font-weight:500}
+.chip{display:inline-flex;gap:4px;align-items:center;padding:0 6px;border-radius:4px;font-size:11px;line-height:16px;font-weight:500}
+.chip.nu{border:1px dashed var(--prior);color:var(--sec)}
+.cell{display:flex;align-items:center;justify-content:center;gap:4px;height:22px;border-radius:4px;font-size:11px}
+.cell.fail{outline:1px solid var(--fail);outline-offset:-1px;background:#fff}
+.cell.pass{color:var(--ink);font-weight:500}
+.cell.nr{border:1px dashed var(--prior)}
+.xf{color:var(--fail);font-weight:500}
+.ac{display:inline-block;min-width:38px;text-align:center;padding:1px 6px;border-radius:4px;outline:1px solid #B45309;font-family:var(--mono);font-weight:500}
+.track{position:relative;height:10px;background:var(--well);border:1px solid var(--hair);border-radius:2px}
+.fill{position:absolute;left:0;top:0;bottom:0}
+.tick{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;align-items:center}
+.kv dt{color:var(--label)}.kv dd{margin:0}
+.tb{display:grid;grid-template-columns:170px 1fr 56px;gap:8px;align-items:center;height:24px}
+.tb .bar{height:12px;border-radius:2px;outline:1px solid #B45309}
+.pulse{display:inline-block}
+
+/* shell: top bar from library, report header from forecast (prefixed sh-) */
+.sh-top{display:flex;align-items:center;gap:20px;height:48px;padding:0 24px;background:#fff;border-bottom:1px solid var(--hair)}
+.sh-brand{display:flex;align-items:center;gap:8px;font:500 14px/16px var(--sans)}
+.sh-brand i{width:20px;height:20px;border-radius:6px;background:var(--acc);display:block}
+.sh-top nav{display:flex;gap:4px;margin-left:12px}
+.sh-top nav a{padding:14px 10px 12px;color:var(--sec);text-decoration:none;border-bottom:2px solid transparent;font-size:13px}
+.sh-top nav a.cur{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.sh-btn{margin-left:auto;background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;font:500 13px/16px var(--sans);text-decoration:none}
+.sh-top a:focus-visible,.sh-bc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sh-hdr{padding:0 8px 8px}
+.sh-bc{color:var(--sec);margin:12px 0 4px}
+.sh-bc a{color:var(--acc);text-decoration:none}
+.sh-ph{display:flex;align-items:flex-end;justify-content:space-between}
+.sh-ph h1{font:500 28px/34px var(--sans);margin:0;display:inline}
+.sh-sec{color:var(--sec);margin-left:10px;font-size:13px}
+.sh-chips{display:flex;gap:6px;margin-top:6px}
+.sh-chip{border:1px solid var(--hair);border-radius:6px;padding:2px 8px;color:var(--sec);background:var(--tile)}
+.sh-seg{display:inline-flex;background:var(--well);border:1px solid var(--hair);border-radius:10px;padding:2px;gap:2px}
+.sh-seg span{padding:6px 14px;border-radius:8px;color:var(--sec);font-size:13px}
+.sh-seg span.cur{background:var(--tint);color:var(--acc);outline:1.5px solid var(--acc);outline-offset:-1.5px;font-weight:500}
+</style></head><body>
+<div class="banner">Illustration of form. Figures are invented, not a delivered run.</div>
+<header class="sh-top"><div class="sh-brand"><i></i>Credit OS</div><nav><a class="cur" href="#">Library</a><a href="#">Coverage</a><a href="#">Run activity</a><a href="#">Signal</a></nav><a class="sh-btn" href="#">Start run</a></header>
+<div class="sh-hdr">
+<div class="sh-bc"><a href="#">Library</a> / <a href="#">Calderwick Packaging Inc.</a> / Full assessment</div>
+<div class="sh-ph"><div><h1>Calderwick Packaging Inc.</h1><span class="sh-sec">US industrials</span>
+<div class="sh-chips"><span class="sh-chip">Full credit assessment</span><span class="sh-chip">As of 14 March 2027 · FY2026</span><span class="sh-chip">USD millions</span></div></div>
+<div class="sh-seg" aria-label="Report sections"><span>Overview</span><span>Changes</span><span>Modules 17</span><span>Forecast</span><span class="cur">Evidence</span><span>Calendar</span><span>Deliverables</span></div></div>
+</div>
+<div class="page">
+<div class="head"><h2>Evidence</h2><nav class="seg"><a class="on">Summary</a><a>Trace</a><a>Sources</a><a>Gaps</a><a>Script checks</a><a>Record</a></nav><span class="sel">All modules ▾</span></div>
+
+<div class="div">Summary tab</div>
+<div class="grid">
+<section class="tile s7"><div class="th"><h3>The claim</h3><span class="k">Opened from a trace control on Liquidity</span></div>
+<p class="claim" style="margin:0">Net debt to adjusted EBITDA is <mark>4.6x</mark> at FY2026, up from 4.5x at FY2025.</p>
+<div class="lab">Module: Liquidity · Figure: net debt / EBITDA</div>
+<div class="th" style="margin-top:4px"><h3>How it was derived</h3></div>
+<table><tr><th>Step</th><th class="r">FY2025</th><th class="r">FY2026</th><th>Source</th></tr>
+<tr><td>Total debt</td><td class="r mono">1,766</td><td class="r mono">1,890</td><td class="mono" style="font-size:11px">Calderwick_AnnualReport_FY2026.pdf p. 72</td></tr>
+<tr><td>Cash</td><td class="r mono">110</td><td class="r mono">151</td><td class="mono" style="font-size:11px">Calderwick_AnnualReport_FY2026.pdf p. 72</td></tr>
+<tr><td>Net debt</td><td class="r mono">1,656</td><td class="r mono">1,739</td><td class="sec">total debt less cash</td></tr>
+<tr><td>Adjusted EBITDA</td><td class="r mono">368</td><td class="r mono">378</td><td class="mono" style="font-size:11px">Calderwick_Q4_2026_Results.pdf p. 6</td></tr>
+<tr><td>Net debt / EBITDA</td><td class="r mono">4.5x</td><td class="r mono">4.6x</td><td class="sec">1,739 ÷ 378 = 4.60</td></tr></table></section>
+<section class="tile s5"><div class="th"><h3>The source</h3><span class="k">What the claim rests on</span></div>
+<div class="lab mono">Calderwick_AnnualReport_FY2026.pdf · p. 72 · sha 7d41c9e03ab2…</div>
+<div class="quote">Total debt at 31 December 2026 was USD 1,890 million (2025: 1,766). Cash and cash equivalents were 151 (2025: 110). <span class="hl">Net debt was USD 1,739 million</span> (2025: 1,656).</div>
+<div class="lab">Matched passage is outlined in blue; the rest of the page is shown plain.</div></section>
+
+<section class="tile s5"><div class="th"><h3>Gaps by severity</h3><span class="k">9 gaps</span></div>
+<div class="cnt"><div><span class="lab"><span class="sg">▲</span> High</span><b>2</b></div><div><span class="lab"><span class="sg">◆</span> Medium</span><b>4</b></div><div><span class="lab"><span class="sg">○</span> Low</span><b>3</b></div></div>
+<div class="sevbar"><div style="flex:2;background:#0A0A0A"></div><div style="flex:4;background:#52525B"></div><div style="flex:3;background:#A1A1AA"></div></div>
+<div class="sevlab"><span style="flex:2">▲ 2 high</span><span style="flex:4">◆ 4 medium</span><span style="flex:3">○ 3 low</span></div>
+<div class="lgl"><span class="lgi"><b class="sg">▲</b> high</span><span class="lgi"><b class="sg">◆</b> medium</span><span class="lgi"><b class="sg">○</b> low</span><span class="lgi">Bar length is the count; 2 + 4 + 3 = 9, the length of the list.</span></div></section>
+<section class="tile s7"><div class="th"><h3>Gaps, most severe first</h3><span class="k">By module</span></div>
+<table><tr><th>Severity</th><th>Module</th><th>What this run could not establish</th><th></th></tr><tr><td style="width:96px"><span class="sg">▲</span> high</td><td style="width:170px">Security selection</td><td>Market quotes were not supplied, so no spread comparison is made.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">▲</span> high</td><td style="width:170px">Legal &amp; covenants</td><td>The revolving facility agreement was not supplied; the springing leverage test is unconfirmed.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">◆</span> medium</td><td style="width:170px">Liquidity</td><td>Undrawn revolver of 200 is stated in the notes only, with no dated lender confirmation.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">◆</span> medium</td><td style="width:170px">Forward credit model</td><td>No management guidance for FY2027 capital spending.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">◆</span> medium</td><td style="width:170px">Downside</td><td>Recovery on the senior unsecured notes is not estimated.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">◆</span> medium</td><td style="width:170px">Financial foundation</td><td>The FY2024 segment note was not supplied.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">○</span> low</td><td style="width:170px">Peer benchmark</td><td>No peer data was supplied, so the module is not assessable.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">○</span> low</td><td style="width:170px">Business &amp; governance</td><td>Customer concentration is given as a range, not a figure.</td><td class="r" style="width:60px"><a>Trace</a></td></tr><tr><td style="width:96px"><span class="sg">○</span> low</td><td style="width:170px">Forward credit model</td><td>Tax rate is held at the prior-year level.</td><td class="r" style="width:60px"><a>Trace</a></td></tr></table></section>
+
+<section class="tile s6"><div class="th"><h3>Run evidence</h3><span class="k">What this run holds</span></div>
+<table><tr><td>Run record</td><td class="sec">calls, cap, spend, timings</td><td class="r"><a>Open Record</a></td></tr>
+<tr><td>Sources</td><td class="sec">8 files, 7 used by a module</td><td class="r"><a>Open Sources</a></td></tr>
+<tr><td>Script checks</td><td class="sec">40 pass, 2 fail, 6 not run</td><td class="r"><a>Open Checks</a></td></tr></table></section>
+<section class="tile s6"><div class="th"><h3>Module handoffs</h3><span class="k">As delivered</span><a class="tr">Download all</a></div>
+<table><tr><th>Module</th><th>File</th><th></th></tr><tr><td>Financial foundation</td><td class="mono" style="font-size:11px">financial-foundation.md</td><td class="r"><a>Open</a></td></tr><tr><td>Liquidity</td><td class="mono" style="font-size:11px">liquidity.md</td><td class="r"><a>Open</a></td></tr><tr><td>Legal &amp; covenants</td><td class="mono" style="font-size:11px">legal-covenants.md</td><td class="r"><a>Open</a></td></tr><tr><td>Forward credit model</td><td class="mono" style="font-size:11px">forward-credit-model.md</td><td class="r"><a>Open</a></td></tr><tr><td>Downside</td><td class="mono" style="font-size:11px">downside.md</td><td class="r"><a>Open</a></td></tr><tr><td>Earnings quality</td><td class="mono" style="font-size:11px">earnings-quality.md</td><td class="r"><a>Open</a></td></tr></table></section>
+</div>
+
+<div class="div">Sources tab</div>
+<div class="grid"><section class="tile s12"><div class="th"><h3>Sources</h3><span class="k">The supplied files, and which modules read them</span></div>
+<table><tr><th>File</th><th>Type</th><th class="r">Pages</th><th>Hash</th><th>Status</th><th class="c">Used by (modules)</th></tr><tr><td class="mono" style="font-size:11px">Calderwick_AnnualReport_FY2026.pdf</td><td><span class="dot" style="background:var(--c1)"></span> Annual report</td><td class="r"><span class="mono">188</span></td><td class="mono sec" style="font-size:11px">7d41c9e03ab2…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a5">11</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_AnnualReport_FY2025.pdf</td><td><span class="dot" style="background:var(--c1)"></span> Annual report</td><td class="r"><span class="mono">176</span></td><td class="mono sec" style="font-size:11px">b02e77f1d9c4…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a3">6</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_Q4_2026_Results.pdf</td><td><span class="dot" style="background:var(--c3)"></span> Results release</td><td class="r"><span class="mono">24</span></td><td class="mono sec" style="font-size:11px">19ac3e58f6d0…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a4">9</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_Q3_2026_Presentation.pdf</td><td><span class="dot" style="background:var(--c4)"></span> Investor presentation</td><td class="r"><span class="mono">41</span></td><td class="mono sec" style="font-size:11px">e5c80b2a7716…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a2">4</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_TermLoanB_Agreement.pdf</td><td><span class="dot" style="background:var(--c5)"></span> Credit agreement</td><td class="r"><span class="mono">212</span></td><td class="mono sec" style="font-size:11px">44f9d1a06b3e…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a3">5</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_SeniorNotes_2030_Indenture.pdf</td><td><span class="dot" style="background:var(--c6)"></span> Indenture</td><td class="r"><span class="mono">164</span></td><td class="mono sec" style="font-size:11px">c3a7058e91f2…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a2">3</span></td></tr><tr><td class="mono" style="font-size:11px">Calderwick_Covenant_Compliance_Q4.xlsx</td><td><span class="dot" style="background:var(--c8)"></span> Spreadsheet</td><td class="r"><span class="gapline">no pages: spreadsheet</span></td><td class="mono sec" style="font-size:11px">0f6b2d94ce85…</td><td><span class="chip"><b style="font-weight:500">✓</b> used</span></td><td class="c"><span class="ac" data-band="a1">2</span></td></tr><tr><td class="mono" style="font-size:11px">Agency_Note_Calderwick_Feb2027.pdf</td><td><span class="dot" style="background:var(--c2)"></span> Rating agency note</td><td class="r"><span class="mono">9</span></td><td class="mono sec" style="font-size:11px">a81d4c7f3095…</td><td><span class="chip nu hatch">not used</span></td><td class="c"><span class="gapline">0, no module read it</span></td></tr></table>
+<div class="lgl"><span class="lgi"><b style="font-weight:500">✓</b> used by a module</span><span class="lgi"><span class="chip nu hatch">not used</span> supplied, not read by any module</span>
+<span class="lgi">Used by, amount:</span><span class="lgi"><span class="sw" data-band="a1" style="outline:1px solid #B45309"></span>1–2</span><span class="lgi"><span class="sw" data-band="a2" style="outline:1px solid #B45309"></span>3–4</span><span class="lgi"><span class="sw" data-band="a3" style="outline:1px solid #B45309"></span>5–7</span><span class="lgi"><span class="sw" data-band="a4" style="outline:1px solid #B45309"></span>8–9</span><span class="lgi"><span class="sw" data-band="a5" style="outline:1px solid #B45309"></span>10+</span>
+<span class="lgi">Type:</span><span class="lgi"><span class="dot" style="background:var(--c1)"></span>annual report</span><span class="lgi"><span class="dot" style="background:var(--c3)"></span>results release</span><span class="lgi"><span class="dot" style="background:var(--c4)"></span>presentation</span><span class="lgi"><span class="dot" style="background:var(--c5)"></span>credit agreement</span><span class="lgi"><span class="dot" style="background:var(--c6)"></span>indenture</span><span class="lgi"><span class="dot" style="background:var(--c8)"></span>spreadsheet</span><span class="lgi"><span class="dot" style="background:var(--c2)"></span>rating note</span></div></section></div>
+
+<div class="div">Checks tab</div>
+<div class="grid"><section class="tile s12"><div class="th"><h3>Script checks</h3><span class="k">Recorded figures and registers against recorded checking scripts</span></div>
+<table><tr><th>Check</th><th class="c">Financial foundation</th><th class="c">Liquidity</th><th class="c">Legal &amp; covenants</th><th class="c">Forward credit model</th><th class="c">Downside</th><th class="c">Earnings quality</th><th class="r">Pass / fail / not run</th></tr><tr><td>Revenue ties to the statements</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell nr hatch">not run</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">5 / 0 / 1</span></td></tr><tr><td>Adjusted EBITDA recomputes</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell nr hatch">not run</div></td><td class="r"><span class="mono">5 / 0 / 1</span></td></tr><tr><td>Net debt recomputes</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell fail"><span class="xf">✕</span> fail</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">5 / 1 / 0</span></td></tr><tr><td>Leverage ratio recomputes</td><td><div class="cell pass">✓</div></td><td><div class="cell fail"><span class="xf">✕</span> fail</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">5 / 1 / 0</span></td></tr><tr><td>Interest cover recomputes</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">6 / 0 / 0</span></td></tr><tr><td>Maturity totals add</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell nr hatch">not run</div></td><td><div class="cell nr hatch">not run</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">4 / 0 / 2</span></td></tr><tr><td>Covenant headroom recomputes</td><td><div class="cell nr hatch">not run</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell nr hatch">not run</div></td><td class="r"><span class="mono">4 / 0 / 2</span></td></tr><tr><td>Dates in period order</td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td><div class="cell pass">✓</div></td><td class="r"><span class="mono">6 / 0 / 0</span></td></tr><tr><td><b style="font-weight:500">Module total</b></td><td class="c"><span class="mono">7 / 0 / 1</span></td><td class="c"><span class="mono">7 / 1 / 0</span></td><td class="c"><span class="mono">6 / 0 / 2</span></td><td class="c"><span class="mono">7 / 0 / 1</span></td><td class="c"><span class="mono">7 / 1 / 0</span></td><td class="c"><span class="mono">6 / 0 / 2</span></td><td class="r"><span class="mono">40 / 2 / 6</span></td></tr></table>
+<div class="lgl"><span class="lgi"><b style="font-weight:500">✓</b> pass</span><span class="lgi"><span class="cell fail" style="display:inline-flex;padding:0 6px"><span class="xf">✕</span> fail</span></span><span class="lgi"><span class="cell nr hatch" style="display:inline-flex;padding:0 6px">not run</span> not run</span><span class="lgi">Totals read pass / fail / not run; 40 + 2 + 6 = 48 cells.</span></div></section></div>
+
+<div class="div">Record tab</div>
+<div class="grid">
+<section class="tile s6"><div class="th"><h3>Run record</h3></div>
+<dl class="kv" style="margin:0"><dt>Run type</dt><dd>Live provider</dd><dt>Elapsed</dt><dd class="mono">30 min 0 s</dd><dt>Model calls</dt><dd class="mono">142</dd>
+<dt>Models</dt><dd class="mono">model-large-2 (118) · model-small-1 (24)</dd><dt>Delivery</dt><dd>Delivered; listed in the current library</dd>
+<dt>Cap usage</dt><dd><div style="display:flex;align-items:center;gap:10px"><div class="track" style="flex:1"><div class="fill" data-band="s3" style="width:71.3%"></div><div class="tick" style="left:100%;margin-left:-2px"></div></div><span><b style="font-weight:500">USD 21.40 of USD 30 cap, 71% used</b></span></div></dd></dl>
+<div class="lgl"><span class="lgi">Share of cap used:</span><span class="lgi"><span class="bsw" data-band="s1"></span>under 50%</span><span class="lgi"><span class="bsw" data-band="s2"></span>50–70%</span><span class="lgi"><span class="bsw" data-band="s3"></span>70–85%</span><span class="lgi"><span class="bsw" data-band="s4"></span>85–100%</span><span class="lgi"><span class="bsw" data-band="s5"></span>100%+ ✕ breaches</span></div></section>
+<section class="tile s6"><div class="th"><h3>Timings per stage</h3><span class="k">Total 1,800 s</span></div>
+<div class="tb"><span>Sources</span><div><div class="bar" data-band="a3" style="width:57.8%"></div></div><span class="mono r">312 s</span></div><div class="tb"><span>Financials</span><div><div class="bar" data-band="a5" style="width:100.0%"></div></div><span class="mono r">540 s</span></div><div class="tb"><span>Credit</span><div><div class="bar" data-band="a4" style="width:90.0%"></div></div><span class="mono r">486 s</span></div><div class="tb"><span>Structure and market</span><div><div class="bar" data-band="a2" style="width:47.8%"></div></div><span class="mono r">258 s</span></div><div class="tb"><span>Validation and decision</span><div><div class="bar" data-band="a1" style="width:37.8%"></div></div><span class="mono r">204 s</span></div>
+<div class="lgl"><span class="lgi">Seconds, amount:</span><span class="lgi"><span class="sw" data-band="a1" style="outline:1px solid #B45309"></span>under 250</span><span class="lgi"><span class="sw" data-band="a2" style="outline:1px solid #B45309"></span>250–299</span><span class="lgi"><span class="sw" data-band="a3" style="outline:1px solid #B45309"></span>300–449</span><span class="lgi"><span class="sw" data-band="a4" style="outline:1px solid #B45309"></span>450–499</span><span class="lgi"><span class="sw" data-band="a5" style="outline:1px solid #B45309"></span>500+</span></div></section>
+<section class="tile s12"><div class="th"><h3>Recorded file hashes</h3><span class="k">Downloads</span></div>
+<table><tr><th>File</th><th>Hash (sha-256, first 16)</th><th></th></tr><tr><td class="mono" style="font-size:11px">handoffs.zip</td><td class="mono sec" style="font-size:11px">6e1f90ac42d7b835</td><td class="r"><a>Download</a></td></tr><tr><td class="mono" style="font-size:11px">financial-foundation.md</td><td class="mono sec" style="font-size:11px">d4a3c58e0f1b9276</td><td class="r"><a>Download</a></td></tr><tr><td class="mono" style="font-size:11px">liquidity.md</td><td class="mono sec" style="font-size:11px">83b0e7194ac6d5f2</td><td class="r"><a>Download</a></td></tr><tr><td class="mono" style="font-size:11px">legal-covenants.md</td><td class="mono sec" style="font-size:11px">f27c4d90a1e3865b</td><td class="r"><a>Download</a></td></tr><tr><td class="mono" style="font-size:11px">model.html</td><td class="mono sec" style="font-size:11px">09ce5b7a3d48f1e6</td><td class="r"><a>Download</a></td></tr><tr><td class="mono" style="font-size:11px">calculations.json</td><td class="mono sec" style="font-size:11px">b5d82f046c1a79e3</td><td class="r"><a>Download</a></td></tr></table></section>
+</div>
+</div></body></html>

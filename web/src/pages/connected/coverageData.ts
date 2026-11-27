@@ -49,6 +49,8 @@ export type Fact = {
   gap?: boolean;
   /** The column heading as the module wrote it, where it is the adjusted twin of the field's. */
   heading?: string;
+  /** A row table's Direction cell as the module wrote it ("Passes below"); period tables carry none. */
+  direction?: string;
   unit?: string;
   basis?: string;
   impact?: string;

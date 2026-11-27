@@ -8,7 +8,7 @@
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
-import { usePageWrite, type SignalPageWrite } from "../actions";
+import { usePageWrite, type SignalPageWrite, type SignalWrite } from "../actions";
 import { TextArea } from "../parts/TextArea";
 import type { SignalDigest, SignalDigestForm } from "../slice";
 import { writes } from "../writes";
@@ -79,14 +79,14 @@ function bodyOf(edited: SignalDigest | null, value: Value): Record<string, unkno
 function DigestList({
   digests,
   page,
-  editing,
   onEdit,
+  onDelete,
   form,
 }: {
   digests: SignalDigest[];
   page: SignalPageWrite;
-  editing: string | null;
   onEdit: (edit: Edit) => void;
+  onDelete: (id: string) => void;
   form: SignalDigestForm;
 }) {
   if (digests.length === 0) return <p className="text-small text-text-tertiary">No digests yet.</p>;
@@ -94,11 +94,6 @@ function DigestList({
     void page.send(writes.runDigest(digest.id)).then(({ reply }) => {
       const message = (reply as { message?: unknown } | null)?.message;
       if (typeof message === "string") page.note(message);
-    });
-  };
-  const drop = (digest: SignalDigest) => {
-    void page.send(writes.dropDigest(digest.id)).then(({ refusal }) => {
-      if (refusal === null && editing === digest.id) onEdit(null);
     });
   };
   return (
@@ -136,7 +131,7 @@ function DigestList({
             color="tertiary"
             aria-label={`Delete: ${digest.name}`}
             onPress={() => {
-              drop(digest);
+              onDelete(digest.id);
             }}
           >
             Delete
@@ -200,6 +195,7 @@ export function DigestsSection({
   digests,
   editing,
   onEdit,
+  onWrite,
 }: {
   form: SignalDigestForm;
   /** The form's current values (the delivered ones until a field is edited). */
@@ -210,14 +206,10 @@ export function DigestsSection({
   /** The id of the digest the form is changing; null while it holds a new one. */
   editing: string | null;
   onEdit: (edit: Edit) => void;
+  onWrite: (request: SignalWrite, clearsDraft: boolean) => void;
 }) {
   const page = usePageWrite();
   const edited = digests.find((digest) => digest.id === editing) ?? null;
-  const save = () => {
-    void page?.send(writes.digest(edited?.id ?? null, bodyOf(edited, value))).then((answer) => {
-      if (answer.refusal === null) onEdit(null);
-    });
-  };
   return (
     <Section
       title={edited === null ? form.name : `Edit ${edited.name}`}
@@ -225,7 +217,15 @@ export function DigestsSection({
     >
       <div className="flex max-w-[640px] flex-col gap-5">
         {page === null ? null : (
-          <DigestList digests={digests} page={page} editing={editing} onEdit={onEdit} form={form} />
+          <DigestList
+            digests={digests}
+            page={page}
+            onEdit={onEdit}
+            onDelete={(id) => {
+              onWrite(writes.dropDigest(id), editing === id);
+            }}
+            form={form}
+          />
         )}
         <Input
           label="Name"
@@ -273,7 +273,9 @@ export function DigestsSection({
         <FormActions
           page={page}
           editing={edited !== null}
-          onSave={save}
+          onSave={() => {
+            onWrite(writes.digest(edited?.id ?? null, bodyOf(edited, value)), true);
+          }}
           onCancel={() => {
             onEdit(null);
           }}

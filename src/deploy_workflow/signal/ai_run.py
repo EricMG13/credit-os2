@@ -117,8 +117,12 @@ class DigestsLeftDue(RuntimeError):
 def digest_pass(
     db: sqlite3.Connection, now: datetime, setup: Setup
 ) -> list[tuple[int, digests.Run]]:
-    """The due digests, with the AI pass's writer while it is on. DigestsLeftDue when the pass
-    left any due for the next tick, so the loop's digest error says so."""
+    """Recover expired claims, then run due digests with the AI writer while it is on.
+
+    DigestsLeftDue signals a fault that left digests due for the next tick.
+    """
+    started = setup.clock()
+    digests.recover_claims(db, started - ai_ledger.CALL_BOUND, started, during_pass=True)
     with session(db, now, setup) as job:
         writer = None if job is None else ai_digest.Writer(db, job.model, job.guard, now)
         ran = digests.run_due(db, now, writer)

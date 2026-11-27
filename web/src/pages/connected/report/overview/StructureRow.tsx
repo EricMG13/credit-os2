@@ -1,7 +1,8 @@
+import { AMOUNT, SECTOR, step } from "../../visuals/signal/scales";
 import { evidencePath, unitLabel, type PublishedRun, type Snapshot } from "../../publishedReport";
 import type { ReportView } from "../../reportView";
 import { figureSource, unitOf, type Cell, type FigureSource } from "./figureData";
-import { FigureGap, FigureSourceControl, GapPattern, Key } from "./figureParts";
+import { AmountKey, FigureGap, FigureSourceControl, GapPattern, Key } from "./figureParts";
 import {
   NoteText,
   ReasonNotes,
@@ -25,6 +26,7 @@ import {
   wallSlots,
   type StackRow,
 } from "./structureData";
+import { categoryAt } from "./category";
 import { TEXT, wrapText } from "./chartText";
 import { FigureTile } from "./figureTile";
 import { Figure } from "./Tile";
@@ -37,11 +39,21 @@ type Ready = Extract<FigureSource, { state: "ready" }>;
 const MATURITIES = "Debt maturities";
 const DEBT_STACK = "Debt stack";
 
+/** The undated legend swatch: the amber with the edge-coloured hatch the mark draws. */
+const HATCH_SWATCH = {
+  backgroundImage:
+    "repeating-linear-gradient(45deg, transparent 0 3.5px, var(--color-scale-amount-edge) 3.5px 4.5px, transparent 4.5px 8px)",
+} as const;
+
 type WallMark = ReturnType<typeof wallGeometry>["marks"][number];
 
-function WallMarkShape({ mark, bar }: { mark: WallMark; bar: number }) {
+/** An amount due is a quantity, not a verdict: the amber amount scale, darker for a larger share
+ * of the largest stated amount (colour-signal-build ruling C4). */
+function WallMarkShape({ mark, bar, largest }: { mark: WallMark; bar: number; largest: number }) {
   const x = mark.centre - bar / 2;
-  if (mark.height === null)
+  const value = mark.cell?.value ?? null;
+  const { height } = mark;
+  if (value === null || height === null)
     return (
       <rect
         data-gap={mark.label}
@@ -56,7 +68,7 @@ function WallMarkShape({ mark, bar }: { mark: WallMark; bar: number }) {
       />
     );
   // A stated zero is a figure: a rule on the axis, never the gap mark.
-  if (mark.height === 0)
+  if (value <= 0)
     return (
       <line
         data-bar={mark.label}
@@ -65,31 +77,44 @@ function WallMarkShape({ mark, bar }: { mark: WallMark; bar: number }) {
         x2={x + bar}
         y2={WALL.base - 1.5}
         strokeWidth="3"
-        className="stroke-chart-1"
+        className="stroke-scale-amount-edge"
       />
     );
-  return mark.undated ? (
-    <rect
-      data-bar={mark.label}
-      x={x + 0.75}
-      y={WALL.base - mark.height + 0.75}
-      width={bar - 1.5}
-      height={Math.max(0.5, mark.height - 0.75)}
-      rx="2.5"
-      fill="url(#wall-undated)"
-      strokeWidth="1.5"
-      className="stroke-chart-1"
-    />
-  ) : (
-    <rect
-      data-bar={mark.label}
-      x={x}
-      y={WALL.base - mark.height}
-      width={bar}
-      height={mark.height}
-      rx={Math.min(3, mark.height / 2)}
-      className="fill-chart-1"
-    />
+  // Rounded to 12 places first: 1.2 / 3 is 0.39999999999999997 and would floor a bin down.
+  const amount = step(Number((value / largest).toPrecision(12)), AMOUNT);
+  if (!mark.undated)
+    return (
+      <rect
+        data-bar={mark.label}
+        x={x}
+        y={WALL.base - height}
+        width={bar}
+        height={height}
+        rx={Math.min(3, height / 2)}
+        strokeWidth="1"
+        style={{ fill: amount }}
+        className="stroke-scale-amount-edge"
+      />
+    );
+  // After the axis break: the amount's step underneath, the hatch over it.
+  const place = {
+    x: x + 0.75,
+    y: WALL.base - height + 0.75,
+    width: bar - 1.5,
+    height: Math.max(0.5, height - 0.75),
+    rx: 2.5,
+  };
+  return (
+    <>
+      <rect
+        data-underlay={mark.label}
+        {...place}
+        strokeWidth="1"
+        style={{ fill: amount }}
+        className="stroke-scale-amount-edge"
+      />
+      <rect data-bar={mark.label} {...place} fill="url(#wall-undated)" />
+    </>
   );
 }
 
@@ -213,12 +238,17 @@ function MaturityWall({ source, href }: { source: Ready; href: NoteHref }) {
   const scrolls = measured !== null && width > measured + 1;
   const { marks, bar, breakAt } = wallGeometry(slots.dated, slots.undated, width);
   const gaps = marks.filter((mark) => mark.height === null);
+  const largest = Math.max(0, ...marks.map((mark) => mark.cell?.value ?? 0));
   const notes = [...gaps.map(wallNote), ...basisNoteList(source.table)];
   return (
     <>
       <div className="flex flex-wrap items-center gap-4">
-        <Key tone="primary">Dated period</Key>
-        {slots.undated.length > 0 && <Key tone="undated">After the axis break: no single year</Key>}
+        <AmountKey />
+        {slots.undated.length > 0 && (
+          <Key tone="amountUndated" style={HATCH_SWATCH}>
+            After the axis break: no single year
+          </Key>
+        )}
         {gaps.length > 0 && <Key tone="gap">No figure</Key>}
       </div>
       {/* When the periods need more room than a phone gives, the wall scrolls sideways in its tile. */}
@@ -236,19 +266,25 @@ function MaturityWall({ source, href }: { source: Ready; href: NoteHref }) {
           <defs>
             <pattern
               id="wall-undated"
-              width="6"
-              height="6"
+              width="8"
+              height="8"
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <rect width="6" height="6" className="fill-surface-selected" />
-              <line x1="0" y1="0" x2="0" y2="6" strokeWidth="2" className="stroke-chart-1" />
+              <line
+                x1="4"
+                y1="0"
+                x2="4"
+                y2="8"
+                strokeWidth="1"
+                className="stroke-scale-amount-edge"
+              />
             </pattern>
             <GapPattern id="wall-gap" />
           </defs>
           {/* Labels repeat (two rows for one year), so a mark's place is its key. */}
           {marks.map((mark, at) => (
-            <WallMarkShape key={at} mark={mark} bar={bar} />
+            <WallMarkShape key={at} mark={mark} bar={bar} largest={largest} />
           ))}
           <WallAxis breakAt={breakAt} end={width} />
           {marks.map((mark, at) => (
@@ -260,12 +296,6 @@ function MaturityWall({ source, href }: { source: Ready; href: NoteHref }) {
     </>
   );
 }
-
-const RANK_FILL = new Map<boolean | null, string>([
-  [true, "fill-chart-1"],
-  [false, "fill-chart-2"],
-  [null, "fill-chart-3"],
-]);
 
 /** Why a cell has no figure: its gap word, then the module's words, or a link where they cite. */
 function gapNote(cell: Cell, lead: string, line: number | undefined): Note {
@@ -361,7 +391,7 @@ function StackBracket({ segment }: { segment: Segment }) {
   );
 }
 
-function StackSegment({ segment }: { segment: Segment }) {
+function StackSegment({ segment, fill }: { segment: Segment; fill: string }) {
   if (segment.amount.value === null)
     return (
       <rect
@@ -384,9 +414,20 @@ function StackSegment({ segment }: { segment: Segment }) {
       width={STACK.width}
       height={segment.height}
       rx="2"
-      className={RANK_FILL.get(segment.secured)}
+      style={{ fill }}
     />
   );
+}
+
+/** Each segment's colour: one per stated claim group (secured, not secured), taken in the order
+ * the groups first appear among segments that state an amount; a group not stated is always the
+ * slate slot, which no word names (colour-signal-build ruling C6). */
+function groupFills(segments: Segment[]) {
+  const order: boolean[] = [];
+  for (const { secured, amount } of segments)
+    if (secured !== null && amount.value !== null && !order.includes(secured)) order.push(secured);
+  return ({ secured }: Segment) =>
+    secured === null ? SECTOR[7] : categoryAt(order.indexOf(secured));
 }
 
 function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
@@ -395,6 +436,7 @@ function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
   if (!rows) return <FigureGap reason="The debt stack states no amount for any facility." />;
   const { segments, height } = stackGeometry(rows);
   const width = STACK.width + STACK_LABEL.bracket;
+  const fillOf = groupFills(segments);
   return (
     <>
       <div className="flex items-start gap-2">
@@ -410,7 +452,7 @@ function CapitalStack({ source, href }: { source: Ready; href: NoteHref }) {
             <GapPattern id="stack-gap" />
           </defs>
           {segments.map((segment, at) => (
-            <StackSegment key={at} segment={segment} />
+            <StackSegment key={at} segment={segment} fill={fillOf(segment)} />
           ))}
           {segments.map((segment, at) => (
             <StackBracket key={at} segment={segment} />

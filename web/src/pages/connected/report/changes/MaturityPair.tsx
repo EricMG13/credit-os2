@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
 import { unitLabel, type MaturityProfile } from "../../publishedReport";
+import { AMOUNT, step } from "../../visuals/signal/scales";
 import { amount, distinct } from "../../visuals/visualData";
 import { PublishedSource } from "../PublishedTrace";
 import type { maturityTraces } from "../comparisonTrace";
@@ -48,8 +49,13 @@ export function usableProfile(profile: MaturityProfile) {
 
 type Axis = { low: number; high: number; room: number };
 
+/**
+ * The earlier run is a grey outline; this run is an amber fill whose step is the figure's share of the
+ * largest stated figure in the chart (colour-signal-build ruling C4). The edge holds the pale steps
+ * against the white card. The bar length is unchanged and no figure is printed from the tint.
+ */
 const FILL = {
-  current: "bg-chart-1",
+  current: "border border-scale-amount-edge",
   earlier: "border-2 border-chart-3 bg-surface-card",
 } as const;
 
@@ -64,9 +70,12 @@ function Side({
   axis,
   current,
   zone,
+  largest,
 }: {
   cell: string | null;
   axis: Axis;
+  /** The largest absolute stated figure in the chart, for this run's amount step. */
+  largest: number;
   current: boolean;
   zone: "above" | "below";
 }) {
@@ -81,12 +90,15 @@ function Side({
       {cell ?? "Not stated"}
     </Figure>
   );
-  const bar = (height: number, zone: "above" | "below") => (
+  const bar = (height: number, zone: "above" | "below", amountValue: number) => (
     <span
       data-bar={side}
       data-zone={zone}
       className={cx(BAR, FILL[side], zone === "above" ? "rounded-t-ds-xs" : "rounded-b-ds-xs")}
-      style={{ height: `${String(Math.max(height, MIN_BAR))}px` }}
+      style={{
+        height: `${String(Math.max(height, MIN_BAR))}px`,
+        ...(current && { backgroundColor: step(Math.abs(amountValue) / largest, AMOUNT) }),
+      }}
     />
   );
   const tick = (
@@ -112,7 +124,7 @@ function Side({
         ) : value >= 0 ? (
           <>
             {label}
-            {value === 0 ? tick : bar(px(value), "above")}
+            {value === 0 ? tick : bar(px(value), "above", value)}
           </>
         ) : null}
       </div>
@@ -124,7 +136,7 @@ function Side({
     >
       {value !== null && value < 0 ? (
         <>
-          {bar(px(value), "below")}
+          {bar(px(value), "below", value)}
           {label}
         </>
       ) : null}
@@ -136,17 +148,26 @@ function Walls({ rows }: { rows: readonly Row[] }) {
   const values = rows
     .flatMap((row) => [amount(row.prior ?? ""), amount(row.current ?? "")])
     .filter((value): value is number => value !== null);
+  const largest = Math.max(...values.map(Math.abs));
   const axis = { low: Math.min(0, ...values), high: Math.max(0, ...values), room: labelRoom(rows) };
   return (
     <div className="grid gap-3">
       <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-caption text-text-secondary">
         <span className="flex items-center gap-1.5">
           <span aria-hidden="true" className={cx("size-3 rounded-ds-xs", FILL.earlier)} />
-          Earlier run: outlined bar
+          Earlier run: grey outlined bar, left
         </span>
         <span className="flex items-center gap-1.5">
-          <span aria-hidden="true" className={cx("size-3 rounded-ds-xs", FILL.current)} />
-          This run: solid bar
+          <span aria-hidden="true" className="flex">
+            {[AMOUNT[1], AMOUNT[4]].map((colour) => (
+              <span
+                key={colour}
+                className={cx("size-3 first:rounded-l-ds-xs last:rounded-r-ds-xs", FILL.current)}
+                style={{ backgroundColor: colour }}
+              />
+            ))}
+          </span>
+          This run: amber bar, right, deeper for a larger amount
         </span>
       </p>
       {rows.length > 2 && (
@@ -165,14 +186,20 @@ function Walls({ rows }: { rows: readonly Row[] }) {
           {rows.map((row) => (
             <div key={row.period} className="flex min-w-28 flex-1 flex-col items-stretch">
               <div className="flex items-end justify-center gap-1">
-                <Side cell={row.prior} axis={axis} current={false} zone="above" />
-                <Side cell={row.current} axis={axis} current zone="above" />
+                <Side cell={row.prior} axis={axis} largest={largest} current={false} zone="above" />
+                <Side cell={row.current} axis={axis} largest={largest} current zone="above" />
               </div>
               <span aria-hidden="true" className="block h-px w-full bg-border-container" />
               {axis.low < 0 && (
                 <div className="flex items-start justify-center gap-1">
-                  <Side cell={row.prior} axis={axis} current={false} zone="below" />
-                  <Side cell={row.current} axis={axis} current zone="below" />
+                  <Side
+                    cell={row.prior}
+                    axis={axis}
+                    largest={largest}
+                    current={false}
+                    zone="below"
+                  />
+                  <Side cell={row.current} axis={axis} largest={largest} current zone="below" />
                 </div>
               )}
               <span className="mt-1 text-center font-mono text-caption text-text-secondary wrap-anywhere">

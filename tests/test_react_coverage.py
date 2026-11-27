@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -247,6 +248,35 @@ def test_figures_keep_their_text_period_unit_and_basis_and_missing_is_not_zero()
         "series": "period",
     }
     assert fields["cp-4/covenant-headroom/current"]["series"] == "row"
+
+
+def test_a_row_fact_carries_the_tables_direction_and_a_period_fact_carries_none() -> None:
+    snapshot = _snapshot()
+    table = copy.deepcopy(HEADROOM)
+    table["rows"].append(
+        {
+            "line": 33,
+            "cells": ["Interest cover", "2.0", "2.4", "0.4x", "Passes at or above", "x", "Basis."],
+        }
+    )
+    table["rows"].append(
+        {"line": 34, "cells": ["Gearing", "3.0", "2.0", "1.0x", "", "x", "Basis."]}
+    )
+    snapshot["workspace"]["handoffs"]["3" * 64][0]["blocks"] = [table]
+    page = coverage.coverage(snapshot)
+    assert page is not None
+    current = {f["row"]: f for f in page["facts"] if f["field"] == "cp-4/covenant-headroom/current"}
+    assert current["Net leverage"]["direction"] == "Passes below"
+    assert current["Interest cover"]["direction"] == "Passes at or above"
+    assert "direction" not in current["Gearing"]  # an empty cell states no direction
+    assert all(
+        "direction" not in f for f in page["facts"] if f["field"].startswith("cp-1/leverage/")
+    )
+    table["rows"][0]["cells"][4] = "Passes at or below"
+    again = coverage.coverage(snapshot)
+    assert again is not None
+    first = next(f for f in again["facts"] if f["field"] == "cp-4/covenant-headroom/threshold")
+    assert first["direction"] == "Passes at or below"
 
 
 def test_the_reader_summary_is_carried_as_the_module_wrote_it() -> None:

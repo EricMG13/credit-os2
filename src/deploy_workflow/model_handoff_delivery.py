@@ -33,6 +33,7 @@ from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell, SourceRef
 from deploy_vii.model.metrics import _ratio
 from deploy_vii.model.periods import LTM_DAYS
+from deploy_vii.markdown_comments import inline_comments as _inline_comments
 from deploy_vii.render import render
 from deploy_vii.period_order import order_periods
 from deploy_vii.report_view import (
@@ -181,26 +182,6 @@ class _NoTable(ValueError):
 CODE_SPAN = re.compile(r"(`+).+?\1")
 FENCE_LINE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
 HEADING_START = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
-
-
-def _inline_comments(line: str) -> tuple[str, bool]:
-    """`line` without its complete HTML comments, and whether one is still open at its end.
-    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
-    kept = ""
-    while True:
-        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
-        opener = masked.find("<!--")
-        if opener < 0:
-            return kept + line, False
-        if masked.startswith(">", opener + 4):
-            end = opener + 5
-        elif masked.startswith("->", opener + 4):
-            end = opener + 6
-        elif (closer := masked.find("-->", opener + 4)) >= 0:
-            end = closer + 3
-        else:
-            return kept + line[:opener], True
-        kept, line = kept + line[:opener], line[end:]
 
 
 def _shown(lines: list[str], source: str) -> list[str]:

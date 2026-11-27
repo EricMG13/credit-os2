@@ -3,7 +3,8 @@ import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { StatsStrip } from "@/components/kit/StatsStrip";
-import { StatusBadge } from "@/components/status/StatusBadge";
+import { STATUS_SETS } from "@/components/status/sets";
+import { StatusShape } from "@/components/status/shapes";
 import { FileSearch02 } from "@untitledui/icons";
 import { moduleName } from "../api";
 import {
@@ -155,7 +156,12 @@ function severityGroups(items: GapItem[]) {
 
 function SeverityLabel({ label }: { label: string }) {
   if (RANKED.includes(label as Ranked))
-    return <StatusBadge set="Gap severity" state={label as Ranked} />;
+    return (
+      <span className="inline-flex items-center gap-1.5 text-small font-medium text-text-primary">
+        <StatusShape shape={STATUS_SETS["Gap severity"][label as Ranked].shape} />
+        {label}
+      </span>
+    );
   return label === NONE ? <span className="text-text-tertiary">{label}</span> : label;
 }
 

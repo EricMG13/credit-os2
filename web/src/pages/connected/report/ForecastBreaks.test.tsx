@@ -310,6 +310,18 @@ it("draws a covenant test as its current figure against its level, on the test's
     expect(drawn.querySelector("[data-level]")).not.toBeNull();
 });
 
+it("draws the covenant current figure as a mark, with no blue fill from zero (ruling R1)", () => {
+  breaks([legal, forward]);
+  const bar = screen
+    .getByRole("region", { name: "Covenant tests" })
+    .querySelector("[data-limit-bar]") as HTMLElement;
+  const current = bar.querySelector("[data-current]") as HTMLElement;
+  expect(bar.querySelector(".bg-chart-1")).toBeNull();
+  expect(current.style.width).toBe("");
+  expect(current.style.left).toBe("73%");
+  expect(bar.querySelector("[data-level]")).not.toBeNull();
+});
+
 it("draws the legal module blocked in the designed blocked state with its reason", () => {
   const blockedLegal = entryOf("CP-4", [
     findings,

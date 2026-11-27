@@ -128,6 +128,7 @@ afterEach(() => {
 
 test("the matrix names each module's state in words and draws no code, hash or file name", async () => {
   answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   const { container } = render(<Coverage />);
   const table = await screen.findByRole("table");
   const alpha = within(table).getByRole("row", { name: /Alpha plc/ });
@@ -203,6 +204,7 @@ test("searching module text narrows the issuers and Find lists the passage", asy
 
 test("ticked issuers can be saved as a group kept in this browser", async () => {
   answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("checkbox", { name: "Compare Alpha plc" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Save ticked issuers as" }), {
@@ -265,6 +267,7 @@ test("a sector in the link that no issuer has is shown as unavailable, not hidde
 
 test("an unreadable bound is marked, and the detail closes when its issuer is filtered out", async () => {
   answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("button", { name: "Alpha plc" }));
   expect(screen.getByRole("heading", { name: "Alpha plc" })).toBeInTheDocument();
@@ -326,6 +329,7 @@ test("a read-only page with nothing published offers the Library, never a run", 
 
 test("with issuers listed the page draws no run action of its own: the top bar carries Start run", async () => {
   answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   await screen.findByRole("table");
   expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
@@ -340,6 +344,7 @@ test("an empty test preview offers the Library, never a run", async () => {
 
 test("the filter disclosure shows that it opens, and compare controls appear only once an issuer is ticked", async () => {
   answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   await screen.findByRole("table");
   const summary = screen.getByText(/^More filters/, { selector: "summary" });
@@ -754,7 +759,7 @@ test("the trend view draws the figure by period, and only ticked issuers can be 
   expect(screen.getByText("1 issuer ticked to compare")).toBeVisible();
   fireEvent.click(screen.getByRole("checkbox", { name: "Show only ticked issuers" }));
   expect(screen.getByText("1 of 2 issuers shown")).toBeInTheDocument();
-  expect(window.location.search).not.toContain("view=");
+  expect(window.location.search).toContain("view=matrix");
 });
 
 test("a module code in a figure's label or stated heading is drawn as the module's name", async () => {
@@ -775,4 +780,39 @@ test("a module code in a figure's label or stated heading is drawn as the module
   ).toBeVisible();
   expect(screen.getByText(/Stated as As Financial foundation states it/)).toBeVisible();
   expect(container.innerHTML).not.toMatch(/>[^<]*CP-\d|aria-label="[^"]*CP-\d|title="[^"]*CP-\d/);
+});
+
+test("Coverage opens Monitor by default and keeps named analytics regions honest", async () => {
+  answer(data);
+  render(<Coverage />);
+  expect(await screen.findByRole("region", { name: "Monitor" })).toHaveTextContent(
+    "Monitor analysis is not available yet.",
+  );
+  expect(screen.getByRole("heading", { name: "Monitor" })).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      /Every figure and sentence is as its module wrote it, except those marked computed/,
+    ),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("combobox", { name: "Selected issuer" }), {
+    target: { value: "beta" },
+  });
+  for (const view of ["Patterns", "Refinancing", "Headroom", "Market"]) {
+    fireEvent.click(screen.getByRole("button", { name: view }));
+    expect(screen.getByRole("region", { name: view })).toHaveTextContent(
+      `${view} analysis is not available yet.`,
+    );
+    expect(screen.getByRole("combobox", { name: "Selected issuer" })).toHaveValue("beta");
+  }
+});
+
+test("Modules and Rank deep links continue to select their existing views", async () => {
+  answer(data);
+  window.history.replaceState(null, "", "/coverage?view=matrix");
+  render(<Coverage />);
+  expect(await screen.findByRole("table")).toBeInTheDocument();
+  cleanup();
+  window.history.replaceState(null, "", "/coverage?view=rank");
+  render(<Coverage />);
+  expect(await screen.findByRole("list", { name: /Net debt/ })).toBeInTheDocument();
 });
