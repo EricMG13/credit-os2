@@ -57,7 +57,7 @@ export type MeasureCase = {
 
 /** A schedule, covenant or stress cell's value as the page draws it: no citation, no file name. */
 export const drawnCellText = (text: string) =>
-  citationFree(text) ?? (text.trim() ? EVIDENCE_AMOUNT : "");
+  cites(text) ? (citationFree(text) ?? EVIDENCE_AMOUNT) : text.trim();
 
 /**
  * A cell with no value as the page draws it: the module's words without the citation, else the
