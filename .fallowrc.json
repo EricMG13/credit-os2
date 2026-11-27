@@ -1,0 +1,9 @@
+{
+  "entry": [
+    "apps/issuer-library/credit_os/web/index.html",
+    "apps/issuer-library/credit_os/web/components.test.cjs",
+    "apps/issuer-library/credit_os/web/events-maps.test.cjs",
+    "apps/issuer-library/credit_os/web/evidence.test.cjs"
+  ],
+  "dynamicallyLoaded": ["apps/issuer-library/credit_os/web/screen.js"]
+}
