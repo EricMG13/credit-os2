@@ -67,8 +67,12 @@ The [matched measurements](measurements.md) record 24 fewer net source
 lines, 21 fewer duplicate lines in each language, and two fewer import
 cycles. Seven synthetic report routes yielded identical normalized reader
 text in the separate desktop readback. This readback did not replace the
-connected proof gate. Stage 6 acceptance remains blocked by the two
-connected assertions reproduced on the pinned main revision.
+connected proof gate. The original run hit two assertions reproduced on
+the pinned main revision. The companion [proof repair](https://github.com/EricMG13/credit-os2/pull/163)
+aligns the gate with the desktop scope and the current displayed units and
+forecast years. With both PRs applied, the full synthetic desktop proof
+passed in Chrome 158.0.8127.88 and Edge 158.0.4370.33 with zero application
+requests outside loopback.
 
 The recorded sweep verification covered the application patch committed at
 `ef75dab8`. The SHA-256 of that tracked patch is
@@ -79,6 +83,5 @@ The new scanner file's SHA-256 is
 PR review removed a unit-header comment left above the period-header regex.
 The change affects documentation in the code only.
 
-Not verified: the formal connected proof beyond each first failing assertion,
-live provider responses and spend, Windows release behavior, and a causal
-render speed improvement.
+Not verified: live provider responses and spend, Windows release behavior,
+and a causal render speed improvement.
