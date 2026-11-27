@@ -70,6 +70,13 @@ describe("Sparkline", () => {
     const { container } = draw(values);
     expect(container.querySelector("circle[data-end]")?.getAttribute("data-value")).toBe("199999");
   });
+  it("places finite extremes and distinct large integers from exact decimal differences", () => {
+    const extremes = draw(["-" + "1" + "0".repeat(308), "0", "1" + "0".repeat(308)]);
+    expect(extremes.container.querySelector("path")?.getAttribute("d")).toBe("M2 14 L30 8 L58 2");
+    cleanup();
+    const precise = draw(["9007199254740992", "9007199254740993", "9007199254740994"]);
+    expect(precise.container.querySelector("path")?.getAttribute("d")).toBe("M2 14 L30 8 L58 2");
+  });
   it("rejects a width or height that leaves no room inside the inset", () => {
     expect(() => render(<Sparkline values={["1", "2"]} width={4} label="x" />)).toThrow(RangeError);
     expect(() => render(<Sparkline values={["1", "2"]} height={4} label="x" />)).toThrow(

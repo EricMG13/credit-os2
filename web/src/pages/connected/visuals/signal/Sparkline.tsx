@@ -2,8 +2,37 @@ const DECIMAL = /^-?\d+(?:\.\d+)?$/;
 const INSET = 2;
 
 type Slot = { index: number; text: string; x: number; y: number };
+type Decimal = { coefficient: bigint; scale: number };
 
 const px = (value: number) => String(Math.round(value * 100) / 100);
+
+function decimal(value: string): Decimal {
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  const [whole = "0", fraction = ""] = unsigned.split(".");
+  const coefficient = BigInt(`${whole}${fraction}`);
+  return { coefficient: negative ? -coefficient : coefficient, scale: fraction.length };
+}
+
+function normalizedPositions(values: readonly (string | null)[]): (number | null)[] {
+  const parsed = values.map((value) => (value === null ? null : decimal(value)));
+  const scale = parsed.reduce((largest, value) => Math.max(largest, value?.scale ?? 0), 0);
+  const scaled = parsed.map((value) =>
+    value === null ? null : value.coefficient * 10n ** BigInt(scale - value.scale),
+  );
+  const stated = scaled.flatMap((value) => (value === null ? [] : [value]));
+  let low = stated[0] ?? 0n;
+  let high = low;
+  for (const value of stated) {
+    if (value < low) low = value;
+    if (value > high) high = value;
+  }
+  const range = high - low;
+  const precision = 1_000_000_000_000_000n;
+  return scaled.map((value) =>
+    value === null ? null : range === 0n ? 0.5 : Number(((value - low) * precision) / range) / Number(precision),
+  );
+}
 
 /**
  * A carried series as a small line: exact decimal strings (`Reading.text`), `null` for a period the
@@ -31,31 +60,24 @@ export function Sparkline({
   for (const value of values)
     if (value !== null && !DECIMAL.test(value))
       throw new RangeError(`Sparkline: "${value}" is not a plain decimal figure`);
-  const numbers = values.map((value) => {
+  values.forEach((value) => {
     if (value === null) return null;
     const n = Number(value);
     if (!Number.isFinite(n)) throw new RangeError(`Sparkline: "${value}" is not a finite number`);
-    return n;
   });
-  const stated = numbers.flatMap((n) => (n === null ? [] : [n]));
+  const positions = normalizedPositions(values);
+  const stated = positions.flatMap((n) => (n === null ? [] : [n]));
   if (stated.length < 2) return null;
 
-  let low = Infinity;
-  let high = -Infinity;
-  for (const n of stated) {
-    if (n < low) low = n;
-    if (n > high) high = n;
-  }
   const span = Math.max(values.length - 1, 1);
   const x = (index: number) => INSET + ((width - 2 * INSET) * index) / span;
-  const y = (n: number) =>
-    high === low ? height / 2 : height - INSET - ((height - 2 * INSET) * (n - low)) / (high - low);
+  const y = (position: number) => height - INSET - (height - 2 * INSET) * position;
 
   const slots: (Slot | null)[] = values.map((text, index) => {
-    const n = numbers[index];
-    return text === null || n === null || n === undefined
+    const position = positions[index];
+    return text === null || position === null || position === undefined
       ? null
-      : { index, text, x: x(index), y: y(n) };
+      : { index, text, x: x(index), y: y(position) };
   });
   const first = slots.findIndex((slot) => slot !== null);
   const last = slots.map((slot) => slot !== null).lastIndexOf(true);
