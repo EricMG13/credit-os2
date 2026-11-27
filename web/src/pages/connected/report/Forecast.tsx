@@ -65,6 +65,7 @@ function recordedBridge(
   units: unknown,
   fiscal: string | undefined,
   value: number | null | undefined,
+  recordedValue: string,
 ) {
   const unit = word(units);
   if (!handoff || !MILLIONS.test(unit) || !fiscal || typeof value !== "number") return null;
@@ -89,7 +90,15 @@ function recordedBridge(
     !(Math.abs(original - value - difference) < 0.005)
   )
     return null;
-  return { value, original, difference, unit, fcfLine: fcf.line, inflowLine: inflow.line };
+  // Parsed numbers only check the arithmetic; the page draws the recorded strings as written.
+  return {
+    value: recordedValue,
+    original: fcf.cells[3] ?? "",
+    difference: inflow.cells[3] ?? "",
+    unit,
+    fcfLine: fcf.line,
+    inflowLine: inflow.line,
+  };
 }
 
 const LIMIT_IN_EVIDENCE = "This limit carries a reference; read it in Evidence.";
@@ -115,10 +124,11 @@ function BasisNote({
     ({ period }) => period,
   ).ordered;
   const period = baseObservation?.period;
-  const value =
-    baseObservation?.cell?.status === "value" ? amount(word(baseObservation.cell.exact)) : null;
+  const recordedValue =
+    baseObservation?.cell?.status === "value" ? word(baseObservation.cell.exact) : "";
+  const value = recordedValue ? amount(recordedValue) : null;
   const fiscal = period?.slice(0, -1);
-  const bridge = recordedBridge(handoff, raw.units, fiscal, value);
+  const bridge = recordedBridge(handoff, raw.units, fiscal, value, recordedValue);
   const words = readerText(limitation);
   return (
     <section className="grid min-w-0 gap-2 border-t border-border-hairline pt-3">
@@ -127,11 +137,10 @@ function BasisNote({
       </h4>
       {bridge && (
         <p className="reading-copy text-body">
-          The calculation gives <strong>{withUnit(bridge.value.toFixed(2), bridge.unit)}</strong>{" "}
-          cash proxy. The {moduleName("CP-2G")} gives{" "}
-          <strong>{withUnit(bridge.original.toFixed(2), bridge.unit)}</strong> free cash flow. The
-          displayed difference is{" "}
-          <strong>{withUnit(bridge.difference.toFixed(2), bridge.unit)}</strong>.
+          The calculation gives <strong>{withUnit(bridge.value, bridge.unit)}</strong> cash proxy.
+          The {moduleName("CP-2G")} gives <strong>{withUnit(bridge.original, bridge.unit)}</strong>{" "}
+          free cash flow. The displayed difference is{" "}
+          <strong>{withUnit(bridge.difference, bridge.unit)}</strong>.
         </p>
       )}
       {bridge && (
