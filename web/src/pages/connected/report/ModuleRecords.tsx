@@ -74,21 +74,28 @@ function amountsOf(bars: Map<number, AmountColumn>) {
   };
 }
 
-/** Whether a drawn bar column holds a negative figure that draws a bar (the cells' own test). */
-function drawsNegative(table: Table, bars: Map<number, AmountColumn>) {
-  return table.rows.some(({ cells, line }) =>
-    [...bars].some(([column, bar]) => {
+/** Which tones the drawn bars use, decided by the cells' own test: a share, then negative or not. */
+function drawnTones(table: Table, bars: Map<number, AmountColumn>) {
+  const tones = { amount: false, negative: false };
+  for (const { cells, line } of table.rows)
+    for (const [column, bar] of bars) {
       const cell = cells[column] ?? "";
-      return bar.share(cell, line) !== null && bar.negative(cell);
-    }),
-  );
+      if (bar.share(cell, line) === null) continue;
+      if (bar.negative(cell)) tones.negative = true;
+      else tones.amount = true;
+    }
+  return tones;
 }
 
-/** The bars' colours in words: a smaller to a larger amount, and a negative one where one is drawn. */
-function barLegend(negative: boolean): LegendEntry[] {
+/** The bars' colours in words, each only where a bar of that colour is drawn. */
+function barLegend({ amount, negative }: { amount: boolean; negative: boolean }): LegendEntry[] {
   return [
-    { kind: "bar", tone: "amount-1", text: "Smaller amount" },
-    { kind: "bar", tone: "amount-5", text: "Larger amount" },
+    ...(amount
+      ? [
+          { kind: "bar" as const, tone: "amount-1" as const, text: "Smaller amount" },
+          { kind: "bar" as const, tone: "amount-5" as const, text: "Larger amount" },
+        ]
+      : []),
     ...(negative
       ? [{ kind: "bar" as const, tone: "secondary" as const, text: "Negative amount" }]
       : []),
@@ -311,7 +318,7 @@ function RecordDrawing({
       )}
       {drawnBars.size > 0 && (
         <>
-          <Legend items={barLegend(drawsNegative(record.table, drawnBars))} />
+          <Legend items={barLegend(drawnTones(record.table, drawnBars))} />
           <p className="text-caption text-text-tertiary">{scaleNote(record.table, record.title)}</p>
         </>
       )}

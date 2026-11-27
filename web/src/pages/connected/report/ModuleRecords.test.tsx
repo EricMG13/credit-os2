@@ -229,6 +229,25 @@ it("draws no Negative amount entry when no drawn bar is negative", () => {
   expect(scoped.queryByText("Negative amount")).toBeNull();
 });
 
+it("draws only the Negative amount entry when every drawn bar is negative", () => {
+  const negative = table(
+    21,
+    ["Instrument", "Principal", "Maturity"],
+    [
+      ["Term loan I", "(1,871)", "2028"],
+      ["Term loan J", "(3,742)", "2031"],
+    ],
+  );
+  draw(one("T4.18 Debt instruments", negative));
+  openRecords();
+  const wide = screen.getByRole("region", { name: "Debt instruments" });
+  expect(wide.querySelector('[style*="width"]')).toHaveClass("bg-chart-2");
+  const scoped = within(wide.parentElement as HTMLElement);
+  expect(scoped.getByText("Negative amount")).toBeInTheDocument();
+  expect(scoped.queryByText("Smaller amount")).toBeNull();
+  expect(scoped.queryByText("Larger amount")).toBeNull();
+});
+
 it("draws a source reference cell as an Evidence link, never as text", () => {
   const { entry } = draw();
   const wide = openDebt();
@@ -606,6 +625,9 @@ describe("a wide register at phone width", () => {
     expect(open).toHaveBeenCalledWith(traceKey(entry, line));
     // No bar is drawn in a card, so no scale is stated.
     expect(screen.queryByText(/^Bars:/)).toBeNull();
+    expect(screen.queryByText("Smaller amount")).toBeNull();
+    expect(screen.queryByText("Larger amount")).toBeNull();
+    expect(screen.queryByText("Negative amount")).toBeNull();
   });
 
   it("opens the scrolled full table from All columns", () => {

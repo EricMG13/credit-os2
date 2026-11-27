@@ -16,6 +16,13 @@ const AMOUNT = [
   "bg-scale-amount-5",
 ] as const;
 
+/**
+ * A 1 px edge on the bar's top and bottom only, never its sides: a floor-width bar then keeps its
+ * own step colour in 6 of its 8 px rows, while the pale steps still read on the track.
+ */
+const EDGE =
+  "shadow-[inset_0_1px_0_var(--color-scale-amount-edge),inset_0_-1px_0_var(--color-scale-amount-edge)]";
+
 /** The amount step of a share: five equal-width bins over 0 to 1, the last closed at 1. */
 const stepOf = (share: number) =>
   AMOUNT[Math.min(AMOUNT.length - 1, Math.floor(Math.max(0, Math.min(1, share)) * AMOUNT.length))];
@@ -26,7 +33,7 @@ const stepOf = (share: number) =>
  * A share above zero draws at least `minimum` px, so a small figure is never mistaken for zero;
  * zero draws no fill but a 1 px tick at the track's start; a missing share draws neither.
  * `tone="amount"` draws the fill in one of the five amount steps (`bg-scale-amount-1` to `-5`) by
- * the share's equal-width bin, with a 1 px inset edge so a pale step reads on the track; the bar
+ * the share's equal-width bin, with a 1 px edge on its top and bottom (not its sides) so a pale step reads on the track; the bar
  * still adds no number. The other tones are one colour each.
  */
 export function BarCell({
@@ -44,10 +51,7 @@ export function BarCell({
   valueWidth?: string;
 }) {
   const width = share === null ? 0 : Math.max(0, Math.min(1, share)) * 100;
-  const fill =
-    tone === "amount"
-      ? cx(stepOf(share ?? 0), "ring-1 ring-scale-amount-edge ring-inset")
-      : FILL[tone];
+  const fill = tone === "amount" ? cx(stepOf(share ?? 0), EDGE) : FILL[tone];
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span
