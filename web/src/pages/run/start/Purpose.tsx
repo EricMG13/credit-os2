@@ -18,7 +18,7 @@ const CAP_LEGEND = [
   {
     kind: "bar",
     tone: "amount-4",
-    text: "Bar: the cap against the largest cap shown",
+    text: "Bar length and shade: the cap against the largest cap shown",
   },
 ] as const;
 

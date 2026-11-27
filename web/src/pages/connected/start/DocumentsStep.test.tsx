@@ -327,4 +327,15 @@ describe("Documents step: the kind dot", () => {
     );
     expect(screen.getAllByText("Legal and covenants", { selector: "span" })).toHaveLength(1);
   });
+
+  it("treats an empty kind as no kind: no dot and no legend", () => {
+    renderStep(
+      makeView({
+        documentRows: [row("credit-agreement.txt")],
+        shownDocs: [{ ...AGREEMENT, kind: "" }],
+      }),
+    );
+    expect(document.querySelector("[class*='bg-category']")).toBeNull();
+    expect(document.querySelector("[data-part='legend']")).toBeNull();
+  });
 });

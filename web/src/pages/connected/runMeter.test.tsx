@@ -87,7 +87,7 @@ describe("CapBandKey", () => {
       "85 to under 100%",
       "100% or more: at the cap",
     ]);
-    expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByText("Under 50%").closest('[aria-hidden="true"]')).not.toBeNull();
     expect(container.querySelector("ul, ol, li")).toBeNull();
     expect(container.textContent).not.toContain("USD");
   });
