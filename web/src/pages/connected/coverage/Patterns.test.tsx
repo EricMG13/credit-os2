@@ -216,6 +216,70 @@ describe("Patterns", () => {
     expect(within(alpha).getByRole("link", { name: /Open run/ })).toHaveAccessibleName(/FY2026: 7x.*basis FY2026 issuer basis/i);
   });
 
+  it("keeps the recognized axis chronological when one issuer has an unplaceable period", () => {
+    const { data, issuers } = fixture();
+    const selectedIssuers = issuers.slice(0, 4);
+    const [alpha, beta, gamma, delta] = selectedIssuers;
+    if (!alpha || !beta || !gamma || !delta) throw new Error("fixture cohort is incomplete");
+    const debtFacts = [
+      fact(alpha, debt, "FY2025", "12", "x", 1),
+      fact(alpha, debt, "FY2024", "10", "x", 2),
+      fact(beta, debt, "FY2025", "22", "x", 3),
+      fact(beta, debt, "FY2024", "20", "x", 4),
+      fact(gamma, debt, "FY2025", "32", "x", 5),
+      fact(gamma, debt, "FY2024", "30", "x", 6),
+      fact(delta, debt, "Unspecified", "44", "x", 7),
+    ];
+    const coverFacts = selectedIssuers
+      .slice(0, 3)
+      .map((issuer, index) => fact(issuer, cover, "FY2025", String(index + 2), "x", index + 8));
+    const orderedFixture = {
+      ...data,
+      facts: [...data.facts.filter((item) => item.field !== debt), ...debtFacts, ...coverFacts],
+    };
+    render(
+      <Patterns
+        data={orderedFixture}
+        issuers={selectedIssuers}
+        selected={null}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Period")).toHaveValue("FY2025");
+    expect(screen.getByText("FY2025 versus FY2024")).toBeInTheDocument();
+    const level = screen.getByRole("table", { name: "Level versus difference data" });
+    const alphaRow = within(level)
+      .getAllByRole("row", { name: /Alpha.*FY2025/ })
+      .filter((row) => row.querySelector("button")?.textContent === "Alpha")[0];
+    expect(alphaRow).toHaveTextContent(/12x.*\+2x/);
+    const excluded = screen.getByRole("region", {
+      name: "Issuers not plotted in level versus difference",
+    });
+    expect(excluded).toHaveTextContent(
+      "Delta: Total debt / EBITDA: other period; Total debt / EBITDA: periods cannot be ordered",
+    );
+    const band = screen.getByRole("table", { name: "Cohort band data" });
+    expect(
+      within(band)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.textContent),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("FY2024"),
+        expect.stringContaining("FY2025"),
+      ]),
+    );
+    expect(within(band).getAllByRole("row").slice(1)[0]).toHaveTextContent("FY2024");
+    const heat = screen.getByRole("table", { name: "Difference heat grid" });
+    expect(
+      within(heat).getByRole("columnheader", { name: "FY2024 to FY2025" }),
+    ).toBeInTheDocument();
+    const two = screen.getByRole("table", { name: "Two measures data" });
+    expect(within(two).getByRole("row", { name: /Alpha/ })).toHaveTextContent("12x");
+  });
+
   it("keeps sparse table facts and states a gap without empty plots or zero medians", () => {
     const { data, issuers } = fixture();
     const sparse = issuers.slice(0, 2);

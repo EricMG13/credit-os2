@@ -15,7 +15,6 @@ import { SECTOR } from "../visuals/signal/scales";
 import {
   evidenceLink,
   periodsOf,
-  periodsOrdered,
   type Coverage,
   type Issuer,
 } from "../coverageData";
@@ -50,7 +49,9 @@ type TwoPoint = {
 type OutRow = { issuer: Issuer; reason: string; field: string };
 
 function orderedIssuers(data: Coverage, issuers: readonly Issuer[], field: string): Issuer[] {
-  return issuers.filter((issuer) => periodsOrdered(data, [issuer], field));
+  return issuers.filter((issuer) =>
+    periodsOf(data, [issuer], field).every((period) => periodKey(period) !== null),
+  );
 }
 
 function orderedPeriods(data: Coverage, issuers: readonly Issuer[], field: string): string[] {
@@ -187,14 +188,14 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
         fields.flatMap((item) => periodsOf(indexed.get(item.id) ?? data, issuers, item.id)),
       ),
     ];
-    const keys = union.map(periodKey);
-    return keys.every(Boolean)
-      ? [...union].sort((left, right) => {
-          const a = periodKey(left);
-          const b = periodKey(right);
-          return a && b ? comparePeriodKeys(a, b) : 0;
-        })
-      : union;
+    const recognized = union.filter((item) => periodKey(item) !== null);
+    const unplaceable = union.filter((item) => periodKey(item) === null);
+    recognized.sort((left, right) => {
+      const a = periodKey(left);
+      const b = periodKey(right);
+      return a && b ? comparePeriodKeys(a, b) : 0;
+    });
+    return [...recognized, ...unplaceable];
   }, [data, fields, indexed, issuers]);
   const period = allPeriods.includes(periodPick)
     ? periodPick
@@ -254,7 +255,7 @@ export function Patterns({ data, issuers, selected, onSelect }: Props) {
     ...withField(current, field?.id ?? ""),
     ...withField(previous, field?.id ?? ""),
     ...issuers
-      .filter((issuer) => field && !periodsOrdered(fieldData, [issuer], field.id))
+      .filter((issuer) => !seriesIssuers.some((item) => item.key === issuer.key))
       .map((issuer) => ({ issuer, field: field?.id ?? "", reason: "periods cannot be ordered" })),
   ];
 
