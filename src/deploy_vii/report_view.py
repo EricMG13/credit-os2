@@ -1809,7 +1809,11 @@ def _token_runs(
     by_fact = {fact_id: ids for (owner, fact_id), ids in refs.items() if owner == module.module_id}
     out: list[TextRun] = []
     for run in resolve(text, prose.bind(module.facts), by_fact, names=names):
-        if run.kind == "text":
+        if run.kind == "text" and not run.text.strip():
+            # A run cannot be blank: the space between two tokens stays on the run before it.
+            if out:
+                out[-1] = out[-1].model_copy(update={"text": out[-1].text + run.text})
+        elif run.kind == "text":
             out.append(TextRun(text=run.text, kind="pen" if judged else "text"))
         else:
             out.append(TextRun(text=run.text, kind=run.kind, ref_id=run.ref_id))
@@ -1868,7 +1872,9 @@ def _prose_lines(
 def _summary(lines: tuple[Line, ...], rows: tuple[Row, ...]) -> str | None:
     """The one line a collapsed block shows: its first line of prose or its first row."""
     if lines:
-        return _clip(" ".join(run.text for run in lines[0].runs if run.kind != "fig"))
+        # A figure run keeps its text; only the trace mark (a run whose text is its ref id) goes.
+        marks = (run for run in lines[0].runs if run.kind != "fig" or run.text != run.ref_id)
+        return _clip(" ".join(run.text for run in marks))
     if rows:
         return _clip(f"{rows[0].label}: " + ", ".join(cell.text for cell in rows[0].cells))
     return None
@@ -2269,7 +2275,7 @@ def _registered_figures(
     return figures
 
 
-def _block(
+def _block(  # noqa: PLR0913 - existing signature
     block_id: str,
     pathway: Pathway,
     view: View,
@@ -2363,7 +2369,9 @@ def _block(
                 figures=_na_strip(block_id, spec.owner, primary.scale, _strip_reason(block_id))
                 if degraded
                 else figures,
-                note=_strip_note(block_id) if degraded else chart_note or None,
+                note=_strip_note(block_id)
+                if degraded
+                else "; ".join(t for t in (primary.limitation, chart_note) if t) or None,
             )
     blocked_because = {
         code: module.limitations[0]
@@ -2374,6 +2382,9 @@ def _block(
     if shown:
         words_state = "absent"
         note = f"Absent: {' · '.join(spec.producers)} supplied no rows for this block."
+        stated = tuple(dict.fromkeys(item.limitation for item in slots if item.limitation))
+        if stated:  # the producers' own words on the empty register, verbatim
+            note = f"{note} {' '.join(stated)}"
     kind = spec.kind if spec.kind != "chart" else "dense"
     return Block(
         block_id=block_id,
