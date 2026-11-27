@@ -9,3 +9,6 @@ plan before dispatching writers. In a Codex chat, launch native subagents direct
 chat so the owner can follow them on its Sub-agents page. Apply this to the next assignment
 in ongoing runs. Use separate worker sessions only with explicit owner approval of that
 visibility change.
+
+Open or reuse the private coordinator dashboard as a browser tab in the Codex chat’s right
+panel for this run. Give the owner the local dashboard link when the panel tool is unavailable.

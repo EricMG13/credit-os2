@@ -205,7 +205,11 @@ is the primary checkout. Keep the database and local evidence there across sessi
    CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.
 
 Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Credit OS2 checkout.
-The command prints a local URL. Run lookup, refresh, decision details, and prompts use the same
+The command prints a private loopback URL. In Codex desktop, open or reuse that dashboard as a
+browser tab in the coordinating chat’s right panel after establishing the run. When available,
+use `open_in_codex` with `placement: "right"` and the dashboard URL for the selected run.
+Select the run in the tab and keep the same tab for later updates. In clients without the panel
+tool, give the owner the local link. Run lookup, refresh, decision details, and prompts use the same
 ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
 change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.
 Record a substantive checkpoint with `note RUN ID REVISION` and a JSON payload containing
