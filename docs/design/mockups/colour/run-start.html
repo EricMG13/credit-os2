@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Run start, colour as signal (illustration)</title>
+<meta name="viewport" content="width=1440">
+<style>
+/* shared: tokens and colour scales. Paste verbatim; do not edit. */
+@font-face{font-family:"Geist";font-weight:400;src:url("../../../../web/public/fonts/Geist-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist";font-weight:500;src:url("../../../../web/public/fonts/Geist-Medium.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:400;src:url("../../../../web/public/fonts/GeistMono-Regular.woff2") format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url("../../../../web/public/fonts/GeistMono-Medium.woff2") format("woff2")}
+:root{--canvas:#FAFAFA;--tile:#FFFFFF;--well:#F4F4F5;--hair:#E4E4E7;--ink:#0A0A0A;--sec:#52525B;--label:#6B6B74;--acc:#1D4ED8;--tint:#EFF6FF;--prior:#8E8E96;
+--bt:#15803D;--ws:#C2410C;--fail:#DC2626;--blocked:#EA580C;
+--c1:#1D4ED8;--c2:#EA580C;--c3:#0F766E;--c4:#7E22CE;--c5:#B45309;--c6:#BE123C;--c7:#15803D;--c8:#475569;
+--mono:"Geist Mono",ui-monospace,Menlo,monospace;--sans:"Geist",-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 12px/16px var(--sans);width:1440px}
+.banner{background:var(--well);border-bottom:1px solid var(--hair);color:var(--sec);font-size:12px;line-height:16px;text-align:center;padding:5px 0}
+/* position in a cohort or order: sequential blue */
+[data-band="p1"]{background:#FFFFFF}[data-band="p2"]{background:#EFF6FF}[data-band="p3"]{background:#DBEAFE}[data-band="p4"]{background:#BFDBFE}
+/* better / worse: only where the direction table gives a direction */
+[data-band="bt1"]{background:#DCFCE7}[data-band="bt2"]{background:#BBF7D0}[data-band="bt3"]{background:#86EFAC}
+[data-band="ws1"]{background:#FFEDD5}[data-band="ws2"]{background:#FED7AA}[data-band="ws3"]{background:#FDBA74}
+[data-band="d0"]{background:#FFFFFF}
+/* amount: sequential amber */
+[data-band="a1"]{background:#FEF3C7}[data-band="a2"]{background:#FDE68A}[data-band="a3"]{background:#FCD34D}[data-band="a4"]{background:#F59E0B}[data-band="a5"]{background:#D97706}
+/* share of a limit used: bar fills only, never under text */
+[data-band="s1"]{background:#15803D}[data-band="s2"]{background:#777C22}[data-band="s3"]{background:#D97706}[data-band="s4"]{background:#DA4E16}[data-band="s5"]{background:#DC2626}
+[data-band^="p"],[data-band^="bt"],[data-band^="ws"],[data-band^="a"],[data-band="d0"]{color:#0A0A0A}
+.hatch{background:repeating-linear-gradient(135deg,transparent 0 5px,#E4E4E7 5px 6px);color:#52525B}
+.gapline{display:inline-block;border:1px dashed var(--prior);border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 5px,#EDEDF0 5px 6px);padding:1px 8px;color:#52525B}
+/* end shared */
+
+.page{padding:0 8px 24px}
+.top{display:flex;align-items:center;gap:20px;height:48px;padding:0 24px;background:#fff;border-bottom:1px solid var(--hair)}
+.brand{display:flex;align-items:center;gap:8px;font:500 14px/16px var(--sans)}
+.brand i{width:20px;height:20px;border-radius:6px;background:var(--acc);display:block}
+.top nav{display:flex;gap:4px;margin-left:12px}
+.top nav a{padding:14px 10px 12px;color:var(--sec);text-decoration:none;border-bottom:2px solid transparent;font-size:13px}
+.top nav a.cur{color:var(--acc);background:var(--tint);border-bottom-color:var(--acc)}
+.sh-btn{margin-left:auto;background:var(--acc);color:#fff;border-radius:8px;padding:6px 14px;font:500 13px/16px var(--sans);text-decoration:none}
+.div{display:flex;align-items:center;gap:12px;margin:16px 0 8px}
+.div span{font:500 13px/18px var(--sans);color:var(--acc);white-space:nowrap}
+.div i{flex:1;border-top:1px solid var(--hair)}
+.stepper{display:flex;gap:8px;margin-bottom:8px}
+.st{flex:1;display:flex;align-items:center;gap:8px;background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:8px 12px}
+.st .n{width:20px;height:20px;border-radius:10px;border:1.5px solid var(--prior);display:flex;align-items:center;justify-content:center;font:500 11px/14px var(--mono);color:var(--sec);flex:none}
+.st.done .n{background:var(--acc);border-color:var(--acc)}
+.st.cur{border:1.5px solid var(--acc);background:var(--tint)}
+.st.cur .n{background:var(--acc);border-color:var(--acc);color:#fff}
+.st b{font:500 13px/16px var(--sans);display:block}
+.st small{font-size:11px;line-height:14px;color:var(--label)}
+.cols{display:grid;grid-template-columns:1fr 440px;gap:8px;align-items:start}
+.stack>*+*{margin-top:8px}
+.tile{background:var(--tile);border:1px solid var(--hair);border-radius:12px;padding:12px;min-width:0}
+.tile>*+*{margin-top:8px}
+h2{font:500 16px/22px var(--sans);margin:0}
+h3{font:500 14px/18px var(--sans);margin:0}
+h4{font:500 12px/16px var(--sans);margin:0}
+.cap{font-size:11px;line-height:14px;color:var(--label);margin:0}
+.sec{color:var(--sec)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.well{background:var(--well);border:1px solid var(--hair);border-radius:12px;padding:12px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{border:1px solid var(--hair);border-radius:12px;padding:12px;background:var(--tile);display:flex;flex-direction:column;gap:6px;min-height:104px}
+.card.sel{border:2px solid var(--acc);padding:11px;background:var(--tint)}
+.card .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .hd b{font:500 13px/18px var(--sans)}
+.radio{width:14px;height:14px;border-radius:7px;border:1.5px solid var(--prior);flex:none}
+.card.sel .radio{border-color:var(--acc);background:radial-gradient(var(--acc) 0 3px,#fff 3.5px)}
+.card p{margin:0;color:var(--sec)}
+.card .ft{margin-top:auto;flex-wrap:wrap;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.capbar{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.cap-t{width:110px;height:8px;background:var(--well);border:1px solid var(--hair);border-radius:4px;overflow:hidden;position:relative;flex:none}
+.cap-t i{display:block;height:100%;border-right:1px solid #B45309;box-shadow:inset 0 0 0 0}
+.cap-t.upto i{outline:1px dashed #B45309;outline-offset:-1px}
+.cap-t{outline:1px solid #B45309;outline-offset:0}
+.lgl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:11px;line-height:14px;color:var(--label);margin:0}
+.lgl b{font-weight:500;color:var(--ink)}
+.lgi{display:inline-flex;align-items:center;gap:5px}
+.sw{display:inline-block;width:14px;height:8px;border-radius:2px;outline:1px solid #B45309;outline-offset:0}
+.sw.s{outline:0;border-radius:2px}
+.sw.d{width:8px;height:8px;border-radius:4px;outline:0}
+.ic{width:14px;height:14px;flex:none;vertical-align:-3px}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;background:var(--tile);padding:2px;gap:2px}
+.seg span{height:26px;padding:0 10px;border-radius:6px;font:500 12px/26px var(--sans);color:var(--sec)}
+.seg span.on{background:var(--tint);color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opts .wide{grid-column:span 2}
+.opts label{display:block;margin-bottom:4px;font-size:11px;line-height:14px;color:var(--label)}
+.fig{font:500 22px/28px var(--mono);font-variant-numeric:tabular-nums}
+.fig.sm{font-size:16px;line-height:22px}
+.sbar{display:flex;align-items:center;gap:8px}
+.sbar .t{flex:1;height:8px;background:var(--well);border:1px solid var(--hair);border-radius:4px;overflow:hidden}
+.sbar .t i{display:block;height:100%}
+.sbar b{font:500 12px/16px var(--sans)}
+.rows{list-style:none;margin:0;padding:0}
+.rows li{display:flex;align-items:center;gap:10px;min-height:28px;border-top:1px solid var(--hair);padding:2px 0}
+.rows li:first-child{border-top:0}
+.rows .dt{margin-left:auto;font:400 12px/16px var(--mono);color:var(--sec)}
+.met{display:inline-flex;align-items:center;gap:6px;min-width:64px;font:500 12px/16px var(--sans);color:var(--sec)}
+.met i{width:10px;height:10px;display:inline-block}
+.met i.y{border-radius:5px;background:var(--ink)}
+.met i.n{border:1.5px solid var(--sec);border-radius:2px}
+.stg{border-top:1px solid var(--hair);padding:6px 0}
+.stg:first-of-type{border-top:0}
+.stg .sh{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.stg .sh .no{font:400 11px/14px var(--mono);color:var(--label)}
+.stg .sh b{font:500 12px/16px var(--sans)}
+.stg .sh .ct{font:400 11px/14px var(--mono);color:var(--sec)}
+.stg .sh .tally{margin-left:auto;display:flex;align-items:center;gap:8px}
+.stk{display:flex;width:56px;height:8px;border-radius:4px;overflow:hidden;border:1px solid var(--hair);background:var(--well)}
+.stk i{display:block;height:100%}
+.stk .r{background:var(--ink)}
+.stk .c{background:var(--blocked)}
+.stk .b{background:repeating-linear-gradient(135deg,#fff 0 2px,var(--blocked) 2px 3px);outline:1px dashed var(--blocked);outline-offset:-1px}
+.tally span{display:inline-flex;align-items:center;gap:2px;font:500 11px/14px var(--mono)}
+.mods{list-style:none;margin:0;padding:0}
+.mods li{display:flex;align-items:flex-start;gap:6px;min-height:20px;padding:1px 0}
+.mods .nm{font-size:12px;line-height:18px}
+.mods .why{display:block;font-size:11px;line-height:14px;color:var(--sec)}
+.mods .stw{font:500 11px/18px var(--sans);color:var(--ink);margin-left:2px}
+.blkpill{border:1px dashed var(--blocked);border-radius:6px;padding:0 4px}
+.lim{display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--hair);padding:8px 0}
+.lim:first-of-type{border-top:0}
+.lim .tx{flex:1}
+.lim .tx b{font-weight:500}
+.lim .tx p{margin:2px 0 0;color:var(--sec)}
+.chk{display:inline-flex;align-items:center;gap:6px;font:500 12px/16px var(--sans);white-space:nowrap}
+.chk i{width:14px;height:14px;border:1.5px solid var(--acc);border-radius:3px;background:var(--acc);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.chk i svg{width:10px;height:10px}
+.sev{font:500 11px/14px var(--sans);border:1px solid var(--hair);border-radius:6px;padding:0 5px;white-space:nowrap}
+.facts{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0}
+.facts div{display:grid;gap:2px}
+.facts dt{font-size:11px;line-height:14px;color:var(--label)}
+.facts dd{margin:0;font:500 12px/16px var(--sans)}
+.facts dd.mono{font-family:var(--mono)}
+.head2{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start}
+.pill{display:inline-block;font:500 11px/14px var(--sans);border:1px solid var(--hair);background:var(--well);border-radius:6px;padding:1px 6px;margin-left:8px;vertical-align:2px}
+.btn{display:inline-flex;align-items:center;height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;font:500 13px/16px var(--sans)}
+.btn.o{background:var(--tile);color:var(--acc)}
+.two{display:grid;grid-template-columns:4fr 8fr;gap:24px;border-top:1px solid var(--hair);padding-top:12px}
+.two>*+*{margin-top:0}
+table.data{border-collapse:collapse;width:100%;font:400 12px/16px var(--sans)}
+.data th{font:500 11px/12px var(--sans);color:var(--label);text-align:left;padding:2px 6px;height:28px;border-bottom:1px solid var(--hair);background:var(--well)}
+.data td{padding:0 6px;height:28px;border-bottom:1px solid var(--hair);white-space:nowrap}
+.data tbody tr:last-child td{border-bottom:0}
+.dtp{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.dtp i{width:8px;height:8px;border-radius:4px;display:inline-block}
+.hatchrow td{color:var(--sec)}
+.details{border:1px solid var(--hair);border-radius:12px;background:var(--tile);padding:8px 12px}
+.details summary{font:500 13px/18px var(--sans);color:var(--acc)}
+.nolegend{color:var(--sec)}
+
+</style></head><body>
+<div class="banner">Illustration of form. Figures are invented, not a delivered run.</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ok" viewBox="0 0 14 14"><path d="M3 7.5l2.8 2.8L11 4.2" fill="none" stroke="#0A0A0A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="cond" viewBox="0 0 14 14"><path d="M7 1.8L13 12H1z" fill="#fff" stroke="#EA580C" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 5.4v3.2" stroke="#EA580C" stroke-width="1.6" stroke-linecap="round"/><circle cx="7" cy="10.3" r=".9" fill="#EA580C"/></symbol>
+<symbol id="blk" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.6" fill="#fff" stroke="#EA580C" stroke-width="1.4" stroke-dasharray="2.2 1.6"/><path d="M3.6 10.4L10.4 3.6" stroke="#EA580C" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="tick" viewBox="0 0 10 10"><path d="M2 5.3l2 2L8 3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<header class="top"><div class="brand"><i></i>Credit OS</div><nav><a href="#">Library</a><a href="#">Coverage</a><a href="#">Run activity</a><a href="#">Signal</a></nav></header>
+<main class="page">
+<div class="div"><span>Step 2 &middot; Purpose</span><i></i></div>
+<nav class="stepper" aria-label="Steps"><div class="st done"><span class="n"><svg class="ic" style="width:12px;height:12px"><use href="#tick"/></svg></span><span><b>Documents</b><small>Add files</small></span></div><div class="st cur"><span class="n">2</span><span><b>Purpose</b><small>Choose one</small></span></div><div class="st "><span class="n">3</span><span><b>More context</b><small>Optional</small></span></div><div class="st "><span class="n">4</span><span><b>Review and start</b><small>Paid run</small></span></div></nav>
+<div class="cols"><div class="stack">
+<div class="tile"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Purpose</h2><span class="cap">Choose one pathway &middot; selected: Full credit assessment</span></div>
+<p class="lgl"><b>Cap, USD (one scale, 0 to 50)</b><span class="lgi"><i class="sw" data-band="a1"></i>10</span><span class="lgi"><i class="sw" data-band="a2"></i>20</span><span class="lgi"><i class="sw" data-band="a3"></i>30</span><span class="lgi"><i class="sw" data-band="a4"></i>40</span><span class="lgi"><i class="sw" data-band="a5"></i>50</span><span class="lgi">bar length = cap &divide; 50 &middot; dashed outline = at most (custom)</span></p>
+<div class="cards" role="radiogroup" aria-label="Pathway"><div class="card"><div class="hd"><b>Lite credit assessment</b><span class="radio"></span></div><p>Is the credit sound, and how far is its first break?</p>
+<div class="ft"><span class="mono">9 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card sel"><div class="hd"><b>Full credit assessment</b><span class="radio"></span></div><p>Is the credit sound, and does it hold through its downside, covenants, refinancing and forward cash flow?</p>
+<div class="ft"><span class="mono">17 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a3" style="width:60%"></i></span><b class="mono">USD 30</b></span></div></div><div class="card"><div class="hd"><b>Deep credit assessment</b><span class="radio"></span></div><p>Beyond the full assessment: how do rating triggers, market prices against fundamentals and recovery by class change the view?</p>
+<div class="ft"><span class="mono">20 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a5" style="width:100%"></i></span><b class="mono">USD 50</b></span></div></div><div class="card"><div class="hd"><b>Earnings Update</b><span class="radio"></span></div><p>What changed in the latest results against an earlier period, and why?</p>
+<div class="ft"><span class="mono">8 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card"><div class="hd"><b>Relative Value</b><span class="radio"></span></div><p>Which instrument offers the better value for its risk, against peers and the market?</p>
+<div class="ft"><span class="mono">11 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card"><div class="hd"><b>Covenant &amp; Refinancing</b><span class="radio"></span></div><p>How much room do the documents leave, and can the debt be refinanced?</p>
+<div class="ft"><span class="mono">12 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card"><div class="hd"><b>Distressed &amp; Restructuring</b><span class="radio"></span></div><p>How far is the break, what do the documents allow, and who recovers what?</p>
+<div class="ft"><span class="mono">13 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card"><div class="hd"><b>Portfolio Decision</b><span class="radio"></span></div><p>Which instruments to hold, and how do they fit the portfolio?</p>
+<div class="ft"><span class="mono">8 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a2" style="width:40%"></i></span><b class="mono">USD 20</b></span></div></div><div class="card"><div class="hd"><b>Custom selection</b><span class="radio"></span></div><p>What do the modules you chose find about this issuer?</p>
+<div class="ft"><span class="mono">Your own modules</span><span class="capbar"><span class="sec">At most (from your modules)</span><span class="cap-t upto"><i data-band="a5" style="width:100%"></i></span><b class="mono">USD 50</b></span></div></div><div class="card"><div class="hd"><b>Credit screening</b><span class="radio"></span></div><p>Which financial, credit, liquidity, market and legal points matter most, and where is a full assessment needed?</p>
+<div class="ft"><span class="mono">4 base modules</span><span class="capbar"><span class="sec">Cap</span><span class="cap-t"><i data-band="a1" style="width:20%"></i></span><b class="mono">USD 10</b></span></div></div></div></div>
+<div class="well"><h3>Options</h3><div class="opts" style="margin-top:8px">
+<div class="wide"><label>Market view</label><span class="seg"><span class="on">No market view (research)</span><span>New issue (primary)</span><span>Trading (secondary)</span></span></div>
+<div><label>Case kind</label><span class="seg"><span class="on">Public filer</span><span>Private</span><span>Synthetic test case</span></span><p class="cap" style="margin-top:4px">Public cases can use approved lookups. Web search through Copilot is unavailable.</p></div>
+<div><label>Run form level</label><span class="seg"><span>Basic</span><span class="on">Advanced</span></span><p class="cap" style="margin-top:4px">Advanced adds model, effort, turns per module, module selection and valuation and assumption fields.</p></div>
+</div></div>
+</div>
+<aside class="stack" aria-label="Readiness">
+<div class="tile"><h2>Readiness</h2>
+<div><p class="cap">Spending cap</p><div class="fig">USD 30.00</div><p class="sec" style="margin:0">Cap &middot; Full credit assessment</p></div>
+<div><div class="sbar"><span class="t"><i data-band="s3" style="width:70%"></i></span><b>Estimated USD 21 of USD 30 cap, 70% used</b></div></div>
+<p class="lgl"><b>Share of cap used</b><span class="lgi"><i class="sw s" data-band="s1"></i>under 50%</span><span class="lgi"><i class="sw s" data-band="s2"></i>50 to 70%</span><span class="lgi"><i class="sw s" data-band="s3"></i>70 to 85%</span><span class="lgi"><i class="sw s" data-band="s4"></i>85 to 100%</span><span class="lgi"><i class="sw s" data-band="s5"></i>100% or more &#10005; breaches</span></p>
+<div><p class="cap">Before Submit</p><ul class="rows" style="margin-top:2px"><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Documents inspected</b><span class="dt">5 files</span></li><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Purpose chosen</b></li><li><span class="met"><i class="n"></i>Not met</span><b style="font-weight:500">Decisions made</b><span class="dt">1 of 4</span></li><li><span class="met"><i class="n"></i>Not met</span><b style="font-weight:500">Summary approved</b></li></ul></div></div>
+<div class="tile"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3>Modules</h3><span class="cap">17 modules &middot; Full credit assessment</span></div>
+<p class="cap" style="color:var(--sec)">From your last review. Review the run again to check changes.</p>
+<p class="lgl"><b>Readiness</b><span class="lgi"><svg class="ic"><use href="#ok"/></svg>Ready</span><span class="lgi"><svg class="ic"><use href="#cond"/></svg>Conditional (reason below)</span><span class="lgi"><svg class="ic"><use href="#blk"/></svg>Blocked (reason below)</span><span class="lgi"><span class="stk" style="width:30px"><i class="r" style="width:50%"></i><i class="c" style="width:30%"></i><i class="b" style="width:20%"></i></span>stage bar: ready, conditional, blocked</span></p>
+<div class="stg"><div class="sh"><span class="no">01</span><b>Sources</b><span class="ct">1</span><span class="tally"><span class="stk" role="img" aria-label="1 ready, 0 conditional, 0 blocked"><i class="r" style="width:100.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>1</span><span><svg class="ic"><use href="#cond"/></svg>0</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Sources modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Source readiness</span></li></ul></div><div class="stg"><div class="sh"><span class="no">02</span><b>Financials</b><span class="ct">4</span><span class="tally"><span class="stk" role="img" aria-label="3 ready, 1 conditional, 0 blocked"><i class="r" style="width:75.0%"></i><i class="c" style="width:25.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>3</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Financials modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Financial foundation</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Earnings changes</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Peer benchmark<span class="stw">Conditional</span><span class="why">Peers come from the research module only</span></span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Earnings quality</span></li></ul></div><div class="stg"><div class="sh"><span class="no">03</span><b>Credit</b><span class="ct">7</span><span class="tally"><span class="stk" role="img" aria-label="6 ready, 1 conditional, 0 blocked"><i class="r" style="width:85.7%"></i><i class="c" style="width:14.3%"></i></span><span><svg class="ic"><use href="#ok"/></svg>6</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Credit modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Business &amp; governance</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Research questions</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Fundamental credit</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Downside</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Liquidity</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Rates, FX &amp; hedging<span class="stw">Conditional</span><span class="why">No hedging schedule in the documents</span></span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Forward credit model</span></li></ul></div><div class="stg"><div class="sh"><span class="no">04</span><b>Structure and market</b><span class="ct">3</span><span class="tally"><span class="stk" role="img" aria-label="1 ready, 1 conditional, 1 blocked"><i class="r" style="width:33.3%"></i><i class="c" style="width:33.3%"></i><i class="b" style="width:33.3%"></i></span><span><svg class="ic"><use href="#ok"/></svg>1</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>1</span></span></div><ul class="mods" aria-label="Structure and market modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Security selection</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Refinancing &amp; LME<span class="stw">Conditional</span><span class="why">Depends on the debt terms, which are limited</span></span></li><li><svg class="ic"><use href="#blk"/></svg><span class="nm">Legal &amp; covenants<span class="stw blkpill">Blocked</span><span class="why">Term loan B credit agreement not supplied</span></span></li></ul></div><div class="stg"><div class="sh"><span class="no">05</span><b>Validation and decision</b><span class="ct">2</span><span class="tally"><span class="stk" role="img" aria-label="2 ready, 0 conditional, 0 blocked"><i class="r" style="width:100.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>2</span><span><svg class="ic"><use href="#cond"/></svg>0</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Validation and decision modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Evidence validation</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Committee decision</span></li></ul></div>
+</div></aside></div>
+<div class="div"><span>Step 4 &middot; Review and start</span><i></i></div>
+<nav class="stepper" aria-label="Steps"><div class="st done"><span class="n"><svg class="ic" style="width:12px;height:12px"><use href="#tick"/></svg></span><span><b>Documents</b><small>Add files</small></span></div><div class="st done"><span class="n"><svg class="ic" style="width:12px;height:12px"><use href="#tick"/></svg></span><span><b>Purpose</b><small>Choose one</small></span></div><div class="st done"><span class="n"><svg class="ic" style="width:12px;height:12px"><use href="#tick"/></svg></span><span><b>More context</b><small>Optional</small></span></div><div class="st cur"><span class="n">4</span><span><b>Review and start</b><small>Paid run</small></span></div></nav>
+<div class="cols"><div class="stack">
+<div class="tile">
+<div class="head2"><div><h2 style="display:inline">Review and start</h2><span class="pill">Paid run</span>
+<dl class="facts" style="margin-top:10px"><div><dt>Issuer</dt><dd>Calderwick Packaging Inc.</dd></div><div><dt>As of</dt><dd class="mono">14 March 2027</dd></div><div><dt>Pathway</dt><dd>Full credit assessment</dd></div><div><dt>Market view</dt><dd>No market view (research)</dd></div><div><dt>Documents read</dt><dd class="mono">5</dd></div><div><dt>Modules</dt><dd class="mono">17</dd></div></dl></div>
+<div style="text-align:right"><p class="cap" style="margin:0">Spending cap</p><div class="fig">USD 30.00</div><p class="sec" style="margin:0">Cap &middot; Full credit assessment</p></div></div>
+<section aria-label="Limits to decide" style="margin-top:12px"><div style="display:flex;align-items:baseline;gap:12px"><h3>Limits to decide</h3><span class="mono cap">4 of 4 decided</span></div>
+<p class="cap" style="margin:2px 0 0"><b style="font-weight:500;color:var(--ink)">What the run will not do</b> &middot; each limit is accepted by the analyst before Submit &middot; <span class="lgi"><svg class="ic"><use href="#cond"/></svg>Conditional</span> <span class="lgi"><svg class="ic"><use href="#blk"/></svg>Blocked</span></p>
+<div class="lim"><svg class="ic"><use href="#blk"/></svg><div class="tx"><b>Legal &amp; covenants</b> <span class="sev">Will refuse</span><p>The term loan B credit agreement was not supplied, so its covenants and baskets are not read. Covenant headroom is stated from the notes only.</p></div><span class="chk"><i><svg><use href="#tick"/></svg></i>I accept this limit</span></div>
+<div class="lim"><svg class="ic"><use href="#cond"/></svg><div class="tx"><b>Peer benchmark</b> <span class="sev">Limited</span><p>Peers come from the research module only; no peer file was supplied.</p></div><span class="chk"><i><svg><use href="#tick"/></svg></i>I accept this limit</span></div>
+<div class="lim"><svg class="ic"><use href="#cond"/></svg><div class="tx"><b>Rates, FX &amp; hedging</b> <span class="sev">Limited</span><p>The documents hold no hedging schedule, so hedged share of debt is not stated.</p></div><span class="chk"><i><svg><use href="#tick"/></svg></i>I accept this limit</span></div>
+<div class="lim"><svg class="ic"><use href="#cond"/></svg><div class="tx"><b>Refinancing &amp; LME</b> <span class="sev">Limited</span><p>The refinancing view rests on the debt terms above, which are limited.</p></div><span class="chk"><i><svg><use href="#tick"/></svg></i>I accept this limit</span></div>
+</section>
+<div class="two"><div><section aria-label="What leaves the building"><h4>What leaves the building</h4>
+<div class="well" style="margin-top:6px;padding:8px"><p style="margin:0" class="sec">The research module will search the web. The issuer&rsquo;s name and the questions it researches go to OpenAI&rsquo;s search.</p></div></section></div>
+<div style="display:grid;gap:10px"><label class="chk" style="color:var(--ink)"><i><svg><use href="#tick"/></svg></i>Approve: I have read this summary and want this run started</label>
+<div style="display:flex;align-items:center;justify-content:flex-end;gap:16px"><p class="sec" style="margin:0;flex:1">Submit opens a confirmation. Once confirmed, this run can spend up to <b class="mono">USD 30.00</b>.</p><span class="btn">Submit, spend up to USD 30.00</span></div></div></div>
+</div>
+<div class="details"><details open><summary>Every input Submit sends</summary>
+<div class="tile" style="border:0;padding:8px 0 0"><h3>What will run</h3><h4 style="margin-top:6px">Documents read &middot; 5 &middot; what each unlocks</h4>
+<p class="lgl"><b>Document type</b><span class="lgi"><i class="sw d" style="background:var(--c1)"></i>Annual report</span><span class="lgi"><i class="sw d" style="background:var(--c2)"></i>Quarterly results</span><span class="lgi"><i class="sw d" style="background:var(--c3)"></i>Investor presentation</span><span class="lgi"><i class="sw d" style="background:var(--c4)"></i>Offering memorandum</span><span class="lgi"><i class="sw d" style="background:var(--c5)"></i>Rating agency report</span></p>
+<table class="data"><thead><tr><th>Type</th><th>File</th><th>Detail</th><th>Unlocks</th></tr></thead><tbody><tr><td><span class="dtp"><i style="background:var(--c1)"></i>Annual report</span></td><td class="mono">calderwick-annual-report-fy2026.pdf</td><td class="sec">period ends 31 Dec 2026</td><td class="sec">financial foundation, earnings quality, business &amp; governance</td></tr><tr><td><span class="dtp"><i style="background:var(--c2)"></i>Quarterly results</span></td><td class="mono">calderwick-q4-2026-results.pdf</td><td class="sec">period ends 31 Dec 2026</td><td class="sec">earnings changes, liquidity</td></tr><tr><td><span class="dtp"><i style="background:var(--c3)"></i>Investor presentation</span></td><td class="mono">calderwick-investor-update-q4.pdf</td><td class="sec">dated 20 Feb 2027</td><td class="sec">forward credit model, peer benchmark</td></tr><tr><td><span class="dtp"><i style="background:var(--c4)"></i>Offering memorandum</span></td><td class="mono">calderwick-senior-notes-2030-om.pdf</td><td class="sec">executed</td><td class="sec">refinancing &amp; LME, security selection</td></tr><tr><td><span class="dtp"><i style="background:var(--c5)"></i>Rating agency report</span></td><td class="mono">calderwick-rating-report-2026.pdf</td><td class="sec">dated 2 Dec 2026</td><td class="sec">fundamental credit, evidence validation</td></tr>
+<tr class="hatchrow"><td><span class="gapline">Ignored</span></td><td class="mono">site-photo-2026.png</td><td colspan="2"><span class="gapline">Not a financial document, so it unlocks nothing</span></td></tr></tbody></table>
+</div></details></div>
+</div>
+<aside class="stack" aria-label="Readiness">
+<div class="tile"><h2>Readiness</h2>
+<div><p class="cap">Spending cap</p><div class="fig">USD 30.00</div><p class="sec" style="margin:0">Cap &middot; Full credit assessment</p></div>
+<div><div class="sbar"><span class="t"><i data-band="s3" style="width:70%"></i></span><b>Estimated USD 21 of USD 30 cap, 70% used</b></div></div>
+<p class="lgl"><b>Share of cap used</b><span class="lgi"><i class="sw s" data-band="s1"></i>under 50%</span><span class="lgi"><i class="sw s" data-band="s2"></i>50 to 70%</span><span class="lgi"><i class="sw s" data-band="s3"></i>70 to 85%</span><span class="lgi"><i class="sw s" data-band="s4"></i>85 to 100%</span><span class="lgi"><i class="sw s" data-band="s5"></i>100% or more &#10005; breaches</span></p>
+<div><p class="cap">Before Submit</p><ul class="rows" style="margin-top:2px"><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Documents inspected</b><span class="dt">5 files</span></li><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Purpose chosen</b></li><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Decisions made</b><span class="dt">4 of 4</span></li><li><span class="met"><i class="y"></i>Met</span><b style="font-weight:500">Summary approved</b></li></ul></div></div>
+<div class="tile"><div style="display:flex;justify-content:space-between;align-items:baseline"><h3>Modules</h3><span class="cap">17 modules &middot; Full credit assessment</span></div>
+<p class="cap" style="color:var(--sec)">As the service checked them for this review.</p>
+<p class="lgl"><b>Readiness</b><span class="lgi"><svg class="ic"><use href="#ok"/></svg>Ready</span><span class="lgi"><svg class="ic"><use href="#cond"/></svg>Conditional (reason below)</span><span class="lgi"><svg class="ic"><use href="#blk"/></svg>Blocked (reason below)</span><span class="lgi"><span class="stk" style="width:30px"><i class="r" style="width:50%"></i><i class="c" style="width:30%"></i><i class="b" style="width:20%"></i></span>stage bar: ready, conditional, blocked</span></p>
+<div class="stg"><div class="sh"><span class="no">01</span><b>Sources</b><span class="ct">1</span><span class="tally"><span class="stk" role="img" aria-label="1 ready, 0 conditional, 0 blocked"><i class="r" style="width:100.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>1</span><span><svg class="ic"><use href="#cond"/></svg>0</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Sources modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Source readiness</span></li></ul></div><div class="stg"><div class="sh"><span class="no">02</span><b>Financials</b><span class="ct">4</span><span class="tally"><span class="stk" role="img" aria-label="3 ready, 1 conditional, 0 blocked"><i class="r" style="width:75.0%"></i><i class="c" style="width:25.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>3</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Financials modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Financial foundation</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Earnings changes</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Peer benchmark<span class="stw">Conditional</span><span class="why">Peers come from the research module only</span></span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Earnings quality</span></li></ul></div><div class="stg"><div class="sh"><span class="no">03</span><b>Credit</b><span class="ct">7</span><span class="tally"><span class="stk" role="img" aria-label="6 ready, 1 conditional, 0 blocked"><i class="r" style="width:85.7%"></i><i class="c" style="width:14.3%"></i></span><span><svg class="ic"><use href="#ok"/></svg>6</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Credit modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Business &amp; governance</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Research questions</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Fundamental credit</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Downside</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Liquidity</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Rates, FX &amp; hedging<span class="stw">Conditional</span><span class="why">No hedging schedule in the documents</span></span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Forward credit model</span></li></ul></div><div class="stg"><div class="sh"><span class="no">04</span><b>Structure and market</b><span class="ct">3</span><span class="tally"><span class="stk" role="img" aria-label="1 ready, 1 conditional, 1 blocked"><i class="r" style="width:33.3%"></i><i class="c" style="width:33.3%"></i><i class="b" style="width:33.3%"></i></span><span><svg class="ic"><use href="#ok"/></svg>1</span><span><svg class="ic"><use href="#cond"/></svg>1</span><span><svg class="ic"><use href="#blk"/></svg>1</span></span></div><ul class="mods" aria-label="Structure and market modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Security selection</span></li><li><svg class="ic"><use href="#cond"/></svg><span class="nm">Refinancing &amp; LME<span class="stw">Conditional</span><span class="why">Depends on the debt terms, which are limited</span></span></li><li><svg class="ic"><use href="#blk"/></svg><span class="nm">Legal &amp; covenants<span class="stw blkpill">Blocked</span><span class="why">Term loan B credit agreement not supplied</span></span></li></ul></div><div class="stg"><div class="sh"><span class="no">05</span><b>Validation and decision</b><span class="ct">2</span><span class="tally"><span class="stk" role="img" aria-label="2 ready, 0 conditional, 0 blocked"><i class="r" style="width:100.0%"></i></span><span><svg class="ic"><use href="#ok"/></svg>2</span><span><svg class="ic"><use href="#cond"/></svg>0</span><span><svg class="ic"><use href="#blk"/></svg>0</span></span></div><ul class="mods" aria-label="Validation and decision modules"><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Evidence validation</span></li><li><svg class="ic"><use href="#ok"/></svg><span class="nm">Committee decision</span></li></ul></div>
+</div></aside></div>
+</main></body></html>
