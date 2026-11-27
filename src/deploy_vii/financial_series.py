@@ -292,6 +292,18 @@ def _category(period: _Period, prefix: str) -> str:
     return f"{prefix} {period.end.isoformat()}"
 
 
+def numbered_labels(labels: Sequence[str]) -> list[str]:
+    """The labels, a repeated one numbered (1), (2) in order of appearance: a chart point is its
+    series and category, so equal labels must not share one. A unique label is left as it is."""
+    totals = Counter(labels)
+    placed: Counter[str] = Counter()
+    out = []
+    for label in labels:
+        placed[label] += 1
+        out.append(f"{label} ({placed[label]})" if totals[label] > 1 else label)
+    return out
+
+
 def _distinct(columns: Sequence[_Column]) -> tuple[_Column, ...]:
     """The columns with distinct categories. Columns that share one are told apart by their own
     periods' start dates (`LTM 2025-06-30 (from 2024-07-01)`) where each states a different one,

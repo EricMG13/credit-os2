@@ -2968,6 +2968,8 @@ def _rv3_figures(
     Only peers whose T1C.1 ``included`` fact reads "Included" are drawn; an excluded peer's
     T1C.3 and T1C.5 facts are never read. No included peer, no figure.
     """
+    from deploy_vii.financial_series import numbered_labels
+
     module = _shown_module(view, "CP-1C")
     if module is None:
         return ()
@@ -2985,6 +2987,11 @@ def _rv3_figures(
             peers.append((match.group(1), names[match.group(1)]))
     if not peers:
         return ()
+    # Two peers may print one name: number them (1), (2) in row order.
+    peers = [
+        (peer_id, name)
+        for (peer_id, _), name in zip(peers, numbered_labels([n for _, n in peers]), strict=True)
+    ]
     figures = []
     for fig_id, unit_class, unit, metrics in _RV3_PANELS:
         if any(f"T1C.3.issuer.{m}" not in facts for m in metrics):

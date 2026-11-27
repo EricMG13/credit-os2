@@ -17,6 +17,7 @@ from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
 from deploy_vii.display import format_value
+from deploy_vii.financial_series import numbered_labels
 
 # A multiple is illustrative unless the settled record states it as sourced. The oracle words
 # this "source or cited"; a cited multiple is a ``source`` value_class. A missing multiple, or
@@ -73,12 +74,15 @@ def _scenarios(facts: dict[str, Fact], module: ModuleView) -> tuple[_Scenario, .
         multiple = _need(facts, f"T4E.3.{row}.multiple")
         label = name
         if multiple.status == "known" and multiple.amount is not None:
-            label = f"{name} {format_value(multiple.amount, 'multiple', 'known', decimals=multiple.decimals)}"
+            shown = format_value(multiple.amount, "multiple", "known", decimals=multiple.decimals)
+            label = f"{name} {shown}"
         hatched = multiple.status != "known" or multiple.value_class not in _SOURCED
         scenarios.append(_Scenario(row, label, hatched))
-    if len({s.label for s in scenarios}) != len(scenarios):
-        raise ValueError("CP-4C scenario series labels must be distinct")
-    return tuple(scenarios)
+    # Two valuation rows may print one label: number them (1), (2) in row order.
+    numbered = numbered_labels([s.label for s in scenarios])
+    return tuple(
+        _Scenario(s.row, label, s.hatched) for s, label in zip(scenarios, numbered, strict=True)
+    )
 
 
 def _need(facts: dict[str, Fact], fact_id: str) -> Fact:
@@ -105,11 +109,10 @@ def _classes(facts: dict[str, Fact], module: ModuleView) -> tuple[tuple[str, ...
 
 
 def _class_names(facts: dict[str, Fact], creditors: tuple[str, ...]) -> dict[str, str]:
-    """Each creditor class's chart label: its name, and `name (class id)` when two classes print
-    one name. A chart point is its series and category, so equal names must not share one."""
-    names = {c: _known_text(_need(facts, f"T4E.2.{c}.name")) for c in creditors}
-    printed = list(names.values())
-    return {c: f"{n} ({c})" if printed.count(n) > 1 else n for c, n in names.items()}
+    """Each creditor class's chart label: its name, numbered (1), (2) in rank order where two
+    classes print one name (a class id is never part of a label a reader sees)."""
+    names = [_known_text(_need(facts, f"T4E.2.{c}.name")) for c in creditors]
+    return dict(zip(creditors, numbered_labels(names), strict=True))
 
 
 def _reason(facts: dict[str, Fact], ids: list[str]) -> str:

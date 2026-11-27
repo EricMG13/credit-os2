@@ -8,7 +8,6 @@ figure is rendered). A fact the module does not carry fails closed. Nothing here
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
@@ -16,6 +15,7 @@ from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
 from deploy_vii.display import format_value
+from deploy_vii.financial_series import numbered_labels
 from deploy_vii.report_view import scale_label
 
 PointRole = Literal["value", "total"]
@@ -29,6 +29,7 @@ _CP3C = "CP-3C"
 # The axis of a chart when no amount of its module states a currency: the parent's label.
 _AXIS = "US$ m"
 _CR2_SERIES = "Cash bridge"
+_NO_MATURITIES_REASON = "No facility maturities are supplied."
 _CR2_NOTE = (
     "Steps are CP-2D's settled cash bridge: cash at the balance date, run-rate net cash flow "
     "over the horizon, scheduled amortisation, maturities, and cash at horizon end before "
@@ -91,18 +92,6 @@ def _fact(facts: Mapping[str, Fact], fact_id: str, module_id: str) -> Fact:
     return facts[fact_id]
 
 
-def _numbered(labels: list[str]) -> list[str]:
-    """The labels, a repeated one numbered (1), (2) in order of appearance (as the maturity wall
-    does): a chart point is its series and category, so equal labels must not share one."""
-    totals = Counter(labels)
-    placed: Counter[str] = Counter()
-    out = []
-    for label in labels:
-        placed[label] += 1
-        out.append(f"{label} ({placed[label]})" if totals[label] > 1 else label)
-    return out
-
-
 def _amount(fact: Fact) -> Decimal | None:
     """The fact's own settled amount; None for an unsettled fact (a gap, never 0)."""
     if fact.status != "known":
@@ -154,7 +143,7 @@ def cp2d_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
     facts = _facts(module, _CP2D)
     points = []
     steps = [(_fact(facts, fact_id, _CP2D), fact_id, role, c) for fact_id, role, c in _CR2_STEPS]
-    categories = _numbered([fact.label for fact, *_ in steps])
+    categories = numbered_labels([fact.label for fact, *_ in steps])
     for (fact, fact_id, role, companions), category in zip(steps, categories, strict=True):
         for companion in companions:
             _fact(facts, companion, _CP2D)
@@ -192,10 +181,10 @@ def cp3c_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
     """CR.3: principal payable and resources at maturity, one category per T3D.1 facility row."""
     facts = _facts(module, _CP3C)
     table = next((item for item in module.tables if item.table_id == "T3D.1"), None)
-    if table is None or not table.rows:
+    if table is None:
         raise ValueError("CP-3C chart needs the T3D.1 register, which the module does not carry")
     points = []
-    categories = _numbered([row.label for row in table.rows])
+    categories = numbered_labels([row.label for row in table.rows])
     for row, category in zip(table.rows, categories, strict=True):
         companions = tuple(f"T3D.1.{row.row_id}.{field}" for field in _CR3_COMPANIONS)
         date_fact = _fact(facts, companions[0], _CP3C)
@@ -218,6 +207,8 @@ def cp3c_chart_series(module: ModuleView) -> tuple[LiquidityFigureSeries, ...]:
             )
     drawn = tuple(points)
     kind, reason = _kind_and_reason(drawn, facts, "grouped")
+    # A register with no facility row has no point to state a limitation of: the frame says so.
+    reason = reason or (None if drawn else _NO_MATURITIES_REASON)
     return (
         LiquidityFigureSeries(
             fig_id="CR.3",

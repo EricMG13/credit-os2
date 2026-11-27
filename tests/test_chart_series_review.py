@@ -349,3 +349,200 @@ def test_f5_the_report_draws_dr3_when_dr2_has_no_classes() -> None:
     view = SimpleNamespace(modules=(cp4c_without_classes(),))
     drawn = _cp4c_figures(view, refs_of(view.modules[0]), "b", frozenset({"DR.2", "DR.3"}))  # type: ignore[arg-type]
     assert {f.fig_id: f.chart.kind for f in drawn} == {"DR.2": "na", "DR.3": "waterfall"}
+
+
+# K7-R1 to K7-R3
+
+
+def test_r1_a_present_but_empty_t3d1_register_gives_an_na_cr3_with_a_stated_reason() -> None:
+    view = cp3c({"r1": ("Notes", "300", "10")})
+    empty = view.model_copy(
+        update={
+            "facts": (),
+            "tables": (view.tables[0].model_copy(update={"rows": ()}),),
+        }
+    )
+    (item,) = cp3c_chart_series(empty)
+    assert item.fig_id == "CR.3"
+    assert item.kind == "na"
+    assert item.points == ()
+    assert item.reason == "No facility maturities are supplied."
+    drawn = report_view._liquidity_figure(
+        "b",
+        empty,
+        {},
+        item,
+        owner="CP-3C",
+        row_header="Facility",
+        placement="beside",
+        summary=None,
+    )
+    assert drawn.chart.kind == "na"
+
+
+def test_r1_an_absent_t3d1_register_still_raises() -> None:
+    view = cp3c({"r1": ("Notes", "300", "10")}).model_copy(update={"tables": ()})
+    with pytest.raises(ValueError, match="T3D.1 register"):
+        cp3c_chart_series(view)
+
+
+def text_fact(fact_id: str, text: str) -> Fact:
+    parts = fact_id.split(".")
+    return Fact(
+        fact_id=fact_id,
+        label=parts[-1],
+        table_id=".".join(parts[:2]),
+        row_id=parts[2],
+        field=parts[3],
+        text=text,
+    )
+
+
+def cp4c_repeats(scenario_names: tuple[str, str], class_names: tuple[str, str]) -> ModuleView:
+    """Two scenarios (rows s1, s2; multiple 6) and two creditor classes (c1, c2), ranks 1 and 2."""
+    facts: list[Fact] = []
+    for row, name in zip(("s1", "s2"), scenario_names, strict=True):
+        facts += [
+            text_fact(f"T4E.3.{row}.scenario", name),
+            Fact(
+                fact_id=f"T4E.3.{row}.multiple",
+                label="Multiple",
+                table_id="T4E.3",
+                row_id=row,
+                field="multiple",
+                amount=Decimal(6),
+                unit="MULTIPLE",
+                period="2025-06-30",
+                value_class="source",
+            ),
+            money(f"T4E.3.{row}.ev", "Enterprise value", "500"),
+            money(f"T4E.9.{row}.equity_residual", "Equity residual", "100"),
+            money(f"T4E.9.{row}.total_claims", "Total claims", "400"),
+            money(f"T4E.9.{row}.creditor_distributions", "Creditor distributions", "400"),
+            money(f"T4E.9.{row}.balance", "Balance", "0"),
+        ]
+    for rank, (cid, name) in enumerate(zip(("c1", "c2"), class_names, strict=True), 1):
+        facts += [
+            text_fact(f"T4E.2.{cid}.name", name),
+            text_fact(f"T4E.2.{cid}.kind", "debt"),
+            text_fact(f"T4E.2.{cid}.rank", str(rank)),
+        ]
+        for row in ("s1", "s2"):
+            facts += [
+                money(f"T4E.4.{row}{cid}.distribution", "Distribution", "200"),
+                money(f"T4E.4.{row}{cid}.claim", "Claim", "200"),
+                Fact(
+                    fact_id=f"T4E.5.{row}{cid}.recovery",
+                    label="Recovery",
+                    table_id="T4E.5",
+                    row_id=f"{row}{cid}",
+                    field="recovery",
+                    amount=Decimal(100),
+                    unit="PERCENT",
+                    period="2025-06-30",
+                ),
+            ]
+    return ModuleView(
+        module_id="CP-4C",
+        title="Restructuring",
+        aliases=(),
+        status="accepted",
+        artifact_sha256=HASH,
+        facts=tuple(facts),
+    )
+
+
+def test_r2_two_scenarios_with_one_label_are_numbered() -> None:
+    view = cp4c_repeats(("Base", "Base"), ("Senior notes", "Term loan"))
+    figures = cp4c_chart_series(view)
+    assert [f.fig_id for f in figures] == ["DR.2", "DR.3", "DR.4"]
+    assert figures[0].series == ("Base 6.00x (1)", "Base 6.00x (2)")
+    assert [f.title for f in figures[1:]] == [
+        "Value allocation, Base 6.00x (1)",
+        "Value allocation, Base 6.00x (2)",
+    ]
+    refs = refs_of(view)
+    drawn = _cp4c_figures(
+        SimpleNamespace(modules=(view,)), refs, "b", frozenset({"DR.2", "DR.3", "DR.4"})
+    )  # type: ignore[arg-type]
+    assert {f.fig_id for f in drawn} == {"DR.2", "DR.3", "DR.4"}
+
+
+def test_r3_two_classes_with_one_name_are_numbered_not_given_their_ids() -> None:
+    view = cp4c_repeats(("Base", "Downside"), ("Senior notes", "Senior notes"))
+    figures = cp4c_chart_series(view)
+    assert sorted({p.category for p in figures[0].points}) == [
+        "Senior notes (1)",
+        "Senior notes (2)",
+    ]
+    assert [p.category for p in figures[1].points][:2] == ["Senior notes (1)", "Senior notes (2)"]
+    assert not any("(c" in p.category for f in figures for p in f.points)
+
+
+def cp1c_peers(names: tuple[str, str]) -> ModuleView:
+    metrics = (
+        "adjusted_ebitda_margin",
+        "ffo_to_debt",
+        "total_leverage_adjusted",
+        "interest_coverage_adjusted",
+    )
+    facts: list[Fact] = []
+    rows = []
+
+    def num(fact_id: str, unit: str) -> Fact:
+        parts = fact_id.split(".")
+        return Fact(
+            fact_id=fact_id,
+            label=parts[-1],
+            table_id=".".join(parts[:2]),
+            row_id=parts[2],
+            field=parts[3],
+            amount=Decimal(5),
+            unit=unit,
+            period="2025-06-30",
+        )
+
+    for pid, name in zip(("p1", "p2"), names, strict=True):
+        facts.append(text_fact(f"T1C.1.{pid}.included", "Included"))
+        rows.append(TableRow(row_id=pid, label=name, fact_ids=(f"T1C.1.{pid}.included",)))
+        facts += [
+            num(f"T1C.3.{pid}.{m}", "PERCENT" if i < 2 else "MULTIPLE")
+            for i, m in enumerate(metrics)
+        ]
+        facts += [text_fact(f"T1C.5.{pid}.{m}_flag", "ok") for m in metrics]
+    for i, m in enumerate(metrics):
+        unit = "PERCENT" if i < 2 else "MULTIPLE"
+        facts += [
+            num(f"T1C.3.issuer.{m}", unit),
+            num(f"T1C.4.{m}.median", unit),
+            num(f"T1C.4.{m}.n", "COUNT"),
+            text_fact(f"T1C.4.{m}.direction", "higher"),
+            text_fact(f"T1C.5.issuer.{m}_flag", "ok"),
+        ]
+    table = ReportTable(
+        table_id="T1C.1",
+        title="Peers",
+        columns=(TableColumn(field="included", label="Included"),),
+        rows=tuple(rows),
+    )
+    return ModuleView(
+        module_id="CP-1C",
+        title="Peers",
+        aliases=(),
+        status="accepted",
+        artifact_sha256=HASH,
+        facts=tuple(facts),
+        tables=(table,),
+    )
+
+
+def test_r2_two_peers_with_one_name_are_numbered_in_the_rv3_figures() -> None:
+    view = cp1c_peers(("Acme", "Acme"))
+    drawn = report_view._rv3_figures("b", SimpleNamespace(modules=(view,)), refs_of(view))  # type: ignore[arg-type]
+    labels = [r.label for r in drawn[0].chart.table_twin.rows if r.label.startswith("Peers")]
+    assert labels == [
+        "Peers · adjusted_ebitda_margin · Acme (1)",
+        "Peers · adjusted_ebitda_margin · Acme (2)",
+        "Peers · ffo_to_debt · Acme (1)",
+        "Peers · ffo_to_debt · Acme (2)",
+    ]
