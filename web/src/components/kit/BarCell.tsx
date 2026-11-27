@@ -7,11 +7,27 @@ const FILL = {
   signal: "bg-chart-4",
 } as const;
 
+/** The five amount steps, smallest to largest, as literals so Tailwind generates each utility. */
+const AMOUNT = [
+  "bg-scale-amount-1",
+  "bg-scale-amount-2",
+  "bg-scale-amount-3",
+  "bg-scale-amount-4",
+  "bg-scale-amount-5",
+] as const;
+
+/** The amount step of a share: five equal-width bins over 0 to 1, the last closed at 1. */
+const stepOf = (share: number) =>
+  AMOUNT[Math.min(AMOUNT.length - 1, Math.floor(Math.max(0, Math.min(1, share)) * AMOUNT.length))];
+
 /**
  * A table cell's figure with a proportional bar behind the text: `share` is the value over the
  * column's largest value, 0 to 1. The text is the figure exactly as written; the bar adds no number.
  * A share above zero draws at least `minimum` px, so a small figure is never mistaken for zero;
  * zero draws no fill but a 1 px tick at the track's start; a missing share draws neither.
+ * `tone="amount"` draws the fill in one of the five amount steps (`bg-scale-amount-1` to `-5`) by
+ * the share's equal-width bin, with a 1 px inset edge so a pale step reads on the track; the bar
+ * still adds no number. The other tones are one colour each.
  */
 export function BarCell({
   text,
@@ -22,12 +38,16 @@ export function BarCell({
 }: {
   text: string;
   share: number | null;
-  tone?: keyof typeof FILL;
+  tone?: keyof typeof FILL | "amount";
   minimum?: number;
   /** The figure column's width class. Rows of one list pass the same class so their bars share a left edge. */
   valueWidth?: string;
 }) {
   const width = share === null ? 0 : Math.max(0, Math.min(1, share)) * 100;
+  const fill =
+    tone === "amount"
+      ? cx(stepOf(share ?? 0), "ring-1 ring-scale-amount-edge ring-inset")
+      : FILL[tone];
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span
@@ -43,7 +63,7 @@ export function BarCell({
           (width > 0 ? (
             <span
               key="fill"
-              className={cx("block h-full rounded-ds-full", FILL[tone])}
+              className={cx("block h-full rounded-ds-full", fill)}
               // The larger of the share and the floor: `max(<minimum>px, <share>%)`.
               style={{ width: `${String(width)}%`, minWidth: `${String(minimum)}px` }}
             />
