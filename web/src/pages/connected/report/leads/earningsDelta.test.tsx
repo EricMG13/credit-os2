@@ -1065,7 +1065,10 @@ describe("EarningsDeltaLead on chart tables", () => {
     expect(row.textContent).toContain("+0.26x");
     expect(row.textContent).toMatch(/up, worse/);
     // The current dot is in the signal colour, with the word beside it.
-    expect(row.querySelector("[data-current]")?.getAttribute("class")).toContain("warning-mark");
+    expect(row.querySelector("[data-current]")?.getAttribute("class")).toContain("worse-mark");
+    // The legend names the worse dot in the same mark colour, with the word.
+    const key = container.querySelector('[data-part="legend"] [data-swatch="dot"].fill-worse-mark');
+    expect(key).not.toBeNull();
   });
   it("shows a flat pair as unchanged, with no direction word", () => {
     const { container } = lead(delta(results(MONEY)));

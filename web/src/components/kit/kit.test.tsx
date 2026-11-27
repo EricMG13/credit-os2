@@ -24,10 +24,22 @@ it("draws a stat's value as written, its change with the direction word, and a g
   );
   const strip = screen.getByLabelText("Headline figures");
   expect(within(strip).getByText("2.25x")).toHaveClass("font-mono", "tabular-nums");
-  expect(within(strip).getByText("-0.75x better")).toHaveClass("text-success-text");
+  expect(within(strip).getByText("-0.75x better")).toHaveClass("text-better-mark");
   expect(within(strip).getByText(/from 3\.00x in FY2023/)).toBeInTheDocument();
   expect(within(strip).getByText("Not supplied: the measure is not stated")).toBeInTheDocument();
   expect(within(strip).queryByText("0")).toBeNull();
+});
+
+it("draws a worse change in the worse mark with its word", () => {
+  render(
+    <StatsStrip
+      label="Worse strip"
+      stats={[{ label: "Net leverage", value: "3.00x", delta: "+0.75x", tone: "worse" }]}
+    />,
+  );
+  expect(within(screen.getByLabelText("Worse strip")).getByText("+0.75x worse")).toHaveClass(
+    "text-worse-mark",
+  );
 });
 
 it("lays four figures two by two, then four across: never three with one alone on a row", () => {

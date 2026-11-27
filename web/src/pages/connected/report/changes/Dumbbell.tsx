@@ -3,14 +3,14 @@ import { cx } from "@/utils/cx";
 import type { MeasureTone } from "./model";
 
 const FILL = {
-  better: "bg-success-mark",
-  worse: "bg-warning-mark",
+  better: "bg-better-mark",
+  worse: "bg-worse-mark",
   flat: "bg-text-secondary",
 } as const;
 
 const INK = {
-  better: "text-success-mark",
-  worse: "text-warning-mark",
+  better: "text-better-mark",
+  worse: "text-worse-mark",
   flat: "text-text-secondary",
 } as const;
 

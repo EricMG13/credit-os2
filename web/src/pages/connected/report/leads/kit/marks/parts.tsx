@@ -10,7 +10,7 @@ type LegendTone =
   | "gap"
   | "prior"
   | "current"
-  | "worse"
+  | "worse-mark"
   | "limit"
   | "proposed"
   | "increase"
@@ -31,7 +31,7 @@ const SWATCHES: Record<LegendTone, { kind: LegendKind; tone?: LegendColour }> = 
   gap: { kind: "hatch" },
   prior: { kind: "ring", tone: "prior" },
   current: { kind: "dot", tone: "primary" },
-  worse: { kind: "dot", tone: "worse" },
+  "worse-mark": { kind: "dot", tone: "worse-mark" },
   limit: { kind: "line", tone: "neutral" },
   proposed: { kind: "ring", tone: "secondary" },
   slim: { kind: "slim", tone: "prior" },

@@ -47,7 +47,9 @@ function need(el: HTMLElement | null) {
   return el;
 }
 const status = (el: HTMLElement) =>
-  ["text-success-text", "text-warning-text"].filter((name) => el.classList.contains(name));
+  ["text-success-text", "text-warning-text", "text-better-mark", "text-worse-mark"].filter((name) =>
+    el.classList.contains(name),
+  );
 const WORDS = /better|worse|unchanged/g;
 /** The tone word drawn in the figure, once and never sr-only; null when no tone word is drawn. */
 const word = (el: HTMLElement) => {
@@ -67,11 +69,11 @@ describe("Changes rows colour a comparable change by the owner's table", () => {
       { key: "undrawn", difference: 0 },
     ]);
     const worse = need(figure("net_leverage"));
-    expect(status(worse)).toEqual(["text-warning-text"]);
+    expect(status(worse)).toEqual(["text-worse-mark"]);
     expect(word(worse)).toBe("worse");
     expect(shape(worse)).toEqual(["diamond"]);
     const better = need(figure("coverage"));
-    expect(status(better)).toEqual(["text-success-text"]);
+    expect(status(better)).toEqual(["text-better-mark"]);
     expect(word(better)).toBe("better");
     expect(shape(better)).toEqual(["filled circle"]);
     const flat = need(figure("undrawn"));
@@ -98,9 +100,9 @@ describe("Changes rows colour a comparable change by the owner's table", () => {
       { key: "net_debt", difference: "-12.5" },
       { key: "free_cash_flow", difference: "-30" },
     ]);
-    expect(status(need(figure("gross_debt")))).toEqual(["text-warning-text"]);
-    expect(status(need(figure("net_debt")))).toEqual(["text-success-text"]);
-    expect(status(need(figure("free_cash_flow")))).toEqual(["text-warning-text"]);
+    expect(status(need(figure("gross_debt")))).toEqual(["text-worse-mark"]);
+    expect(status(need(figure("net_debt")))).toEqual(["text-better-mark"]);
+    expect(status(need(figure("free_cash_flow")))).toEqual(["text-worse-mark"]);
   });
 
   it("a Not assessable measure, a same-period revision and an unknown key stay neutral", () => {

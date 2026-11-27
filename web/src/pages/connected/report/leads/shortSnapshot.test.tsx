@@ -335,6 +335,7 @@ describe("ShortSnapshotLead", () => {
     const leverage = cell("Total leverage, FY2024");
     expect(leverage).toHaveTextContent("6.1x");
     expect(leverage?.querySelector('[data-part="change"]')).toHaveTextContent("+0.5x worse");
+    expect(leverage?.querySelector('[data-part="change"]')).toHaveClass("text-worse-mark");
     expect(leverage).toHaveTextContent("from 5.6x in FY2023");
     expect(within(leverage as HTMLElement).getByRole("img")).toHaveAccessibleName(
       "Total leverage: 5.6x in FY2023, 6.1x in FY2024",

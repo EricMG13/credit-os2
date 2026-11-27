@@ -261,7 +261,7 @@ it("does not read a report for its dates before the row is in view or opened", (
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("draws better in the accent and worse in the signal colour, each with its word", () => {
+it("draws better and worse in the better and worse marks, each with its word", () => {
   draw(
     [
       run("acme-2026", "2026-03-31", {
@@ -279,8 +279,8 @@ it("draws better in the accent and worse in the signal colour, each with its wor
     ],
     ["acme-2026"],
   );
-  expect(screen.getByText("better").parentElement).toHaveClass("text-success-text");
-  expect(screen.getByText("worse").parentElement).toHaveClass("text-warning-text");
+  expect(screen.getByText("better").parentElement).toHaveClass("text-better-mark");
+  expect(screen.getByText("worse").parentElement).toHaveClass("text-worse-mark");
 });
 
 it("opens to the figures the row does not show, as one stats strip with its own trace controls", () => {

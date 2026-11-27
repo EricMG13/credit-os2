@@ -28,7 +28,7 @@ const signed = (sign: -1 | 0 | 1, size: string) =>
 
 const stated = (figure: Figure) => (figure.kind === "value" ? figure.text : "not supplied");
 
-const TONE_TEXT = { better: "text-success-text", worse: "text-warning-text" } as const;
+const TONE_TEXT = { better: "text-better-mark", worse: "text-worse-mark" } as const;
 
 /** One key figure: label, value, then its change line, then its paired mark: the rows line up across a band. */
 function KeyFigureCell({ item }: { item: KeyFigure }) {

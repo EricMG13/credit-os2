@@ -219,7 +219,9 @@ it("draws the call: the published credit view, the decisions not shown, confiden
   expect(within(call).getByText("4 · all delivered")).toBeVisible();
   const confidence = screen.getByRole("region", { name: "Confidence" });
   expect(within(confidence).getByText("53")).toBeVisible();
-  expect(within(confidence).getByText("Low").className).not.toMatch(/warning|success|error/);
+  expect(within(confidence).getByText("Low").className).not.toMatch(
+    /warning|success|error|better-mark|worse-mark|scale-better|scale-worse/,
+  );
   expect(within(confidence).getByText("Fundamental credit 53")).toBeInTheDocument();
   expect(within(confidence).getByText("Security selection 56 · Low")).toBeInTheDocument();
   const clearance = screen.getByRole("region", { name: "Evidence clearance" });

@@ -42,6 +42,17 @@ describe("Dumbbell", () => {
     expect(mark?.querySelectorAll("svg")).toHaveLength(1);
   });
 
+  it.each([
+    ["worse", "bg-worse-mark", "text-worse-mark"],
+    ["better", "bg-better-mark", "text-better-mark"],
+  ] as const)("draws a %s move in the %s mark", (tone, fill, ink) => {
+    const { container } = render(
+      <Dumbbell before={2} after={4} tone={tone} reading="Cover, 2x to 4x" />,
+    );
+    expect(container.querySelector("[data-current]")).toHaveClass(fill);
+    expect(container.querySelector("svg")).toHaveClass(ink);
+  });
+
   it("says in its text alternative what the axis starts at", () => {
     const { unmount } = render(
       <Dumbbell before={2} after={4} tone="worse" reading="Cover, 2x to 4x" />,

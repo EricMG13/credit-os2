@@ -312,6 +312,12 @@ function Money({ data }: { data: EarningsAgainstDebt }) {
   );
 }
 
+const SLOPE_INK = {
+  worse: { stroke: "stroke-worse-mark", fill: "fill-worse-mark" },
+  better: { stroke: "stroke-better-mark", fill: "fill-better-mark" },
+  none: { stroke: "stroke-chart-1", fill: "fill-chart-1" },
+} as const;
+
 /**
  * Total debt / EBITDA over more than two periods: every stated period a dot on one scale, joined
  * in time order; only the compared pair's segment (and its later dot) carries the move's tone.
@@ -330,7 +336,7 @@ function LeverageSlope({
   width: number;
 }) {
   const layout = leverageSlope(leverage, comparison, width);
-  const ink = word === "worse" ? "warning-mark" : "chart-1";
+  const ink = SLOPE_INK[word ?? "none"];
   return (
     <svg
       viewBox={`0 0 ${String(width)} ${String(layout.height)}`}
@@ -370,7 +376,7 @@ function LeverageSlope({
           x2={segment.x2}
           y2={segment.y2}
           strokeWidth="2"
-          className={segment.compared && word ? `stroke-${ink}` : "stroke-chart-3"}
+          className={segment.compared && word ? ink.stroke : "stroke-chart-3"}
         />
       ))}
       {layout.dots.map((dot) => (
@@ -383,7 +389,7 @@ function LeverageSlope({
                 cx={dot.x}
                 cy={dot.y}
                 r="5"
-                className={dot.compared && word ? `fill-${ink}` : "fill-chart-3"}
+                className={dot.compared && word ? ink.fill : "fill-chart-3"}
               />
               <text
                 data-part="value"
@@ -490,7 +496,7 @@ function Leverage({
               data-tone={word}
               className={cx(
                 "font-medium",
-                word === "worse" ? "text-warning-text" : "text-success-text",
+                word === "worse" ? "text-worse-mark" : "text-better-mark",
               )}
             >
               {` · ${word}`}
@@ -526,8 +532,7 @@ function legendOf(data: EarningsAgainstDebt): LegendEntry[] {
   const gap = data.measures.some((measure) =>
     measure.values.some((value) => value.cell?.kind !== "number"),
   );
-  const worse =
-    data.leverage && leverageWord(leverageChange(data.leverage, data.comparison)) === "worse";
+  const moved = data.leverage ? leverageWord(leverageChange(data.leverage, data.comparison)) : null;
   return [
     ...(compared ? [{ kind: "ring" as const, tone: "prior" as const, text: compared.from }] : []),
     ...(earnings
@@ -548,7 +553,12 @@ function legendOf(data: EarningsAgainstDebt): LegendEntry[] {
           },
         ]
       : []),
-    ...(worse ? [{ kind: "line" as const, tone: "worse" as const, text: "Leverage, worse" }] : []),
+    ...(moved === "worse"
+      ? [{ kind: "line" as const, tone: "worse-mark" as const, text: "Leverage, worse" }]
+      : []),
+    ...(moved === "better"
+      ? [{ kind: "line" as const, tone: "better" as const, text: "Leverage, better" }]
+      : []),
     ...(gap ? [{ kind: "hatch" as const, text: "Not stated" }] : []),
   ];
 }
