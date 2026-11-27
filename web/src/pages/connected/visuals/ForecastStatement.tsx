@@ -284,6 +284,7 @@ function gridRows(grid: Grid, shown: ShownColumn[], period: string | undefined):
     band: row.band,
     total: row.total,
     family: families[familyOf(row)],
+    trend: forecastTrend(row, shown),
     cells: shown.map(({ source, missing }) =>
       source
         ? (row.cells[source.index] ?? {})
@@ -292,6 +293,65 @@ function gridRows(grid: Grid, shown: ShownColumn[], period: string | undefined):
           : unpublished,
     ),
   }));
+}
+
+const DECIMAL = /^-?\d+(?:\.\d+)?$/u;
+
+function exactFigure(cell: Record<string, unknown> | undefined): string | null {
+  if (!cell || cell.status !== "value") return null;
+  const exact = cell.exact;
+  const value = typeof exact === "string" ? exact : exact === undefined ? word(cell.display) : "";
+  return DECIMAL.test(value) ? value : null;
+}
+
+function dateShape(column: StatementColumn, year: number): string | null {
+  const { start, end } = column;
+  if (!start && !end) return "legacy";
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (!validDate(start) || !validDate(end) || start > end || Number(end.slice(0, 4)) !== year)
+    return null;
+  const startYear = Number(start.slice(0, 4));
+  if (year - startYear < 0 || year - startYear > 1) return null;
+  return `${start.slice(5)}:${end.slice(5)}:${String(year - startYear)}`;
+}
+
+/** A trend uses only one row's own fiscal-year cells, on one case and one repeated annual basis. */
+function forecastTrend(row: Grid["rows"][number], shown: ShownColumn[]) {
+  const columns = shown.map(({ source }) => source);
+  if (columns.length < 3 || columns.some((column) => column === null)) return undefined;
+  const comparable = columns.filter((column): column is StatementColumn => column !== null);
+  const groups = new Set(comparable.map(({ rawGroup }) => rawGroup));
+  if (groups.size !== 1) return undefined;
+  const fiscalYears: number[] = [];
+  let previousYear: number | undefined;
+  for (const { label } of comparable) {
+    const year = fiscalYear(label);
+    if (year === null || (previousYear !== undefined && year !== previousYear + 1))
+      return undefined;
+    fiscalYears.push(year);
+    previousYear = year;
+  }
+  const shapes: (string | null)[] = [];
+  for (const [index, column] of comparable.entries()) {
+    const year = fiscalYears[index];
+    if (year === undefined) return undefined;
+    shapes.push(dateShape(column, year));
+  }
+  if (shapes.some((shape) => shape === null) || new Set(shapes).size !== 1) return undefined;
+  const values = comparable.map(({ index }) => exactFigure(row.cells[index]));
+  if (
+    values.filter((value) => value !== null).length < 3 ||
+    values.some((value) => value !== null && !Number.isFinite(Number(value)))
+  )
+    return undefined;
+  const first = comparable[0]?.label;
+  const last = comparable.at(-1)?.label;
+  if (!first || !last) return undefined;
+  return { values, label: `${row.label}, ${first} to ${last}` };
 }
 
 function ColumnControls({

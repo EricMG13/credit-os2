@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { ForecastStatement } from "./ForecastStatement";
 import {
@@ -218,7 +218,11 @@ const gap = (reason?: string) => ({
 
 function gridModel(
   rows: { label: string; band: string; kind: string; cells: Record<string, unknown>[] }[],
-  columns = ["FY2026E", "FY2027E", "FY2028E"].map((label) => ({ label, group: "Base case" })),
+  columns: { label: string; group: string; start?: string; end?: string }[] = [
+    "FY2026E",
+    "FY2027E",
+    "FY2028E",
+  ].map((label) => ({ label, group: "Base case" })),
   limits: string[] = [],
 ) {
   return {
@@ -697,6 +701,123 @@ it("reads an actual year the rule reads, whatever its spelling", () => {
     { label: "FY2027E", group: "Base case" },
   ]);
   expect(headersOf().slice(4)).toEqual(["FY24", "FY2026E", "FY2027E"]);
+});
+
+it("draws a row-end sparkline from its exact comparable fiscal-year cells, keeping a gap", () => {
+  const columns = ["FY2025E", "FY2026E", "FY2027E", "FY2028E"].map((label) => ({
+    label,
+    group: "Base case",
+  }));
+  renderGrid(
+    [
+      {
+        label: "Revenue",
+        band: "Operating",
+        kind: "money",
+        cells: [
+          value("9007199254740992"),
+          gap(NOT_WRITTEN),
+          value("9007199254740994"),
+          value("9007199254740995"),
+        ],
+      },
+    ],
+    columns,
+  );
+
+  const row = rowOf("Revenue");
+  const sparkline = within(row).getByRole("img", {
+    name: "Revenue, FY2025E to FY2028E",
+  });
+  expect(sparkline).toBeInTheDocument();
+  expect(sparkline.querySelectorAll("path")).toHaveLength(1);
+  expect(sparkline.querySelector("path")).toHaveAttribute(
+    "data-values",
+    "9007199254740994 9007199254740995",
+  );
+  expect(sparkline.querySelectorAll("line[data-gap]")).toHaveLength(1);
+  expect(sparkline.querySelector("circle[data-end]")).toHaveAttribute(
+    "data-value",
+    "9007199254740995",
+  );
+});
+
+it("does not draw a row trend across a missing year or a changed annual basis", () => {
+  renderGrid(revenueRow(["10", "20", "30"]), [
+    { label: "FY2025E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+    { label: "FY2028E", group: "Base case" },
+  ]);
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
+
+  cleanup();
+  renderGrid(revenueRow(["10", "20", "30"]), [
+    {
+      label: "FY2025E",
+      group: "Base case",
+      start: "2024-07-01",
+      end: "2025-06-30",
+    },
+    {
+      label: "FY2026E",
+      group: "Base case",
+      start: "2025-07-01",
+      end: "2026-06-30",
+    },
+    {
+      label: "FY2027E",
+      group: "Base case",
+      start: "2026-10-01",
+      end: "2027-06-30",
+    },
+  ]);
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
+});
+
+it("draws dated fiscal years when their recorded annual basis matches", () => {
+  renderGrid(revenueRow(["10", "20", "30"]), [
+    { label: "FY2025E", group: "Base case", start: "2024-07-01", end: "2025-06-30" },
+    { label: "FY2026E", group: "Base case", start: "2025-07-01", end: "2026-06-30" },
+    { label: "FY2027E", group: "Base case", start: "2026-07-01", end: "2027-06-30" },
+  ]);
+  expect(
+    within(rowOf("Revenue")).getByRole("img", { name: "Revenue, FY2025E to FY2027E" }),
+  ).toBeInTheDocument();
+});
+
+it("keeps the grid renderable without a sparkline when fewer than three cells have figures", () => {
+  renderGrid(
+    [
+      {
+        label: "Revenue",
+        band: "Operating",
+        kind: "money",
+        cells: [value("10"), gap(NOT_WRITTEN), value("30")],
+      },
+    ],
+    ["FY2025E", "FY2026E", "FY2027E"].map((label) => ({ label, group: "Base case" })),
+  );
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
+});
+
+it("keeps non-finite exact figures in the grid without sending them to pixel placement", () => {
+  const tooLarge = "9".repeat(400);
+  renderGrid(revenueRow([tooLarge, tooLarge, tooLarge]));
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
+  expect(within(rowOf("Revenue")).getAllByRole("cell", { name: tooLarge })).toHaveLength(3);
+});
+
+it("does not join the same row across separate forecast cases", () => {
+  renderGrid(revenueRow(["10", "20", "30", "11", "21", "31"]), [
+    { label: "FY2025E", group: "Base case" },
+    { label: "FY2026E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+    { label: "FY2025E", group: "Downside case" },
+    { label: "FY2026E", group: "Downside case" },
+    { label: "FY2027E", group: "Downside case" },
+  ]);
+  showColumns("All cases");
+  expect(within(rowOf("Revenue")).queryByRole("img")).toBeNull();
 });
 
 it("leads with no actual column where a fiscal year stands beside a dated period", () => {
