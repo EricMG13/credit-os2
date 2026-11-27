@@ -367,3 +367,37 @@ def test_signed_submit_with_no_summary_is_a_400_that_moves_nothing(app) -> None:
     assert (root / "_engine" / "uploads" / sid / "files" / "source.txt").is_file()
     assert _tree_snapshot(root) == before
     assert runs.load_all(Layout(root)) == []
+
+
+def test_a_refused_reader_post_that_declares_a_body_closes_the_connection(app) -> None:
+    """Characterisation test, no code change: the server speaks HTTP/1.0 and closes after every
+    reply, so a 403 sent before any declared body is read leaves nothing to desynchronise."""
+    import socket
+
+    browser, provider, accounts_dir, _, _, _ = app
+    token = _reader_session(browser, provider, accounts_dir)
+    root = _APP_ROOTS[-1]
+    before = _tree_snapshot(root)
+    request = (
+        "POST /api/submissions HTTP/1.1\r\n"
+        f"Host: localhost:{browser.port}\r\n"
+        f"Origin: http://localhost:{browser.port}\r\n"
+        f"Cookie: {COOKIE}={token}\r\n"
+        "Content-Length: 1048576\r\n"
+        "\r\n"
+    )
+    with socket.create_connection(("127.0.0.1", browser.port), timeout=10) as sock:
+        sock.sendall(request.encode("ascii"))  # the declared body is never sent
+        received = b""
+        for _ in range(100):  # bounded; EOF ends it long before
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            received += chunk
+        else:
+            pytest.fail("the server did not close the connection")
+        assert sock.recv(1) == b""  # still EOF
+    head, _, body = received.partition(b"\r\n\r\n")
+    assert head.split(b"\r\n")[0].split()[1] == b"403"
+    assert json.loads(body) == {"error": "only an Analyst or Admin can prepare or submit a run"}
+    assert _tree_snapshot(root) == before

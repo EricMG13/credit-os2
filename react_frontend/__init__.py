@@ -471,7 +471,7 @@ def _run_access(
     """The per-request runner role and display name, only when account sign-in is enabled."""
     if accounts is None:
         return None
-    can_prepare = account is not None and account.profile_type in {"analyst", "admin"}
+    can_prepare = account is not None and account.profile_type in service.PREPARERS
     name = account_store.effective_analyst_name(account) if can_prepare and account else None
     return {"can_prepare": can_prepare, "analyst_name": name}
 
@@ -482,7 +482,7 @@ def _run_actor(accounts: Path | None, account: account_store.Account | None) -> 
     if access is None:
         return None
     if account is None or not access["can_prepare"]:
-        raise http_base.refuse(403, service._PREPARATION_DENIAL)
+        raise http_base.refuse(403, service.PREPARATION_DENIAL)
     if access["analyst_name"] is None:
         raise http_base.refuse(400, "an Admin must set your analyst name")
     return RunActor(account.id, access["analyst_name"])
@@ -492,8 +492,8 @@ def _require_run_preparer(handler: _SignalReplies, method: str, path: str) -> No
     """Refuse a signed-in Reader before the run-start handler reads a body or touches a draft."""
     if handler.accounts is None or not service.requires_preparer(method, path):
         return
-    if handler.account is None or handler.account.profile_type not in {"analyst", "admin"}:
-        raise http_base.refuse(403, service._PREPARATION_DENIAL)
+    if handler.account is None or handler.account.profile_type not in service.PREPARERS:
+        raise http_base.refuse(403, service.PREPARATION_DENIAL)
 
 
 class _AppRoutes(NamedTuple):
@@ -615,8 +615,21 @@ class Server(service._Server):
 def _is_inside(folder: Path, root: Path) -> bool:
     """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
     the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
-    file as ``root`` (``root`` exists). Creates nothing."""
-    return any(p.exists() and os.path.samefile(p, root) for p in (folder, *folder.parents))
+    file as ``root``. Creates nothing. ``root`` is stat-ed once first: if it is gone the check has
+    nothing to compare with."""
+    try:
+        os.stat(root)
+    except FileNotFoundError:
+        raise ValueError("sign-in needs the shared folder to exist") from None
+    return any(_same_file(p, root) for p in (folder, *folder.parents))
+
+
+def _same_file(path: Path, root: Path) -> bool:
+    try:
+        return os.path.samefile(path, root)
+    except FileNotFoundError:
+        # A path that does not exist, or vanished during the check, is not the shared folder.
+        return False
 
 
 def _accounts_folder(

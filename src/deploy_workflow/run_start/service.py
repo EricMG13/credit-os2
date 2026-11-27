@@ -209,7 +209,8 @@ _UNKNOWN = "unknown submission"  # the text submissions raises for an id it does
 _UNKNOWN_RUN = "unknown run"  # the text prior raises for a run id with no record
 _SUBMISSION = re.compile(r"/api/submissions/([^/]+)/(files|reading|summary|submit|carry)")
 _REFERENCE = re.compile(r"/api/submissions/([^/]+)/reference-portfolio(/files)?")
-_PREPARATION_DENIAL = "only an Analyst or Admin can prepare or submit a run"
+PREPARATION_DENIAL = "only an Analyst or Admin can prepare or submit a run"
+PREPARERS = frozenset({"analyst", "admin"})
 _STANDING = re.compile(r"/api/reference-portfolios(?:/([a-z0-9_-]{1,64})(/refresh|/files)?)?")
 _RUN_ID = r"[0-9A-Za-z._-]{1,80}"
 _RUN = re.compile(rf"/api/runs/({_RUN_ID})")
@@ -337,7 +338,7 @@ class Handler(http_base.Handler):
                 else self._guarded(lambda: submissions.issued_cap(self._layout, sid))
             )
             if not cap_text:
-                raise refuse(400, "review the summary again; no summary was issued for this run")
+                raise refuse(400, submissions.NO_SUMMARY_ISSUED)
             cap = cap_text
         if cap is not None and self.headers.get_all(SHOWN_CAP_HEADER) != [str(cap)]:
             raise refuse(
