@@ -61,7 +61,7 @@ Field ids, confirmed by running the reply on the test snapshot: `cp-1/leverage/t
 
 ### Task 0 (PR 0): land the documents first
 
-The ruling, the `AGENTS.md` exception, the `DESIGN.md` section, the amended 2026-11-24 ruling, the spec, this plan, the mockup and `coverageMath.cases.json` go to `main` in one docs-only PR before any code, because the arithmetic contradicts the `AGENTS.md` on `main` until they do. Review: one `mx-feature` review (docs and config rule). Gate: `uv run pytest tests/test_repo_rules.py -q`. Committed and pushed on the owner's instruction (2026-11-27); the owner merges. Opened as EricMG13/credit-os2#136 at 1,384 changed lines, over the 800-line cap: an exception for this docs-only PR (the mockup, spec and plan are most of it), stated in the PR body; every code PR holds the cap.
+The ruling, the `AGENTS.md` exception, the `DESIGN.md` section, the amended 2026-11-24 ruling, the spec, this plan, the mockup and `coverageMath.cases.json` go to `main` in one docs-only PR before any code, because the arithmetic contradicts the `AGENTS.md` on `main` until they do. Review: one `mx-feature` review (docs and config rule). Gate: `uv run pytest tests/test_repo_rules.py -q`. Committed and pushed on the owner's instruction (2026-11-27); the owner merges. Opened as EricMG13/credit-os2#136 at 1,384 changed lines, over the 800-line cap: an exception for this docs-only PR (the mockup, spec and plan are most of it), stated in the PR body; every code PR holds the cap. #136 merged before its review fixes were pushed, so those landed separately in #139.
 
 ### Task 1 (PR A): exact arithmetic
 
