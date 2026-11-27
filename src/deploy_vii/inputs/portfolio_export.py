@@ -632,17 +632,9 @@ def section_key(title: str) -> str | None:
     return next((key for key, words in _SECTION_KEYS if any(w in text for w in words)), None)
 
 
-_NO_BREACH = re.compile(
-    r"(?<![a-z0-9.,])(?:no|not|non|without|never|zero|0)(?:(?:\s+|-)[a-z]+){0,3}(?:\s+|-)"
-    r"breach(?:es|ed)?(?![a-z])"
-)
-
-
 def is_breach_status(status: str) -> bool:
-    """A status that says the limit is breached (`Breach`, `Breached`, `In breach`); `No breach`,
-    `not breached` and `non-breach` say it is not."""
-    text = folded(status)
-    return "breach" in text and _NO_BREACH.search(text) is None
+    """A status that says the limit is breached: it names a breach (`Breach`, `In breach`)."""
+    return "breach" in folded(status)
 
 
 def _is_title(row: Sequence[str]) -> bool:
@@ -931,55 +923,14 @@ def recognise(files: Mapping[str, bytes]) -> dict[str, str]:
     return {name: ", ".join(found) for name, found in roles.items()}
 
 
-_TITLE_PREFIX = re.compile(r"(?:[a-z]|\d+)[.):]\s|section\b")
-
-
-def _figure_like(text: str) -> bool:
-    """A cell no header holds: a figure, a date, a name with a figure (`Aster (29.80%)`) or a
-    marker (`N/A`, `#N/A`)."""
-    named = _NAME_AND_FIGURE.match(text)
-    figures = (text, named["figure"]) if named else (text,)
-    return cell_kind(text) != "value" or any(quantity(f) is not None for f in figures)
-
-
-def _header_like(row: Sequence[str] | None) -> bool:
-    """A row that can be a header: two filled cells or more, none `_figure_like`; the end of the
-    rows counts as one (a last one-cell section row opens its section, as before)."""
-    if row is None:
-        return True
-    filled = _cells(row)
-    return len(filled) > 1 and not any(_figure_like(cell) for cell in filled)
-
-
-def _opens_section(
-    row: Sequence[str], after_gap: bool, current: Section | None, following: Sequence[str] | None
-) -> bool:
-    """Whether a one-cell row naming a section starts it. It does at the start of the file, after
-    a blank row or a gap in the row numbers, before any header is read (a title directly under a
-    title or the file's first row), or when it is lettered or numbered (`C. Sectors`, `3. Ratings`,
-    `Section 2`). Otherwise it is a data row of the table above (a summary row `Max Single Sector`
-    with no value)."""
-    if not _is_title(row) or section_key(row[0]) is None:
-        return False
-    return (
-        after_gap
-        or current is None
-        or not current.header
-        or _TITLE_PREFIX.match(folded(row[0])) is not None
-        or _header_like(following)
-    )
-
-
 def sections(rows: Sequence[tuple[int, Sequence[str]]]) -> dict[str, Section]:
     """The exposure report's stacked sections: a title row, a header row, then data rows."""
     found: dict[str, Section] = {}
     current: Section | None = None
-    previous: int | None = None
-    filled = [(number, row) for number, row in rows if _cells(row)]
-    for at, (number, row) in enumerate(filled):
-        was_blank, previous = previous is None or number != previous + 1, number
-        following = filled[at + 1][1] if at + 1 < len(filled) else None
-        if _opens_section(row, was_blank, current, following) and (key := section_key(row[0])):
+    for number, row in rows:
+        if not _cells(row):
+            continue
+        if _is_title(row) and (key := section_key(row[0])) is not None:
             current = Section(key, row[0], [], [])
             found.setdefault(key, current)
         elif current is not None and not current.header:

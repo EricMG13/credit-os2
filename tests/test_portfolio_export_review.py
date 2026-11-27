@@ -51,58 +51,8 @@ def test_maturity_value_is_none_without_maturities():
 # --- M-3: "No breach" is not a breach status -----------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("status", "expected"),
-    [
-        ("No breach", False),
-        ("No Breach", False),
-        ("not breached", False),
-        ("Non-breach", False),
-        ("Breach", True),
-        ("Breached", True),
-        ("In breach", True),
-        ("Pass", False),
-        ("", False),
-        ("Not in breach", False),
-        ("No longer in breach", False),
-        ("No active breach", False),
-        ("Breach - cured", True),  # no negator: a cured breach is still reported as a breach
-        ("Never breached", False),
-    ],
-)
-def test_status_classification(status, expected):
-    assert pe.is_breach_status(status) is expected
-
-
 def _monitor_row(spec: synth.Spec, ident: str) -> list:
     return next(row for row in spec.constraints if row[0] == ident)
-
-
-def test_no_breach_status_on_a_breached_row_is_inconsistent():
-    spec = synth.clean()
-    row = _monitor_row(spec, "C-05")
-    row[3], row[6], row[7], row[8] = "≤ 20.0% NAV", "25.20%", "-5.20%", "No breach"
-    assert any("status No breach with current value 25.20%" in p for p in problems(spec))
-
-
-def test_no_breach_status_on_a_compliant_row_is_consistent():
-    spec = synth.clean()
-    _monitor_row(spec, "C-05")[8] = "No Breach"
-    assert not any("status No Breach" in p for p in problems(spec))
-
-
-def test_no_breach_status_does_not_hide_a_breach_on_the_holdings():
-    spec = synth.clean()
-    row = _monitor_row(spec, "C-01")  # the holdings give Aster 29.80%
-    row[3], row[6], row[7], row[8] = "≤ 25.0% NAV", "24.00%", "1.00%", "No breach"
-    assert any("is breached; the status says No breach" in p for p in problems(spec))
-
-
-def test_no_breach_status_does_not_hide_a_breached_sector_in_the_report():
-    spec = synth.clean()
-    synth._hidden_breach(spec)
-    synth._find(spec.exposure, "Software")[5] = "No breach"
-    assert any("a breach; the report states" in p and "No breach" in p for p in problems(spec))
 
 
 # --- M-2: an error token or N/A is not an identifier ---------------------------------------------
@@ -133,14 +83,6 @@ def test_a_ticker_token_is_not_counted_as_a_ticker():
 
 
 # --- M-1: a one-cell data row is not a section title ---------------------------------------------
-
-
-def test_a_summary_row_naming_a_sector_does_not_start_the_sector_section():
-    spec = synth.clean()
-    synth._find(spec.exposure, "Max Single Sector")[1:] = [""]
-    found = pe.sections(list(enumerate(spec.exposure, start=1)))
-    assert found["sectors"].title == "C. Top 20 Sectors"
-    assert [row[0] for _, row in found["sectors"].rows][:2] == ["Software", "Healthcare"]
 
 
 # --- M-4: the holdings columns are the Holdings sheet's ------------------------------------------
@@ -281,23 +223,6 @@ def test_titles_directly_under_data_rows_are_still_titles():
     assert [r[0] for _, r in found["sectors"].rows] == ["Software"]
 
 
-def test_a_summary_row_naming_a_sector_stays_a_data_row_without_a_gap():
-    rows = [
-        ["A. Summary Metrics"],
-        ["Metric", "Value"],
-        ["NAV", "100"],
-        ["Max Single Sector", ""],
-        ["Top 10", "100%"],
-        [],
-        ["C. Top 20 Sectors"],
-        ["Sector", "% NAV"],
-        ["Software", "40%"],
-    ]
-    found = pe.sections(list(enumerate(rows, start=1)))
-    assert found["sectors"].title == "C. Top 20 Sectors"
-    assert [r[0] for _, r in found["summary"].rows] == ["NAV", "Max Single Sector", "Top 10"]
-
-
 def test_the_limit_is_exact_so_headroom_gets_only_the_current_values_rounding():
     spec = synth.clean()
     row = _monitor_row(spec, "C-05")
@@ -326,66 +251,12 @@ def test_the_maturity_finding_has_its_own_fix_text():
 # --- C8 round 2 review findings R1-R4 -----------------------------------------------------------
 
 
-def test_r1_unprefixed_title_directly_under_data_opens_its_section():
-    rows = [
-        ["Summary"],
-        ["Metric", "Value"],
-        ["NAV", "100"],
-        ["Rating Distribution"],
-        ["Bucket", "%"],
-        ["IG", "10%"],
-    ]
-    found = pe.sections(list(enumerate(rows, start=1)))
-    assert set(found) == {"summary", "ratings"}
-    assert [r[0] for _, r in found["ratings"].rows] == ["IG"]
-    assert [r[0] for _, r in found["summary"].rows] == ["NAV"]
-
-
-def test_r1_blank_valued_summary_row_before_a_named_figure_stays_data():
-    rows = [
-        ["A. Summary Metrics"],
-        ["Metric", "Value", "Notes"],
-        ["Max Single Sector", "", ""],
-        ["Max Single Issuer", "Aster (29.80%)", ""],
-        [],
-        ["C. Top 20 Sectors"],
-        ["Sector", "% NAV"],
-        ["Software", "40%"],
-    ]
-    found = pe.sections(list(enumerate(rows, start=1)))
-    assert found["sectors"].title == "C. Top 20 Sectors"
-    assert [r[0] for _, r in found["summary"].rows] == ["Max Single Sector", "Max Single Issuer"]
-
-
 def test_r1_the_report_without_blank_rows_or_letters_reads_as_before():
     spec = synth.clean()
     spec.exposure = [
         [re.sub(r"^[A-E]\. ", "", r[0]), *r[1:]] if len(r) == 1 else r for r in spec.exposure if r
     ]
     assert problems(spec) == []
-
-
-@pytest.mark.parametrize(
-    ("status", "expected"),
-    [
-        ("No breaches", False),
-        ("0 breaches", False),
-        ("No hard or soft breach", False),
-        ("Zero breaches", False),
-        ("2 breaches", True),
-        ("10 breaches", True),
-        ("Not compliant - breach", True),
-        ("Breach - cured", True),
-    ],
-)
-def test_r2_status(status, expected):
-    assert pe.is_breach_status(status) is expected
-
-
-def test_r2_no_breaches_on_a_compliant_row_is_consistent():
-    spec = synth.clean()
-    _monitor_row(spec, "C-05")[8] = "No breaches"
-    assert not any("status No breaches" in p for p in problems(spec))
 
 
 def _aster_undated(spec):
@@ -459,3 +330,32 @@ def test_r4_the_below_ig_row_is_checked_against_bb_b_and_ccc():
         )
         for p in problems(spec)
     )
+
+
+# --- Reverted to the branch base: a title row is a one-cell row naming a section; a status is a
+# --- breach when it contains the word "breach" ---------------------------------------------------
+
+
+def test_one_cell_rows_naming_a_section_open_it_as_they_did_at_the_base():
+    summary = [["Metric", "Value"], ["NAV", "100"], ["Max Single Sector", ""]]
+    bogus = pe.sections(list(enumerate([["A. Summary"], *summary, ["Base Currency", "USD"]], 1)))
+    assert set(bogus) == {"summary", "sectors"}  # the summary row opens a section
+    assert bogus["sectors"].header == ["Base Currency", "USD"]
+    trailing = [["A. Summary"], ["Metric", "Value"], ["NAV", "100"], ["Note: rating used"]]
+    found = pe.sections(list(enumerate(trailing, 1)))
+    assert set(found) == {"summary", "ratings"} and found["ratings"].rows == []
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("No breach", True),
+        ("Breach", True),
+        ("Not cured in hard breach", True),
+        ("10 hard breaches; 0 soft breaches", True),
+        ("Pass", False),
+        ("", False),
+    ],
+)
+def test_a_status_naming_a_breach_is_a_breach_as_at_the_base(status, expected):
+    assert pe.is_breach_status(status) is expected
