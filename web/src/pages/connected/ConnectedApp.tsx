@@ -181,6 +181,7 @@ function CurrentPage({
   readOnly,
   navigate,
   signalProfileRevision,
+  signIn,
 }: {
   route: Route;
   prior: string | null;
@@ -188,6 +189,7 @@ function CurrentPage({
   readOnly: boolean;
   navigate: (path: string) => void;
   signalProfileRevision: number;
+  signIn: boolean;
 }) {
   if (route.kind === "library") return <ReportLibrary readOnly={readOnly} />;
   if (route.kind === "coverage") return <Coverage readOnly={readOnly} />;
@@ -195,7 +197,16 @@ function CurrentPage({
   if (readOnly && route.kind === "run") return <RunReadOnly title="Run progress" />;
   if (readOnly && route.kind === "start") return <RunReadOnly title="Start run" />;
   if (route.kind === "start")
-    return <StartRun key={prior} mode={mode} navigate={navigate} from={prior ?? undefined} />;
+    return (
+      <StartRun
+        key={prior}
+        mode={mode}
+        navigate={navigate}
+        from={prior ?? undefined}
+        signIn={signIn}
+        profileRevision={signalProfileRevision}
+      />
+    );
   if (route.kind === "run-list") return <RunActivity mode={mode} />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
@@ -279,6 +290,7 @@ export function ConnectedApp({
             readOnly={readOnly}
             navigate={navigate}
             signalProfileRevision={signalProfileRevision}
+            signIn={signIn}
           />
         </Suspense>
       </PreviewReport>

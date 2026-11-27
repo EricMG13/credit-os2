@@ -81,6 +81,9 @@ def _parser() -> argparse.ArgumentParser:
     change = leaf(accounts, "type")
     change.add_argument("id", type=_account_id)
     change.add_argument("type", choices=store.PROFILE_TYPES)
+    analyst_name = leaf(accounts, "analyst-name")
+    analyst_name.add_argument("id", type=_account_id)
+    analyst_name.add_argument("name", nargs="+")
     return parser
 
 
@@ -126,6 +129,10 @@ def _run(db: sqlite3.Connection, args: argparse.Namespace) -> int:
     elif args.action == "disable":
         store.disable_account(db, args.id)
         print(f"account {args.id} disabled")
+    elif args.action == "analyst-name":
+        name = " ".join(args.name)
+        store.set_analyst_name_override(db, args.id, name)
+        print(f"account {args.id} analyst name is now {name}")
     elif args.action == "enable":
         store.enable_account(db, args.id)
         print(f"account {args.id} enabled")

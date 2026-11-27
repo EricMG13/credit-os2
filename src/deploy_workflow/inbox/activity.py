@@ -127,6 +127,7 @@ def _entry(layout: Layout, record: Record, now: datetime) -> tuple[dict[str, Any
     run is complete only when its event log and budget journal were both there and read. One
     that is absent reads as "nothing yet", which may only mean it was out of sight this poll."""
     entry: dict[str, Any] = asdict(record)
+    entry.pop("account_id", None)
     entry["files"] = list(record.files)
     if isinstance(record.reason, str):  # the stored text keeps the server's paths; this is shown
         entry["reason"] = served_reason(layout, record.reason)

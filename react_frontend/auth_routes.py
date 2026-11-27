@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from deploy_workflow import http_base
-from deploy_workflow.accounts import registration, sessions, store
+from deploy_workflow.accounts import analyst_names, registration, sessions, store
 from deploy_workflow.accounts.entra import EntraRuntimeConfig
 from deploy_workflow.accounts.pending_flows import PendingFlows
 
@@ -39,6 +39,7 @@ _MAX_PASSCODE_BODY = 16384
 _ACCOUNT_MUTATION = re.compile(
     r"/auth/accounts/([1-9][0-9]{0,17})/(disable|profile-type)", re.ASCII
 )
+_ANALYST_NAME_MUTATION = re.compile(r"/auth/accounts/([1-9][0-9]{0,17})/analyst-name", re.ASCII)
 _MAX_ACCOUNT_BODY = 4096
 
 
@@ -235,6 +236,9 @@ class AuthRoutes:
         match = _ACCOUNT_MUTATION.fullmatch(url.path)
         if match is not None:
             return self._post_account_mutation(handler, url, account, match)
+        name_match = _ANALYST_NAME_MUTATION.fullmatch(url.path)
+        if name_match is not None:
+            return self._post_analyst_name_override(handler, url, account, name_match)
         return None
 
     def _post_passcode(
@@ -263,6 +267,56 @@ class AuthRoutes:
         if url.query or url.fragment:
             return http_base.refuse(400, "invalid account request")
         return self._mutate_account(handler, account, int(match[1]), match[2])
+
+    def _post_analyst_name_override(
+        self,
+        handler: http_base.Handler,
+        url: urllib.parse.SplitResult,
+        account: store.Account | None,
+        match: re.Match[str],
+    ) -> http_base.Reply:
+        if account is None or account.disabled:
+            return http_base.refuse(401, "sign in first")
+        if account.profile_type != "admin":
+            return http_base.refuse(403, "only an Admin can do this")
+        analyst_name = self._analyst_name_request(handler, url)
+        if isinstance(analyst_name, http_base.Reply):
+            return analyst_name
+        account_id = int(match[1])
+        db = store.open_db(self._config.accounts_dir)
+        try:
+            try:
+                store.set_analyst_name_override_as_admin(db, account.id, account_id, analyst_name)
+            except (store.ActorDisabled, store.NotAdmin, store.Missing) as error:
+                return self._mutation_refusal(error)
+            except store.InvalidAnalystName:
+                return http_base.refuse(400, "invalid analyst name")
+            return http_base.Reply(
+                200,
+                {"account": {"id": account_id, "analyst_name_override": analyst_name}},
+            )
+        finally:
+            db.close()
+
+    @staticmethod
+    def _analyst_name_request(
+        handler: http_base.Handler, url: urllib.parse.SplitResult
+    ) -> str | http_base.Reply:
+        if url.query or url.fragment:
+            return http_base.refuse(400, "invalid analyst name")
+        try:
+            value = handler.json_body(_MAX_ACCOUNT_BODY)
+        except http_base.Reply:
+            return http_base.refuse(400, "invalid analyst name")
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"analyst_name"}
+            or not isinstance(value["analyst_name"], str)
+            or len(value["analyst_name"]) > analyst_names.SUBMITTER_AT_MOST
+            or not analyst_names.is_analyst_name(value["analyst_name"])
+        ):
+            return http_base.refuse(400, "invalid analyst name")
+        return value["analyst_name"]
 
     def _accounts_directory(self) -> http_base.Reply:
         db = store.open_db(self._config.accounts_dir)

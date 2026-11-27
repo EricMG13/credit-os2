@@ -472,35 +472,43 @@ export function DocumentFields({
           }}
         />
       </div>
-      <div className="grid gap-1.5">
-        <Labelled text="Your name">
-          {(id) => (
-            <input
-              id={id}
-              className={FIELD}
-              required
-              maxLength={80}
-              autoComplete="off"
-              placeholder="Eric G"
-              {...problemAttrs(view.problem, "submitted_by")}
-              aria-describedby={
-                problemOn(view.problem, "submitted_by") !== undefined
-                  ? "error-submitted_by run-analyst-name"
-                  : "run-analyst-name"
-              }
-              value={view.submittedBy}
-              onChange={(event) => {
-                view.changeSubmittedBy(event.target.value);
-              }}
-            />
-          )}
-        </Labelled>
-        <FieldMessage problem={view.problem} field="submitted_by" />
-        <p id="run-analyst-name" className="text-small text-text-tertiary">
-          First name and initial, such as Eric G. Use two initials, such as Eric MG, if a colleague
-          has a similar name. Shown on Run activity and in Teams.
+      {view.signedIn ? (
+        <p className="text-small text-text-secondary">
+          {view.submittedBy
+            ? `Your analyst name: ${view.submittedBy}`
+            : "an Admin must set your analyst name"}
         </p>
-      </div>
+      ) : (
+        <div className="grid gap-1.5">
+          <Labelled text="Your name">
+            {(id) => (
+              <input
+                id={id}
+                className={FIELD}
+                required
+                maxLength={80}
+                autoComplete="off"
+                placeholder="Eric G"
+                {...problemAttrs(view.problem, "submitted_by")}
+                aria-describedby={
+                  problemOn(view.problem, "submitted_by") !== undefined
+                    ? "error-submitted_by run-analyst-name"
+                    : "run-analyst-name"
+                }
+                value={view.submittedBy}
+                onChange={(event) => {
+                  view.changeSubmittedBy(event.target.value);
+                }}
+              />
+            )}
+          </Labelled>
+          <FieldMessage problem={view.problem} field="submitted_by" />
+          <p id="run-analyst-name" className="text-small text-text-tertiary">
+            First name and initial, such as Eric G. Use two initials, such as Eric MG, if a
+            colleague has a similar name. Shown on Run activity and in Teams.
+          </p>
+        </div>
+      )}
       {view.copy ? (
         <Button color="secondary" className={TARGET} onPress={view.resetIssuer}>
           This is a different issuer
