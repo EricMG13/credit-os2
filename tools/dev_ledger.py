@@ -246,6 +246,23 @@ def revalidate_attempts(
             raise ValueError(f"attempt {attempt!r} is ineligible or duplicated")
 
 
+def validate_progress(db: sqlite3.Connection, run: str, payload: dict[str, Any]) -> None:
+    if payload.keys() - {"kind", "summary", "attempt"}:
+        raise ValueError("progress accepts only a summary and optional attempt")
+    summary = payload.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ValueError("progress needs a plain-English summary")
+    attempt = payload.get("attempt")
+    if attempt is None:
+        return
+    if (
+        not isinstance(attempt, str)
+        or db.execute("SELECT 1 FROM attempts WHERE run=? AND id=?", (run, attempt)).fetchone()
+        is None
+    ):
+        raise ValueError("progress must identify an existing attempt in this run")
+
+
 def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     kind = getattr(args, "command", "decision")
     payload = json.loads(args.payload)
@@ -265,6 +282,10 @@ def decision_run(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     row = db.execute("SELECT revision FROM runs WHERE id=?", (args.run,)).fetchone()
     if row is None or row["revision"] != args.expected_revision:
         raise ValueError("stale or unknown decision revision")
+    if payload.get("kind") == "progress":
+        if kind != "note":
+            raise ValueError("progress must be recorded as a note")
+        validate_progress(db, args.run, payload)
     revision = args.expected_revision if kind == "note" else args.expected_revision + 1
     action = payload.get("action")
     if kind == "note" and action is not None:
@@ -470,7 +491,8 @@ def run_status(db: sqlite3.Connection, run: str) -> dict[str, Any]:
             "payload": json.loads(item["payload"]),
         }
         for item in db.execute(
-            "SELECT id,revision,payload FROM decisions WHERE run=? ORDER BY revision",
+            "SELECT id,revision,payload FROM decisions WHERE run=? "
+            "AND coalesce(json_extract(payload,'$.kind'),'') != 'progress' ORDER BY revision",
             (run,),
         )
     ]

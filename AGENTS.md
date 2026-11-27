@@ -141,6 +141,22 @@ Use subscription access for development workers and reviewers. Use Astra at medi
 Codex and Fable at medium effort on Claude when those models are selected. If the approved
 subscription route cannot be verified or has no capacity, queue that work and report the reason.
 
+### Launching workers from a Codex chat
+
+Launch writers, reviewers, and verifiers with the native subagent control in the coordinating
+Codex chat. Keep that chat as their parent so their messages, tool activity and captured evidence
+appear on its Sub-agents page. State this launch mode in the approval card and record the assigned
+agent and attempt ID in the run ledger.
+
+Use the approved subscription model and effort. Record requested settings separately from observed
+settings. An unverifiable route stays ungraded for model trials. If the native client cannot support
+an approved route or verification requirement, report the gap and queue the affected work. Use a
+separate worker session only when the owner explicitly accepts that its activity will appear through
+ledger updates and retained artifacts.
+
+Apply the launch rule to the next assignment in an ongoing chat. Keep its existing approval,
+scope, and evidence. Reconcile returned work from separate sessions in the same ledger.
+
 ### Running the development coordinator locally
 
 Use the coordinator tools from the current approved checkout. All participating worktrees
@@ -172,7 +188,11 @@ is the primary checkout. Keep the database and local evidence there across sessi
    completed reviews and confirmed escapes into the local coordinator at milestone boundaries.
    Show changes to the selected route with their decision IDs. A model trial, a browser journey
    and a merged change each have their own verification scope.
-4. Dispatch with `python tools/dev_dispatch.py --db DB --registry DB --cohort COHORT_FILE
+4. In Codex chats, reserve an attempt in the shared ledger before using the chat's native
+   subagent control. Bind the worker to the approved task, revision, model and effort. Record
+   its return and settle its reservation using the available evidence for the approved billing mode.
+   For an owner-approved separate worker session, dispatch with
+   `python tools/dev_dispatch.py --db DB --registry DB --cohort COHORT_FILE
    --run RUN --attempt ATTEMPT --revision REV --base SHA --reserve UNITS --spec SPEC_FILE
    --plan PLAN_FILE --prompt WORK_ORDER --cwd WORKTREE --client CLIENT --timeout SECONDS`.
    Verify the returned worker output against the approved examples. Record acceptance with
@@ -185,6 +205,14 @@ is the primary checkout. Keep the database and local evidence there across sessi
    CANDIDATE_SHA MERGED_SHA refs/remotes/origin/TARGET` from the checkout with the refreshed target.
 
 Open the private dashboard with `uv run python tools/dev_dashboard.py` from a Credit OS2 checkout.
-The command prints a local URL. Run lookup, refresh, decision details, and prompts use the same
+The command prints a private loopback URL. In Codex desktop, open or reuse that dashboard as a
+browser tab in the coordinating chat’s right panel after establishing the run. When available,
+use `open_in_codex` with `placement: "right"` and the dashboard URL for the selected run.
+Select the run in the tab and keep the same tab for later updates. In clients without the panel
+tool, give the owner the local link. Run lookup, refresh, decision details, and prompts use the same
 ledger as the coordinator. Copy a prompt to the initiating chat to ask for an explanation or
 change. Browser proof runs with `node web/scripts/dev-dashboard-proof.mjs`.
+Record a substantive checkpoint with `note RUN ID REVISION` and a JSON payload containing
+`kind: "progress"`, a plain-English `summary`, and the `attempt` ID when it is a worker update.
+Progress notes never advance the run revision. The dashboard refreshes the worker timeline
+while an owner can keep editing a decision reply.

@@ -507,6 +507,15 @@ def test_superseding_specific_approval_excludes_its_policy(tmp_path: Path) -> No
                 payload=json.dumps({"summary": "unrelated progress"}),
             ),
         )
+        db.execute(
+            "INSERT INTO decisions VALUES(?,?,?,?)",
+            (
+                policy.run_id,
+                "P-LEGACY",
+                1,
+                json.dumps({"kind": "progress", "supersedes": policy.approval_decision_id}),
+            ),
+        )
         assert approved_route_policy(db, policy).incumbent == policy.incumbent
         decision_run(
             db,

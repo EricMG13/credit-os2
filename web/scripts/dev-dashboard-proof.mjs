@@ -75,6 +75,7 @@ async function prove(channel, url, viewport) {
       origin: new URL(url).origin,
     });
     page.setDefaultTimeout(10000);
+    await page.clock.install();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(url);
@@ -101,6 +102,19 @@ async function prove(channel, url, viewport) {
     );
     await page.getByRole("button", { name: "Draft explanation request" }).click();
     assert.match(await reply.inputValue(), /coverage-delivery, decision D-04.*explain/);
+    await reply.fill("Keep this draft while worker status refreshes.");
+    const checkpoint = `Verification checkpoint from ${channel}`;
+    ledger(
+      "note",
+      "coverage-delivery",
+      `P-${channel}`,
+      "1",
+      JSON.stringify({ kind: "progress", attempt: "worker-1", summary: checkpoint }),
+    );
+    await page.clock.fastForward(10500);
+    await page.locator(".timeline").getByText(new RegExp(checkpoint)).waitFor();
+    assert.equal(await reply.inputValue(), "Keep this draft while worker status refreshes.");
+
     assert(await page.getByText("Match fiscal periods.", { exact: true }).isVisible());
     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
     assert(fits, "dashboard overflows the viewport");

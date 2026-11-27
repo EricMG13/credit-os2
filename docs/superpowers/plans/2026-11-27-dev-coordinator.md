@@ -99,7 +99,10 @@ from that run when a decision advances. Selective reuse needs verified dependenc
 
 ## Operating the local release after the initial pilot
 
-The coordinator owns these calls. The owner approves the card in chat and can steer by
+The coordinator owns these calls. In Codex chats, native subagents keep the parent chat's
+Sub-agents page available for live activity. The shared ledger records progress and evidence for the
+same attempts. The separate local worker is for work where the owner approves ledger and artifact
+visibility. The owner approves the card in chat and can steer by
 decision ID. Use the absolute database path returned by the card for every local command,
 including the route registry. Keep it outside every builder's writable worktree.
 
