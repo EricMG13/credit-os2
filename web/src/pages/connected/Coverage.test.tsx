@@ -810,13 +810,17 @@ test("Coverage opens Monitor by default and keeps named analytics regions honest
   fireEvent.click(screen.getByRole("button", { name: "Refinancing" }));
   expect(await screen.findByRole("table", { name: "Maturity wall totals" })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "Refinancing" })).toBeInTheDocument();
-  for (const view of ["Headroom", "Market"]) {
+  for (const view of ["Market"]) {
     fireEvent.click(screen.getByRole("button", { name: view }));
     expect(screen.getByRole("region", { name: view })).toHaveTextContent(
       `${view} analysis is not available yet.`,
     );
     expect(screen.getByRole("combobox", { name: "Selected issuer" })).toHaveValue("beta");
   }
+  fireEvent.click(screen.getByRole("button", { name: "Headroom" }));
+  expect(screen.getByRole("region", { name: "Headroom" })).toHaveTextContent(
+    "This page could not read base and downside cases.",
+  );
 });
 
 test("Coverage renders the Patterns analytics when its tab is selected", async () => {

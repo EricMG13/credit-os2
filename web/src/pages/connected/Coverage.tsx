@@ -31,6 +31,7 @@ import { boundUnit, unitNamer } from "./coverage/boundUnit";
 import { writtenUnit } from "./moneyUnits";
 import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
+import { Headroom } from "./coverage/Headroom";
 import { IssuerDetail } from "./coverage/IssuerDetail";
 import { Matrix } from "./coverage/Matrix";
 import { Monitor } from "./coverage/Monitor";
@@ -707,6 +708,13 @@ function Dashboard({ data: served }: { data: Data }) {
         />
       ) : view === "refinancing" ? (
         <Refinancing
+          data={data}
+          issuers={shown}
+          selected={selectedIssuer}
+          onSelect={setSelectedIssuer}
+        />
+      ) : view === "headroom" ? (
+        <Headroom
           data={data}
           issuers={shown}
           selected={selectedIssuer}
