@@ -30,6 +30,10 @@ test("source fingerprint works in an extracted package and ignores Python caches
   await writeFile(path.join(source, "page.tsx"), "export const page = false;\n");
   const changed = await sourceProvenance(app);
 
+  const expected = createHash("sha256")
+    .update("web/src/page.tsx\0export const page = true;\n\0")
+    .digest("hex");
+  assert.equal(first.source_sha256, expected);
   assert.equal(first.git_commit, null);
   assert.equal(first.git_tree, null);
   assert.equal(first.git_available, false);

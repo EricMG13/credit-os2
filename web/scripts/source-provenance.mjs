@@ -18,6 +18,7 @@ const sourceFiles = [
   "SOURCE-COMMIT.txt",
   "pyproject.toml",
   "uv.lock",
+  "tests/fixtures/cp1-instruction-pr/answer-key.json",
   "web/index.html",
   "web/connected.html",
   "web/package.json",
@@ -41,7 +42,7 @@ async function filesUnder(root, relative, total = { count: 0 }) {
   const files = [];
   for (const entry of entries) {
     if (entry.name === "__pycache__" || entry.name === ".pytest_cache") continue;
-    const child = path.join(relative, entry.name);
+    const child = path.posix.join(relative, entry.name);
     if (entry.isFile()) {
       total.count += 1;
       if (total.count > maxFiles) throw new Error("Source fingerprint exceeds the file limit");
@@ -66,7 +67,7 @@ function gitOutput(root, args) {
 async function gitMetadata(root) {
   const rootPath = await realpath(root);
   const topLevel = gitOutput(rootPath, ["rev-parse", "--show-toplevel"]);
-  if (topLevel === rootPath) {
+  if (topLevel && path.relative(rootPath, topLevel) === "") {
     const status = gitOutput(rootPath, ["status", "--porcelain=v1", "--untracked-files=all"]);
     return {
       available: true,

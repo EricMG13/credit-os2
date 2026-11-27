@@ -16,6 +16,10 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - A disposable GitHub target blocked stale, failed and wrongly attributed proof and allowed
   the repaired tested tree. Claude subscription dispatch and production merge rules need
   separate qualification. See the development coordinator rollout plan for the pilot scope.
+- The review repairs cover stale approvals, mismatched task and candidate evidence, canary
+  rollback, worker deadlines, and preservation of explicitly revalidated work.
+- The Windows ZIP retains the independent build manifest and hashes the same archived sources
+  when packaged and extracted on different hosts.
 
 
 ## 2026-11-27 — Foundation and Signal integration
