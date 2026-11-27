@@ -340,3 +340,51 @@ def test_a_ticker_of_another_fund_is_still_read_so_that_it_is_refused():
     assert found.stated_ticker == "SJNK"
     assert "The file names the fund ticker SJNK; JNK was expected." in found.findings
     assert read_fund([["Ticker", "SJNK US"]]).stated_ticker == "SJNK"
+
+
+# --- C13 fix 2: a passed-over sheet as big as the one read, and a ticker in square brackets -------
+
+_BIG_NO_NAME = [["ISIN", "Weight", "Par", "Rating"]] + [
+    [f"XS00000000{i:02d}", "3", "10", "B2"] for i in range(30)
+]
+_SUMMARY = [
+    ["Name", "Weight", "Rating"],
+    ["Aster", "5", "B2"],
+    ["Birch", "4", "B2"],
+    ["C", "1", "B"],
+]
+
+
+def test_a_large_sheet_with_no_name_column_is_not_passed_over_for_a_small_summary():
+    raw = book([_BIG_NO_NAME, _SUMMARY])
+    with pytest.raises(rp.PortfolioFileError, match="has no column for the holding's name"):
+        rp.read_portfolio_files({"book.xlsx": raw}, name="mine", stored_at=AT)
+
+
+def test_a_name_less_sheet_with_as_many_rows_as_the_one_read_is_refused():
+    same = [["Sector", "Weight", "Holdings"], ["Energy", "10", "5"], ["Tech", "9", "4"]]
+    holdings = [["Name", "Weight", "Par"], ["Aster Co", "60", "100"], ["Birch Co", "40", "50"]]
+    with pytest.raises(rp.PortfolioFileError, match="has no column for the holding's name"):
+        rp.read_portfolio_files({"b.xlsx": book([same, holdings])}, name="m", stored_at=AT)
+
+
+def test_a_short_name_less_sheet_before_a_full_holdings_sheet_is_still_passed_over():
+    found = rp.read_portfolio_files(
+        {"book.xlsx": book([_SECTORS, _HOLDINGS])}, name="mine", stored_at=AT
+    )
+    assert [p.borrower for p in found.positions] == ["Aster Co", "Birch Co"]
+    assert any("Sheet 'Sheet1' was not read as holdings" in f for f in found.findings)
+
+
+def test_a_ticker_in_square_brackets_is_the_stated_ticker():
+    assert read_fund([["Ticker: SPDR Bloomberg High Yield Bond ETF [JNK]"]]).stated_ticker == "JNK"
+
+
+def test_a_wrong_fund_ticker_in_square_brackets_is_refused():
+    found = read_fund([["Ticker: SPDR Bloomberg Short Term High Yield Bond ETF [SJNK]"]])
+    assert found.stated_ticker == "SJNK"
+    assert "The file names the fund ticker SJNK; JNK was expected." in found.findings
+
+
+def test_a_bracketed_qualifier_that_is_not_a_ticker_is_still_passed_over():
+    assert read_fund([["Ticker: SPDR High Yield ETF [not available]"]]).stated_ticker is None

@@ -107,7 +107,12 @@ class PortfolioFileError(ValueError):
 
 
 class _NoNameColumn(PortfolioFileError):
-    """A header row that names three fields but not the holding's name."""
+    """A header row that names three fields but not the holding's name; `data_rows` is the number
+    of non-empty rows under it."""
+
+    def __init__(self, message: str, data_rows: int = 0) -> None:
+        super().__init__(message)
+        self.data_rows = data_rows
 
 
 class StoreError(Exception):
@@ -453,6 +458,11 @@ def _export_table(files: Mapping[str, bytes]) -> _Table | None:
     return None
 
 
+def _data_rows(rows: Grid, header: int) -> int:
+    """The non-empty rows under the header row numbered `header`."""
+    return sum(1 for n, cells in rows if n > header and any(c.text.strip() for c in cells))
+
+
 def _header_table(file: str, rows: Grid) -> _Table | None:
     """The table under the first row naming at least `_HEADER_LEAST` fields, or None when no row
     does. A header with no name column, or with no weight, par or market value, is an error."""
@@ -463,7 +473,8 @@ def _header_table(file: str, rows: Grid) -> _Table | None:
             continue
         if not any(name in columns for name in _NAMES):
             raise _NoNameColumn(
-                f"{file}: the header row (row {number}) has no column for the holding's name."
+                f"{file}: the header row (row {number}) has no column for the holding's name.",
+                _data_rows(rows, number),
             )
         if not any(name in columns for name in _AMOUNTS):
             raise PortfolioFileError(
@@ -483,14 +494,19 @@ def _workbook_table(file: str, raw: bytes) -> _Table:
         raise PortfolioFileError(f"{file} cannot be read as an Excel workbook.")
     first: PortfolioFileError | None = None
     skipped: list[str] = []
+    largest = 0  # data rows of the biggest sheet passed over
     for sheet in sheets:
+        rows = pe.sheet_rows(raw, sheet) or []
         try:
-            table = _header_table(file, pe.sheet_rows(raw, sheet) or [])
+            table = _header_table(file, rows)
         except _NoNameColumn as error:  # this sheet is not the holdings: try the next
             first = first or error
+            largest = max(largest, error.data_rows)
             skipped.append(f"Sheet '{sheet}' was not read as holdings: {error}")
             continue
         if table is not None:
+            if first is not None and largest >= _data_rows(rows, table.start):
+                break  # a sheet passed over is as big: it may be the holdings, so refuse
             return replace(table, far=pe.far_cells(raw, sheet), skipped=tuple(skipped))
     if first is not None:
         raise PortfolioFileError(str(first)) from first
@@ -915,6 +931,7 @@ def _mandate_date(export: pe.Export, order: DateOrder | None) -> _AsOf:
 _LABEL_WORDS = 4  # a label of more words must still end with its label phrase
 _TICKER = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")  # letters and digits, 10 characters at most
 _BRACKETED = re.compile(r"\(([^()]*)\)")
+_TICKER_BRACKETS = re.compile(r"[(\[]([^()\[\]]*)[)\]]")  # a ticker in round or square brackets
 _VALUE_WORDS = 3  # a ticker with an exchange or market code (`JNK US Equity`) is this many words
 
 
@@ -938,7 +955,7 @@ def ticker_in(value: str) -> str | None:
     text = value.strip()
     if _TICKER.match(text.upper()):
         return text
-    for inner in reversed(_BRACKETED.findall(text)):
+    for inner in reversed(_TICKER_BRACKETS.findall(text)):
         if _TICKER.match(str(inner).strip().upper()):
             return str(inner).strip()
     parts = text.split()
