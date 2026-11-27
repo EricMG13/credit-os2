@@ -393,12 +393,12 @@ it("draws two neutral covenant marks and keys them beside the threshold tick", (
   const images = [...tile.querySelectorAll("[role=img]")];
   expect(images).toHaveLength(2);
   for (const image of images) {
-    expect(image.querySelector("[data-current]")).toHaveClass("bg-text-secondary");
+    expect(image.querySelector("[data-current]")).toHaveClass("bg-text-tertiary", "rounded-full");
     expect(image.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
     expect(image.querySelector("[data-bar]")).toBeNull();
   }
-  const swatch = container.querySelector('svg [data-swatch="current"]');
-  expect(swatch).toHaveClass("stroke-text-secondary");
+  const swatch = container.querySelector('svg [data-swatch="dot"]');
+  expect(swatch).toHaveClass("fill-text-tertiary");
   expect(swatch?.closest("span")).toHaveTextContent("Current");
   expect(
     tile.querySelector("span.h-2\\.5.w-0\\.5.bg-text-primary")?.parentElement,

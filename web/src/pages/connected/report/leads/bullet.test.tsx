@@ -228,7 +228,7 @@ it("draws the bar in the primary tone by default and in the tone it is given", (
   rerender(<Bullets label="Tests" tests={TESTS} tone="neutral" />);
   expect(container.querySelector(".bg-chart-1")).toBeNull();
   expect(container.querySelector("[data-current]")).not.toBeNull();
-  expect(container.querySelector("[data-current]")).not.toHaveClass("bg-text-tertiary");
+  expect(container.querySelector("[data-current]")).toHaveClass("bg-text-tertiary");
   // The threshold tick keeps the primary text colour.
   expect(container.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
 });
@@ -239,4 +239,16 @@ it("shows covenant room as two marks without a bar from zero", () => {
   expect(image?.querySelector("[data-current]")).not.toBeNull();
   expect(image?.querySelector("[data-threshold]")).not.toBeNull();
   expect(image?.querySelector("[data-bar]")).toBeNull();
+});
+
+it("keeps equal current and threshold marks separately visible", () => {
+  const test = TESTS[0];
+  if (!test) throw new Error("fixture test");
+  const equal = {
+    ...test,
+    current: { ...test.threshold, text: test.threshold.text },
+  };
+  const { container } = render(<Bullets label="Tests" tests={[equal]} tone="neutral" />);
+  expect(container.querySelector("[data-current]")).toHaveClass("rounded-full");
+  expect(container.querySelector("[data-threshold]")).toHaveClass("bg-text-primary");
 });

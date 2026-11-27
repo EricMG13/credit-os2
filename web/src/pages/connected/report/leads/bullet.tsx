@@ -145,7 +145,7 @@ function BulletRow({ test, href, tone }: { test: LeadTest; href?: string; tone: 
               <span
                 data-current
                 className={cx(
-                  "absolute -inset-y-0.5 w-0.5 bg-text-secondary",
+                  "absolute top-1/2 z-10 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-tertiary ring-1 ring-surface-card",
                   inset(share(geometry.current)),
                 )}
                 style={{ left: `${String(share(geometry.current) * 100)}%` }}
@@ -153,7 +153,7 @@ function BulletRow({ test, href, tone }: { test: LeadTest; href?: string; tone: 
               <span
                 data-threshold
                 className={cx(
-                  "absolute -inset-y-1 w-0.5 bg-text-primary",
+                  "absolute -inset-y-1 z-0 w-0.5 bg-text-primary",
                   inset(share(geometry.threshold)),
                 )}
                 style={{ left: `${String(share(geometry.threshold) * 100)}%` }}
