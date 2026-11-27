@@ -92,6 +92,7 @@ from deploy_workflow.model.handoff import (
     WEB_SEARCH_MODULE,
     Check,
     _pages,
+    first_handoff_reservation,
     recorded_web_lookup,
     settled_web_lookup,
     web_lookup_offered,
@@ -1480,8 +1481,16 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
             texts[module] = head + block.encode() + mark + method
     guesses, documents = _documents(covers)
     _add_reading_notes(texts, reading_notes, pinned, documents)
-    # The loop's own bound for the first call of the largest module; later calls hold more.
-    hold = max(
+    own_sources = {
+        **pinned,
+        CONTEXT_SOURCE_ID: HandoffInput(
+            path=os.path.relpath(context_path, directory), sha256=_sha(raw_context)
+        ),
+    }
+    high = sent_at_high(config, high_modules, ordered)
+    # CP-0 can be sized now. Keep the instruction-based estimate for later modules, whose
+    # upstream handoffs are not yet available. The executor prices every request before sending.
+    later_hold = max(
         request_reservation_usd(price_of(config), len(text) + 4096, output_limit(config))
         + (
             web_search_usd(WEB_SEARCH_CALLS_PER_TURN)
@@ -1491,10 +1500,19 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         for module, text in texts.items()
         if module != "CP-8"
     )
+    first_hold = first_handoff_reservation(
+        run,
+        texts["CP-0"],
+        {name: spec.sha256 for name, spec in own_sources.items()},
+        config=config,
+        max_output=output_limit(config),
+        effort="high" if "CP-0" in high else CONFIGS[config].effort,
+    )
+    hold = max(later_hold, first_hold)
     estimate = _custom_estimate(
         completion,
         compared=prior is not None,
-        high=sent_at_high(config, high_modules, ordered),
+        high=high,
         hold=hold,
     )
     provider_cap = _provider_cap(cap, estimate)
@@ -1509,10 +1527,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     request = HandoffPlan(
         run=run,
         sources={
-            **pinned,
-            CONTEXT_SOURCE_ID: HandoffInput(
-                path=os.path.relpath(context_path, directory), sha256=_sha(raw_context)
-            ),
+            **own_sources,
             **{
                 name: HandoffInput(path=path, sha256=_sha(earlier[name]))
                 for name, path in (prior_sources(prior) if prior is not None else {}).items()
