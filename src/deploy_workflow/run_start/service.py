@@ -234,7 +234,7 @@ SHOWN_CAP_HEADER = "X-Shown-Cap"  # the cap the page displays, sent with summary
 
 
 def requires_preparer(method: str, path: str) -> bool:
-    """Whether this exact run-start method/path prepares, changes, or submits a draft."""
+    """Whether this exact run-start route requires an Analyst or Admin."""
     if method == "POST" and path == "/api/submissions":
         return True
     if found := _SUBMISSION.fullmatch(path):
@@ -256,6 +256,8 @@ def requires_preparer(method: str, path: str) -> bool:
             ("DELETE", False),
             ("DELETE", True),
         }
+    if (standing := _STANDING.fullmatch(path)) and standing[1]:
+        return method == "POST" or (method == "DELETE" and standing[2] == "/files")
     return False
 
 
