@@ -131,3 +131,19 @@ it("keeps a plain quotation and draws no description when it cannot be delimited
   expect(description("Q page 12: “Acme operates stores.” More")).toBe("Acme operates stores.");
   expect(description("Q page 12: “Acme operates stores across Canada")).toBeUndefined();
 });
+
+it("ends a curly quotation at the closing mark that balances its nesting, not at later quotes", () => {
+  expect(description("Q page 12: “Acme operates stores.” Analyst view: “mostly domestic”")).toBe(
+    "Acme operates stores.",
+  );
+  expect(description("Q page 12: “Acme “Brand X” stores.” Analyst view: “mostly domestic”")).toBe(
+    "Acme “Brand X” stores.",
+  );
+});
+
+it("draws no description for a straight-quote quotation followed by more quoted text", () => {
+  // The end of the quotation cannot be told from an inner quote, so it is a gap, never analyst text.
+  expect(
+    description('Q page 12: "Acme operates stores." Analyst view: "mostly domestic"'),
+  ).toBeUndefined();
+});

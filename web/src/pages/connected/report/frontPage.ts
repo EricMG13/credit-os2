@@ -240,19 +240,29 @@ function readyField(text?: string) {
 }
 
 /**
- * The whole quotation after a page pointer: from its opening quote to the last matching closing
- * quote, inner quotation marks included. Text that cannot be delimited without doubt (no closing
- * quote, or unpaired straight quotes) yields nothing, never a part of the sentence.
+ * The filed quotation after a page pointer, inner quotation marks included. A curly opener ends at
+ * the first ” that balances the “/” nesting. A straight opener is accepted only when the closing
+ * quote is the sole straight quote after it (any other straight quote could be an inner mark or the
+ * start of analyst text). A quotation whose end cannot be told without doubt yields nothing.
  */
 function filedQuotation(text: string) {
   const opened = /^[A-Z] page:? \d+:\s*([“"])/.exec(text);
   if (!opened) return undefined;
   const rest = text.slice(opened[0].length);
-  const close = opened[1] === "“" ? "”" : '"';
-  const end = rest.lastIndexOf(close);
-  if (end <= 0) return undefined;
-  if (close === '"' && rest.split('"').length % 2 !== 0) return undefined;
-  return rest.slice(0, end);
+  let end = -1;
+  if (opened[1] === '"') {
+    if (rest.split('"').length === 2) end = rest.indexOf('"');
+  } else {
+    let depth = 0;
+    for (let at = 0; at < rest.length && end < 0; at += 1) {
+      if (rest[at] === "“") depth += 1;
+      else if (rest[at] === "”") {
+        if (depth === 0) end = at;
+        else depth -= 1;
+      }
+    }
+  }
+  return end > 0 ? rest.slice(0, end) : undefined;
 }
 
 function companyProfile(entry: OutputEntry | undefined) {
