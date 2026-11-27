@@ -1,0 +1,26 @@
+name: Disposable coordinator enforcement pilot
+on:
+  pull_request:
+    branches: [codex/dev-enforcement-pilot]
+permissions:
+  contents: read
+jobs:
+  proof:
+    name: Credit OS2 pilot live browser proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the displayed missing and zero cases against the base oracle
+        env:
+          TARGET: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git show "$CANDIDATE:fixture.html" > "$RUNNER_TEMP/pilot.html"
+          google-chrome --headless --no-sandbox --disable-dev-shm-usage --dump-dom "file://$RUNNER_TEMP/pilot.html" > "$RUNNER_TEMP/dom.html"
+          git show "$TARGET:verify.py" > "$RUNNER_TEMP/verify.py"
+          python "$RUNNER_TEMP/verify.py" "$RUNNER_TEMP/dom.html"
+          echo "Verified candidate $CANDIDATE against target $TARGET"
