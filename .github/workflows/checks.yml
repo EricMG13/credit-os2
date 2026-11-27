@@ -90,7 +90,10 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [[ -z "$BASE" ]] || ! git diff --quiet "$BASE" HEAD -- web src react_frontend apps proof prompts pyproject.toml uv.lock .github/workflows/checks.yml; then
-            echo "required=true" >> "$GITHUB_OUTPUT"
+            echo "connected=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -z "$BASE" ]] || ! git diff --quiet "$BASE" HEAD -- tools/dev_dashboard.py tools/dev_dashboard tools/dev_ledger.py web/scripts/dev-dashboard-proof.mjs .github/workflows/checks.yml; then
+            echo "dashboard=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/setup-node@v4
         with:
@@ -108,24 +111,26 @@ jobs:
       - run: npm --prefix web run test:scripts
 
       - uses: astral-sh/setup-uv@v5
-        if: steps.browser.outputs.required == 'true'
+        if: steps.browser.outputs.connected == 'true' || steps.browser.outputs.dashboard == 'true'
         with:
           version: "0.12.5"
-      - name: run the connected workflow in live Chrome and Edge
-        if: steps.browser.outputs.required == 'true'
+      - name: prepare locked Python and browser dependencies
+        if: steps.browser.outputs.connected == 'true' || steps.browser.outputs.dashboard == 'true'
         run: |
           uv sync --frozen --group dev
           if ! command -v google-chrome || ! command -v microsoft-edge; then
             (cd web && node_modules/.bin/playwright install --with-deps chrome msedge)
           fi
-          npm --prefix web run proof:connected
+      - name: run the connected workflow in live Chrome and Edge
+        if: steps.browser.outputs.connected == 'true'
+        run: npm --prefix web run proof:connected
       - name: run the development dashboard in live Chrome and Edge
-        if: steps.browser.outputs.required == 'true'
+        if: steps.browser.outputs.dashboard == 'true'
         run: |
           mkdir -p proof-artifacts/dev-dashboard
           CREDIT_OS2_DASHBOARD_PROOF=proof-artifacts/dev-dashboard node web/scripts/dev-dashboard-proof.mjs
       - name: retain synthetic browser results
-        if: always() && steps.browser.outputs.required == 'true'
+        if: always() && (steps.browser.outputs.connected == 'true' || steps.browser.outputs.dashboard == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: connected-browser-proof-${{ github.sha }}

@@ -41,6 +41,18 @@ function seed() {
     );
   }
   ledger("launch", "coverage-delivery", "worker-1", "1", "0", "fixture-spec", "fixture-plan");
+  execFileSync(
+    python,
+    [
+      "-c",
+      "import sys; from pathlib import Path; from tools.dev_ledger import connect, event; " +
+        "db = connect(Path(sys.argv[1])); " +
+        "event(db, 'coverage-delivery', 'observed:worker-1', 'worker-result', " +
+        "{'observed_model': 'gpt-6.2-astra', 'observed_effort': 'medium', 'returncode': 0})",
+      database,
+    ],
+    { cwd: root },
+  );
 }
 
 async function ready(server) {
@@ -59,6 +71,9 @@ async function prove(channel, url, viewport) {
   const browser = await chromium.launch({ channel });
   try {
     const page = await browser.newPage({ viewport });
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: new URL(url).origin,
+    });
     page.setDefaultTimeout(10000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -72,16 +87,18 @@ async function prove(channel, url, viewport) {
       "Verified 1",
     ]);
     assert.equal(await page.getByRole("rowheader", { name: "worker-1" }).count(), 1);
+    assert(await page.getByText("gpt-6.2-astra · medium", { exact: true }).isVisible());
     await page.getByRole("link", { name: /D-04/ }).click();
     await page.getByRole("button", { name: "Draft change request" }).click();
     const reply = page.getByRole("textbox", { name: "Prompt" });
     assert.match(await reply.inputValue(), /coverage-delivery, decision D-04.*change/);
     await reply.fill("For Credit OS2 run coverage-delivery, decision D-04, match fiscal periods.");
     await page.getByRole("button", { name: "Copy prompt" }).click();
-    await page
-      .getByRole("status")
-      .filter({ hasText: /Prompt copied|copy shortcut/ })
-      .waitFor();
+    await page.getByRole("status").filter({ hasText: "Prompt copied" }).waitFor();
+    assert.equal(
+      await page.evaluate(() => navigator.clipboard.readText()),
+      await reply.inputValue(),
+    );
     await page.getByRole("button", { name: "Draft explanation request" }).click();
     assert.match(await reply.inputValue(), /coverage-delivery, decision D-04.*explain/);
     assert(await page.getByText("Match fiscal periods.", { exact: true }).isVisible());

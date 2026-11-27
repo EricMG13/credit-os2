@@ -74,5 +74,5 @@ tbody tr { border-top: 1px solid var(--line); }
   .dashboard { grid-template-columns: 1fr; gap: 14px; }
   .run-meta { gap: 13px 22px; }
   th, td { padding-inline: 8px; }
-  tbody th { white-space: normal; overflow-wrap: anywhere; }
+  tbody th, tbody td:nth-child(4) { white-space: normal; overflow-wrap: anywhere; }
 }

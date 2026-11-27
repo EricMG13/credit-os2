@@ -159,21 +159,23 @@ def decision_details(path: str, run: str, item: dict[str, Any] | None) -> str:
 </aside>"""
 
 
-def attempts_table(attempts: list[dict[str, Any]]) -> str:
+def attempts_table(attempts: list[dict[str, Any]], observed: dict[str, str]) -> str:
     if not attempts:
         return '<p class="empty">No workers have started.</p>'
     rows = "".join(
         f'<tr><th scope="row">{escape(row["id"])}</th><td>{escape(row["state"]).title()}</td>'
-        f"<td>{row['revision']}</td><td>{row['reserved']}</td>"
+        f"<td>{row['revision']}</td><td>{escape(observed.get(row['id'], '—'))}</td>"
+        f"<td>{row['reserved']}</td>"
         f"<td>{row['settled'] if row['settled'] is not None else '—'}</td></tr>"
         for row in attempts
     )
     return f"""<div class="table-wrap" role="region" aria-label="Workers" tabindex="0"><table>
-<thead><tr><th>Attempt</th><th>Status</th><th>Revision</th><th>Reserved</th><th>Settled</th></tr></thead>
+<thead><tr><th>Attempt</th><th>Status</th><th>Revision</th><th>Observed model</th>
+<th>Reserved</th><th>Settled</th></tr></thead>
 <tbody>{rows}</tbody></table></div>"""
 
 
-def show_run(path: str, report: dict[str, Any], chosen: str) -> str:
+def show_run(path: str, report: dict[str, Any], chosen: str, observed: dict[str, str]) -> str:
     selected = next((item for item in report["decisions"] if item["id"] == chosen), None)
     spend = report["project_spend"]
     return f"""<dl class="run-meta">
@@ -186,7 +188,21 @@ def show_run(path: str, report: dict[str, Any], chosen: str) -> str:
 <section><h2>Decision queue</h2>{decision_queue(path, report, chosen)}</section>
 {decision_details(path, report["run"], selected)}
 </div>
-<section class="workers"><h2>Workers</h2>{attempts_table(report["attempts"])}</section>"""
+<section class="workers"><h2>Workers</h2>{attempts_table(report["attempts"], observed)}</section>"""
+
+
+def observed_routes(db: sqlite3.Connection, run: str) -> dict[str, str]:
+    rows = db.execute(
+        """SELECT id, json_extract(result, '$.observed_model') AS model,
+                  json_extract(result, '$.observed_effort') AS effort
+           FROM events WHERE run=? AND kind='worker-result' AND id LIKE 'observed:%'""",
+        (run,),
+    )
+    return {
+        row["id"].removeprefix("observed:"): f"{row['model']} · {row['effort']}"
+        for row in rows
+        if isinstance(row["model"], str) and isinstance(row["effort"], str)
+    }
 
 
 def model_decisions(db: sqlite3.Connection) -> str:
@@ -231,12 +247,15 @@ def dashboard(db_path: Path, path: str, query: dict[str, list[str]]) -> tuple[HT
                     path, selector + '<p class="empty">Run not found.</p>'
                 )
             report = run_status(db, run)
+            observed = observed_routes(db, run)
             model_log = model_decisions(db)
     except sqlite3.Error:
         message = '<p class="empty">The ledger could not be read. Check its path and refresh.</p>'
         return HTTPStatus.SERVICE_UNAVAILABLE, page_html(path, message)
     chosen = query.get("decision", [""])[0]
-    return HTTPStatus.OK, page_html(path, selector + show_run(path, report, chosen) + model_log)
+    return HTTPStatus.OK, page_html(
+        path, selector + show_run(path, report, chosen, observed) + model_log
+    )
 
 
 class DashboardServer(ThreadingHTTPServer):
