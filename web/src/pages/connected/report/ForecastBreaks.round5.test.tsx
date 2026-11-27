@@ -1,47 +1,6 @@
-import { render } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { OutputEntry } from "../publishedReport";
-import type { ReportView } from "../reportView";
-import { WhatBreaks } from "./ForecastBreaks";
-import { readMeasure } from "./forecastData";
-
-const table = (line: number, headers: string[], rows: string[][]) => ({
-  type: "table" as const,
-  line,
-  headers,
-  rows: rows.map((cells, at) => ({ line: line + 2 + at, cells })),
-});
-const entryOf = (module: string, sections: unknown[]) =>
-  ({
-    selected: true,
-    output: {
-      id: module,
-      sha256: "e".repeat(64),
-      module,
-      label: "",
-      href: "",
-      state: { established: true, declared: null },
-      charts: [],
-    },
-    sections,
-  }) as unknown as OutputEntry;
-const view = (entries: OutputEntry[]) =>
-  ({ catalogue: undefined, lead: undefined, entries, modules: [], models: [] }) as ReportView;
-const model = {
-  cashflow: {
-    units: "USD millions",
-    columns: [{ label: "FY2025E", group: "Base case" }],
-    rows: [
-      {
-        label: "Accessible liquidity",
-        band: "Cash",
-        kind: "money",
-        total: false,
-        cells: [{ status: "na", display: "n.a.", reason: "Not modelled" }],
-      },
-    ],
-  },
-};
+import { entryOf, renderBreaks, stressedMetrics, table } from "./ForecastBreaks.fixture";
 
 const downside = (rows: string[][], kind = "Analyst Interpretation; Medium") =>
   entryOf("CP-2A", [
@@ -67,27 +26,10 @@ const downside = (rows: string[][], kind = "Analyst Interpretation; Medium") =>
         ),
       ],
     },
-    {
-      heading: "T2DS.4 Stressed flows and metrics",
-      level: 4,
-      line: 104,
-      blocks: [table(106, ["Metric", "s00", "s01", "Source"], rows)],
-    },
+    stressedMetrics(rows),
   ]);
 
-function breaks(entry: OutputEntry) {
-  return render(
-    <WhatBreaks
-      view={view([entry])}
-      folder="current"
-      liquidity={readMeasure(model, "accessible liquidity", /^Accessible liquidity\b/)}
-      group="Base case"
-      caseName="Base case"
-      schedule={{ years: [], offAxis: [], unit: "", reason: "No schedule." }}
-      source={(name) => <button type="button">{`Show sources for ${name}`}</button>}
-    />,
-  );
-}
+const breaks = (entry: OutputEntry) => renderBreaks([entry]);
 
 it("C4-4 draws no file, page or note from a case's classification", () => {
   const { container } = breaks(
