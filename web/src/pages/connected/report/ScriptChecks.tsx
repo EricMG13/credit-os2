@@ -6,7 +6,7 @@ import type { ScriptCheckOutcome, ScriptCheckRecord } from "../publishedReport";
 import { CheckingRecord } from "./CheckingRecord";
 import { ModuleOutcomeTable } from "./ModuleOutcomeTable";
 import { GapNote, Tile } from "./overview/Tile";
-import { byAttention, CheckCard, groupOutcomes, StatusIcon, tally } from "./scriptCheckParts";
+import { byAttention, CheckCard, CheckStatusMark, groupOutcomes, tally } from "./scriptCheckParts";
 
 type ModuleOutcomes = readonly [string, readonly ScriptCheckOutcome[]];
 
@@ -42,7 +42,7 @@ function OutcomeGroup({
     <section className="min-w-0">
       <details className="group rounded-ds-md border border-border-hairline" open={open}>
         <summary className="flex min-h-8 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 max-[480px]:min-h-11">
-          <StatusIcon status={status} />
+          <CheckStatusMark status={status} glyphOnly />
           <h4 className="text-h4 font-medium text-text-primary">
             {status} · {count}
           </h4>
