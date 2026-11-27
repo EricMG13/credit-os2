@@ -2,7 +2,14 @@
 // while the service answers, shows the service's sentence when it refuses (what was typed is kept)
 // and closes once the write is accepted. With no field it is the question asked before a removal. Built as the name and share dialogs are; drawn on a
 // service only, so the design-reference app never opens one.
-import { useState, type ReactNode, type SyntheticEvent } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+  type SyntheticEvent,
+} from "react";
 import { Alert } from "@/components/alert/Alert";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
@@ -131,16 +138,34 @@ function Form({
   other,
   onClose,
   onGone,
-}: Props) {
+  open,
+  pendingRef,
+}: Props & { open: boolean; pendingRef: RefObject<object | null> }) {
   useOnGone(onGone);
   const [values, setValues] = useState(() => start(fields));
   const [missing, setMissing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [wasOpen, setWasOpen] = useState(open);
+  // Reopening can interrupt the exit animation before the previous form unmounts.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setValues(start(fields));
+      setMissing(null);
+      setBusy(false);
+      setRefusal(null);
+    }
+  }
   const run = (send: () => Promise<string | null>) => {
+    if (!open || pendingRef.current !== null) return;
+    const submission = {};
+    pendingRef.current = submission;
     setBusy(true);
     setRefusal(null);
     void send().then((refused) => {
+      if (pendingRef.current !== submission) return;
+      pendingRef.current = null;
       setBusy(false);
       if (refused === null) onClose();
       else setRefusal(refused);
@@ -213,18 +238,30 @@ function Form({
   );
 }
 
-export function FormDialog({ open, ...form }: Props & { open: boolean }) {
+export function FormDialog({ open, onClose, ...form }: Props & { open: boolean }) {
+  const pendingRef = useRef<object | null>(null);
+  // A closed dialog may still be mounted during its exit animation.
+  useLayoutEffect(
+    () => () => {
+      pendingRef.current = null;
+    },
+    [open],
+  );
+  const close = () => {
+    pendingRef.current = null;
+    onClose();
+  };
   return (
     <ModalOverlay
       isOpen={open}
       isDismissable
       onOpenChange={(next) => {
-        if (!next) form.onClose();
+        if (!next) close();
       }}
     >
       <Modal className="sm:max-w-160">
         <Dialog aria-labelledby={TITLE_ID}>
-          <Form {...form} />
+          <Form {...form} open={open} pendingRef={pendingRef} onClose={close} />
         </Dialog>
       </Modal>
     </ModalOverlay>

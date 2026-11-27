@@ -145,11 +145,14 @@ export function TopicsSection({
 }) {
   const off = useSampleOff(REASON_ID);
   const opener = useOpener();
-  // Which form is open: a topic's id, "new", or none. The topic stays named while the dialog leaves.
-  const [form, setForm] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
-  const open = (id: string | null) => {
+  // Keep the edit target if the topic disappears while the dialog is open.
+  const [form, setForm] = useState<{ open: boolean; topic: SignalSettingsTopic | null }>({
+    open: false,
+    topic: null,
+  });
+  const open = (topic: SignalSettingsTopic | null) => {
     opener.remember();
-    setForm({ open: true, id });
+    setForm({ open: true, topic });
   };
   return (
     <Section
@@ -175,9 +178,9 @@ export function TopicsSection({
       ) : null}
       {writer ? (
         <TopicForm
-          key={form.id ?? "new"}
+          key={form.topic?.id ?? "new"}
           open={form.open}
-          topic={topics.find((topic) => topic.id === form.id) ?? null}
+          topic={topics.find((topic) => topic.id === form.topic?.id) ?? form.topic}
           onClose={() => {
             setForm({ ...form, open: false });
           }}
@@ -194,7 +197,7 @@ export function TopicsSection({
               topic={topic}
               writer={writer}
               onEdit={() => {
-                open(topic.id);
+                open(topic);
               }}
             />
           ))}

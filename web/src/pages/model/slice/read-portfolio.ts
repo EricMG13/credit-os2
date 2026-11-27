@@ -264,12 +264,10 @@ export function checkPortfolioFit(page: PortfolioFitPage, path: string): void {
   }
   if (!isGap(page.scatter)) checkScatter(page.scatter, child(path, "scatter"));
   checkStrips(page.strips, child(path, "strips"));
-  const named = [page.limits, page.ratings, page.scatter, page.strips].map((c, i) => ({
-    name: isGap(c) ? c.gap.title : c.title,
-    where: child(
-      path,
-      `${["limits", "ratings", "scatter", "strips"][i] ?? ""}${isGap(c) ? ".gap" : ""}.title`,
-    ),
-  }));
+  const named = (["limits", "ratings", "scatter", "strips"] as const).flatMap((key) => {
+    const panel = page[key];
+    if (isGap(panel) || panel.trace === null) return [];
+    return [{ name: panel.title, where: child(path, `${key}.title`) }];
+  });
   distinctTraceControlNames(named);
 }

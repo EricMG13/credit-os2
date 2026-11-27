@@ -228,20 +228,22 @@ function EarlierDigests({
   );
 }
 
-/** `none` is the empty state a digest with no issue draws (the page that owns the empty states passes it). */
-/** On a service, opening a digest with an unread issue tells the service it was read. */
-function useDigestRead(scene: SignalScene, digestId: string) {
+/** Mark only the fully displayed issue. Earlier rows show summaries. */
+function useDigestRead(scene: SignalScene, digestId: string, issueId: string | undefined) {
   const actions = useSignalActions();
   const { channels, feed } = scene.snapshot;
-  const unread =
-    channels.digests.some((one) => one.id === digestId && one.unread) ||
-    feed.digests.some((card) => card.digestId === digestId && card.unread);
+  const card = feed.digests.find((one) => one.digestId === digestId && one.issueId === issueId);
+  // The feed may omit the current issue's card. The channel badge then allows an idempotent mark.
+  const unread = card?.unread ?? channels.digests.some((one) => one.id === digestId && one.unread);
   useEffect(() => {
-    // Only its owner may; a refusal changes nothing the reader did, so nothing is said about it.
-    if (actions !== null && unread) void actions.write(writes.readDigest(digestId));
-  }, [actions, digestId, unread]);
+    // A refusal does not change what the reader sees.
+    if (actions !== null && issueId !== undefined && unread) {
+      void actions.write(writes.readDigestIssue(digestId, issueId));
+    }
+  }, [actions, digestId, issueId, unread]);
 }
 
+/** `none` is the empty state a digest with no issue draws (the page that owns the empty states passes it). */
 export function DigestPage({
   scene,
   digest,
@@ -254,11 +256,11 @@ export function DigestPage({
   digest: SignalDigest;
   none: ReactNode;
 }) {
-  useDigestRead(scene, digest.id);
   const earlierTitle = useRef<HTMLHeadingElement>(null);
   const [first, ...rest] = digest.issues;
   // A paused digest writes no new issue: every issue is an earlier one.
   const current = digest.paused === null ? first : undefined;
+  useDigestRead(scene, digest.id, current?.id);
   const earlier = current === undefined ? digest.issues : rest;
   return (
     <div className="max-w-[820px]">
