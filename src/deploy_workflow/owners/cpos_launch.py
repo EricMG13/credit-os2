@@ -107,6 +107,7 @@ from deploy_workflow.model.pricing import (
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
 from deploy_workflow.owners import (
+    cp2g,
     cpos_custom,
     cpos_forecast,
     cpos_launch_methods,
@@ -2068,7 +2069,9 @@ def _downside_issues(
     of TDG (2026-11-25): the module held cash interest flat in its tables but stated only
     `downside_shock`, and its 6.66x stood beside Python's 6.8089x. Documented fail-open, logged at
     WARNING: nothing is raised for a blocked module, for a block without a downside case, or when
-    Python cannot read table T2H.6's period, case and net-leverage cells (no guess)."""
+    Python cannot read table T2H.6's period, case and net-leverage cells (no guess). An analyst
+    overpayment also skips this comparison. CP-OS records the reason and withholds the forecast
+    during delivery."""
     if inputs.downside_shock is None and inputs.downside_drivers is None:
         return ()
     if method_scripts.blocked(text):
@@ -2077,7 +2080,11 @@ def _downside_issues(
     if not stated:
         log.warning("downside net leverage not checked against Python's: T2H.6 is not read")
         return ()
-    computed = _computed_downside(task, text)
+    try:
+        computed = _computed_downside(task, text)
+    except cp2g.AnalystDebtOverpayment as error:
+        log.warning("downside net leverage not checked against Python's: %s", error)
+        return ()
     differing = []
     for year, printed in stated.items():
         python = computed.get(year)

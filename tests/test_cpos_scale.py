@@ -810,14 +810,14 @@ def test_a_millions_fixture_and_the_same_fixture_in_thousands_publish_identical_
 
 
 CASE_UP = _case_drivers(dividends=("30000", "30000.5", "0"))
-CASE_DOWN = _case_drivers(debt_repayment=("10000", "0", "600000"))
+CASE_DOWN = _case_drivers(debt_repayment=("10000", "0", "590000"))
 
 
 def test_the_amount_drivers_of_the_cases_are_divided_at_scale_1000():
     block = block_k(upside_drivers=CASE_UP, downside_drivers=CASE_DOWN)
     inputs = parse(block, CP1_K)
     assert inputs.upside_drivers.dividends.values == ("30", "30.0005", "0")
-    assert inputs.downside_drivers.debt_repayment.values == ("10", "0", "600")
+    assert inputs.downside_drivers.debt_repayment.values == ("10", "0", "590")
     exact = json.loads(model_files(CP1_K.encode(), block.encode())["forecast_exact.json"])
     # year 1, upside: closing cash 100 + 132 (free cash flow) - 30 (dividends) - 50 (repayment)
     assert exact["outputs"]["UPSIDE"]["years"][0]["closing_cash"]["amount"] == "152"
