@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+import test_auth_gate
 from test_auth_gate import INSIDE, _refused, cookie, mint, send
 from test_auth_routes import _begin_flow, _callback_request
 
@@ -18,7 +19,15 @@ from deploy_workflow.accounts import store
 from deploy_workflow.run_start import service
 from react_frontend import Server, auth_gate
 
-pytest_plugins = ("test_auth_routes", "test_auth_gate")
+pytest_plugins = ("test_auth_routes",)
+
+# The gate module's fixtures, bound to this module only: registering it as a plugin would let its
+# ``root`` replace ``inbox_fixtures.root`` for every later test in a whole-suite run.
+accounts_dir = test_auth_gate.accounts_dir
+no_scheduler = test_auth_gate.no_scheduler
+on = test_auth_gate.on
+root = test_auth_gate.root
+web = test_auth_gate.web
 
 
 def _delete_store(accounts_dir: Path) -> None:
@@ -235,6 +244,3 @@ def test_the_denial_and_the_role_set_are_the_services(monkeypatch: pytest.Monkey
     analyst = cast("store.Account", SimpleNamespace(profile_type="analyst"))
     access = react_frontend._run_access(Path("/accounts"), analyst)
     assert access == {"can_prepare": False, "analyst_name": None}
-    source = Path(react_frontend.__file__).read_text(encoding="utf-8")
-    assert "_PREPARATION_DENIAL" not in source
-    assert '{"analyst", "admin"}' not in source

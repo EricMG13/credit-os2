@@ -834,15 +834,15 @@ def test_open_db_without_create_never_recreates_a_file_deleted_before_connect(
 ) -> None:
     folder = tmp_path / "store"
     open_db(folder).close()
-    real = store_module._check_private
+    real_connect = sqlite3.connect
 
-    def check_then_delete(target: Path, label: str) -> None:
-        real(target, label)
-        if label == "the account store":
-            target.unlink()
+    def delete_then_connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        # The last step every platform runs before the connect, so the connect itself meets
+        # the missing file (the ACL and privacy checks have all passed by now).
+        (folder / "accounts.db").unlink()
+        return real_connect(*args, **kwargs)
 
-    monkeypatch.setattr(store_module, "_check_private", check_then_delete)
-    # Linux's ACL check (listxattr) notices the deleted file first, so the type differs by platform.
-    with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
+    monkeypatch.setattr(store_module.sqlite3, "connect", delete_then_connect)
+    with pytest.raises(sqlite3.OperationalError):
         open_db(folder, create=False)
     assert not (folder / "accounts.db").exists()

@@ -616,7 +616,8 @@ def _is_inside(folder: Path, root: Path) -> bool:
     """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
     the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
     file as ``root``. Creates nothing. ``root`` is stat-ed first, and again by each comparison: if
-    it is gone the check has nothing to compare with."""
+    it is gone the check has nothing to compare with. Raises ``ValueError`` then (see
+    ``_same_file``)."""
     try:
         os.stat(root)
     except FileNotFoundError:
@@ -625,6 +626,8 @@ def _is_inside(folder: Path, root: Path) -> bool:
 
 
 def _same_file(path: Path, root: Path) -> bool:
+    """Whether the two paths are the same file. False for a path that does not exist. Raises
+    ``ValueError`` when the shared folder itself (``root``) is gone."""
     try:
         return os.path.samefile(path, root)
     except FileNotFoundError:
