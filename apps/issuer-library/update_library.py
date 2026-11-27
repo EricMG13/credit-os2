@@ -164,7 +164,8 @@ def committee_hold(directory: Path, delivered: dict[str, Any]) -> str | None:
             f"{delivered['folder']}/report-view.json",
             delivered["files"].get("report-view.json"),
         )
-        report = strict_loads(raw)
+        # Only the schema and hold strings are used. Legacy numeric fields may contain NaN.
+        report = json.loads(raw)
     except (OSError, ValueError, RecursionError):
         return None
     if not isinstance(report, dict) or report.get("schema_version") != "report-view/1":
@@ -379,12 +380,14 @@ def handoff_zip(folder: Path, workspace: Path, run: dict[str, Any], store: dict[
                 write_download(folder, folder / unquote(handoff["href"]), raw)
                 # A fixed date makes the same handoffs give the same zip.
                 archive.writestr(zipfile.ZipInfo(handoff["name"], (1980, 1, 1, 0, 0, 0)), raw)
+    instructions = [row for row in run["evidence"]["record"]["instructions"] if row["href"]]
+    if not instructions:
+        return
     recorded = strict_loads(b"".join(regular_chunks(run_dir / "workflow.json", follow=False)))
-    for row in run["evidence"]["record"]["instructions"]:
-        if row["href"]:
-            path = recorded["instructions"][row["module"]]["path"]
-            raw = checked_bytes(run_dir / path, row["sha256"], f"{run['folder']}/{path}")
-            write_download(folder, folder / unquote(row["href"]), raw)
+    for row in instructions:
+        path = recorded["instructions"][row["module"]]["path"]
+        raw = checked_bytes(run_dir / path, row["sha256"], f"{run['folder']}/{path}")
+        write_download(folder, folder / unquote(row["href"]), raw)
 
 
 def handoff_zips(folder: Path, workspace: Path, store: dict[str, Any]) -> None:
