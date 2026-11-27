@@ -443,6 +443,14 @@ describe("Monitor", () => {
     expect(cell).not.toHaveAttribute("title", expect.stringContaining("worse"));
   });
 
+  it("draws a series whose middle point lies less than a millionth of the range from the minimum", () => {
+    const { data, issuers } = fixture();
+    const first = issuers[0] as Issuer;
+    data.facts.push(fact(first, fields[0][0], "FY2026", "100000005", "x", 1000));
+    render(<Monitor data={data} issuers={issuers} selected={null} onSelect={vi.fn()} />);
+    expect(screen.getByRole("cell", { name: /Alpha plc, Total debt \/ EBITDA/ })).toHaveTextContent("100000005");
+  });
+
   it("keeps extreme finite written decimals inside the chart pixel bounds", () => {
     const { data, issuers } = fixture();
     const field = fields[0][0];
