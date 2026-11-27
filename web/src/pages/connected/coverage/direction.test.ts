@@ -32,6 +32,7 @@ describe("verdict", () => {
   it("is none for no change, and null for a negative multiple, an unlisted field or cash", () => {
     expect(verdict(NET, "4.4", "0")).toBe("none");
     expect(verdict(NET, "-1.2", "-0.4")).toBeNull();
+    expect(verdict(NET, "4.0", "9")).toBeNull();
     expect(verdict("cp-9/other/thing", "1", "1")).toBeNull();
     expect(verdict("cp-1/liquidity/cash", "637", "-39")).toBeNull();
   });
@@ -56,5 +57,6 @@ describe("headroom", () => {
     expect(headroom(t, row("3.2", { direction: "Passes above" }))).toBeNull();
     expect(headroom(t, row("3.2", { line: 8 }))).toBeNull();
     expect(headroom(t, row("3.2", { run: "other" }))).toBeNull();
+    expect(headroom(t, row("3.2", { output: "p" }))).toBeNull();
   });
 });

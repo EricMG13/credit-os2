@@ -6,7 +6,7 @@ export type Dec = string;
 
 export type Stats = { count: number; min: Dec; q1: Dec; median: Dec; q3: Dec; max: Dec };
 
-/** The service's PLAIN_AMOUNT. */
+/** The service's PLAIN_AMOUNT pattern on ASCII digits; stricter, as a non-ASCII digit gives null (the figure is left out, never misread). */
 const PLAIN_AMOUNT = /^-?\d[\d,]*(?:\.\d+)?$/;
 
 /** A figure as an integer count of 10^-scale units. */
