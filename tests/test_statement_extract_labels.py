@@ -37,3 +37,40 @@ Total assets  5  6"""
     assert [part.line_no for part in table.omitted] == [3]
     row = _row(table, "Total assets")
     assert [(p.line_no, p.text) for p in row.label_candidates] == [(4, "Total assets")]
+
+
+TITLE_PAGE = """CONSOLIDATED STATEMENT OF INCOME
+For the years ended December 31, 2025 and 2024
+
+                                   2025        2024
+Revenue                 (1)         500         450
+Cost of sales                      (300)       (280)"""
+
+
+def test_title_line_naming_the_years_does_not_double_the_year_count() -> None:
+    row = _row(extract_statement_lines(TITLE_PAGE, "page:1"), "Revenue")
+    assert row.raw_values == ("500", "450")
+    assert row.values == (500, 450)
+    assert row.flags == ("footnote_marker",)
+
+
+def test_title_line_naming_the_years_still_flags_extra_values() -> None:
+    page = TITLE_PAGE.replace("(1)         500         450", "500  450  400  350")
+    row = _row(extract_statement_lines(page, "page:1"), "Revenue")
+    assert row.flags == ("more_values_than_header_years",)
+
+
+def test_two_line_period_header_counts_the_columns_of_the_year_line() -> None:
+    page = """Three months ended          Nine months ended
+2025   2024   2025   2024
+Revenue   1   2   3   4"""
+    row = _row(extract_statement_lines(page, "page:1"), "Revenue")
+    assert row.raw_values == ("1", "2", "3", "4")
+    assert row.flags == ()
+
+
+def test_title_line_without_years_is_unchanged() -> None:
+    page = TITLE_PAGE.replace(", 2025 and 2024", "")
+    row = _row(extract_statement_lines(page, "page:1"), "Revenue")
+    assert row.values == (500, 450)
+    assert row.flags == ("footnote_marker",)

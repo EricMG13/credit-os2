@@ -52,8 +52,9 @@ Rules (docs/development/live-runner.md, "Statement extraction"):
 Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 
 - `more_values_than_header_years`: the line has more numeric cells than the table's header
-  lines hold four-digit years (counted over all header lines; none counted when the headers
-  name no year). A footnote marker `(1)` two spaces before the values reads as a value of -1.
+  lines hold four-digit years (the most on any one header line, so a title line naming the
+  years does not double them; none counted when the headers name no year). A footnote marker
+  `(1)` two spaces before the values reads as a value of -1.
 - `label_ends_numeric`: the label's last token is a numeric cell (`1,234`, `$5`, `(12)`, a nil
   dash, a split `(12 )`) or a minus-signed number (`-120`, `\u2212120`), which stops the scan.
   Two numbers one space apart are one text cell, so the scan stops there and they stay
@@ -61,23 +62,22 @@ Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 - `ambiguous_separator`: a value is printed with one dot and exactly three digits after it
   (`1.234`) on a page whose data lines also print a whole number: the dot may be a thousands
   separator (1,234), so the value read (1.234) may be a thousand times too small.
-- `footnote_marker`: the header lines hold N > 0 four-digit years and the line has N + 1 raw
-  values whose first is `(n)`, or a bare `n` when a header line has a cell that is the word Note or
-  Notes on its own, starting left of the leftmost year column (one or two digits, no `$`), and
-  ends left of the column where the leftmost four-digit year of the
-  header lines starts (both read after the pipe rewrite): that first cell is a footnote marker,
-  dropped from `raw_values` and `values` (the label is unchanged), and the line does not also get
-  `more_values_than_header_years`. A note reference of several numbers (`7 and 9`,
-  `8, 9, 11 and 16`) is label text, two or more spaces after the label; under a Note or Notes
-  header it counts as the extra cell: the line has N raw values and the reference ends left of
-  that column, and it is dropped from the label (the values are unchanged). Rows below a later
-  header line that is not a data row are not under the Note column. Both conditions are
-  required: a small first value with no extra value, one right of the first year, or one under no
-  Note header (a two-column table under one year) is a value. Under a Note column, a row of N
-  values whose first is an unsigned bare number of one or two digits left of the years, with a
-  sign folded into a later cell, keeps that number in its label and is flagged
-  `label_ends_numeric`. With no year in the headers
-  the marker `(n)` still reads as -1 and is flagged as above.
+- `footnote_marker`: the header line with the most four-digit years holds N > 0 of them and the
+  line has N + 1 raw values whose first is `(n)`, or a bare `n` when a header line has a cell that
+  is the word Note or Notes on its own, starting left of the leftmost year column (one or two
+  digits, no `$`), and ends left of the column where the leftmost four-digit year of that same
+  line (the leftmost among tied lines) starts (both read after the pipe rewrite): that first cell
+  is a footnote marker, dropped from `raw_values` and `values` (the label is unchanged), and the
+  line does not also get `more_values_than_header_years`. A note reference of several numbers (`7
+  and 9`, `8, 9, 11 and 16`) is label text, two or more spaces after the label; under a Note or
+  Notes header it counts as the extra cell: the line has N raw values and the reference ends left
+  of that column, and it is dropped from the label (the values are unchanged). Rows below a later
+  header line that is not a data row are not under the Note column. Both conditions are required:
+  a small first value with no extra value, one right of the first year, or one under no Note
+  header (a two-column table under one year) is a value. Under a Note column, a row of N values
+  whose first is an unsigned bare number of one or two digits left of the years, with a sign
+  folded into a later cell, keeps that number in its label and is flagged `label_ends_numeric`.
+  With no year in the headers the marker `(n)` still reads as -1 and is flagged as above.
 
 `ExtractedTable.source_id` names the table's source: `extract_pack_statements` sets it and
 binds locators per source, so two sources may share a locator; `extract_statement_lines` sets
@@ -457,14 +457,18 @@ def _flags(line: ExtractedLine, years: int, footnote: bool, integers: bool) -> t
     return tuple(flags)
 
 
-def _year_column(headers: Sequence[str]) -> int | None:
-    """The column where the leftmost four-digit year of the header lines starts."""
-    starts = [
-        match.start()
+def _year_lines(headers: Sequence[str]) -> tuple[int, int | None]:
+    """The year-column count N and the column where the leftmost year starts: both read from the
+    header line(s) holding the most four-digit years, so a title line naming the same years
+    neither doubles N nor moves the column (the leftmost start among tied lines)."""
+    counted = [
+        (len(_YEAR.findall(text)), _YEAR.search(text))
         for header in headers
-        if (match := _YEAR.search(_PIPE.sub("  ", header) if "|" in header else header))
+        for text in (_PIPE.sub("  ", header) if "|" in header else header,)
     ]
-    return min(starts, default=None)
+    most = max((count for count, _ in counted), default=0)
+    starts = [match.start() for count, match in counted if count == most and match is not None]
+    return most, min(starts, default=None)
 
 
 def _footnote_marker(
@@ -575,11 +579,10 @@ def extract_statement_lines(
     header_boundaries.update(
         index for index, raw_line in enumerate(lines) if _is_period_header(raw_line)
     )
-    years = sum(len(_YEAR.findall(header)) for header in headers)
+    years, year_column = _year_lines(headers)
     # Any value printed as a whole number makes a `1.234` beside it ambiguous.
     integers = any(_INTEGER.fullmatch(raw) for line in found for raw in line.raw_values)
     flagged: list[ExtractedLine] = []
-    year_column = _year_column(headers)
     note_header = year_column is not None and any(
         _NOTE_HEADER.fullmatch(cell.group()) and cell.start() < year_column
         for header in headers
