@@ -506,13 +506,13 @@ describe("cashLadder: the handoff's own levels and deductions, as written", () =
     const after = ladder?.steps.find((s) => s.key === "afterDistributions");
     expect([after?.stated, after?.absent, after?.line]).toEqual([true, null, 387]);
   });
-  it("says what was checked when neither the cash flow statement nor the KPI dashboard states the level", () => {
+  it("says what was checked when no accepted source states the level", () => {
     const after = cashLadder(dropTable(distressed, "T4.10 KPI dashboard"))?.steps.find(
       (s) => s.key === "afterDistributions",
     );
     expect(after?.stated).toBe(false);
     expect(after?.absent).toBe(
-      "This page could not read cash flow after distributions in the cash flow statement or the KPI dashboard.",
+      "This page could not read cash flow after distributions because the financials and credit metrics table has no unique Measure or Metric column.",
     );
     expect(after?.values.map((v) => v.cell)).toEqual([null, null]);
   });

@@ -164,7 +164,7 @@ def capped_run(now: datetime) -> str:
 
 def _notice(status: ai_gate.Status | None, now: datetime, managing: bool) -> Json | None:
     """Why AI is not on. A writer or the owner is told each reason; anyone else (a reader, a
-    viewer with no name) the title and one fixed sentence: no cap, ruling or file name."""
+    viewer with no account) the title and one fixed sentence: no cap, ruling or file name."""
     if status is None:
         return {"title": "AI is off", "text": f"{NOT_SET_UP} {STOPPED}"}
     if status.state == "on":

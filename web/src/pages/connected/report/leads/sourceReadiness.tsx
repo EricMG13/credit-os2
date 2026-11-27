@@ -8,7 +8,7 @@ import {
 } from "./sourceReadinessData";
 import type { Lead, LeadProps } from "./types";
 
-const ABSENT = "This page could not read the readiness by area.";
+const ABSENT = "No readiness-by-area table is present in this module.";
 const NOT_HERE = "This page could not read the key evidence located or the conflicts.";
 
 // The state columns of the matrix, by their grid line at lg and above; the last two lines hold the
@@ -145,6 +145,30 @@ function Readiness(props: LeadProps) {
         <GapTile span={12} label="Readiness by area" kicker="Readiness by area">
           {ABSENT}
         </GapTile>
+      )}
+      {result.kind === "overall" && (
+        <FigureTile
+          props={props}
+          span={12}
+          label="Overall source readiness"
+          kicker={kicker}
+          title="Overall source readiness"
+          line={result.line}
+          source="the objective and profile row"
+          table={{
+            caption: "Overall source readiness",
+            headers: result.headers,
+            rows: [result.cells],
+          }}
+        >
+          <div className="flex items-center gap-2 text-small text-text-primary">
+            <ReadinessMarkShape mark={result.mark} />
+            <span>{result.word}</span>
+          </div>
+          {result.context && (
+            <p className="mt-2 text-small text-text-secondary">{result.context}</p>
+          )}
+        </FigureTile>
       )}
       {result.kind === "ready" && (
         <>

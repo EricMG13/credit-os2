@@ -24,7 +24,6 @@ from test_signal_snapshot import NOW, READER, WRITER, seed_sample
 
 from deploy_workflow.signal import group_view, groups, notif, snapshot, threads
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.store import add_user
 
 INES = User("Ines K", "writer")
 JONAS = User("Jonas W", "writer")
@@ -75,8 +74,6 @@ def seed_groups(db: sqlite3.Connection) -> None:
     2 Shipping desk (invited): Mara L, Tobias O, Amir S; no thread.
     3 Committee prep (invited): only Ines K. Thread 4: Ines K shares Brightwell with a note.
     """
-    for name in ("Ines K", "Jonas W"):
-        add_user(db, name, "writer")
     lev = groups.create_group(db, WRITER, "Leveraged credit", "everyone")
     ship = groups.create_group(db, WRITER, "Shipping desk", "invited")
     prep = groups.create_group(db, WRITER, "Committee prep", "invited")
@@ -564,7 +561,6 @@ def test_top_counts_only_threads_in_the_viewers_own_groups_and_live_comments(
     raised by her own groups: a share in an open group she is not a member of, or comments that
     were removed, raise nothing."""
     db = seed_sample(tmp_path)
-    add_user(db, "Ines K", "writer")
     open_desk = groups.create_group(db, WRITER, "Open desk", "everyone")
     thread, _ = threads.share(db, INES, open_desk, threads.Item(1), at(minutes=30))
     for n in range(8):
@@ -588,7 +584,6 @@ def test_top_counts_only_threads_in_the_viewers_own_groups_and_live_comments(
 
 def test_a_removed_comment_makes_nothing_unread_and_raises_no_badge(tmp_path, read_by_react):
     db = seed_sample(tmp_path)
-    add_user(db, "Ines K", "writer")
     desk = groups.create_group(db, WRITER, "Desk", "everyone")
     groups.add_member(db, WRITER, desk, "Mara L")
     thread, _ = threads.share(db, WRITER, desk, threads.Item(None, "Note"), at(hours=2))
@@ -625,7 +620,6 @@ def test_comment_opens_the_thread_in_her_own_group_before_a_livelier_open_one(
     tmp_path, read_by_react
 ):
     db = seed_sample(tmp_path)
-    add_user(db, "Ines K", "writer")
     mine = groups.create_group(db, WRITER, "Mine", "invited")
     groups.add_member(db, WRITER, mine, "Mara L")
     groups.add_member(db, WRITER, mine, "Ines K")
@@ -687,8 +681,6 @@ def _forty(tmp_path: Path) -> sqlite3.Connection:
     from deploy_workflow.signal.topics import add_topic, follow
 
     db = open_db(tmp_path)
-    for name in ("Mara L", "Ines K"):
-        add_user(db, name, "writer")
     source = propose_source(db, "Wire", "news", "https://wire.example/feed", "Mara L")
     set_source_state(db, source, "approved")
     for n in range(1, 41):

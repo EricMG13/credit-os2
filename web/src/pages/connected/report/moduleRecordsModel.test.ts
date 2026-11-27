@@ -130,6 +130,42 @@ describe("moduleRecords", () => {
       "Segment schedule · table 2",
     ]);
   });
+
+  it("keeps CP-1B's variance register on the module page with its qualifications", () => {
+    const variance = table(
+      13,
+      ["Metric", "Basis", "Abs/%", "Credit Implication", "Source"],
+      [
+        [
+          "Revenue",
+          "FY2023 to FY2024",
+          "1355; 20.6%",
+          "Demand supported debt service.",
+          "annual report",
+        ],
+      ],
+    );
+    const notes = text(12, "All amounts are USD millions unless otherwise stated.");
+    const records = moduleRecords(
+      entry(
+        [
+          section("Findings", 2, 1),
+          section("Analytical appendix — complete canonical registers", 3, 10),
+          section("T4.6 Variance register", 4, 11, [notes, variance]),
+        ],
+        { module: "CP-1B" },
+      ),
+    );
+    expect(records.tables).toContainEqual(
+      expect.objectContaining({
+        kind: "registers",
+        title: "Variance register",
+        table: variance,
+        notes: [notes],
+      }),
+    );
+    expect(records.evidence.some(({ title }) => title === "Variance register")).toBe(false);
+  });
 });
 
 describe("amountColumns", () => {

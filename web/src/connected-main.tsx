@@ -17,6 +17,8 @@ const readOnly = mode?.content === "preview";
 // The server writes this meta into the page exactly when it hosts Signal.
 const signal =
   document.querySelector<HTMLMetaElement>('meta[name="credit-os-signal"]')?.content === "on";
+const signIn =
+  document.querySelector<HTMLMetaElement>('meta[name="credit-os-sign-in"]')?.content === "on";
 const root = createRoot(container);
 
 function draw(page: ReactNode) {
@@ -50,6 +52,7 @@ import("./pages/connected/ConnectedApp").then(
         path={path}
         readOnly={readOnly}
         signal={signal}
+        signIn={signIn}
         mode={mode?.content === "synthetic" ? "synthetic" : "live"}
       />,
     );

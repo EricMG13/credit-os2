@@ -2,7 +2,7 @@
 // only where the service says it would take it. Over the service's sample, whose first thread holds
 // the viewer's own reply ("2", under Ines K's comment) and comment ("4"). Paths, bodies, names and
 // sentences are written out by hand.
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import fixture from "../../../../fixtures/signal.json";
 import { settled, show } from "../test-helpers";
 import { currentWith, refusal, serve, showLive, type Snapshot } from "./test-helpers";
@@ -243,12 +243,108 @@ describe("Remove", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Remove this comment?" })).toBeNull();
     });
-    expect(screen.getAllByText("This comment was removed by its author.")).toHaveLength(2);
+    expect(screen.getAllByText("This comment was removed.")).toHaveLength(2);
     expect(screen.getByRole("status")).toHaveTextContent("Comment removed");
     expect(screen.queryByRole("button", { name: "Remove your comment" })).toBeNull();
     await settled();
     // Remove has gone with the comment, so focus stays in the thread: on the panel or its reply box.
     const thread = screen.getByRole("dialog", { name: "Thread" });
     expect(thread.contains(document.activeElement)).toBe(true);
+  });
+});
+
+describe("Admin moderation", () => {
+  it("allows a live Admin to remove a comment only after confirmation", async () => {
+    const service = await openThread(
+      withOwn({}, {}, (snapshot) => {
+        Object.assign(snapshot.viewer, { profileType: "admin" });
+      }),
+    );
+    const comment = screen.getByText("Ines K", { selector: "cite" }).closest("li") as HTMLElement;
+    fireEvent.click(within(comment).getByRole("button", { name: "Remove comment by Ines K" }));
+    const dialog = screen.getByRole("dialog", { name: "Remove this comment?" });
+    expect(dialog).toHaveTextContent("Replies stay, but this comment is removed for everyone.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Remove this comment?" })).toBeNull();
+    });
+    expect(writes(service)).toEqual([]);
+  });
+
+  it("uses the moderation route, reports the service refusal and refreshes", async () => {
+    const service = await openThread(
+      withOwn({}, {}, (snapshot) => {
+        Object.assign(snapshot.viewer, { profileType: "admin" });
+      }),
+    );
+    service.replies.set(
+      "DELETE /signal/api/admin/comments/1",
+      refusal(403, "only an Admin can do this"),
+    );
+    const reads = service.reads();
+    const comment = screen.getByText("Ines K", { selector: "cite" }).closest("li") as HTMLElement;
+    fireEvent.click(within(comment).getByRole("button", { name: "Remove comment by Ines K" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Remove this comment?" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Remove comment" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Error: only an Admin can do this");
+    await waitFor(() => {
+      expect(service.reads()).toBe(reads + 1);
+    });
+    expect(writes(service)).toEqual(["DELETE /signal/api/admin/comments/1"]);
+  });
+
+  it("offers no moderation action to Analysts or samples", async () => {
+    await openThread(
+      withOwn({}, {}, (snapshot) => {
+        Object.assign(snapshot.viewer, { profileType: "analyst" });
+      }),
+    );
+    expect(screen.queryByRole("button", { name: /^Remove (this thread|comment by)/ })).toBeNull();
+    cleanup();
+    const slice = structuredClone(fixture.slice);
+    show("/signal/main/group/leveraged-credit/thread/corvane-thread", slice);
+    expect(screen.queryByRole("button", { name: /^Remove (this thread|comment by)/ })).toBeNull();
+  });
+
+  it("asks for thread removal and sends nothing when cancelled", async () => {
+    const service = await openThread(
+      withOwn({}, {}, (snapshot) => {
+        Object.assign(snapshot.viewer, { profileType: "admin" });
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove this thread" }));
+    const modal = screen.getByRole("dialog", { name: "Remove this thread?" });
+    const dialog = within(modal);
+    expect(modal).toHaveTextContent(
+      "The thread and all of its comments, reactions and read marks are removed.",
+    );
+    fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Remove this thread?" })).toBeNull();
+    });
+    expect(writes(service)).toEqual([]);
+  });
+
+  it("uses the thread moderation route and refreshes after a refusal", async () => {
+    const service = await openThread(
+      withOwn({}, {}, (snapshot) => {
+        Object.assign(snapshot.viewer, { profileType: "admin" });
+      }),
+    );
+    service.replies.set(
+      "DELETE /signal/api/admin/threads/1",
+      refusal(409, "the thread was already removed"),
+    );
+    const reads = service.reads();
+    fireEvent.click(screen.getByRole("button", { name: "Remove this thread" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Remove this thread?" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Remove thread" }));
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "Error: the thread was already removed",
+    );
+    await waitFor(() => {
+      expect(service.reads()).toBe(reads + 1);
+    });
+    expect(writes(service)).toEqual(["DELETE /signal/api/admin/threads/1"]);
   });
 });

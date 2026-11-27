@@ -156,6 +156,13 @@ describe("connected report Changes", () => {
     expect(screen.queryByRole("link", { name: "Review comparison evidence" })).toBeNull();
   });
 
+  it("shows the recorded first-run note without inventing a comparison module", () => {
+    renderChanges({ first_run: true, note: "changes: first run of this pathway" });
+    expect(screen.getByText("First run of this pathway.")).toBeVisible();
+    expect(screen.getByRole("region", { name: "No comparison" })).toBeVisible();
+    expect(screen.queryByText(/CP-8|What changed: the analysis/)).toBeNull();
+  });
+
   it.each([
     ["a first run", { first_run: true }],
     ["a comparison not produced", { first_run: false, pack: null, note: "Changes: not produced" }],

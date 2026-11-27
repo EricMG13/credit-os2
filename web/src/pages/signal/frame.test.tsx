@@ -161,9 +161,10 @@ describe("the Signal frame", () => {
     expect(screen.queryByText("Writer")).toBeNull();
   });
 
-  it("offers Set your name when the viewer has none", () => {
+  it("shows the account fallback when an older viewer has no name", () => {
     show("/signal/no-name/feed/for-you");
-    expect(screen.getByRole("button", { name: /Set your name/, hidden: true })).toBeInTheDocument();
+    expect(screen.getByText("Account")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Set your name/, hidden: true })).toBeNull();
     expect(screen.queryByText("Mara L")).toBeNull();
   });
 

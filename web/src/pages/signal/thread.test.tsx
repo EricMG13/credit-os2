@@ -120,9 +120,7 @@ describe("the thread panel", () => {
         { selector: "blockquote" },
       ),
     ).toBeInTheDocument();
-    expect(
-      within(comments).getByText("This comment was removed by its author."),
-    ).toBeInTheDocument();
+    expect(within(comments).getByText("This comment was removed.")).toBeInTheDocument();
     expect(within(comments).getByText("10:02")).toBeInTheDocument();
     expect(within(comments).getByText("10:40")).toBeInTheDocument();
     expect(within(comments).queryByText("Mara L")).toBeNull();
@@ -270,29 +268,22 @@ describe("the thread panel", () => {
     expect(box()).toBeInTheDocument();
   });
 
-  it("offers a writer with no name no box, and says why", () => {
+  it("does not offer a name editor for an older writer snapshot", () => {
     const slice = withMain((main) => {
       Object.assign(main.snapshot.viewer, { name: null, initials: null });
     });
     show(CORVANE_PATH, slice);
-    const dialogs = screen.getAllByRole("dialog", { hidden: true });
-    expect(dialogs).toHaveLength(2);
+    expect(screen.queryByRole("dialog", { name: "Your name", hidden: true })).toBeNull();
     const thread = screen.getByRole("dialog", { name: "Thread", hidden: true });
-    expect(within(thread).getByText("Set your name to write a comment.")).toBeInTheDocument();
+    expect(within(thread).getByText("Your account details are unavailable.")).toBeInTheDocument();
     expect(within(thread).queryByRole("textbox")).toBeNull();
     expect(within(thread).queryByRole("button", { name: /Reply/ })).toBeNull();
   });
 
-  it("shows the name the viewer typed in this visit under the box", async () => {
+  it("shows the signed-in name under the comment box", () => {
     show(CORVANE_PATH);
-    fireEvent.click(screen.getByRole("button", { name: /Writer/, hidden: true }));
-    const field = await screen.findByRole("textbox", { name: /Display name/ });
-    fireEvent.change(field, { target: { value: "Zed Quill" } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => {
-      expect(within(panel()).getByText("Zed Quill")).toBeInTheDocument();
-    });
-    expect(within(panel()).queryByText("Mara L")).toBeNull();
+    expect(within(panel()).getByText("Mara L")).toBeInTheDocument();
+    expect(within(panel()).queryByRole("textbox", { name: /Display name/ })).toBeNull();
   });
 
   it("says the thread is not found for an unknown thread, over the group view", () => {

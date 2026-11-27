@@ -54,10 +54,15 @@ import { PipelineRow } from "./report/overview/PipelineRow";
 import { StressRow } from "./report/overview/StressRow";
 import { StructureRow } from "./report/overview/StructureRow";
 import { Bento } from "./report/overview/Tile";
-import { overviewView } from "./report/overview/decision";
+import { overviewView, retainedPreviewLead } from "./report/overview/decision";
 import { useResource } from "./useResource";
 import { ReportExportPreview } from "./export/ReportExportPreview";
-import { exportHref, exportRoute, reportExports } from "./export/reportExport";
+import {
+  exportHref,
+  exportRoute,
+  previewQualification,
+  reportExports,
+} from "./export/reportExport";
 
 /**
  * The report's sections in the section control's order. History is reached from the issuer crumb and the
@@ -223,6 +228,8 @@ function Overview({
 }) {
   // The Overview's lead is the run's published credit view, never a decision module's passage.
   const reading = useMemo(() => overviewView(view, run), [view, run]);
+  const previewLead = retainedPreviewLead(reading, run, Boolean(snapshot.preview));
+  const pipelineView = previewLead ? { ...reading, lead: previewLead } : reading;
   const props = { snapshot, run, view: reading };
   return (
     <section aria-labelledby="overview-title" className="min-w-0">
@@ -230,13 +237,13 @@ function Overview({
         Overview
       </h2>
       <Bento>
-        <CallRow {...props} />
+        <CallRow {...props} retainedPreview={Boolean(snapshot.preview)} />
         <FigureRow {...props} />
         <JudgementRow {...props} />
         <StructureRow {...props} />
         <StressRow {...props} />
         <LimitsRow {...props} />
-        <PipelineRow {...props} />
+        <PipelineRow {...props} view={pipelineView} />
         <DatesRow {...props} />
       </Bento>
     </section>
@@ -396,11 +403,22 @@ function Deliverables({
   workbookAvailable: boolean;
 }) {
   const printOptions = exports.options;
+  const empty = !workbookAvailable && printOptions.length === 0;
   return (
     <section aria-labelledby="deliverables-title" className="grid min-w-0 gap-4">
       <h2 id="deliverables-title" className="font-display text-h2 font-semibold text-text-primary">
         Deliverables
       </h2>
+      {empty && (
+        <div className="rounded-ds-lg border border-border-subtle bg-surface-card p-5">
+          <p className="font-medium text-text-primary">
+            No deliverables are available for this run.
+          </p>
+          <p className="mt-1 text-small text-text-secondary">
+            {exports.reason || "A verified report is required before report exports are available."}
+          </p>
+        </div>
+      )}
       <ul className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
         {workbookAvailable && (
           <li className="min-w-0">
@@ -992,7 +1010,14 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
         found={Boolean(found)}
         id={id}
         retry={retry}
-        hidePreviewReason={tab === "deliverables"}
+        hidePreviewReason={
+          tab === "deliverables" &&
+          !previewQualification(
+            value?.preview?.reason ?? "",
+            [id, found?.[0] ?? ""],
+            run?.pathway ?? null,
+          )
+        }
       />
       {value && found && (
         <ReportPage

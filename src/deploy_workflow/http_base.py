@@ -151,7 +151,73 @@ class Handler(BaseHTTPRequestHandler):
     logger: logging.Logger = log
 
     def log_message(self, format: str, *args: Any) -> None:
-        self.logger.info("%s %s", self.address_string(), format % args)
+        method, path = self._safe_request_metadata()
+        self.logger.info("%s %s %s", self.address_string(), method, path)
+
+    def log_request(self, code: Any = "-", size: Any = "-") -> None:
+        """Log status and parsed request fields without formatting the raw request line."""
+        method, path = self._safe_request_metadata()
+        status = getattr(code, "value", code)
+        self.logger.info('%s "%s %s" %s %s', self.address_string(), method, path, status, size)
+
+    def log_error(self, format: str, *args: Any) -> None:
+        """Log an error category and status without formatting untrusted parser details."""
+        method, path = self._safe_request_metadata()
+        safe_request = f"{method} {path}".strip()
+        if format == "code %d, message %s" and len(args) >= 2:
+            status, detail = args[:2]
+            category = self._safe_error_category(detail)
+            diagnostic = f"HTTP error response {status} ({category})"
+        elif format == "Request timed out: %r":
+            diagnostic = "request timed out"
+        else:
+            diagnostic = "request processing error"
+        if safe_request:
+            self.logger.info("%s %s: %s", self.address_string(), safe_request, diagnostic)
+        else:
+            self.logger.info("%s: %s", self.address_string(), diagnostic)
+
+    def _safe_request_metadata(self) -> tuple[str, str]:
+        """Use parsed method/path or a query-stripped fallback for parser failures."""
+        method = getattr(self, "command", None)
+        path = getattr(self, "path", None)
+        if isinstance(method, str) and isinstance(path, str):
+            return method, self._safe_request_target(path)
+
+        request_line = getattr(self, "requestline", "")
+        words = request_line.split(maxsplit=2)
+        if len(words) >= 2:
+            return words[0], self._safe_request_target(words[1])
+        return "", ""
+
+    @staticmethod
+    def _safe_request_target(target: str) -> str:
+        """The request-target path without query or fragment, even when its syntax is invalid."""
+        if not target.startswith("/"):
+            return "<non-path target>"
+        return target.split("?", 1)[0].split("#", 1)[0]
+
+    @staticmethod
+    def _safe_error_category(detail: Any) -> str:
+        """A fixed parser/error category, without any request-derived detail."""
+        categories = (
+            "Bad request version",
+            "Bad request syntax",
+            "Bad HTTP/0.9 request type",
+            "Invalid HTTP version",
+            "Unsupported method",
+            "Line too long",
+            "Too many headers",
+        )
+        if isinstance(detail, str):
+            for category in categories:
+                if detail.startswith(category):
+                    return category
+        return "request rejected"
+
+    def _safe_path(self) -> str:
+        """The current request path for service logs, without query or fragment values."""
+        return self._safe_request_metadata()[1]
 
     def serve_request(self, route: Callable[[urllib.parse.SplitResult], Reply | None]) -> None:
         """Check the request, then send what ``route`` returns or raises; None is a 404."""
@@ -175,14 +241,14 @@ class Handler(BaseHTTPRequestHandler):
             # A client that reset or stalled mid-body is not a service failure: one info line. Only
             # the reading of the request body raises this; the same errors met anywhere else (a
             # timeout on the shared folder) fall to the 500 below.
-            self.logger.info("%s %s: connection lost (%s)", self.command, self.path, gone)
+            self.logger.info("%s %s: connection lost (%s)", self.command, self._safe_path(), gone)
             self.close_connection = True
         except Exception:
             # The only catch-all, documented: whatever a handler raises becomes a 500 with fixed
             # text. The traceback goes to the log; neither it, the exception text nor any
             # environment value (the provider key) reaches the client. KeyboardInterrupt and
             # SystemExit (BaseException) are not caught.
-            self.logger.exception("%s %s", self.command, self.path)
+            self.logger.exception("%s %s", self.command, self._safe_path())
             self.send_reply(refuse(500, FAILED))
 
     def check_origin(self) -> None:
@@ -232,7 +298,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.command != "HEAD":
                 self.wfile.write(data)
         except OSError as error:  # the peer went away or stalled: nothing more can be said to it
-            self.logger.info("%s %s: reply not delivered (%s)", self.command, self.path, error)
+            self.logger.info(
+                "%s %s: reply not delivered (%s)", self.command, self._safe_path(), error
+            )
 
     def content_length(self) -> int:
         """``Content-Length`` as a number; 411 when absent, 400 when it is no length."""

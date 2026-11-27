@@ -29,25 +29,21 @@ from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import (
     add_story,
-    add_user,
     open_db,
     propose_source,
     set_source_state,
 )
 from deploy_workflow.signal.topics import add_topic
 
-MARA = "signal_name=Mara%20L"
-INES = "signal_name=Ines%20K"
-TOBIAS = "signal_name=Tobias%20O"
+MARA = ""
+INES = ""
+TOBIAS = ""
 reader_says = group_snapshot.reader_says
 ROUTE_PATH = re.compile("/api/[a-z0-9]+(/[a-z0-9]+)*")
 
 
 def seed(root: Path) -> None:
     db = open_db(root)
-    add_user(db, "Mara L", "writer")
-    add_user(db, "Ines K", "writer")
-    add_user(db, "Tobias O", "reader")
     source = propose_source(db, "Wire", "news", "https://wire.example/feed", "Mara L")
     set_source_state(db, source, "approved")
     now = datetime.now(UTC)
@@ -71,13 +67,20 @@ def seed(root: Path) -> None:
 @pytest.fixture
 def svc(tmp_path: Path) -> Iterator[Live]:
     seed(tmp_path)
-    live = Live(tmp_path)
-    yield live
-    live.close()
+    global MARA, INES, TOBIAS
+    live = Live(tmp_path, signed_in=True)
+    MARA = f"credit_os_session={live.create_account_session('Mara L', 'analyst')[1]}"
+    INES = f"credit_os_session={live.create_account_session('Ines K', 'analyst')[1]}"
+    TOBIAS = f"credit_os_session={live.create_account_session('Tobias O', 'reader')[1]}"
+    try:
+        yield live
+    finally:
+        live.close()
+        MARA = INES = TOBIAS = ""
 
 
-def snap(svc: Live, cookie: str = MARA) -> dict[str, Any]:
-    status, _, body = svc.call("GET", "/api/snapshot", cookie=cookie)
+def snap(svc: Live, cookie: str | None = None) -> dict[str, Any]:
+    status, _, body = svc.call("GET", "/api/snapshot", cookie=cookie or MARA)
     assert status == 200
     return body["scenes"][0]["snapshot"]
 
@@ -86,8 +89,8 @@ def snap(svc: Live, cookie: str = MARA) -> dict[str, Any]:
 def checked(svc: Live) -> Any:
     """The next snapshot, after the React reader accepted it."""
 
-    def read(cookie: str = MARA) -> dict[str, Any]:
-        status, _, body = svc.call("GET", "/api/snapshot", cookie=cookie)
+    def read(cookie: str | None = None) -> dict[str, Any]:
+        status, _, body = svc.call("GET", "/api/snapshot", cookie=cookie or MARA)
         assert status == 200 and reader_says(body) == "ok"
         return body["scenes"][0]["snapshot"]
 

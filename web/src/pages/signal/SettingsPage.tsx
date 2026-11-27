@@ -8,11 +8,12 @@
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 import { cx } from "@/utils/cx";
-import { usePageWrite } from "./actions";
+import { usePageWrite, useSignalActions } from "./actions";
 import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
 import { PageTitle } from "./parts/PageTitle";
 import type { SignalScene } from "./slice";
+import { useSignalViewer } from "./viewer";
 import { GroupsSection } from "./settings/GroupsSection";
 import { IssuersSection } from "./settings/IssuersSection";
 import { NotificationsSection } from "./settings/NotificationsSection";
@@ -20,6 +21,7 @@ import { AiSection } from "./settings/AiSection";
 import { DigestsSection } from "./settings/DigestsSection";
 import { RulesSection } from "./settings/RulesSection";
 import { SourcesSection } from "./settings/SourcesSection";
+import { AccountsSection } from "./settings/AccountsSection";
 import { TopicsSection } from "./settings/TopicsSection";
 import { VISIBILITY, writes } from "./writes";
 
@@ -35,7 +37,15 @@ const flagWrite = (key: string, on: boolean) => {
 };
 
 type SectionId =
-  "groups" | "thread-rules" | "sources" | "topics" | "issuers" | "digests" | "notifications" | "ai";
+  | "groups"
+  | "thread-rules"
+  | "sources"
+  | "topics"
+  | "issuers"
+  | "digests"
+  | "notifications"
+  | "ai"
+  | "accounts";
 
 /**
  * A section's tab: a 32px row with the 12px radius and an edge all round in place of the kit's
@@ -52,6 +62,7 @@ const SECTIONS: { id: SectionId; name: string; reader: boolean }[] = [
   { id: "digests", name: "Digests", reader: false },
   { id: "notifications", name: "Notifications", reader: true },
   { id: "ai", name: "AI and cost", reader: false },
+  { id: "accounts", name: "Accounts", reader: false },
 ];
 
 export function SettingsPage({
@@ -69,6 +80,8 @@ export function SettingsPage({
 }) {
   const { settings } = scene.snapshot;
   const page = usePageWrite();
+  const signalActions = useSignalActions();
+  const { profileType } = useSignalViewer();
   // The page says a refusal itself, so the switch only needs to go back.
   const flags = useChoices(
     page === null ? null : (key, on) => page.send(flagWrite(key, on)),
@@ -95,8 +108,14 @@ export function SettingsPage({
     void page.send(writes.visibility(groupId, word)).then(back);
   };
   const live = page !== null;
+  const authenticatedProfile = live && profileType !== undefined;
   const allowed = (s: (typeof SECTIONS)[number]) =>
-    writer || s.reader || (live && s.id === "digests");
+    s.id === "accounts"
+      ? authenticatedProfile
+      : writer ||
+        s.reader ||
+        (live && s.id === "digests") ||
+        (authenticatedProfile && s.id === "sources");
   // A snapshot that says nothing of issuers has no Issuers section, for anyone.
   const held = SECTIONS.filter((s) => s.id !== "issuers" || settings.issuers !== null);
   const listed = held.filter(allowed);
@@ -147,6 +166,16 @@ export function SettingsPage({
             sources={settings.sources}
             weeksHeading={settings.sourceWeeksHeading}
             more={settings.sourcesMore}
+            writer={writer}
+          />
+        );
+      case "accounts":
+        if (!live || profileType === undefined)
+          return state("Accounts require a signed-in profile");
+        return (
+          <AccountsSection
+            profileType={profileType}
+            onPermissionsChanged={() => signalActions?.refresh()}
           />
         );
       case "topics":

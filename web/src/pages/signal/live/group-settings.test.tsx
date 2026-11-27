@@ -2,7 +2,7 @@
 // into it, and its own thread rules. Over the service's sample (groups 3 Committee prep, 1 Leveraged
 // credit, 2 Shipping desk; topics 1 Packaging, 2 Telecoms, 3 Shipping). Paths, bodies, names and
 // sentences are written out by hand.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import fixture from "../../../../fixtures/signal.json";
 import { SignalActionsContext, type SignalActions } from "../actions";
 import { GroupsSection } from "../settings/GroupsSection";
@@ -245,6 +245,84 @@ describe("Delete", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to For you" })).toBeInTheDocument();
+  });
+});
+
+describe("Admin group moderation", () => {
+  const question = () =>
+    screen.getByRole("dialog", { name: "Remove Leveraged credit and its threads?" });
+
+  it("asks about the full cascade and Cancel sends nothing", async () => {
+    const service = await settings("groups", (snapshot) => {
+      Object.assign(snapshot.viewer, { profileType: "admin" });
+    });
+    press("Remove group and threads: Leveraged credit");
+    expect(question()).toHaveTextContent(
+      "This removes the group and all of its threads, comments, reactions and read marks. This cannot be undone.",
+    );
+    fireEvent.click(within(question()).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(service.writes()).toEqual([]);
+  });
+
+  it("sends the confirmed full-cascade action and refreshes after a refusal", async () => {
+    const service = await settings("groups", (snapshot) => {
+      Object.assign(snapshot.viewer, { profileType: "admin" });
+    });
+    service.replies.set(
+      "POST /signal/api/admin/groups/1/remove",
+      refusal(409, "the group could not be removed"),
+    );
+    const reads = service.reads();
+    press("Remove group and threads: Leveraged credit");
+    fireEvent.click(within(question()).getByRole("button", { name: "Remove group and threads" }));
+    expect(await within(question()).findByRole("alert")).toHaveTextContent(
+      "Error: the group could not be removed",
+    );
+    await waitFor(() => {
+      expect(service.reads()).toBe(reads + 1);
+    });
+    expect(service.writes()).toEqual(["POST /signal/api/admin/groups/1/remove"]);
+    expect(JSON.parse(service.bodies[0] as string) as unknown).toEqual({ with_threads: true });
+  });
+
+  it("closes the moderation question after refresh shows the actor is no longer Admin", async () => {
+    const service = await settings("groups", (snapshot) => {
+      Object.assign(snapshot.viewer, { profileType: "admin" });
+    });
+    const reads = service.reads();
+    service.snapshot = currentWith((snapshot) => {
+      Object.assign(snapshot.viewer, { profileType: "analyst" });
+    });
+    service.replies.set(
+      "POST /signal/api/admin/groups/1/remove",
+      refusal(403, "only an Admin can do this"),
+    );
+    press("Remove group and threads: Leveraged credit");
+    fireEvent.click(within(question()).getByRole("button", { name: "Remove group and threads" }));
+    await waitFor(() => {
+      expect(service.reads()).toBe(reads + 1);
+      expect(
+        screen.queryByRole("dialog", { name: "Remove Leveraged credit and its threads?" }),
+      ).toBeNull();
+    });
+    expect(
+      screen.queryByRole("button", { name: "Remove group and threads: Leveraged credit" }),
+    ).toBeNull();
+    expect(service.writes()).toEqual(["POST /signal/api/admin/groups/1/remove"]);
+  });
+
+  it("does not offer moderation to an Analyst or a sample", async () => {
+    await settings("groups", (snapshot) => {
+      Object.assign(snapshot.viewer, { profileType: "analyst" });
+    });
+    expect(screen.queryByRole("button", { name: /^Remove group and threads: / })).toBeNull();
+    cleanup();
+    const slice = withMain(() => undefined);
+    show("/signal/main/settings/groups", slice);
+    expect(screen.queryByRole("button", { name: /^Remove group and threads: / })).toBeNull();
   });
 });
 

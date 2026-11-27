@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import socket
+import socketserver
 import threading
 import time
 import urllib.parse
@@ -116,6 +117,79 @@ def test_a_request_is_served_and_carries_the_fixed_headers(toy):
     assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
     assert headers["Server"].strip() == "Toy"  # no Python version
     assert headers["Content-Length"] == "4"
+
+
+def test_access_logs_keep_the_request_path_and_status_without_query_values(toy, caplog):
+    authorization_code = "test-authorization-code-746203"
+    flow_state = "test-flow-state-581924"
+    session_token = "test-session-token-184972"
+    passcode = "test-passcode-394815"
+    access_token = "test-access-token-293814"
+    callback = f"/auth/callback?code={authorization_code}&state={flow_state}"
+
+    with caplog.at_level(logging.INFO, logger=log.name):
+        assert toy.ask("GET", "/")[:1] == (200,)
+        assert error(
+            toy.ask(
+                "GET",
+                callback,
+                {
+                    "Authorization": f"Bearer {access_token}",
+                    "Cookie": f"credit_os_session={session_token}",
+                },
+            )
+        ) == (404, "not found")
+        body = f'{{"passcode":"{passcode}"}}'.encode()
+        body_headers = {
+            "Content-Length": str(len(body)),
+            "Origin": f"http://{toy.host}",
+        }
+        assert toy.ask("POST", f"/echo?state={flow_state}", body_headers, body)[0] == 200
+        assert toy.ask("TRACE", f"/trace?code={authorization_code}")[0] == 501
+        malformed = (f"GET {callback} NOT-AN-HTTP-VERSION\r\nHost: {toy.host}\r\n\r\n").encode()
+        assert parse(toy.raw(malformed))[0] == 400
+        malformed_syntax = (f"GET {callback} extra HTTP/1.1\r\nHost: {toy.host}\r\n\r\n").encode()
+        assert parse(toy.raw(malformed_syntax))[0] == 400
+        malformed_target = (
+            f"GET http://[broken?code={authorization_code} HTTP/1.1\r\nHost: {toy.host}\r\n\r\n"
+        ).encode()
+        assert parse(toy.raw(malformed_target))[0] == 400
+        assert error(toy.ask("GET", f"/boom?state={flow_state}")) == (
+            500,
+            "the service failed; see its log",
+        )
+
+    assert "GET /" in caplog.text
+    assert "200" in caplog.text
+    assert "GET /auth/callback" in caplog.text
+    assert "404" in caplog.text
+    assert "Bad request version" in caplog.text
+    assert "Bad request syntax" in caplog.text
+    assert "HTTP error response 400" in caplog.text
+    assert "501" in caplog.text
+    assert "GET /boom" in caplog.text
+    assert "secret-cause" in caplog.text
+    assert authorization_code not in caplog.text
+    assert flow_state not in caplog.text
+    assert session_token not in caplog.text
+    assert passcode not in caplog.text
+    assert access_token not in caplog.text
+    assert f"?code={authorization_code}" not in caplog.text
+    assert f"?state={flow_state}" not in caplog.text
+
+
+def test_parser_error_does_not_log_escaped_request_line_data(toy, caplog):
+    authorization_code = "test-parser-credential-716204"
+    malformed = (
+        f"GET\t/auth/callback?code={authorization_code}\textra HTTP/1.1\r\nHost: {toy.host}\r\n\r\n"
+    ).encode()
+
+    with caplog.at_level(logging.INFO, logger=log.name):
+        assert parse(toy.raw(malformed))[0] == 400
+
+    assert authorization_code not in caplog.text
+    assert "HTTP error response 400" in caplog.text
+    assert "GET /auth/callback" in caplog.text
 
 
 def test_the_headers_every_response_carries_come_in_a_fixed_order(toy):
@@ -373,7 +447,11 @@ def test_a_body_that_is_not_one_json_value_is_400(toy, body):
 
 def test_a_body_that_stalls_is_dropped_with_no_reply(toy, monkeypatch, caplog):
     monkeypatch.setattr(_PlainHandler, "timeout", 0.3)
-    head = f"POST /echo HTTP/1.1\r\nHost: {toy.host}\r\nOrigin: http://{toy.host}\r\n"
+    flow_state = "test-flow-state-581924"
+    head = (
+        f"POST /echo?state={flow_state} HTTP/1.1\r\n"
+        f"Host: {toy.host}\r\nOrigin: http://{toy.host}\r\n"
+    )
     with (
         caplog.at_level(logging.INFO, logger=log.name),
         socket.create_connection(("127.0.0.1", toy.port), timeout=10) as sock,
@@ -384,7 +462,42 @@ def test_a_body_that_stalls_is_dropped_with_no_reply(toy, monkeypatch, caplog):
             answer += chunk
     assert answer == b""  # ClientGone: no reply, one info line, no error
     assert "connection lost" in caplog.text
+    assert "POST /echo" in caplog.text
+    assert flow_state not in caplog.text
     assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def test_a_failed_reply_write_logs_the_path_without_query_values(toy, monkeypatch, caplog):
+    original_write = socketserver._SocketWriter.write
+    flow_state = "test-flow-state-581924"
+
+    def fail_response(writer, data):
+        if data.startswith(b"HTTP/"):
+            raise OSError("test reply write failed")
+        return original_write(writer, data)
+
+    monkeypatch.setattr(socketserver._SocketWriter, "write", fail_response)
+    request = (
+        f"GET /?state={flow_state} HTTP/1.1\r\nHost: {toy.host}\r\nConnection: close\r\n\r\n"
+    ).encode()
+
+    with caplog.at_level(logging.INFO, logger=log.name):
+        assert toy.raw(request) == b""
+
+    assert "GET /: reply not delivered (test reply write failed)" in caplog.text
+    assert flow_state not in caplog.text
+
+
+def test_an_idle_request_timeout_keeps_its_diagnostic_category(toy, monkeypatch, caplog):
+    monkeypatch.setattr(_PlainHandler, "timeout", 0.1)
+    with (
+        caplog.at_level(logging.INFO, logger=log.name),
+        socket.create_connection(("127.0.0.1", toy.port), timeout=10) as sock,
+    ):
+        while sock.recv(65536):
+            pass
+
+    assert "request timed out" in caplog.text
 
 
 # -- connections ------------------------------------------------------------------------------
