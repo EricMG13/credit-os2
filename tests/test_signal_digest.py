@@ -39,8 +39,6 @@ def at(text: str) -> datetime:
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, WRITER.name, "writer")
-    store.add_user(database, READER.name, "reader")
     yield database
     database.close()
 
@@ -809,7 +807,6 @@ def test_one_digest_that_raises_is_recorded_and_the_others_still_run(db, monkeyp
 @pytest.fixture
 def loop_root(tmp_path: Path) -> Path:
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
     make(database)
     database.close()
     return tmp_path
@@ -868,7 +865,6 @@ def test_a_topic_removed_between_the_form_and_the_write_leaves_no_half_made_dige
 
 def test_two_runners_at_once_run_a_due_digest_once(tmp_path):
     first = store.open_db(tmp_path)
-    store.add_user(first, "Mara L", "writer")
     digests.create(first, "Mara L", digests.spec_from_form(first, "Mara L", form()), NOW)
     barrier = threading.Barrier(2)
     found: list[list[tuple[int, digests.Run]]] = []
@@ -891,14 +887,18 @@ def test_two_runners_at_once_run_a_due_digest_once(tmp_path):
 
 def test_creating_digests_at_the_same_time_cannot_pass_the_limit_of_five(tmp_path):
     first = store.open_db(tmp_path)
-    store.add_user(first, "Mara L", "writer")
-    barrier = threading.Barrier(8)
+    for number in range(3):
+        spec = digests.spec_from_form(first, "Mara L", form(name=f"Digest {number}"))
+        digests.create(first, "Mara L", spec, NOW)
+
+    barrier = threading.Barrier(5)
     outcomes: list[str] = []
 
-    def creator(number: int) -> None:
+    def attempt(number: int, wait_at_barrier: bool) -> None:
         database = store.open_db(tmp_path)
         spec = digests.spec_from_form(database, "Mara L", form(name=f"Digest {number}"))
-        barrier.wait()
+        if wait_at_barrier:
+            barrier.wait()
         try:
             digests.create(database, "Mara L", spec, NOW)
             outcomes.append("made")
@@ -906,12 +906,12 @@ def test_creating_digests_at_the_same_time_cannot_pass_the_limit_of_five(tmp_pat
             outcomes.append("refused")
         database.close()
 
-    threads = [threading.Thread(target=creator, args=(n,)) for n in range(8)]
+    threads = [threading.Thread(target=attempt, args=(n + 3, True)) for n in range(5)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join(timeout=60)
-    assert sorted(outcomes) == ["made"] * 5 + ["refused"] * 3
+    assert sorted(outcomes) == ["made"] * 2 + ["refused"] * 3
     assert count(first, "digests") == 5
     first.close()
 
@@ -1048,7 +1048,14 @@ def v7_store(
     )
     old.commit()
     old.close()
-    return store.open_db(root)
+    # This test is specifically for the v7-to-v8 story_mark migration. Apply the real v8
+    # migration under its normal write transaction, then keep the connection at v8 so v9's
+    # account-state removal cannot erase the digest being checked here.
+    migrated = sqlite3.connect(root / "signal" / "signal.db")
+    migrated.row_factory = sqlite3.Row
+    store._apply_migration(migrated, 8)
+    migrated.commit()
+    return migrated
 
 
 def test_a_digest_of_an_older_store_starts_its_mark_below_the_first_story_fetched_after_its_period(

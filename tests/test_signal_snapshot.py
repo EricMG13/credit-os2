@@ -29,7 +29,6 @@ from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import (
     Check,
     add_story,
-    add_user,
     open_db,
     propose_source,
     record_check,
@@ -70,8 +69,6 @@ def seed_sample(root: Path) -> sqlite3.Connection:
     """Six sources (healthy, healthy, quiet, failing, paused, proposed), six stories, one of them
     folded from two other sources, three topics, the writer following one and saving one story."""
     db = open_db(root)
-    add_user(db, "Mara L", "writer")
-    add_user(db, "Tobias O", "reader")
     wire = _source(db, "Harbour Wire", "news", "approved")
     ledger = _source(db, "Credit Ledger Daily", "news", "approved")
     gazette = _source(db, "Regulatory Gazette", "regulator", "approved")
@@ -360,6 +357,7 @@ def test_the_writer_sees_every_view_with_its_follows_and_saves(sample):
         "name": "Mara L",
         "initials": "ML",
         "role": "writer",
+        "profileType": "analyst",
         "roleLabel": "Writer",
     }
     feed = snap["feed"]
@@ -461,6 +459,7 @@ def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):
         "name": "Tobias O",
         "initials": "TO",
         "role": "reader",
+        "profileType": "reader",
         "roleLabel": "Reader",
     }
     assert snap["feed"]["views"]["for-you"] == EMPTY_RANKED
@@ -473,7 +472,13 @@ def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):
 
 def test_an_owner_writes_and_is_labelled_owner(sample):
     viewer = _snap(sample, User("Ida Owner", "owner"))["viewer"]
-    assert viewer == {"name": "Ida Owner", "initials": "IO", "role": "writer", "roleLabel": "Owner"}
+    assert viewer == {
+        "name": "Ida Owner",
+        "initials": "IO",
+        "role": "writer",
+        "profileType": "admin",
+        "roleLabel": "Owner",
+    }
 
 
 def test_a_save_and_a_follow_show_in_the_next_snapshot(sample):

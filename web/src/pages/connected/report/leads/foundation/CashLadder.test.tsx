@@ -5,10 +5,11 @@
 // The ladder is the handoff's own stated rows (ruling i): no plug, no invented end level, no sum.
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { containsReference, type OutputEntry } from "../../../publishedReport";
+import { containsReference, evidencePath, type OutputEntry } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
 import { dropTable, edited, setLabelled, threePeriodCp1 } from "../fixtures/mutations";
 import { CashLadderTile } from "./CashLadder";
+import { cashLadder } from "./foundationData";
 
 afterEach(cleanup);
 
@@ -44,6 +45,61 @@ function openTable(tile: HTMLElement) {
     .getAllByRole("row")
     .map((row) => [...row.querySelectorAll("th, td")].map((cell) => cell.textContent));
   return rows;
+}
+
+/** The retained 2026 CP-1 `Financials and credit metrics` table shape, including source row lines. */
+function withFinancialMetrics(
+  entry: OutputEntry,
+  rows: readonly [string, string, string, string?][],
+): OutputEntry {
+  const section = {
+    heading: "Financials and credit metrics",
+    level: 3,
+    line: 69,
+    blocks: [
+      {
+        type: "table",
+        line: 69,
+        headers: ["Measure", "FY2024", "FY2023", "Unit", "Basis", "Source"],
+        rows: rows.map(([label, current, prior, unit = "USD millions"], at) => ({
+          line: 71 + at,
+          cells: [
+            label,
+            current,
+            prior,
+            unit,
+            "Retained financial metric.",
+            "TDG annual report, pages 122–123",
+          ],
+        })),
+      },
+    ],
+  } as unknown as OutputEntry["sections"][number];
+  return {
+    ...entry,
+    sections: [
+      ...entry.sections.filter(
+        (candidate) => candidate.heading !== "Financials and credit metrics",
+      ),
+      section,
+    ],
+  };
+}
+
+function withoutCashLevels(entry: OutputEntry) {
+  return edited(entry, (table, heading) =>
+    heading === CASH
+      ? {
+          ...table,
+          rows: table.rows.filter(
+            (row) =>
+              !["Levered free cash flow", "Discretionary cash flow after distributions"].includes(
+                row.cells[0] ?? "",
+              ),
+          ),
+        }
+      : table,
+  );
 }
 
 /** Nothing the module did not write: no plug, no end level, no sum, no ratio. */
@@ -279,6 +335,137 @@ describe("cash ladder: other real handoffs and mutations", () => {
     expect(parts(tile, "legend-text")).toEqual(["FY2024 level", "Decrease", "Not stated"]);
     expect(openTable(tile)[0]).toEqual(["Step", "FY2024", "Kind"]);
     expectNoPlug(tile);
+  });
+
+  it("reads only the retained exact cash metrics when the statements and KPI omit them", () => {
+    const entry = withFinancialMetrics(withoutCashLevels(cp1Entry()), [
+      ["Cash flow after capital expenditure", "1880", "1236"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+      ["Cash flow after capex before net cash interest", "3038", "2396"],
+    ]);
+    const data = cashLadder(entry);
+    const fcf = data?.steps.find((step) => step.key === "fcf");
+    const after = data?.steps.find((step) => step.key === "afterDistributions");
+    expect(data?.line).toBe(71);
+    expect(fcf).toMatchObject({
+      label: "Cash flow after capital expenditure",
+      stated: true,
+      line: 71,
+      values: [
+        { label: "FY2023", cell: { kind: "number", text: "1236" }, line: 71 },
+        { label: "FY2024", cell: { kind: "number", text: "1880" }, line: 71 },
+      ],
+    });
+    expect(after).toMatchObject({
+      label: "Discretionary cash flow after dividends and equivalents",
+      stated: true,
+      line: 72,
+      values: [
+        { label: "FY2023", cell: { kind: "number", text: "1198" }, line: 72 },
+        { label: "FY2024", cell: { kind: "number", text: "-158" }, line: 72 },
+      ],
+    });
+    const { tile, all } = draw(entry);
+    expect(tile.textContent).toContain("Cash conversion · $m, FY2024; FY2023 beneath");
+    expect(within(tile).getByRole("link", { name: /Source for cash conversion/ })).toHaveAttribute(
+      "href",
+      evidencePath("run", entry, 71),
+    );
+    expect(
+      spans(all("rect[data-bar]")).filter(([label]) =>
+        [
+          "Cash flow after capital expenditure",
+          "Discretionary cash flow after dividends and equivalents",
+        ].includes(String(label)),
+      ),
+    ).toEqual([
+      ["Cash flow after capital expenditure", 0, 1880],
+      ["Discretionary cash flow after dividends and equivalents", 0, -158],
+    ]);
+  });
+
+  it("keeps the cash statement and KPI values ahead of financial-metric fallbacks", () => {
+    const cashFirst = withFinancialMetrics(cp1Entry(), [
+      ["Cash flow after capital expenditure", "9000", "8000"],
+      ["Discretionary cash flow after dividends and equivalents", "7000", "6000"],
+    ]);
+    const cashFcf = cashLadder(cashFirst)?.steps.find((step) => step.key === "fcf");
+    expect(cashFcf?.label).toBe("Levered free cash flow");
+    expect(cashFcf?.values.map(({ cell }) => cell?.kind === "number" && cell.text)).toEqual([
+      "1236",
+      "1880",
+    ]);
+
+    const kpiFirst = withFinancialMetrics(distressedCp1Entry(), [
+      ["Cash flow after capital expenditure", "9000", "8000"],
+      ["Discretionary cash flow after dividends and equivalents", "7000", "6000"],
+    ]);
+    const kpiDcf = cashLadder(kpiFirst)?.steps.find((step) => step.key === "afterDistributions");
+    expect(kpiDcf?.label).toBe("DCF after cash dividends and equivalents");
+    expect(kpiDcf?.values.map(({ cell }) => cell?.kind === "number" && cell.text)).toEqual([
+      "1198",
+      "-158",
+    ]);
+
+    const dcfMetric = withFinancialMetrics(dropTable(distressedCp1Entry(), "T4.10 KPI dashboard"), [
+      ["Cash flow after capital expenditure", "9000", "8000"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+    ]);
+    const dcf = cashLadder(dcfMetric);
+    expect(dcf?.steps.find((step) => step.key === "fcf")?.label).toBe("Levered free cash flow");
+    expect(dcf?.steps.find((step) => step.key === "afterDistributions")?.line).toBe(72);
+    expect(dcf?.line).toBe(72);
+    const { tile } = draw(dcfMetric);
+    expect(within(tile).getByRole("link", { name: /Source for cash conversion/ })).toHaveAttribute(
+      "href",
+      evidencePath("run", dcfMetric, 72),
+    );
+  });
+
+  it("does not accept a similar metric label or an ambiguous metrics table", () => {
+    const nearMiss = withFinancialMetrics(withoutCashLevels(cp1Entry()), [
+      ["Cash flow after capex before net cash interest", "3038", "2396"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+    ]);
+    const fcf = cashLadder(nearMiss)?.steps.find((step) => step.key === "fcf");
+    expect(fcf?.stated).toBe(false);
+    expect(fcf?.absent).toBe(
+      "This page could not read free cash flow after capex in the cash flow statement, KPI dashboard, or financials and credit metrics.",
+    );
+
+    const oneTable = withFinancialMetrics(withoutCashLevels(cp1Entry()), [
+      ["Cash flow after capital expenditure", "1880", "1236"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+    ]);
+    const duplicate = oneTable.sections.find(
+      (section) => section.heading === "Financials and credit metrics",
+    );
+    expect(duplicate).toBeDefined();
+    const ambiguous = duplicate
+      ? { ...oneTable, sections: [...oneTable.sections, duplicate] }
+      : oneTable;
+    expect(cashLadder(ambiguous)?.steps.find((step) => step.key === "fcf")?.absent).toBe(
+      "This page could not read free cash flow after capex because the financials and credit metrics table appears more than once.",
+    );
+  });
+
+  it("fails closed on duplicate exact metric rows and units outside the cash ladder", () => {
+    const duplicate = withFinancialMetrics(withoutCashLevels(cp1Entry()), [
+      ["Cash flow after capital expenditure", "1880", "1236"],
+      ["Cash flow after capital expenditure", "1881", "1237"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+    ]);
+    expect(cashLadder(duplicate)?.steps.find((step) => step.key === "fcf")?.absent).toBe(
+      "This page could not read free cash flow after capex because more than one row of financials and credit metrics matches it.",
+    );
+
+    const euro = withFinancialMetrics(withoutCashLevels(cp1Entry()), [
+      ["Cash flow after capital expenditure", "1880", "1236", "EUR millions"],
+      ["Discretionary cash flow after dividends and equivalents", "-158", "1198"],
+    ]);
+    expect(cashLadder(euro)?.steps.find((step) => step.key === "fcf")?.absent).toBe(
+      "This page could not read cash flow after capital expenditure because it is in another unit than the other rows.",
+    );
   });
 
   it("distressed: its tax label as written; the after-distributions level read from its KPI dashboard", () => {

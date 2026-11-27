@@ -4,6 +4,7 @@ import {
   NO_KPIS,
   NO_RESULTS,
   earningsDelta,
+  hasVarianceRegister,
   withMark,
   type Bridge,
   type Pair,
@@ -367,6 +368,7 @@ function Gap({ name, children }: { name: string; children: string }) {
  */
 export const EarningsDeltaLead: Lead = (props) => {
   const { bridges, movers, kpis } = earningsDelta(props.entry);
+  const varianceRegister = hasVarianceRegister(props.entry);
   const nothing =
     bridges.length === 0 &&
     movers.kind === "gap" &&
@@ -398,7 +400,13 @@ export const EarningsDeltaLead: Lead = (props) => {
               </Gap>
             ),
           )}
-          {bridges.length === 0 && <Gap name={BRIDGE_NAME}>{NO_BRIDGE}</Gap>}
+          {bridges.length === 0 && (
+            <Gap name={BRIDGE_NAME}>
+              {varianceRegister
+                ? "The variance register is available in Statements and records; this module does not state a charted step bridge."
+                : NO_BRIDGE}
+            </Gap>
+          )}
           {movers.kind === "ready" ? (
             <div className={beside ? "min-w-0 lg:col-span-12 xl:col-span-8" : "contents"}>
               <PairTile

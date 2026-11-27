@@ -25,6 +25,14 @@ const FIXED_INTEREST = "EBITDA decline at break (interest held)";
 const RATES_COLUMN = /^EBITDA decline at break \(k = (0(?:\.\d+)?|1(?:\.0+)?)\)$/;
 const PERCENT_COLUMN = "EBITDA decline, %";
 const REQUIRED_DECLINE = "Required EBITDA decline";
+const TYPED_BREAK_HEADERS = [
+  "Order / ID",
+  "Condition at equality",
+  "EBITDA at equality (USD million)",
+  "EBITDA loss (USD million)",
+  "Decline fraction",
+  "Category / confidence and anchor",
+];
 
 type Basis = { name: string; column: number };
 
@@ -74,14 +82,44 @@ export function breakPointView(entry: OutputEntry) {
  * the conditions in the order written, each decline as the module states it in percent.
  */
 function writtenBreaks(entry: OutputEntry) {
+  const typed = registerOrTitled(
+    entry,
+    "T2DS.6",
+    "T2DS.6 Break points in order of increasing EBITDA decline",
+    TYPED_BREAK_HEADERS,
+  );
+  if (typed?.rows.length && typed.headers.join("|") === TYPED_BREAK_HEADERS.join("|")) {
+    const condition = typed.headers.indexOf("Condition at equality");
+    const decline = typed.headers.indexOf("Decline fraction");
+    const status = typed.headers.indexOf("Category / confidence and anchor");
+    return {
+      table: typed,
+      bases: [{ name: REQUIRED_DECLINE, column: decline }],
+      test: condition,
+      status,
+      ranked: false,
+    };
+  }
   const table = namedTable(entry, "Break points", ["Condition", PERCENT_COLUMN]);
-  if (!table?.rows.length) return null;
-  const column = table.headers.indexOf(PERCENT_COLUMN);
-  const status = table.headers.indexOf("Interpretation");
+  const summary = table ?? namedTable(entry, "Break points", ["Condition", "EBITDA decline"]);
+  if (!summary?.rows.length) return null;
+  const declineHeader = summary.headers.includes(PERCENT_COLUMN)
+    ? PERCENT_COLUMN
+    : "EBITDA decline";
+  if (
+    summary.headers.filter((header) => header === "Condition").length !== 1 ||
+    summary.headers.filter((header) => header === declineHeader).length !== 1
+  )
+    return null;
+  const column = summary.headers.indexOf(declineHeader);
+  const status =
+    summary.headers.filter((header) => header === "Interpretation").length === 1
+      ? summary.headers.indexOf("Interpretation")
+      : -1;
   return {
-    table,
+    table: summary,
     bases: [{ name: REQUIRED_DECLINE, column }],
-    test: table.headers.indexOf("Condition"),
+    test: summary.headers.indexOf("Condition"),
     status: status < 0 ? undefined : status,
     ranked: false,
   };

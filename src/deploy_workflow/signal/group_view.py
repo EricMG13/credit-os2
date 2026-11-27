@@ -3,7 +3,7 @@ point at threads, and the Settings sections for groups, thread rules and notific
 
 Only groups the viewer can see are delivered (Settings also lists every group to a writer, who
 manages them, with names and members only); nothing about another group reaches a count, a story
-field or a thread reference. A viewer with no display name gets no groups.
+field or a thread reference. A viewer with no account gets no groups.
 
 Size. A reply must stay under 4 MiB, so this module's own budget bounds what
 the group part delivers in bytes (each record counted as its UTF-8 JSON encoding, the
@@ -882,7 +882,7 @@ def rules(db: sqlite3.Connection, group_id: int) -> list[Json]:
 
 
 def notifications(db: sqlite3.Connection, user: User | None) -> Json:
-    """The viewer's switches; none for a viewer with no display name (they cannot set any)."""
+    """The viewer's switches; none for a viewer with no account (they cannot set any)."""
     if user is None:
         return {"events": []}
     held = notif.switches(db, user.name)

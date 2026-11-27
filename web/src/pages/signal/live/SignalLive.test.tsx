@@ -74,7 +74,8 @@ describe("arriving", () => {
     showLive("#/signal/main/feed/latest");
     await title("Latest");
     expect(headlines()).toEqual([TESSALY, CORVANE, BRIGHTWELL, HALVORSEN, REVIEW, LENMARK]);
-    expect(channels().getByRole("button", { name: /Mara L/ })).toHaveTextContent("Writer");
+    expect(channels().getByText("Mara L")).toBeInTheDocument();
+    expect(channels().getByText("Writer")).toBeInTheDocument();
     expect(channels().getByRole("link", { name: /^Saved/ })).toHaveTextContent("Saved 1");
     expect(channels().getByRole("link", { name: /^Telecoms/ })).toHaveTextContent("Telecoms 2");
     expect(content().getByText("Sources checked 6 min ago · 1 source failing")).toBeInTheDocument();
@@ -358,51 +359,16 @@ describe("a service with no groups, digests, rules or events yet", () => {
   );
 });
 
-describe("a viewer with no name", () => {
-  const typeName = (name: string) => {
-    const box = within(screen.getByRole("dialog", { name: "Your name" }));
-    fireEvent.change(box.getByRole("textbox", { name: /Display name/ }), {
-      target: { value: name },
-    });
-    fireEvent.click(box.getByRole("button", { name: "Continue" }));
-  };
-
-  it("is asked for one; the name goes to the service and the snapshot is read again", async () => {
+describe("an older live snapshot with no name", () => {
+  it("shows a safe account badge and never calls the retired name route", async () => {
     const service = serve(sampleWith(unnamed));
-    service.replies.set("POST /signal/api/me", () => {
-      service.snapshot = sampleWith();
-      return Response.json({ name: "Mara L", role: "writer" });
-    });
     showLive();
-    const box = await screen.findByRole("dialog", { name: "Your name" });
-    expect(within(box).queryByRole("button", { name: "Cancel" })).toBeNull();
-    typeName("  mara l ");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "POST /signal/api/me", READ]);
+      expect(service.calls).toEqual([READ]);
     });
-    expect(service.bodies).toEqual(['{"name":"mara l"}']);
-    // The name and role are the service's, and the feed is the named viewer's.
-    expect(await channels().findByRole("button", { name: /Mara L/ })).toHaveTextContent("Writer");
-    expect(headlines()).toEqual([CORVANE]);
+    expect(await channels().findByText("Account")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("gets the service's sentence in the dialog, on the name it refused", async () => {
-    const service = serve(sampleWith(unnamed));
-    service.replies.set("POST /signal/api/me", refusal(400, "display name is empty"));
-    showLive();
-    await screen.findByRole("dialog", { name: "Your name" });
-    typeName("​");
-    const box = within(await screen.findByRole("dialog", { name: "Your name" }));
-    const field = await box.findByRole("textbox", { name: /Display name/ });
-    await waitFor(() => {
-      expect(field).toHaveAccessibleDescription("Error: display name is empty");
-    });
-    expect(field).toHaveValue("​");
-    expect(field).toBeInvalid();
-    expect(box.queryByRole("button", { name: "Cancel" })).toBeNull();
-    expect(service.calls).toEqual([READ, "POST /signal/api/me"]);
-    expect(screen.getByRole("button", { name: /Set your name/, hidden: true })).toBeInTheDocument();
+    expect(service.calls.some((call) => call.includes("/signal/api/me"))).toBe(false);
   });
 });
 
@@ -445,7 +411,11 @@ describe("saving and following", () => {
   });
 
   it("puts a refused save back and shows the service's sentence as given", async () => {
-    const service = serve();
+    const service = serve(
+      sampleWith((snapshot) => {
+        delete snapshot.viewer.profileType;
+      }),
+    );
     service.replies.set(
       "POST /signal/api/stories/1/save",
       refusal(401, "set a display name before saving"),
@@ -459,6 +429,24 @@ describe("saving and following", () => {
     );
     expect(saveButton(CORVANE)).toHaveAttribute("aria-pressed", "false");
     // Nothing was written, so nothing is read again.
+    expect(service.calls).toEqual([READ, "POST /signal/api/stories/1/save"]);
+  });
+
+  it("clears the signed-in Signal view when a write discovers the session has ended", async () => {
+    const service = serve(
+      sampleWith((snapshot) => {
+        snapshot.viewer.profileType = "admin";
+      }),
+    );
+    showLive("#/signal/main/feed/latest");
+    await title("Latest");
+    service.replies.set("POST /signal/api/stories/1/save", refusal(401, "sign in first"));
+
+    fireEvent.click(saveButton(CORVANE));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("sign in first");
+    expect(screen.queryByRole("navigation", { name: "Signal" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Mara L/ })).toBeNull();
     expect(service.calls).toEqual([READ, "POST /signal/api/stories/1/save"]);
   });
 
@@ -714,6 +702,21 @@ describe("reading again", () => {
     expect(content().getByRole("alert")).toHaveTextContent(
       "Signal could not complete that request.",
     );
+  });
+
+  it("clears the signed-in Signal view after a hosted 401", async () => {
+    const service = serve(
+      sampleWith((snapshot) => {
+        snapshot.viewer.profileType = "admin";
+      }),
+    );
+    showLive("#/signal/main/feed/latest");
+    await title("Latest");
+    service.replies.set(READ, refusal(401, "sign in first"));
+    await lookAgain();
+    expect(screen.getByRole("alert")).toHaveTextContent("sign in first");
+    expect(screen.queryByRole("navigation", { name: "Signal" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Mara L/ })).toBeNull();
   });
 });
 

@@ -27,7 +27,7 @@ describe("Sources (frame 3)", () => {
     expect(page().getByRole("heading", { level: 2 }).textContent).toBe("Sources");
     expect(
       page().getByText(
-        "Stories come only from approved sources. Anyone who writes can propose one; the owner approves.",
+        "Stories come only from approved sources. Anyone who writes can propose one; an Admin approves.",
       ),
     ).toBeTruthy();
     const heads = within(table()).getAllByRole("columnheader");

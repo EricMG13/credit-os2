@@ -51,7 +51,6 @@ def _points(request: TurnRequest) -> Any:
 @pytest.fixture
 def db(tmp_path: Path) -> Any:
     held = store.open_db(tmp_path / "root")
-    store.add_user(held, "Mara L", "writer")
     source = store.propose_source(held, "Wire", "news", "https://wire.example/f", "x")
     store.set_source_state(held, source, "approved")
     when = NOW - timedelta(hours=1)

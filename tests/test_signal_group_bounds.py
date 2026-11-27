@@ -26,7 +26,7 @@ from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autous
 from deploy_workflow.signal import groups, snapshot, threads
 from deploy_workflow.signal.groups import Conflict
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.store import _utc_text, add_user, open_db
+from deploy_workflow.signal.store import _utc_text, open_db
 
 NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 CAP = 3 * 1024 * 1024
@@ -70,8 +70,6 @@ def _stamp(**ago: float) -> str:
 @pytest.fixture
 def db(tmp_path: Path) -> Any:
     held = open_db(tmp_path)
-    add_user(held, "Mara L", "writer")
-    add_user(held, "Ines K", "writer")
     yield held
     held.close()
 
@@ -237,8 +235,6 @@ _LONG_NOTE = st.sampled_from(["A short note.", LONGEST, ("Long words " * 400)[:4
 )
 def test_the_viewers_own_group_always_delivers_its_newest_five(tmp_path_factory, others):
     db = open_db(tmp_path_factory.mktemp("own"))
-    add_user(db, "Mara L", "writer")
-    add_user(db, "Ines K", "writer")
     desk = groups.create_group(db, MARA, "Credit desk", "invited")
     groups.add_member(db, MARA, desk, "Tobias O")
     with db:

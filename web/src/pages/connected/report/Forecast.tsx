@@ -55,6 +55,7 @@ import { PublishedModelTile, ScopeTile } from "./ForecastScopeTile";
 import { Bento, GapNote, Tile } from "./overview/Tile";
 
 type Model = ReturnType<typeof buildReportView>["models"][number];
+type Replay = NonNullable<ReturnType<typeof buildReportView>["previewForecast"]>;
 /** A model's recorded money unit: the currency code and "millions"
  * (docs/rulings/2026-11-16-reporting-currency-from-sources.md). */
 const MILLIONS = /^[A-Z]{3} millions$/;
@@ -447,6 +448,38 @@ function caseDisplay(model: Model, group: string | undefined, period: string | u
 
 const BASE_GROUP = "Base case";
 
+function ForecastReplayTile({ folder, replay }: { folder: string; replay: Replay }) {
+  const input = forecastInput(replay.handoff);
+  const source: ForecastSource = (name) =>
+    input && (
+      <PublishedSource
+        href={evidencePath(folder, replay.handoff, input.line)}
+        name={`Retained inputs for ${name}`}
+      >
+        Retained forecast inputs
+      </PublishedSource>
+    );
+  return (
+    <Tile
+      span={12}
+      label="Forecast calculation replay"
+      title="Forecast calculation replay"
+      kicker="Test preview from the retained financial and forecast handoffs"
+      trace={
+        <PublishedSource
+          href={evidencePath(folder, replay.handoff, replay.calculationLine)}
+          name="Forecast handoff calculation"
+        >
+          Forecast handoff calculation
+        </PublishedSource>
+      }
+    >
+      <GapNote>{replay.reconciliation}</GapNote>
+      <ForecastStatement model={{ cashflow: replay.cashflow }} source={source} />
+    </Tile>
+  );
+}
+
 export function Forecast({
   view,
   run,
@@ -462,6 +495,7 @@ export function Forecast({
   const [chosenCase, setChosenCase] = useState("");
   const { models, entries } = view;
   const model = models[selected] ?? models[0];
+  const replay = preview && !model ? view.previewForecast : undefined;
   const caseOptions = model ? forecastCaseOptions(model) : [];
   const leverage = model ? readLeverage(model) : null;
   const cases = model && leverage ? caseChoices(model, caseOptions, leverage) : [];
@@ -504,7 +538,7 @@ export function Forecast({
           ) : undefined
         }
       >
-        {!model && <GapNote>No forecast model was published for this run.</GapNote>}
+        {!model && !replay && <GapNote>No forecast model was published for this run.</GapNote>}
         {model && !input && (
           <GapNote>
             The model could not be matched to a single readable record of its inputs. Check Evidence
@@ -512,6 +546,7 @@ export function Forecast({
           </GapNote>
         )}
       </ForecastHeader>
+      {replay && <ForecastReplayTile folder={run.folder} replay={replay} />}
       {model && (
         <ModelTiles
           model={model}

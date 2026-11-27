@@ -1,21 +1,13 @@
-"""Display-name identity for Signal: a name in a cookie, the role from the store.
-
-This is not authentication. The cookie is a claim; the role is looked up in the
-store. The module is the whole seam the landing-page project replaces.
-"""
+"""Signal's route-facing identity, derived from the application's gated account."""
 
 from __future__ import annotations
 
-import sqlite3
 import unicodedata
 from dataclasses import dataclass
-from urllib.parse import quote, unquote
 
-from deploy_workflow.signal.store import role_of
+from deploy_workflow.accounts.store import Account
 
-COOKIE = "signal_name"
 MAX_NAME = 60
-_MAX_AGE = 31536000
 _WHITESPACE_CONTROLS = {"\t": " ", "\n": " ", "\r": " "}
 
 
@@ -48,32 +40,13 @@ def clean_name(raw: str) -> str:
     return name
 
 
-def _cookie_value(header: str) -> str | None:
-    """First `signal_name` value in a Cookie header; a plain split is safe on any text."""
-    for part in header.split(";"):
-        key, sep, value = part.partition("=")
-        if sep and key.strip() == COOKIE:
-            value = value.strip()
-            if len(value) >= 2 and value[0] == value[-1] == '"':
-                value = value[1:-1]
-            return value
-    return None
-
-
-def current_user(db: sqlite3.Connection, cookie_header: str | None) -> User | None:
-    if not cookie_header:
+def current_user(account: Account | None) -> User | None:
+    """Map the already-authenticated account to Signal's reader/writer/owner vocabulary."""
+    if account is None or account.disabled:
         return None
-    value = _cookie_value(cookie_header)
-    if value is None:
-        return None
-    # errors="replace" makes invalid UTF-8 decode to U+FFFD instead of raising.
-    name = _clean(unquote(value, errors="replace"))
-    if not name:
-        return None
-    return User(name, role_of(db, name))
-
-
-def cookie_for(name: str) -> str:
-    """The Set-Cookie value for a display name."""
-    encoded = quote(clean_name(name), safe="")
-    return f"{COOKIE}={encoded}; Path=/; Max-Age={_MAX_AGE}; SameSite=Strict; HttpOnly"
+    roles = {"reader": "reader", "analyst": "writer", "admin": "owner"}
+    try:
+        role = roles[account.profile_type]
+    except KeyError as error:
+        raise ValueError("the authenticated account has an unsupported profile type") from error
+    return User(account.display_name, role)

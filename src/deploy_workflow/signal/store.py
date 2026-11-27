@@ -1,25 +1,29 @@
-"""SQLite store for Signal users, sources, checks and stories."""
+"""SQLite store for Signal content and collaboration data, retaining its retired users table."""
 
 from __future__ import annotations
 
 import hashlib
+import os
+import pickle
 import re
 import sqlite3
+import stat
 import string
 import time
 import unicodedata
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
+from deploy_workflow import platform_io
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fold import MIN_TITLE_WORDS, TITLE_WINDOW, link_key, title_key
 
-ROLES = ("reader", "writer", "owner")
 # The feed kinds: what writers propose and topics filter on.
 KINDS = ("regulator", "news", "ratings", "research")
 FILING = "filing"  # an issuer's SEC filings: proposed by setting the issuer's CIK
@@ -484,6 +488,41 @@ UPDATE digests SET story_mark = COALESCE(
 );
 """
 
+# Before accounts use Entra identity, old user-attributed Signal state has no safe mapping to an
+# account. The store upgrade preserves a standalone v8 copy before this SQL is applied.
+_MIGRATION_9 = """
+DELETE FROM digest_runs;
+DELETE FROM digest_points;
+DELETE FROM digest_issue_ai;
+DELETE FROM digest_issues;
+DELETE FROM digest_topics;
+DELETE FROM digest_groups;
+DELETE FROM digest_issuers;
+DELETE FROM digests;
+DELETE FROM saves;
+DELETE FROM topic_follows;
+DELETE FROM issuer_follows;
+DELETE FROM read_marks;
+DELETE FROM reactions;
+DELETE FROM comments;
+DELETE FROM threads;
+DELETE FROM thread_rules;
+DELETE FROM group_topics;
+DELETE FROM group_members;
+DELETE FROM groups;
+DELETE FROM notification_settings;
+DELETE FROM users;
+DELETE FROM source_logos WHERE source_id IN (
+    SELECT id FROM sources WHERE kind IN ('regulator', 'news', 'ratings', 'research')
+      AND state='proposed'
+);
+DELETE FROM sources WHERE kind IN ('regulator', 'news', 'ratings', 'research')
+    AND state='proposed';
+UPDATE sources SET proposed_by='before accounts';
+UPDATE topics SET created_by='before accounts';
+UPDATE issuers SET created_by='before accounts';
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
 MIGRATIONS = [
     _MIGRATION_1,
@@ -494,6 +533,7 @@ MIGRATIONS = [
     _MIGRATION_6,
     _MIGRATION_7,
     _MIGRATION_8,
+    _MIGRATION_9,
 ]
 _BUSY_SECONDS = 30
 RELEASED = 2  # versions a released build made, before stores recorded their scripts' hash
@@ -537,15 +577,183 @@ def _apply_migration(db: sqlite3.Connection, version: int) -> None:
         if _schema_version(db) >= version:
             return
         db.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        if version == 9:
+            _backup_before_accounts(db)
         db.executescript(MIGRATIONS[version - 1])
-        db.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
-            (str(version),),
+        _record_migration(db, version)
+
+
+def _record_migration(db: sqlite3.Connection, version: int) -> None:
+    db.execute(
+        "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
+        (str(version),),
+    )
+    db.execute(
+        "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_hash', ?)",
+        (scripts_hash(version),),
+    )
+
+
+def _apply_fresh_migrations(db: sqlite3.Connection) -> None:
+    """Initialize a new store under one lock so no opener mistakes it for a v8 upgrade."""
+    with _write_transaction(db):
+        if _schema_version(db) != 0:
+            return
+        db.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        for version, script in enumerate(MIGRATIONS, start=1):
+            db.executescript(script)
+            _record_migration(db, version)
+
+
+def _snapshot_digest(db: sqlite3.Connection) -> str:
+    digest = hashlib.sha256()
+    without_rowid_tables = {
+        str(row["name"]): bool(row["wr"])
+        for row in db.execute("PRAGMA table_list")
+        if row["schema"] == "main"
+    }
+    schema = db.execute(
+        "SELECT type, name, tbl_name, sql FROM sqlite_master"
+        " WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
+    )
+    for object_type, name, table_name, sql in schema.fetchall():
+        digest.update(pickle.dumps((object_type, name, table_name, sql), protocol=5))
+        digest.update(b"\n")
+        if object_type != "table":
+            continue
+        quoted_name = '"' + str(name).replace('"', '""') + '"'
+        columns = db.execute(f"PRAGMA table_info({quoted_name})").fetchall()
+        primary_key = [
+            str(row["name"]) for row in sorted(columns, key=lambda row: row["pk"]) if row["pk"]
+        ]
+        without_rowid = without_rowid_tables.get(str(name), False)
+        if without_rowid:
+            order = ", ".join('"' + column.replace('"', '""') + '"' for column in primary_key)
+            select = "*"
+        else:
+            order = "rowid"
+            select = "rowid, *"
+        rows = db.execute(f"SELECT {select} FROM {quoted_name} ORDER BY {order}")
+        for row in rows:
+            digest.update(pickle.dumps(tuple(row), protocol=5))
+            digest.update(b"\n")
+    has_sequence = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'"
+    ).fetchone()
+    if has_sequence:
+        digest.update(pickle.dumps(("sqlite_sequence",), protocol=5))
+        for row in db.execute("SELECT name, seq FROM sqlite_sequence ORDER BY name"):
+            digest.update(pickle.dumps(tuple(row), protocol=5))
+            digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _snapshot_counts(db: sqlite3.Connection) -> dict[str, int]:
+    tables = db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+        " AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    )
+    counts: dict[str, int] = {}
+    for (name,) in tables.fetchall():
+        quoted_name = '"' + str(name).replace('"', '""') + '"'
+        counts[str(name)] = int(db.execute(f"SELECT COUNT(*) FROM {quoted_name}").fetchone()[0])
+    if db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'"
+    ).fetchone():
+        counts["sqlite_sequence"] = int(
+            db.execute("SELECT COUNT(*) FROM sqlite_sequence").fetchone()[0]
         )
-        db.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_hash', ?)",
-            (scripts_hash(version),),
-        )
+    return counts
+
+
+def _readonly_connection(path: Path) -> sqlite3.Connection:
+    db = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=_BUSY_SECONDS)
+    db.row_factory = sqlite3.Row
+    return db
+
+
+def _check_standalone_file(path: Path, live: Path) -> None:
+    if path.is_symlink() or not stat.S_ISREG(path.lstat().st_mode) or os.path.samefile(path, live):
+        raise StoreError("the before-accounts copy must be a separate regular file")
+    for suffix in ("-wal", "-shm"):
+        if path.with_name(path.name + suffix).exists():
+            raise StoreError("the before-accounts copy must not rely on SQLite sidecar files")
+    with path.open("rb") as snapshot_file:
+        header = snapshot_file.read(20)
+    if header[:16] != b"SQLite format 3\x00" or header[18:20] != b"\x01\x01":
+        raise StoreError("the before-accounts copy must be a standalone SQLite file")
+
+
+def _verified_snapshot(path: Path, live: Path, current: sqlite3.Connection) -> None:
+    _check_standalone_file(path, live)
+    try:
+        with closing(_readonly_connection(path)) as snapshot:
+            if snapshot.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise StoreError("the before-accounts copy failed SQLite integrity_check")
+            if snapshot.execute("PRAGMA foreign_key_check").fetchall():
+                raise StoreError("the before-accounts copy has foreign key violations")
+            version, recorded = _made_by(snapshot)
+            if version != 8 or recorded != scripts_hash(8):
+                raise StoreError("the before-accounts copy is not a version 8 Signal store")
+            if _snapshot_digest(snapshot) != _snapshot_digest(current):
+                raise StoreError("the before-accounts copy does not match the current Signal store")
+            if _snapshot_counts(snapshot) != _snapshot_counts(current):
+                raise StoreError(
+                    "the before-accounts copy row counts do not match the Signal store"
+                )
+    except sqlite3.Error as error:
+        raise StoreError("the before-accounts copy is not a readable SQLite store") from error
+
+
+def _sync_file(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _copy_snapshot(source: sqlite3.Connection, destination: sqlite3.Connection) -> None:
+    """Copy the committed source pages into the exclusive staging database."""
+    source.backup(destination)
+
+
+def _backup_before_accounts(db: sqlite3.Connection) -> None:
+    live_filename = str(db.execute("PRAGMA database_list").fetchone()[2])
+    if not live_filename:
+        raise StoreError("the before-accounts copy needs a file-backed Signal store")
+    live = Path(live_filename)
+    backup = live.with_name("signal.db.before-accounts")
+    with closing(_readonly_connection(live)) as source:
+        version, recorded_hash = _made_by(source)
+        if version != 8 or recorded_hash != scripts_hash(8):
+            raise StoreError("the before-accounts copy requires the committed version 8 store")
+        if backup.exists() or backup.is_symlink():
+            _verified_snapshot(backup, live, source)
+            _sync_file(backup)
+            platform_io.fsync_directory(backup.parent)
+            return
+        staged = backup.with_name(f".{backup.name}-{uuid4().hex}.tmp")
+        descriptor = os.open(staged, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        os.close(descriptor)
+        try:
+            with closing(sqlite3.connect(staged, timeout=_BUSY_SECONDS)) as destination:
+                _copy_snapshot(source, destination)
+                mode = destination.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+                if str(mode).lower() != "delete":
+                    raise StoreError("the before-accounts copy is not a standalone SQLite file")
+            _verified_snapshot(staged, live, source)
+            _sync_file(staged)
+            try:
+                os.link(staged, backup)
+            except FileExistsError:
+                _verified_snapshot(backup, live, source)
+                _sync_file(backup)
+            platform_io.fsync_directory(backup.parent)
+        finally:
+            staged.unlink(missing_ok=True)
+            staged.with_name(staged.name + "-wal").unlink(missing_ok=True)
+            staged.with_name(staged.name + "-shm").unlink(missing_ok=True)
 
 
 def _made_by(db: sqlite3.Connection) -> tuple[int, str | None]:
@@ -592,6 +800,8 @@ def _migrate(db: sqlite3.Connection) -> None:
     # executescript leaves an explicit transaction alone only outside legacy transaction control.
     db.autocommit = True
     try:
+        if _schema_version(db) == 0:
+            _apply_fresh_migrations(db)
         for version in range(1, len(MIGRATIONS) + 1):
             if _schema_version(db) < version:
                 _apply_migration(db, version)
@@ -712,23 +922,6 @@ def set_setting(db: sqlite3.Connection, key: str, value: str | None, now: dateti
             " ON CONFLICT(key) DO UPDATE SET value=excluded.value, set_at=excluded.set_at",
             (key, value, _utc_text(now)),
         )
-
-
-def add_user(db: sqlite3.Connection, name: str, role: str) -> int:
-    _require_name(name)
-    _require(role, ROLES, "role")
-    try:
-        with db:
-            cur = db.execute("INSERT INTO users(name, role) VALUES(?, ?)", (name, role))
-    except sqlite3.IntegrityError as exc:
-        raise StoreError(f"user {name!r} already exists") from exc
-    assert cur.lastrowid is not None
-    return cur.lastrowid
-
-
-def role_of(db: sqlite3.Connection, name: str) -> str:
-    row = db.execute("SELECT role FROM users WHERE name=?", (name,)).fetchone()
-    return str(row["role"]) if row else "reader"
 
 
 MAX_SOURCE_NAME = 80

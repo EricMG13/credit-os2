@@ -37,6 +37,39 @@ const SCENARIOS = [
   "Confidence",
 ];
 const RESULTS = "T2DS.4 Stressed flows and metrics";
+const TYPED_SCENARIOS = [
+  "Scenario ID",
+  "Period / scope",
+  "EBITDA decline fraction s",
+  "Cash-interest increase fraction k",
+  "Category / confidence",
+  "Anchor and omissions",
+];
+const TYPED_RESULTS = [
+  "Scenario",
+  "EBITDA (USD million)",
+  "Cash interest (USD million)",
+  "FCF (USD million)",
+  "Total debt / EBITDA (x)",
+  "Net debt / EBITDA (x)",
+  "EBITDA / cash interest (x)",
+  "FCF / debt (fraction)",
+  "Calculation status",
+];
+
+type Scenario = {
+  line: number;
+  id: string;
+  name: string;
+  decline: string;
+  interest: string;
+  anchor: string;
+  scope: string;
+  category: string;
+  confidence: string;
+  anchorLabel?: string;
+  scopeLabel?: string;
+};
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -60,7 +93,7 @@ export function registerOrTitled(
   return tables.length === 1 ? tables[0] : namedTable(entry, title, headers);
 }
 
-function scenario({ line, cells }: Row) {
+function scenario({ line, cells }: Row): Scenario {
   const [
     id = "",
     name = "",
@@ -72,6 +105,73 @@ function scenario({ line, cells }: Row) {
     confidence = "",
   ] = cells;
   return { line, id, name, decline, interest, anchor, scope, category, confidence };
+}
+
+function typedScenarioCases(entry: OutputEntry, register: Table): Scenario[] {
+  if (register.headers.join("|") !== TYPED_SCENARIOS.join("|")) return [];
+  const summary = namedTable(entry, "Downside stress", [
+    "Case",
+    "EBITDA fall / cash-interest increase",
+  ]);
+  if (!summary) return [];
+  const labels = summary.rows.flatMap(({ cells }) => {
+    const shock = /^\s*(\d+(?:\.\d+)?)%\s*\/\s*(\d+(?:\.\d+)?)%\s*$/.exec(cells[1] ?? "");
+    return shock
+      ? [
+          {
+            name: cells[0] ?? "",
+            decline: Number(shock[1]) / 100,
+            interest: Number(shock[2]) / 100,
+          },
+        ]
+      : [];
+  });
+  const at = (header: string) => register.headers.indexOf(header);
+  return register.rows.map(({ line, cells }) => {
+    const decline = cells[at("EBITDA decline fraction s")] ?? "";
+    const interest = cells[at("Cash-interest increase fraction k")] ?? "";
+    const declineValue = sharePosition(decline);
+    const interestValue = sharePosition(interest);
+    const nameMatches = labels.filter(
+      (label) =>
+        declineValue !== null &&
+        interestValue !== null &&
+        label.decline === declineValue &&
+        label.interest === interestValue,
+    );
+    const [category = "", confidence = ""] = (cells[at("Category / confidence")] ?? "").split("/");
+    return {
+      line,
+      id: cells[at("Scenario ID")] ?? "",
+      name: nameMatches.length === 1 ? (nameMatches[0]?.name ?? "") : "",
+      decline,
+      interest,
+      anchor: cells[at("Period / scope")] ?? "",
+      scope: cells[at("Anchor and omissions")] ?? "",
+      category: category.trim(),
+      confidence: (confidence.split(";")[0] ?? "").trim(),
+      anchorLabel: "Period / scope",
+      scopeLabel: "Anchor and omissions",
+    };
+  });
+}
+
+function typedMetricMatrix(entry: OutputEntry): Table | undefined {
+  const results = registerOrTitled(entry, "T2DS.4", "T2DS.4 Stressed metrics", TYPED_RESULTS);
+  if (!results?.rows.length || results.headers.join("|") !== TYPED_RESULTS.join("|")) return;
+  const scenarioAt = results.headers.indexOf("Scenario");
+  const ids = results.rows.map(({ cells }) => cells[scenarioAt] ?? "");
+  if (!distinct(ids)) return;
+  const metrics = TYPED_RESULTS.slice(1);
+  return {
+    ...results,
+    headers: ["Metric", ...ids, "Source"],
+    rows: metrics.map((metric, index) => ({
+      // Each transposed metric now spans every scenario row; trace to the register header.
+      line: results.line,
+      cells: [metric, ...results.rows.map(({ cells }) => cells[index + 1] ?? ""), ""],
+    })),
+  };
 }
 
 export function canReadDownside(entry: OutputEntry) {
@@ -136,18 +236,24 @@ export function downsideView(entry: OutputEntry) {
   if (!canReadDownside(entry)) return null;
   const found = registerOrTitled(entry, "T2DS.4", RESULTS, ["Metric", "Source"]);
   const byCase = found ? undefined : registerOrTitled(entry, "T2DS.4", RESULTS, ["Case", "Source"]);
-  const matrix = found ?? (byCase?.headers[0] === "Case" ? perMeasure(byCase) : undefined);
+  const typed = !found && !byCase ? typedMetricMatrix(entry) : undefined;
+  const matrix = found ?? (byCase?.headers[0] === "Case" ? perMeasure(byCase) : undefined) ?? typed;
   if (!matrix?.rows.length || matrix.headers[0] !== "Metric" || matrix.headers.at(-1) !== "Source")
     return null;
   const names = matrix.headers.slice(1, -1);
   const register = registerOrTitled(entry, "T2DS.1", "T2DS.1 Scenarios", SCENARIOS);
   const written = registerOrTitled(entry, "T2DS.1", "T2DS.1 Scenario assumptions", ["Case"]);
-  const cases =
+  const typedRegister = !register
+    ? registerOrTitled(entry, "T2DS.1", "T2DS.1 Scenarios", TYPED_SCENARIOS)
+    : undefined;
+  const cases: Scenario[] =
     register?.headers.join("|") === SCENARIOS.join("|")
       ? register.rows.map(scenario)
       : written
         ? writtenCases(written)
-        : [];
+        : typedRegister
+          ? typedScenarioCases(entry, typedRegister)
+          : [];
   const control = cases.filter(
     ({ decline, interest }) => sharePosition(decline) === 0 && sharePosition(interest) === 0,
   );
@@ -170,8 +276,8 @@ export function downsideView(entry: OutputEntry) {
 
 /** A stressed measure's cell as a number on the measure's stated unit; null when it does not read. */
 function position(measure: string, cell: string) {
-  const unit = /\(([A-Z]{3}) millions\)$/.exec(measure)?.[1];
-  if (!unit && !/\((?:x|%)\)$/.test(measure)) {
+  const unit = /\(([A-Z]{3}) millions?\)$/.exec(measure)?.[1];
+  if (!unit && !/\((?:x|%|fraction)\)$/.test(measure)) {
     // A measure with no stated unit: a cell opening with a multiple ("6.53x", "4.88x; pro forma 6.02x") is read as that multiple.
     const multiple = /^(-?\d+(?:\.\d+)?)x(?:;|$)/.exec(cell.trim())?.[1];
     return multiple === undefined ? null : Number(multiple);
@@ -331,7 +437,7 @@ type Case = View["cases"][number];
 
 const measureName = (measure: string) =>
   measure.replace(
-    /\(([A-Z]{3}) millions\)$/,
+    /\(([A-Z]{3}) millions?\)$/,
     (_, code: string) => `(${unitLabel(`${code} millions`)})`,
   );
 
@@ -405,8 +511,8 @@ function CaseDetails({
     [
       ["EBITDA decline", scenarioShareLabel(selected.decline)],
       ["Cash-interest increase", scenarioShareLabel(selected.interest)],
-      ["Anchor", selected.anchor],
-      ["What the assumption leaves out", selected.scope],
+      [selected.anchorLabel ?? "Anchor", selected.anchor],
+      [selected.scopeLabel ?? "What the assumption leaves out", selected.scope],
       ["Category", selected.category],
       ["Confidence", selected.confidence],
     ] as const

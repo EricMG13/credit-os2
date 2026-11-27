@@ -258,6 +258,98 @@ it("keeps a stated break above 100% as written and scales the axis to it", () =>
   expect(within(tile()).getByText("Fall in EBITDA")).toBeInTheDocument();
 });
 
+it("reads the retained CP-2A T2DS.6 register at its stated fraction precision", () => {
+  const data = breakPointView(
+    entry(
+      "T2DS.6 Break points in order of increasing EBITDA decline",
+      [
+        "Order / ID",
+        "Condition at equality",
+        "EBITDA at equality (USD million)",
+        "EBITDA loss (USD million)",
+        "Decline fraction",
+        "Category / confidence and anchor",
+      ],
+      [
+        [
+          "1 / B1",
+          "Gross carrying leverage 7.00x",
+          "3554.285714",
+          "258.714286",
+          "0.0678505863",
+          "Watch: Analyst Interpretation / Medium, h = 7.00.",
+        ],
+        [
+          "2 / B2",
+          "FCF / carrying debt 5.00%",
+          "3177",
+          "636",
+          "0.1667977970",
+          "Watch: Analyst Interpretation / Medium, r = 0.05.",
+        ],
+        [
+          "3 / B3",
+          "EBITDA / net cash interest 2.00x",
+          "2316",
+          "1497",
+          "0.3926042486",
+          "Watch: Analyst Interpretation / Medium, c = 2.00.",
+        ],
+        [
+          "4 / B4",
+          "FCF zero",
+          "1933",
+          "1880",
+          "0.4930500918",
+          "Calculated / Medium for interpretation.",
+        ],
+        [
+          "5 / B5",
+          "EBITDA equals net cash interest at 1.00x",
+          "1158",
+          "2655",
+          "0.6963021243",
+          "Calculated / Medium for interpretation.",
+        ],
+      ],
+    ),
+  );
+  if (!data) throw new Error("retained break-point table was rejected");
+  render(<BreakPoints data={data} href={(line) => `#evidence/${String(line)}`} />);
+  const figure = within(tile()).getByRole("img");
+  expect(figure).toHaveAccessibleName(/Gross carrying leverage 7\.00x 6\.78505863%/);
+  expect(figure.querySelectorAll("[data-decline]")).toHaveLength(5);
+  expect(within(figure).getByText("69.63021243%")).toBeInTheDocument();
+  expect(within(figure).getAllByText(/Watch: Analyst Interpretation \/ Medium/)).toHaveLength(3);
+  fireEvent.click(within(tile()).getByRole("button", { name: "Table" }));
+  expect(within(tile()).getByRole("cell", { name: "6.78505863%" })).toBeInTheDocument();
+  expect(within(tile()).queryByRole("cell", { name: "0.0678505863" })).toBeNull();
+});
+
+it("does not choose between duplicate typed break-point columns", () => {
+  const headers = [
+    "Order / ID",
+    "Condition at equality",
+    "EBITDA at equality (USD million)",
+    "EBITDA loss (USD million)",
+    "Decline fraction",
+    "Category / confidence and anchor",
+    "Decline fraction",
+  ];
+  const source = entry("T2DS.6 Break points in order of increasing EBITDA decline", headers, [
+    [
+      "1 / B1",
+      "Gross carrying leverage 7.00x",
+      "3554.285714",
+      "258.714286",
+      "0.0678505863",
+      "Watch",
+      "0.50",
+    ],
+  ]);
+  expect(breakPointView(source)).toBeNull();
+});
+
 // Colour-signal-build ruling R2/C6: the cash-interest basis is the case, with its colour and words.
 it("draws each cash-interest basis in its own category colour, named in the legend", () => {
   const data = breakPointView(entry("T2DS.6 Break points", RETAINED_HEADERS, RETAINED_ROWS));

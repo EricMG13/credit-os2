@@ -5,9 +5,10 @@ The shape is the one ``web/src/pages/signal/slice.ts`` (``readSlice``) accepts:
 (times, counts, labels, monograms, initials, notes) is written here, from a ``now`` the caller
 passes. Dates and the day boundaries behind "yesterday" are UTC.
 
-The store holds users and roles, sources with their checks, stories with their duplicates, topics
-with their follows, saves, and groups with their threads, comments, reactions, read marks, thread
-rules and notification switches (written by ``group_view``, which also gives a story its sharer,
+The authenticated account supplies the display name and Signal role; the store holds sources with
+their checks, stories with their duplicates, topics with their follows, saves, and groups with their
+threads, comments, reactions, read marks, thread rules and notification switches (written by
+``group_view``, which also gives a story its sharer,
 comment count and thread). Digests are the viewer's own and are written by ``digestview``. The AI
 pass's state is the caller's (``ai``, an ``ai_gate.Status``; None: not set up): while it is on a
 story carries what the pass wrote for it (``ai_view``), the Top order reads its signal strength,
@@ -23,7 +24,7 @@ and ``shown`` (SHOWN) is how many the page draws before Show older. For you deli
 (``Focus.topic``). Latest and Saved keep their newest ``SHOWN`` in ``latest`` and ``top`` (Top
 order among those) and the next up to ``OLDER`` in ``older``, with no ``shown``. Digest cards
 join For you by time (``digestview``). ``waiting`` is null (the React app composes it when it
-reads again). A viewer with no display name sees no stories and no counts. The whole snapshot is
+reads again). A viewer with no account sees no stories and no counts. The whole snapshot is
 read in one read transaction. A view of more than ``feedview.MEMBERS_READ`` members is read from
 the newest ``feedview.WINDOW`` stories (``feedview.view_ids``) and, when those hold fewer of its
 stories than it shows, from its own newest member rows, so a very large topic whose stories are
@@ -84,8 +85,8 @@ from deploy_workflow.signal import (
     store,
     topics,
 )
-from deploy_workflow.signal.store import FILING, KINDS, MARKET
 from deploy_workflow.signal.identity import User
+from deploy_workflow.signal.store import FILING, KINDS, MARKET
 from deploy_workflow.signal.texts import ago, day, initials, monogram, shortened
 from deploy_workflow.signal.texts import capital as _capital
 from deploy_workflow.signal.texts import plural as _plural
@@ -195,7 +196,7 @@ def build(  # noqa: PLR0913 -- the store, viewer and time; keyword-only focus, s
     service: Service = NO_SERVICE,
     fmt: int = 1,
 ) -> Json:
-    """The slice for `user` (None: no display name yet) as of `at`, read in one transaction.
+    """The slice for `user` (None: no authenticated account) as of `at`, read in one transaction.
 
     `at` is a time, or a clock: the clock is read once, inside the read transaction after its first
     read, so everything the snapshot holds (a comment committed before that read) is stamped no
@@ -339,6 +340,7 @@ def _viewer(user: User | None) -> Json:
         "name": user.name,
         "initials": initials(user.name),
         "role": "reader" if user.role == "reader" else "writer",
+        "profileType": {"reader": "reader", "writer": "analyst", "owner": "admin"}[user.role],
         "roleLabel": _capital(user.role),
     }
 
@@ -573,7 +575,7 @@ def _stories_and_views(
 ) -> tuple[list[Json], dict[str, Json]]:
     """Every story a view or a delivered thread names, newest first, and each view's ids: the
     three fixed views by name, one per topic by its id and (format 2) one per issuer by
-    "issuer:<id>". A viewer with no name has no stories and empty views. `asked` is the focused
+    "issuer:<id>". A viewer with no account has no stories and empty views. `asked` is the focused
     views' keys and the bytes the rest of the snapshot takes. The stories share
     STORY_AND_GROUP_BUDGET with the group part, which spent its part first; with the rest they
     stay within SNAPSHOT_BUDGET."""
@@ -646,7 +648,7 @@ def _settings(read: _Read, listed: list[sqlite3.Row], sources: list[Json]) -> Js
 
 
 def _unranked(story_id: int) -> tuple[float, datetime]:
-    raise AssertionError("a viewer with no name has no stories to rank")
+    raise AssertionError("a viewer with no account has no stories to rank")
 
 
 def _strong_counts(db: sqlite3.Connection, user: User, now: datetime, channels: Json) -> None:
@@ -750,7 +752,7 @@ def _shown_sources(checked: Checked) -> list[int]:
 
 def _sources(checked: Checked, now: datetime, *, named: bool) -> list[Json]:
     """Up to MAX_SOURCES sources (`_shown_sources`), in the order they were added; `sort.name`
-    ranks the names A to Z among them. A viewer with no display name is not told who proposed a
+    ranks the names A to Z among them. A viewer with no account is not told who proposed a
     source (`named` False)."""
     shown = _shown_sources(checked)
     order = sorted(shown, key=lambda i: (checked[i][0]["name"].casefold(), i))

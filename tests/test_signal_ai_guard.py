@@ -290,7 +290,6 @@ def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_n
 
     root = tmp_path / "root"
     db, rulings, env = _world(tmp_path, 1)
-    store.add_user(db, "Rita Reader", "reader")
     with db:
         db.execute(
             "INSERT INTO story_ai(story_id, outcome, why, signal, tags, kind, stage, moves,"
@@ -313,11 +312,10 @@ def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_n
     assert story["ai"]["line"] == "Why it matters."
     db.close()
     loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    cookie = f"credit_os_session={live.create_account_session('Rita Reader', 'reader')[1]}"
     try:
-        status, _, body = live.call(
-            "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
-        )
+        status, _, body = live.call("POST", f"/api/digests/{ident}/run", cookie=cookie, body={})
         assert (status, body["outcome"]) == (200, "queued")
     finally:
         live.close()
@@ -333,7 +331,6 @@ def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tm
 
     root = tmp_path / "root"
     db, rulings, env = _world(tmp_path, 1)
-    store.add_user(db, "Rita Reader", "reader")
     form = digests.Form("D", ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
     ident = digests.create(db, "Rita Reader", digests.spec_from_form(db, "Rita Reader", form), NOW)
     before = digests.owned(db, "Rita Reader", ident)
@@ -344,7 +341,8 @@ def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tm
     assert ai_gate.status(db, now, env, rulings).state == "capped"
     db.close()
     loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
-    live = Live(root, loop=loop)
+    live = Live(root, loop=loop, signed_in=True)
+    cookie = f"credit_os_session={live.create_account_session('Rita Reader', 'reader')[1]}"
     months = [
         "January",
         "February",
@@ -361,17 +359,13 @@ def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tm
     ]
     this, following = months[now.month - 1], months[now.month % 12]
     try:
-        status, _, body = live.call(
-            "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
-        )
+        status, _, body = live.call("POST", f"/api/digests/{ident}/run", cookie=cookie, body={})
         assert status == 409
         assert body["error"] == (
             f"AI has reached its cap for {this}, so no issue is written until 1 {following}."
             " Only the owner can raise the cap."
         )
-        missing, _, _ = live.call(
-            "POST", "/api/digests/999/run", cookie="signal_name=Rita%20Reader", body={}
-        )
+        missing, _, _ = live.call("POST", "/api/digests/999/run", cookie=cookie, body={})
         assert missing == 404
     finally:
         live.close()

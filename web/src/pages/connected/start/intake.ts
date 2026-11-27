@@ -265,6 +265,7 @@ export type IntakeView = {
   identity: Context["identity"];
   issuerId: string;
   submittedBy: string;
+  signedIn?: boolean;
   run: Context["run"];
   documentRows: DocumentRow[];
   inspected: Map<string, string>;

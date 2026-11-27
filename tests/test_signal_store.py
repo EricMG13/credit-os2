@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import sqlite3
 from datetime import UTC, datetime
-from multiprocessing.queues import Queue
+from multiprocessing.connection import Connection
 from multiprocessing.synchronize import Barrier
 from pathlib import Path
 
@@ -15,13 +15,11 @@ from deploy_workflow.signal.store import (
     Check,
     Conflict,
     StoreError,
-    add_user,
     canonical_url,
     last_check,
     open_db,
     propose_source,
     record_check,
-    role_of,
     set_source_state,
     sources,
 )
@@ -35,18 +33,22 @@ def test_open_db_creates_file_in_wal_mode(tmp_path: Path) -> None:
 
 
 def test_open_db_twice_keeps_data(tmp_path: Path) -> None:
-    add_user(open_db(tmp_path), "A. Kovac", "writer")
-    assert role_of(open_db(tmp_path), "A. Kovac") == "writer"
+    first = open_db(tmp_path)
+    propose_source(first, "Authority", "regulator", "https://example.org/feed", "A")
+    first.close()
+    db = open_db(tmp_path)
+    try:
+        assert [row["name"] for row in sources(db, "proposed")] == ["Authority"]
+    finally:
+        db.close()
 
 
-def test_unknown_name_is_a_reader(tmp_path: Path) -> None:
-    assert role_of(open_db(tmp_path), "nobody") == "reader"
-
-
-@pytest.mark.parametrize("role", ["admin", "", "Writer"])
-def test_invalid_role_is_refused(tmp_path: Path, role: str) -> None:
-    with pytest.raises(StoreError):
-        add_user(open_db(tmp_path), "X", role)
+def test_historical_users_table_is_empty_and_unused(tmp_path: Path) -> None:
+    db = open_db(tmp_path)
+    try:
+        assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+    finally:
+        db.close()
 
 
 def test_proposed_source_is_not_approved(tmp_path: Path) -> None:
@@ -92,8 +94,6 @@ def test_invalid_kind_state_and_empty_name_are_refused(tmp_path: Path) -> None:
         propose_source(db, "A", "blog", "https://e.org/f", "x")
     with pytest.raises(StoreError):
         propose_source(db, " ", "news", "https://e.org/f", "x")
-    with pytest.raises(StoreError):
-        add_user(db, "", "reader")
     sid = propose_source(db, "A", "news", "https://e.org/f", "x")
     with pytest.raises(StoreError):
         set_source_state(db, sid, "deleted")
@@ -101,13 +101,6 @@ def test_invalid_kind_state_and_empty_name_are_refused(tmp_path: Path) -> None:
         sources(db, "deleted")
     with pytest.raises(StoreError):
         set_source_state(db, sid + 99, "approved")
-
-
-def test_duplicate_user_is_refused(tmp_path: Path) -> None:
-    db = open_db(tmp_path)
-    add_user(db, "A", "owner")
-    with pytest.raises(StoreError):
-        add_user(db, "A", "reader")
 
 
 def test_last_check_returns_latest_in_utc(tmp_path: Path) -> None:
@@ -131,32 +124,38 @@ def test_naive_check_time_is_refused(tmp_path: Path) -> None:
         record_check(db, sid, Check(datetime(2026, 11, 13, 9, 0), True, "", None, None, 0))
 
 
-def _open_when_ready(root: str, barrier: Barrier, results: Queue[str]) -> None:
+def _open_when_ready(root: str, barrier: Barrier, result: Connection) -> None:
     barrier.wait(timeout=20)
     try:
         db = open_db(Path(root))
         version = db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]
         db.close()
-        results.put(f"ok {version}")
+        result.send(f"ok {version}")
     except (sqlite3.Error, StoreError) as exc:  # reported to the parent, which asserts on it
-        results.put(f"{type(exc).__name__}: {exc}")
+        result.send(f"{type(exc).__name__}: {exc}")
+    finally:
+        result.close()
 
 
 def test_concurrent_first_open_all_succeed(tmp_path: Path) -> None:
     for trial in range(8):
         root = tmp_path / str(trial)
         barrier = mp.Barrier(4)
-        results = mp.Queue()
+        endpoints = [mp.Pipe(duplex=False) for _ in range(4)]
         procs = [
-            mp.Process(target=_open_when_ready, args=(str(root), barrier, results))
-            for _ in range(4)
+            mp.Process(target=_open_when_ready, args=(str(root), barrier, child))
+            for _, child in endpoints
         ]
         for p in procs:
             p.start()
-        got = [results.get(timeout=60) for _ in procs]
+        for _, child in endpoints:
+            child.close()
+        got = [parent.recv() for parent, _ in endpoints]
+        for parent, _ in endpoints:
+            parent.close()
         for p in procs:
             p.join(30)
-        assert got == ["ok 8"] * 4  # every migration, 1 to 8
+        assert got == ["ok 9"] * 4  # every migration, 1 to 9
 
 
 def test_fts_follows_title_update_and_delete(tmp_path: Path) -> None:
@@ -345,10 +344,18 @@ def test_a_released_version_two_store_is_upgraded_and_records_its_hash(tmp_path)
     db.close()
     open_db(tmp_path).close()
     held = _meta(tmp_path)
-    assert held["schema_version"] == "8"
-    assert held["schema_hash"] == store.scripts_hash(8)
+    assert held["schema_version"] == "9"
+    assert held["schema_hash"] == store.scripts_hash(9)
+    backup = sqlite3.connect(tmp_path / "signal" / "signal.db.before-accounts")
+    try:
+        assert backup.execute("SELECT name FROM users").fetchall() == [("Mara L",)]
+        assert backup.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone() == (
+            "8",
+        )
+    finally:
+        backup.close()
     reopened = open_db(tmp_path)  # and it opens again as this build's own
-    assert reopened.execute("SELECT name FROM users").fetchall()[0][0] == "Mara L"
+    assert reopened.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     reopened.close()
 
 
@@ -361,7 +368,7 @@ _OTHER = "was made by another build of Signal whose migrations differ from this 
         ("4", None, f"the store at schema version 4 {_OTHER}"),  # an earlier commit, no hash
         ("5", "0" * 64, f"the store at schema version 5 {_OTHER}"),
         ("3", "made-elsewhere", f"the store at schema version 3 {_OTHER}"),
-        ("9", None, "the store is at schema version 9, later than this build's 8"),
+        ("10", None, "the store is at schema version 10, later than this build's 9"),
     ],
 )
 def test_a_store_another_build_made_is_refused_with_its_remedy(tmp_path, version, recorded, says):
