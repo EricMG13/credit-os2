@@ -13,6 +13,7 @@ import {
   type Snapshot,
 } from "../publishedReport";
 import { GapText } from "@/pages/library/parts/GapText";
+import { lineIsHidden } from "./evidenceDrawn";
 import { STACK } from "./evidenceKit";
 import { handoffName } from "./evidenceLabels";
 import { Tile } from "./overview/Tile";
@@ -67,7 +68,7 @@ export function citationsByFile(snapshot: Snapshot, entries: OutputEntry[], name
     const cut = key.lastIndexOf(":");
     const entry = byId.get(key.slice(0, cut));
     const line = Number(key.slice(cut + 1));
-    if (!entry || !Number.isSafeInteger(line)) continue;
+    if (!entry || !Number.isSafeInteger(line) || lineIsHidden(entry, line)) continue;
     const folder = entry.output.id.split("/")[0] ?? "";
     for (const chip of chips) {
       const label = citedSourcePages(folder, chip) ?? chip.label ?? "Cited, no page recorded";
