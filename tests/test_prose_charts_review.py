@@ -52,6 +52,64 @@ def test_genuine_years_stay_accepted(text):
     assert bare_figures(text) == ()
 
 
+# -- K12-N1, N2, N5 --
+@pytest.mark.parametrize(
+    "text",
+    [
+        "USD 2027 notes",
+        "the 2030 USD notes",
+        "the 2029 EUR term loan",
+        "a 2031 CHF bond",
+        "USD 2027 Senior Notes",
+        "2030 USD Senior Notes",
+        "In 2025 shares were issued",
+        "Since 2022 branches closed",
+        "by 2030 customers will",
+        "In 2025 units sold",
+        "In Q1 2025 USD revenue",
+        "in 2024 dollars",
+        "in 2025",
+        "FY2025",
+        "since 2019",
+        "2025 and 2024 results",
+        "Notes due 2030",
+        "2025 notes",
+        "the 2028 maturity",
+        "in March 2026",
+        "COUNTRY 2025",
+        "INDUSTRY 2025",
+    ],
+)
+def test_a_year_in_period_or_instrument_context_stays_a_label(text):
+    assert bare_figures(text) == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "figure"),
+    [
+        ("The firm had 1950 employees and 2025 branches.", "1950"),
+        ("The firm had 1950 employees and 2025 branches.", "2025"),
+        ("revenue of USD 2050 m", "2050"),
+        ("revenue was 2050 EUR", "2050"),
+        ("revenue was GBP 2050", "2050"),
+        ("a price of $ 2024", "2024"),
+        ("about 2000 customers", "2000"),
+        ("sales of 2050 bn", "2050"),
+        # A year before a count noun with no period word before it is a count ("2024 shares
+        # bought back" is ambiguous; the refusal is the safe side: write "In 2024, shares ...").
+        ("2024 shares buyback", "2024"),
+        ("revenue was 2050\u20ac", "2050"),
+        ("revenue was 2050 \u20ac", "2050"),
+        ("revenue was RMB 2050", "2050"),
+        ("revenue was $   2050", "2050"),
+        ("revenue of usd 2050 m", "2050"),
+        ("revenue was usd 2050", "2050"),
+    ],
+)
+def test_a_year_shaped_amount_without_context_is_a_bare_figure(text, figure):
+    assert any(figure in token for token in bare_figures(text))
+
+
 # -- K12-F2, F3 --
 def _fact(fact_id: str, period: str):
     from deploy_vii.contracts import Fact
@@ -193,3 +251,19 @@ def test_bullet_value_labels_are_the_formatted_fixture_values():
     drawn = [t.text for t in _draw(spec).iter(f"{NS}text") if t.get("class") == "lb small"]
     for value in values:
         assert format_value(value, "multiple", "known") in drawn
+
+
+# -- K12-N3 --
+def test_a_december_balance_date_does_not_admit_the_year_before():
+    assert _fact_years("2025-12-31") == frozenset({2025})
+    assert _fact_years("Year ended 31 December 2025") == frozenset({2025})
+    assert _fact_years("Year ended December 31, 2025") == frozenset({2025})
+    assert _fact_years("Twelve months to 2026-03-31") == frozenset({2025, 2026})
+    assert _fact_years("Twelve months to 31 March 2026") == frozenset({2025, 2026})
+    bound = bind([_fact("r", "Year ended 31 December 2025")])
+    assert _period("FY2024 revenue was {r|USD}.", bound)
+    assert _period("FY2025 revenue was {r|USD}.", bound) == []
+
+
+def test_a_date_written_twice_counts_once():
+    assert _fact_years("2026-03-31 (31 March 2026)") == frozenset({2025, 2026})

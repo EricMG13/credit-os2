@@ -62,6 +62,7 @@ _RESERVED = re.compile(r"[{}\[\]]")
 _B = r"(?<![0-9A-Za-z])"
 _E = r"(?![0-9A-Za-z])"
 _YEAR = r"(?:19|20)[0-9]{2}"
+_SP = r"\s"
 # A quantity word: written after a number it makes that number a figure.
 _QUANTITY = (
     r"(?i:basis[\s-]+points?|bps?|percent|per[\s-]+cent|percentage[\s-]+points?|pp|times|x|bn|mn|"
@@ -73,23 +74,38 @@ _QUANTITY = (
 # A year-shaped number is a figure too when a scale word or letter, a currency code or word, or a
 # count noun follows it ("USD 2050 m", "2050 EUR", "1950 employees"). One list of count nouns.
 _CURRENCY_CODES = (
-    "USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD|CNY|HKD|SEK|NOK|DKK|INR|BRL|MXN|ZAR|SGD|KRW|PLN|CZK|TRY"
+    "USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD|CNY|RMB|HKD|SEK|NOK|DKK|INR|BRL|MXN|ZAR|SGD|KRW|PLN|CZK|TRY"
 )
 _COUNT_NOUNS = "employees|branches|units|shares|customers|people|staff|stores|sites"
-_YEAR_SCALE = (
-    rf"(?i:m|k|bn|mn|millions?|billions?|thousands?|dollars|pounds|euros|{_COUNT_NOUNS})"
-    rf"(?![0-9A-Za-z])|(?:{_CURRENCY_CODES})(?![0-9A-Za-z])"
-)
-_YEAR_E = rf"(?![0-9A-Za-z%])(?!(?:\s+|-)(?:%|{_QUANTITY}|{_YEAR_SCALE}))"
-# A currency symbol (with or without spaces) or code before a year-shaped number makes it a figure.
 _SYMBOLS = r"$\u20ac\u00a3\u00a5"
-_YEAR_B = (
-    rf"(?<![{_SYMBOLS}])(?<![{_SYMBOLS}]\s)(?<![{_SYMBOLS}]\s\s)"
-    rf"(?<!(?:{_CURRENCY_CODES})\s)(?<!(?:{_CURRENCY_CODES})\s\s)"
+_YEAR_SCALE = (
+    rf"(?i:m|k|bn|mn|millions?|billions?|thousands?|dollars|pounds|euros|{_COUNT_NOUNS}"
+    rf"|{_CURRENCY_CODES})(?![0-9A-Za-z])"
 )
-_MONTH = (
-    r"(?:January|February|March|April|May|June|July|August|September|October|November|"
-    r"December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?"
+_YEAR_TAIL = rf"(?![0-9A-Za-z%])(?!(?:\s+|-)(?:%|{_QUANTITY}|(?i:m|k)(?![0-9A-Za-z])))"
+_YEAR_E = rf"(?![0-9A-Za-z%])(?!\s*[{_SYMBOLS}])(?!(?:\s+|-)(?:%|{_QUANTITY}|{_YEAR_SCALE}))"
+# A currency symbol or a whole-word code (any case) before a year-shaped number, after up to nine
+# spaces, makes it a figure.
+_YEAR_B = "".join(
+    rf"(?<![{_SYMBOLS}]{_SP * n})(?<!(?<![A-Za-z])(?i:{_CURRENCY_CODES}){_SP * n})"
+    for n in range(10)
+)
+_MONTHS = (
+    "January|February|March|April|May|June|July|August|September|October|November|December|"
+    "Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+)
+_MONTH = rf"(?:{_MONTHS})\.?"
+# Context that keeps a year a label even beside a currency code or a count noun: a period word
+# straight before it, or an instrument noun after it (directly or after a currency code).
+_WHEN = (
+    *("in", "by", "since", "from", "until", "to", "during", "of", "the", "due", "end", "year"),
+    *("FY", "CY", "Q1", "Q2", "Q3", "Q4"),
+    *_MONTHS.split("|"),
+)
+_YEAR_WHEN = "(?i:" + "|".join(rf"(?<![0-9A-Za-z]{w}\s)(?<={w}\s)" for w in _WHEN) + ")"
+_YEAR_INSTRUMENT = (
+    rf"(?=\s+(?:(?i:{_CURRENCY_CODES})\s+)?(?i:notes?|bonds?|debentures?|loans?|term|facilit(?:y|ies)"
+    r"|tranches?|maturit(?:y|ies)|senior|secured)(?![0-9A-Za-z]))"
 )
 _DAY = r"(?:[1-9]|[12][0-9]|3[01])"
 _INSTRUMENT_WORD = (
@@ -114,6 +130,8 @@ LABELS: Mapping[str, re.Pattern[str]] = MappingProxyType(
                     rf"{_B}{_DAY} {_MONTH} {_YEAR}{_E}",
                     rf"{_B}{_MONTH} {_DAY}, {_YEAR}{_E}",
                     rf"{_B}{_YEAR}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01]){_E}",
+                    rf"{_YEAR_WHEN}{_B}{_YEAR}{_YEAR_TAIL}",
+                    rf"{_B}{_YEAR}{_YEAR_INSTRUMENT}{_YEAR_TAIL}",
                     rf"{_YEAR_B}{_B}{_YEAR}{_YEAR_E}",
                 )
             )
@@ -358,9 +376,9 @@ _FISCAL = re.compile(
     rf"{_B}(?:(?:FY|CY)[ -]?|(?i:fiscal(?:\s+year)?)\s+)({_YEAR}|[0-9]{{2}})"
     rf"(?:/({_YEAR}|[0-9]{{2}}))?{_E}"
 )
-_DATE = re.compile(rf"{_B}{_YEAR}-[0-9]{{2}}-[0-9]{{2}}{_E}")
-_MONTH_DAY = rf"(?:{_DAY} {_MONTH}|{_MONTH} {_DAY},)"
-_WRITTEN_DATE = re.compile(rf"{_B}{_MONTH_DAY} {_YEAR}{_E}")
+_DATE = re.compile(rf"{_B}({_YEAR})-([0-9]{{2}})-[0-9]{{2}}{_E}")
+_MONTH_NUMBER = {m[:3].lower(): n for n, m in enumerate(_MONTHS.split("|")[:12], 1)}
+_WRITTEN_DATE = re.compile(rf"{_B}(?:{_DAY} ({_MONTHS})\.?|({_MONTHS})\.? {_DAY},) ({_YEAR}){_E}")
 # A year of a period text: a four-digit year, or the years of a fiscal label (FY25, FY2025/26,
 # FY25/26, FY2025/2026): the second year of a range needs no prefix of its own.
 _PERIOD_YEAR = re.compile(
@@ -389,9 +407,10 @@ def _fact_years(period: str | None) -> frozenset[int] | None:
     if not named:
         return None
     first = min(named)
-    if len(_DATE.findall(text)) + len(_WRITTEN_DATE.findall(text)) == 1 and not _FISCAL.search(
-        text
-    ):
+    dates = {(int(y), int(m)) for y, m in _DATE.findall(text)} | {
+        (int(y), _MONTH_NUMBER[(a or b)[:3].lower()]) for a, b, y in _WRITTEN_DATE.findall(text)
+    }
+    if len(dates) == 1 and next(iter(dates))[1] != 12 and not _FISCAL.search(text):
         first -= 1
     return frozenset(range(first, max(named) + 1))
 
