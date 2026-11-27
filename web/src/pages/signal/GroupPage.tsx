@@ -17,6 +17,7 @@ import { writes } from "./writes";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
 import { Avatar } from "./parts/Avatar";
 import { LINK, LIST_TILE } from "./parts/classes";
+import { KindKey } from "./parts/KindDot";
 import { AvatarGroup } from "./parts/AvatarGroup";
 import { PageTitle } from "./parts/PageTitle";
 import type { SignalGroup, SignalScene, SignalStory, SignalThreadSummary } from "./slice";
@@ -271,25 +272,30 @@ export function GroupPage({
           </EmptyState.Content>
         </EmptyState>
       ) : (
-        <ul aria-label="Shared in this group" className={`mt-4 ${LIST_TILE}`}>
-          {group.threads.map((thread) => {
-            const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);
-            if (thread.storyId !== null && story === null) {
-              throw new Error(`the slice reader let through an unknown story "${thread.storyId}"`);
-            }
-            return (
-              <Item
-                key={thread.id}
-                scene={scene}
-                group={group}
-                thread={thread}
-                story={story}
-                writer={writer}
-                save={save}
-              />
-            );
-          })}
-        </ul>
+        <>
+          <KindKey stories={group.threads.flatMap((t) => stories.get(t.storyId ?? "") ?? [])} />
+          <ul aria-label="Shared in this group" className={`mt-4 ${LIST_TILE}`}>
+            {group.threads.map((thread) => {
+              const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);
+              if (thread.storyId !== null && story === null) {
+                throw new Error(
+                  `the slice reader let through an unknown story "${thread.storyId}"`,
+                );
+              }
+              return (
+                <Item
+                  key={thread.id}
+                  scene={scene}
+                  group={group}
+                  thread={thread}
+                  story={story}
+                  writer={writer}
+                  save={save}
+                />
+              );
+            })}
+          </ul>
+        </>
       )}
       {group.more === null ? null : (
         <p className="mt-3 text-small text-text-tertiary">{group.more}</p>

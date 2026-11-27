@@ -23,6 +23,11 @@ const KINDS: [FeedKind, string][] = [
   ["filing", "Filings"],
 ];
 
+/** The kind tabs without All, in tab order: the one source of the kinds' words. */
+export const KIND_TABS = KINDS.flatMap(([id, label]) =>
+  id === "all" ? [] : [[id, label] as const],
+);
+
 /** A key the kit's controls report must be one of ours; anything else is a wiring fault. */
 function pick<T extends string>(options: [T, string][], key: unknown): T {
   const found = options.find(([id]) => id === key);
