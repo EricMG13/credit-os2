@@ -4,6 +4,19 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — FALLOW-01 issuer library entry points
+
+- Content revision `fe324055` against main `06e1c997`. Fallow 3.8.1 cleared all eight selected
+  unused-file reports. Equivalent base and candidate scans found 360 and 351, with zero new
+  reports. A folded CI command hid four original test roots from Fallow. The literal command
+  restored them. Independent final review found H=0, M=0, L=0.
+- Tests ran after every edit. The parsed CI command ran 805 Node tests, all passing. The real
+  package and the connected Signal retired-route regression passed. The bundle retained the
+  required assets and dropped the orphan stylesheet. The changed-code gate passed.
+- Chrome 158 at 1280×900 with reduced motion opened the synthetic disk-backed library and
+  navigated to Overview. Asset requests, measured styles and both rendered images matched the
+  base. Evidence is under `.superpowers/dev-proof/fallow-01/fe324055` in the primary checkout.
+
 ## 2026-11-27 — Coordinator activity timeline
 
 Live Chrome and Edge exercised rejection, same-attempt recovery, refresh and retained drafts.
@@ -972,28 +985,5 @@ then 5; the narrow layout and the controls listed below.
   - `DESIGN.md` reader words: machinery (handoff, registers, ids, file names) stays on Evidence;
     "module" is the reader's word outside a lead, so gaps such as "The module wrote no such
     passage" stay. Leads keep the stricter rule (no "the module"), enforced by test.
-- For the owner's local validation (rendering only; content findings were all fixed):
-  - Overview: with a three-sentence bottom line the first headline figure starts near y=900 at
-    1440×900; about 160 px empty under the call tile.
-  - Module pages: tiles take their content height, which leaves holes beside a taller neighbour
-    on several leads (about 500 px under Downside's break points and Rates' added interest);
-    Ratings and Covenants, and Liquidity and Restructuring, still look alike; a one-edge map on
-    Business & governance leaves space beside its side column; the paragraph trace sits beside
-    the text, not at the tile edge.
-  - Financial foundation: "1,158"/"1,160" labels collide at 390 on cash interest; three pro forma
-    marks at 4.88x overlap the dashed rule. Earnings delta, Ratings migration, Market-implied risk
-    and Restructuring are not in the synthetic run, so their leads were seen only in test renders;
-    nor is the portfolio limits disclosure (its chevron is checked in tests only).
-  - Forecast: 4,617 px at 1440 (target 4,500); at 390 it is longer than the old page (chart-table
-    list); headline figures are 20 px where the mockup has 36 (kit `StatsStrip` has no size
-    option yet).
-  - Top bar: between 480 and about 510 px the areas wrap to a second row (no sideways scroll).
-  - Coverage: the matrix has one tab stop per cell (no roving focus); seven issuers and part of an
-    eighth show at 1440×900.
-  - Start run: Submit sits just below the first screen at 1280×800 and 1024×768 for three limits,
-    and near 1,090 px with five at 1440; the dialog still says "Start a synthetic test?" (pinned
-    by the recorded transcripts and scripts; your call); the Documents step is restyled rather
-    than restructured.
-  - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
 - Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
