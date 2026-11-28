@@ -11,6 +11,8 @@ without it.
 
 ## Files (path here relative to apps/issuer-library/credit_os; source path relative to Final-workflow-PY apps/issuer-library; sha256 of the source file)
 
+Note: the `web/*` static page parts previously copied here were retired in favour of the connected React frontend under `web/`, leaving `catalog.json` and `store.py` active (`source.py`, `evidence.py`, `cashflow.py`, and `handoff_fields.py` hold the active reader modules split out of `store.py`).
+
 | File | Source | sha256 at source | Identical now |
 | --- | --- | --- | --- |
 | `catalog.json` | `engine/catalog.json` | `246632c321c6bd9b54119295b1b336a7826fec9ae8c34eae882574be85ff36a2` | NO, edited (see Task 7) |

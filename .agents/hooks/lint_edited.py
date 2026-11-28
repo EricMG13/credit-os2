@@ -88,6 +88,8 @@ def _relative_target(root_resolved: Path, cwd_rel: Path, raw_path: str) -> str |
     if path.is_absolute():
         rel = _strip_repo_prefix(root_resolved, path)
         if rel is None:
+            if path.resolve().is_relative_to(root_resolved):
+                raise HookError(f"edited path reaches repository via external symlink: {raw_path}")
             return None
     else:
         rel = cwd_rel / path
@@ -172,7 +174,7 @@ def _extract_path_arg(event: dict[str, Any]) -> str:
     args = tool_call.get("args")
     if not isinstance(args, dict):
         raise HookError("hook event toolCall.args must be an object")
-    raw_path = args.get("Path") if args.get("Path") is not None else args.get("TargetFile")
+    raw_path = args.get("Path") or args.get("TargetFile")
     if not isinstance(raw_path, str) or not raw_path:
         raise HookError("hook event toolCall.args is missing Path or TargetFile")
     return raw_path

@@ -258,3 +258,95 @@ def test_hook_rejects_symlink_inside_repo_and_handles_symlinked_worktree_prefix(
         == 0
     )
     assert seen == [str(real_repo.resolve())]
+
+
+def test_lint_python_fails_closed_without_origin_main(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    repo = _init_mini_repo(tmp_path / "no_origin")
+    hook = _load_hook()
+    assert hook._lint_python(repo) == 2
+    assert "origin/main is required" in capsys.readouterr().err
+
+
+def test_lint_python_fails_closed_when_quality_gate_nonzero(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    hook = _load_hook()
+    calls: list[list[str]] = []
+
+    def _stub_run(cmd: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, returncode=1, stdout="gate error\n", stderr="")
+
+    monkeypatch.setattr(hook.subprocess, "run", _stub_run)
+    assert hook._lint_python(tmp_path) == 2
+    err = capsys.readouterr().err
+    assert "gate error" in err
+    assert hook.ROOT_MSG in err
+
+
+def test_lint_web_fails_closed_when_eslint_missing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    hook = _load_hook()
+    assert hook._lint_web(tmp_path, "web/src/main.tsx") == 2
+    assert "eslint missing" in capsys.readouterr().err
+
+
+def test_lint_web_fails_closed_when_eslint_nonzero(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    eslint = tmp_path / "web/node_modules/.bin/eslint"
+    eslint.parent.mkdir(parents=True, exist_ok=True)
+    eslint.write_text("", encoding="utf-8")
+    hook = _load_hook()
+
+    def _stub_run(cmd: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            cmd,
+            returncode=1,
+            stdout="eslint lint fail\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(hook.subprocess, "run", _stub_run)
+    assert hook._lint_web(tmp_path, "web/src/main.tsx") == 2
+    err = capsys.readouterr().err
+    assert "eslint lint fail" in err
+    assert hook.ROOT_MSG in err
+
+
+def test_hook_rejects_external_symlink_into_repo(tmp_path: Path) -> None:
+    outside = tmp_path / "outside_link.py"
+    outside.symlink_to(ROOT / "tools/dev_ledger.py")
+    res = _run_hook({"cwd": str(ROOT), "toolCall": {"args": {"Path": str(outside)}}})
+    assert res.returncode == 2
+    assert res.stdout == "{}\n"
+    assert "external symlink" in res.stderr
+
+
+def test_hook_falls_back_to_target_file_when_path_is_empty_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hook = _load_hook()
+    seen: list[str] = []
+    monkeypatch.setattr(hook, "_lint_python", lambda root: seen.append(str(root)) or 0)
+    assert (
+        hook.handle_event(
+            {
+                "cwd": str(ROOT),
+                "toolCall": {"args": {"Path": "", "TargetFile": str(ROOT / "tools/dev_ledger.py")}},
+            }
+        )
+        == 0
+    )
+    assert seen == [str(ROOT.resolve())]
