@@ -1256,12 +1256,12 @@ def _run_one(
             return
         log.exception("digest %s failed (a lasting database fault)", digest_id)
         if not _fail(db, digest_id, now, error, planned_scopes[0] if planned_scopes else None):
-            results.left_due.append(digest_id)
+            (results.held if planned_scopes else results.left_due).append(digest_id)
         return
     except Exception as error:
         log.exception("digest %s failed", digest_id)
         if not _fail(db, digest_id, now, error, planned_scopes[0] if planned_scopes else None):
-            results.left_due.append(digest_id)
+            (results.held if planned_scopes else results.left_due).append(digest_id)
         return
     if run is not None:
         results.append((digest_id, run))

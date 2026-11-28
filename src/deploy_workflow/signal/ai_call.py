@@ -43,13 +43,12 @@ from pathlib import Path
 from typing import Protocol
 
 from deploy_workflow.model.adapter import AdapterReply
-from deploy_workflow.model.budget import exact_sum
+from deploy_workflow.model.budget import BudgetError, exact_sum
 from deploy_workflow.model.configs import CONFIGS
 from deploy_workflow.model.pricing import PricingError, price_usage
 from deploy_workflow.model.turn import Message, TurnRequest, Usage
 from deploy_workflow.signal import ai_gate, ai_ledger
 from deploy_workflow.signal.ai_price import FRAMING_TOKENS, Prompt, reservation_usd
-from deploy_workflow.signal.store import StoreError
 
 log = logging.getLogger(__name__)
 
@@ -138,12 +137,12 @@ def charge(reply: AdapterReply, config_id: str) -> Decimal | None:
     usage = reply.turn.usage if reply.turn is not None else reply.usage
     try:
         priced = price_usage(config_id, usage or Usage(), reply.billed_usd)
-    except PricingError:
+        extra = _compactions_usd(reply)
+        if priced.usd is None or extra is None:
+            return None
+        return exact_sum((priced.usd, extra))
+    except (PricingError, BudgetError):
         return None
-    extra = _compactions_usd(reply)
-    if priced.usd is None or extra is None:
-        return None
-    return exact_sum((priced.usd, extra))
 
 
 def _outcome(reply: AdapterReply) -> str:
@@ -167,11 +166,16 @@ class SettlementFault(Exception):
 
 
 def _settle(
-    db: sqlite3.Connection, call_id: int, actual: Decimal | None, outcome: str, now: datetime
+    db: sqlite3.Connection,
+    call_id: int,
+    guard: Guard,
+    outcome: str,
+    billed: tuple[AdapterReply, str] | None = None,
 ) -> None:
     try:
-        ai_ledger.settle(db, call_id, actual, outcome, now)
-    except (sqlite3.Error, StoreError) as error:
+        actual = charge(*billed) if billed is not None else None
+        ai_ledger.settle(db, call_id, actual, outcome, guard.clock())
+    except Exception as error:  # post-reserve fault keeps reservation/claim held
         raise SettlementFault(f"call {call_id} could not be settled") from error
 
 
@@ -310,12 +314,12 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
         if not there:
             guard.homes.append(home)  # it may have been sent: the home is this call's
-        _settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
+        _settle(db, call_id, guard, f"raised: {type(error).__name__}"[:80])
         return Answer(None, "raised", call_id)
     if _caused(there, reply, home):
         guard.homes.append(home)
     outcome = _outcome(reply)
-    _settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
+    _settle(db, call_id, guard, outcome, (reply, model.config_id))
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None

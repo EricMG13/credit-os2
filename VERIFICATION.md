@@ -22,6 +22,13 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   further calls for the pass on `SettlementFault` (146 targeted Signal and repo-rules tests plus
   the changed-code quality gate passed), and `Coverage.detail.test.tsx` selects `?view=matrix`
   (eslint, prettier, tsc, and 35 Coverage tests passed). No live call.
+- Adversarial audit of `fdd43c3c` found `ai_call.charge` did not catch `BudgetError` from
+  `exact_sum`, non-SQLite post-reserve exceptions in `ai_call._settle` bypassed `SettlementFault`,
+  `Coverage.detail.test.tsx` used substring focus assertions, the claim-retention test probed at
+  `CALL_BOUND` rather than past it, and unrecordable post-claim failures landed in `left_due`
+  instead of `held`. All five were fixed test-first, re-verified by scoped adversarial review
+  (0 findings, 573 Signal pytest tests, 36 Coverage Vitest tests, quality gate 0 findings), and
+  re-proved in real Chrome and Edge (`proof:connected`). No live call.
 
 ## 2026-11-27 — Sectioned review integration against main
 

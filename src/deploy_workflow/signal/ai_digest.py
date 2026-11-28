@@ -207,6 +207,7 @@ class Writer:
             raise self._stop(f"the store was busy before the call: {busy}", fault=True) from None
         except ai_call.SettlementFault as fault:
             # The open reservation still guards recovery. Stop model calls for this pass.
+            self.calls += 1
             self.stopped, self.fault = str(fault), True
             raise
         self.calls += 1

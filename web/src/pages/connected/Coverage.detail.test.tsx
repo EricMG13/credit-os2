@@ -42,7 +42,9 @@ test("an issuer brought back by the search does not take focus from the search b
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("button", { name: "Alpha plc" }));
   await waitFor(() => {
-    expect(document.activeElement).toHaveTextContent("Alpha plc");
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 3, name: "Alpha plc" }),
+    );
   });
   const search = screen.getByRole("searchbox");
   fireEvent.change(search, { target: { value: "beta" } });
@@ -60,13 +62,14 @@ test("opening another issuer while one is open moves focus to its heading", asyn
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("button", { name: "Alpha plc" }));
   await waitFor(() => {
-    expect(document.activeElement).toHaveTextContent("Alpha plc");
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 3, name: "Alpha plc" }),
+    );
   });
   const beta = screen.getByRole("button", { name: "Beta SA" });
   beta.focus();
   fireEvent.click(beta);
   await waitFor(() => {
-    expect(document.activeElement?.tagName).toBe("H3");
-    expect(document.activeElement).toHaveTextContent("Beta SA");
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 3, name: "Beta SA" }));
   });
 });
