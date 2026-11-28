@@ -1,5 +1,7 @@
-"""Build the Windows packages: pinned Python, the engine and the static library. No compiler, no
-server and no provider call; the runtime and wheels are verified against their SHA-256 digests."""
+"""Build the Windows packages: pinned Python, the engine and the issuer-library publisher.
+
+No compiler, no server and no provider call; the runtime and wheels are verified against their
+SHA-256 digests."""
 
 import hashlib
 import shutil

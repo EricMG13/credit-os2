@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Missing } from "@/components/gap/Missing";
 import type { PipelineNode, PipelineStage, PipelineState } from "@/components/pipeline";
-import type { Figure as RunFigure, ModuleStep, ModuleWord } from "../run/slice-activity";
+import type { ModuleStep, ModuleWord, RunFigure } from "../run/slice-activity";
 import { Figure, GapNote, Well } from "./report/overview/Tile";
 import { byStage } from "./report/stages";
 import { CapBandKey, CapReading, Meter } from "./runMeter";

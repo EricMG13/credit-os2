@@ -11,7 +11,7 @@ import { GapWayOn } from "./kit/LeadFrame";
 import { Legend, MarkSwatch, type LegendKind } from "./kit/marks/Legend";
 import {
   axisAsOf,
-  IN_EVIDENCE,
+  CELL_IN_EVIDENCE,
   type Edge,
   type Lane,
   type LaneEvent,
@@ -458,7 +458,8 @@ export function LeadGap({
 }
 
 /** A source node's identity: its words on the page, or as written when it reads In Evidence. */
-const nodeOf = (edge: Edge) => (edge.from === IN_EVIDENCE ? (edge.key ?? edge.from) : edge.from);
+const nodeOf = (edge: Edge) =>
+  edge.from === CELL_IN_EVIDENCE ? (edge.key ?? edge.from) : edge.from;
 
 type Placed = { id: string; name: string; depth: number };
 

@@ -44,17 +44,28 @@ export class FieldProblem extends Error {
   ) {
     super(message);
   }
+}
 
-  /** What is left once `fields` are edited: their marks go; the rest stay, without the focus. */
-  without(fields: readonly FieldKey[]): FieldProblem | undefined {
-    const also = [...this.also].filter(([field]) => !fields.includes(field));
-    if (!fields.includes(this.field))
-      return also.length === this.also.size
-        ? this
-        : new FieldProblem(this.field, this.message, this.others, this.offer, new Map(also), false);
-    const [next, ...rest] = also;
-    return next && new FieldProblem(next[0], next[1], undefined, undefined, new Map(rest), false);
-  }
+/** What is left once `fields` are edited: their marks go; the rest stay, without the focus. */
+export function withoutFields(
+  problem: FieldProblem | undefined,
+  fields: readonly FieldKey[],
+): FieldProblem | undefined {
+  if (!problem) return undefined;
+  const also = [...problem.also].filter(([field]) => !fields.includes(field));
+  if (!fields.includes(problem.field))
+    return also.length === problem.also.size
+      ? problem
+      : new FieldProblem(
+          problem.field,
+          problem.message,
+          problem.others,
+          problem.offer,
+          new Map(also),
+          false,
+        );
+  const [next, ...rest] = also;
+  return next && new FieldProblem(next[0], next[1], undefined, undefined, new Map(rest), false);
 }
 
 /** What a field needs of a problem to show it: its field, its words, and any others it marks. */

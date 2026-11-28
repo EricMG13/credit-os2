@@ -19,9 +19,9 @@ CP-OS invokes the publication step after a run completes. For an existing worksp
 uv run python apps/issuer-library/update_library.py --workspace <folder>
 ```
 
-## Retained reference assets and Windows runtime
+## Windows runtime package
 
-`credit_os/` retains the earlier static page parts as a design and fixture reference. They are not copied into the active publication.
+The retired static HTML/JS frontend (`credit_os/web/`) has been removed; the connected React application under `web/` is the sole frontend.
 
 The legacy Windows runtime package is separate from the connected React application. Use `Run workflow.cmd` to prepare a run offline. The package has no Signal entry point: the application hosts Signal in live mode (see the root README). Live Copilot runs use the connected package or the full CP-OS checkout. Build the embedded package with:
 

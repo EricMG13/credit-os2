@@ -4,6 +4,16 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-28 — Gemini settings, static frontend retirement, and React Fallow cleanup
+
+- Base `origin/main` (`06e1c997`), branch `gemini_model_settings`.
+- Added Gemini/Antigravity project settings (`GEMINI.md`, `.agents/agents/mx-*.md` synced with `~/.gemini/config/agents/`, `.agents/hooks.json` + `.agents/hooks/lint_edited.py` with fail-closed validation and external-symlink rejection, `client="gemini"` in `tools/dev_ledger.py`, updated `AGENTS.md` and `docs/superpowers/specs/2026-11-27-dev-coordinator.md`), verified by `tests/test_gemini_hooks.py` (22 passed, added to PR CI `fast-tests`), `tests/test_dev_ledger.py`, `tests/test_repo_rules.py`, and `diff -rq -x 'cavecrew-*' ~/.gemini/config/agents .agents/agents`.
+- Retired the outdated static issuer-library frontend (`apps/issuer-library/credit_os/web/`, 27 orphaned `tests/browser_cdp_*` / `tests/browser_probe_*` scripts, and static-only Node/browser tests and CI entries), extracted shared headless Chrome helpers (`tests/browser_helper.py`), and preserved all active Python publication/packaging/React runtime paths (`test_model_shell_browser.py` 10 passed in Chrome, `test_issuer_library_packaging.py`, `test_package_react_windows.py`, 1,717+ targeted Python tests + `test_cpos_launch.py` 1,123 passed).
+- Resolved all 16 `fallow dead-code --root web` findings (plus `MONITOR_GROUPS` for `knip`) with zero inline suppressions: `fallow dead-code --root web` reports 0 issues, `knip` 0 issues, ESLint/Prettier/tsc/duplication/build passed, Vitest `594/594` files (`9,877/9,877` tests), `test:scripts` `82/82`, `test:file:gates` passed.
+- Clean-tree live browser proof (`CREDIT_OS_REQUIRE_CLEAN_SOURCE=1 npm --prefix web run proof:connected` and `CREDIT_OS2_DASHBOARD_PROOF=proof-artifacts/dev-dashboard node web/scripts/dev-dashboard-proof.mjs`) runs against the clean committed candidate `HEAD` in Google Chrome `158.0.8127.88` and Microsoft Edge `158.0.4370.45`, binding `source_commit`/`gitCommit` to the exact tested commit SHA in gitignored `proof-artifacts/`.
+- Quality gate (`tools/quality_gate.py --base origin/main`): 0 findings across all changed Python files; `gitleaks` passed (`no leaks found`); independent `mx-precise` review + re-review passed (0 open High/Medium/Low).
+- Not verified: `tests/test_reporting_currency_proof.py` fails on a pre-existing `origin/main` CP-1 fixture check (`T4.18 Asset type must appear in exactly one column.`); live Antigravity runtime hook firing; Windows packaging execution on Windows; full weekly pytest suite.
+
 ## 2026-11-27 — Coordinator activity timeline
 
 Live Chrome and Edge exercised rejection, same-attempt recovery, refresh and retained drafts.
@@ -972,28 +982,5 @@ then 5; the narrow layout and the controls listed below.
   - `DESIGN.md` reader words: machinery (handoff, registers, ids, file names) stays on Evidence;
     "module" is the reader's word outside a lead, so gaps such as "The module wrote no such
     passage" stay. Leads keep the stricter rule (no "the module"), enforced by test.
-- For the owner's local validation (rendering only; content findings were all fixed):
-  - Overview: with a three-sentence bottom line the first headline figure starts near y=900 at
-    1440×900; about 160 px empty under the call tile.
-  - Module pages: tiles take their content height, which leaves holes beside a taller neighbour
-    on several leads (about 500 px under Downside's break points and Rates' added interest);
-    Ratings and Covenants, and Liquidity and Restructuring, still look alike; a one-edge map on
-    Business & governance leaves space beside its side column; the paragraph trace sits beside
-    the text, not at the tile edge.
-  - Financial foundation: "1,158"/"1,160" labels collide at 390 on cash interest; three pro forma
-    marks at 4.88x overlap the dashed rule. Earnings delta, Ratings migration, Market-implied risk
-    and Restructuring are not in the synthetic run, so their leads were seen only in test renders;
-    nor is the portfolio limits disclosure (its chevron is checked in tests only).
-  - Forecast: 4,617 px at 1440 (target 4,500); at 390 it is longer than the old page (chart-table
-    list); headline figures are 20 px where the mockup has 36 (kit `StatsStrip` has no size
-    option yet).
-  - Top bar: between 480 and about 510 px the areas wrap to a second row (no sideways scroll).
-  - Coverage: the matrix has one tab stop per cell (no roving focus); seven issuers and part of an
-    eighth show at 1440×900.
-  - Start run: Submit sits just below the first screen at 1280×800 and 1024×768 for three limits,
-    and near 1,090 px with five at 1440; the dialog still says "Start a synthetic test?" (pinned
-    by the recorded transcripts and scripts; your call); the Documents step is restyled rather
-    than restructured.
-  - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
 - Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
-- Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
+- Trimmed oldest trailing notes to keep this record under 1,000 lines (git history retains them).

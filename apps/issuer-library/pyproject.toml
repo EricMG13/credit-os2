@@ -1,7 +1,7 @@
 [project]
 name = "issuer-library"
 version = "0.1.0"
-description = "The static Credit OS issuer library: its store, page parts and update script"
+description = "The Credit OS issuer library publication store and update script"
 requires-python = ">=3.13,<3.14"
 dependencies = ["deploy-workflow"]
 
@@ -10,10 +10,9 @@ requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 # update_library.py is a single-file module beside the credit_os package (uv_build takes packages
-# only). The page parts in credit_os/web ship as package data; their node tests do not.
+# only). The connected React app under web/ is the sole frontend.
 [tool.hatch.build.targets.wheel]
 only-include = ["credit_os", "update_library.py"]
-exclude = ["*.test.cjs", "*_check.cjs"]
 
 [tool.uv.sources]
 deploy-workflow = { workspace = true }

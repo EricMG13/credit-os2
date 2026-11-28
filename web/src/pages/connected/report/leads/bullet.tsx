@@ -6,7 +6,7 @@ import { columnAt } from "../overview/figureData";
 import { BULLET, bulletGeometry, headroomTests, type HeadroomTest } from "../overview/stressData";
 import { Figure } from "../overview/Tile";
 import { BarRow, GapCell, statedGap, Trace, type BarTone, type LeadTable } from "./parts";
-import { closed, IN_EVIDENCE, readerCell, readerCellOf, withStatedUnit } from "./read";
+import { closed, CELL_IN_EVIDENCE, readerCell, readerCellOf, withStatedUnit } from "./read";
 
 /** A test as a lead draws it: `headroomGap` is the reason the module gives for no headroom. */
 export type LeadTest = HeadroomTest & {
@@ -54,7 +54,7 @@ export function leadTests(
 /** A basis cell as the test's condition: its words, never the "in Evidence" stand-in for a bare citation. */
 function conditionOf(cell: string) {
   const text = readerCell(cell);
-  return text === IN_EVIDENCE ? "" : text;
+  return text === CELL_IN_EVIDENCE ? "" : text;
 }
 
 /** A test's cell as written, with the row's unit when it is a number. */
@@ -78,8 +78,8 @@ function Stated({ test, cell }: { test: HeadroomTest; cell: HeadroomTest["curren
   const gap = cell.value === null ? statedGap(cell.text) : null;
   if (gap) return <GapCell word={gap.word} reason={gap.reason} />;
   if (!cell.text.trim()) return <GapCell word="Not stated" />;
-  if (cell.text === IN_EVIDENCE)
-    return <span className="text-caption text-gap-text">{IN_EVIDENCE}</span>;
+  if (cell.text === CELL_IN_EVIDENCE)
+    return <span className="text-caption text-gap-text">{CELL_IN_EVIDENCE}</span>;
   return <Figure className="text-small">{shown(test, cell)}</Figure>;
 }
 

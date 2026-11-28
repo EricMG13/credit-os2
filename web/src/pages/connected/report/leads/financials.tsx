@@ -12,7 +12,7 @@ import { SourceReadinessLead } from "./sourceReadiness";
  * CP-1 is proved on a retained real handoff; CP-0 and CP-1B are proved on a synthetic handoff and a
  * partial retained one; CP-1C, CP-1D and CP-L10 are built from their contracts and unproven on a real run.
  */
-export const LEADS: Leads = {
+export const FINANCIAL_LEADS: Leads = {
   "CP-0": SourceReadinessLead,
   "CP-1": FoundationLead,
   "CP-1B": EarningsDeltaLead,

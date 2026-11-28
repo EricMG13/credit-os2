@@ -11,7 +11,7 @@ import { Bullets, leadTests } from "./bullet";
 import { withDraws } from "./draws";
 import { GapCell, LeadGap, MapTile, Notes, statedGap, Trace, Beside } from "./parts";
 import {
-  IN_EVIDENCE,
+  CELL_IN_EVIDENCE,
   columnOf,
   leadHref,
   mapOf,
@@ -162,7 +162,7 @@ function Column({
                   <span
                     className={cx(
                       "text-small wrap-anywhere",
-                      item.mechanism === IN_EVIDENCE ? "text-gap-text" : "text-text-secondary",
+                      item.mechanism === CELL_IN_EVIDENCE ? "text-gap-text" : "text-text-secondary",
                     )}
                   >
                     {item.mechanism}

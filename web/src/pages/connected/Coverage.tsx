@@ -38,7 +38,6 @@ import { Matrix } from "./coverage/Matrix";
 import { Monitor } from "./coverage/Monitor";
 import { Patterns } from "./coverage/Patterns";
 import { Refinancing } from "./coverage/Refinancing";
-export { MONITOR_GROUPS } from "./coverage/Monitor";
 import { RankView } from "./coverage/Rank";
 import { named, STATE_WORDS } from "./coverage/shared";
 import { TrendView } from "./coverage/Trend";

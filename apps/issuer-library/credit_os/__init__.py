@@ -1,1 +1,1 @@
-"""The Credit OS store and the library page parts (``web/``)."""
+"""The Credit OS issuer library publication store and handoff readers."""

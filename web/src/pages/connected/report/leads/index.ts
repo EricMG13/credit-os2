@@ -1,10 +1,10 @@
-import { LEADS as credit } from "./credit";
-import { LEADS as decision } from "./decision";
-import { LEADS as financials } from "./financials";
-import { LEADS as structure } from "./structure";
+import { CREDIT_LEADS } from "./credit";
+import { DECISION_LEADS } from "./decision";
+import { FINANCIAL_LEADS } from "./financials";
+import { STRUCTURE_LEADS } from "./structure";
 import type { Leads } from "./types";
 
-const ALL: Leads = { ...financials, ...credit, ...structure, ...decision };
+const ALL: Leads = { ...FINANCIAL_LEADS, ...CREDIT_LEADS, ...STRUCTURE_LEADS, ...DECISION_LEADS };
 
 /** The module's own lead visual, or undefined where none is built yet. */
 export function leadFor(module: string) {

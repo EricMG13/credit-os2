@@ -1,6 +1,6 @@
 import { cx } from "@/utils/cx";
 import { ticks, type SourceTable } from "../../visuals/visualData";
-import { basisNotes, blockedReason, readCell } from "../overview/figureData";
+import { basisNotes, blockedReason, readFigureCell } from "../overview/figureData";
 import { Key } from "../overview/figureParts";
 import { Bento, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
@@ -53,7 +53,7 @@ function quotes(table: SourceTable) {
   const scope = table.rows.map((row) => row[yieldAt] ?? "");
   return table.rows.map((row, index) => {
     const unit = row.at(-2) ?? "";
-    const cell = readerCellOf(readCell(row[yieldAt] ?? "", scope, unit));
+    const cell = readerCellOf(readFigureCell(row[yieldAt] ?? "", scope, unit));
     return {
       name: readerCell(row[name] ?? "") || "Instrument not stated",
       maturity: readerCell(row[maturity] ?? ""),

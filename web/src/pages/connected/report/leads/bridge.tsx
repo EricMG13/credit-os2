@@ -1,6 +1,6 @@
 import { unitLabel } from "../../publishedReport";
 import { ticks, type SourceTable } from "../../visuals/visualData";
-import { readCell, type Cell } from "../overview/figureData";
+import { readFigureCell, type Cell } from "../overview/figureData";
 import { gapReason } from "../overview/read";
 import { BarRow, Trace, type LeadTable } from "./parts";
 import { readerCell, readerCellOf, WITHHELD, type Chart } from "./read";
@@ -18,7 +18,7 @@ function bridgeSteps(table: SourceTable, amountColumn = 1) {
   const unit = units.size === 1 ? ([...units][0] ?? "") : "";
   const steps: Step[] = table.rows.map((row, at) => ({
     label: readerCell(row[0] ?? "") || "Not stated",
-    cell: readerCellOf(readCell(texts[at] ?? "", texts, unit)),
+    cell: readerCellOf(readFigureCell(texts[at] ?? "", texts, unit)),
     line: table.rowLines?.[at] ?? table.line,
   }));
   const stated = steps.find((step) => step.cell.value === null);

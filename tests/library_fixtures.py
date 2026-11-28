@@ -420,31 +420,6 @@ def with_changes(
         rewrite_manifest(run_dir, lambda manifest: manifest.update(changes_note=note))
 
 
-def materialize_reference_ui(library: Path) -> Path:
-    """Add the retained static design reference to a test workspace after publication."""
-    import shutil
-
-    root = Path(__file__).resolve().parents[1]
-    source = root / "apps/issuer-library/credit_os/web"
-    shutil.copytree(
-        source, library, ignore=shutil.ignore_patterns("*.test.cjs"), dirs_exist_ok=True
-    )
-    index = library / "index.html"
-    html = index.read_text(encoding="utf-8")
-    policy = (
-        "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; "
-        "img-src 'self' data:; frame-src 'self'; connect-src 'none'; base-uri 'none'; "
-        "form-action 'none'"
-    )
-    index.write_text(
-        html.replace(
-            "<head>", f'<head><meta http-equiv="Content-Security-Policy" content="{policy}">', 1
-        ),
-        encoding="utf-8",
-    )
-    return index
-
-
 def make_custom_run(workspace: Path, folder: str, modules: tuple[str, ...], **changes) -> Path:
     """A completed custom run as the launcher records it (`prepare`'s manifest, read on 2026-11-26):
     pathway `custom`, selection `explicit`, `requested_modules` the completed list (with CP-8

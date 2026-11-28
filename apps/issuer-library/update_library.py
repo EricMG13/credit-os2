@@ -273,8 +273,9 @@ def cp8_verdicts(
 
 
 def _usable(store: dict[str, Any], run: dict[str, Any], code: str) -> bool:
-    """Whether the module's designated output can lead, as the Overview's `pickLead` and `blocked`
-    judge it (reader.js): it has a `### Bottom line` under `## Findings` (`readerPassages` takes
+    """Whether the module's designated output can lead, as the Overview's lead selector
+    judges it (`web/src/pages/connected/reportView.ts`): it has a `### Bottom line` under
+    `## Findings` (`readerPassages` takes
     any, not only the first) and is not blocked. `blocked` reads a new-format handoff (its first
     `###` under Findings is the Bottom line) by whether the Bottom line begins `Not assessable:`,
     and any other by the store's own `state.established === false`."""

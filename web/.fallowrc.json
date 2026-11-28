@@ -6,7 +6,9 @@
     "src/main.tsx",
     "src/connected-main.tsx",
     "vite.config.ts",
-    "vite.connected.config.ts"
+    "vite.connected.config.ts",
+    "scripts/dev-dashboard-proof.mjs"
   ],
+  "ignoreDependencies": ["react-is", "fast-check"],
   "ignoreUnresolvedImports": ["?/data.js"]
 }

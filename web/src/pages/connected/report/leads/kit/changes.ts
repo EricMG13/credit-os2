@@ -16,7 +16,7 @@ type PeriodKind = "annual" | "other";
  * bare year): two periods are of one kind only within one form. `kind` is "annual" for a fiscal
  * or calendar year (`FY2024`, `CY24`, `2024`), "other" for anything else.
  */
-export type Period = {
+export type ChangePeriod = {
   label: string;
   kind: PeriodKind;
   form: string;
@@ -61,7 +61,7 @@ const formOf = (rest: string) =>
  * The period a label names for the change rule (no " / date" part: `periodLabel` cuts it), or null
  * when it names no year.
  */
-export function changePeriod(written: string): Period | null {
+export function changePeriod(written: string): ChangePeriod | null {
   const label = written.trim();
   const found = label ? yearIn(label) : null;
   if (!found) return null;
@@ -69,21 +69,21 @@ export function changePeriod(written: string): Period | null {
   return { label, year: found.year, form, kind: ANNUAL_FORMS.has(form) ? "annual" : "other" };
 }
 
-const asPeriod = (period: Period | string) =>
+const asPeriod = (period: ChangePeriod | string) =>
   typeof period === "string" ? changePeriod(period) : period;
 
 /**
  * True when `current` is the period of the same kind exactly one year after `prior`: FY2024 →
  * FY2025, Q1 2024 → Q1 2025, LTM Mar-2024 → LTM Mar-2025, H1 2024 → H1 2025.
  */
-export function yearApart(prior: Period | string, current: Period | string) {
+export function yearApart(prior: ChangePeriod | string, current: ChangePeriod | string) {
   const [a, b] = [asPeriod(prior), asPeriod(current)];
   return a !== null && b !== null && a.form === b.form && b.year - a.year === 1;
 }
 
 /** One side of a change: its period, the cell as written (or read), and its unit where stated. */
 export type ChangeSide = {
-  period: Period | string;
+  period: ChangePeriod | string;
   cell: string | Reading | null;
   unit?: string | null;
 };

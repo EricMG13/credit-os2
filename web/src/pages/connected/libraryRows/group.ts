@@ -1,4 +1,9 @@
-import { runPathway, type CatalogueRun, type LibraryIndex } from "../publishedReport";
+import {
+  runPathway,
+  type CatalogueRun,
+  type LibraryIndex,
+  type LibraryRun,
+} from "../publishedReport";
 import {
   isIssuerAssessment,
   issuerGroups,
@@ -7,7 +12,6 @@ import {
   selectIssuerEntry,
 } from "../issuerEntry";
 
-export type LibraryRun = LibraryIndex["workspace"]["runs"][string];
 export type RunState = "Delivered" | "Test preview" | "No report published";
 
 /** Another published report of the issuer the row links to: newer, or of the same as-of date. */

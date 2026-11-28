@@ -2,7 +2,7 @@ import { fittingTicks, NARROW, niceAxis, SIZE, textWidth, wrap } from "../kit/ma
 import { group } from "../kit/numbers";
 import { written as safeText } from "./periodsData";
 import type { PeriodCell, Segment, SegmentView } from "./foundationData";
-import { latestReported } from "../kit/tables";
+import { latestReportedItem } from "../kit/tables";
 
 // The segments figure at its measured width: per segment a net-sales bar and an EBITDA bar beneath
 // it on one scale from zero, the drawn period's figures as written, and, when the handoff states a
@@ -19,7 +19,7 @@ export function segmentPeriods(view: SegmentView): SegmentPeriods | null {
   const drawn =
     view.comparison?.to ??
     annual.at(-1)?.label ??
-    (latestReported(view.periods, (period) => period.label) ?? view.periods.at(-1))?.label;
+    (latestReportedItem(view.periods, (period) => period.label) ?? view.periods.at(-1))?.label;
   if (drawn === undefined) return null;
   const prior = view.comparison?.from ?? null;
   const notDrawn = view.periods

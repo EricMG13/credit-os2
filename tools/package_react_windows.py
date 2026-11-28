@@ -41,7 +41,7 @@ SOURCE_PATHS = (
     "uv.lock",
     "tests/fixtures/cp1-instruction-pr/answer-key.json",
     "web",
-    ":(exclude)apps/issuer-library/credit_os/web/index.html",
+    ":(exclude)apps/issuer-library/credit_os/web",
     ":(exclude)docs/templates/context-form.html",
 )
 

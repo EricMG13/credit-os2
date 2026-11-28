@@ -11,7 +11,7 @@ import { FieldProblem } from "./fields";
 import { COMPARISON_NEEDS_NAME } from "./plain";
 
 /** The service's own ceilings for a reference portfolio's files (a standing one's too). */
-export const FILE_SIZE_LIMIT = 20 * 1024 * 1024;
+export const PORTFOLIO_FILE_SIZE_LIMIT = 20 * 1024 * 1024;
 export const FILE_COUNT_LIMIT = 4;
 export const FILE_TYPES = /\.(?:csv|xlsx)$/i;
 export const COMPARISON_FILE_HINT = "CSV or Excel (.xlsx). Up to 4 files, 20 MB each.";
@@ -74,7 +74,8 @@ export function useComparisonPortfolio(onChange: () => void) {
     for (const file of Array.from(selected ?? [])) {
       const key = file.name.normalize("NFC").toLowerCase();
       if (!FILE_TYPES.test(file.name)) problems.push(`${file.name} is not a CSV or Excel file.`);
-      else if (file.size > FILE_SIZE_LIMIT) problems.push(`${file.name} exceeds the 20 MB limit.`);
+      else if (file.size > PORTFOLIO_FILE_SIZE_LIMIT)
+        problems.push(`${file.name} exceeds the 20 MB limit.`);
       else if (names.has(key)) problems.push(`${file.name} is already chosen.`);
       else if (names.size >= FILE_COUNT_LIMIT)
         problems.push(`${file.name} was not added: a portfolio is at most 4 files.`);

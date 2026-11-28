@@ -57,8 +57,8 @@ BASIS_CALCULATION = re.compile(r"calculation \S+")
 # Neither names a page or a handoff of this run, so there is nothing to open.
 BASIS_COMPARISON = "Run comparison"
 BASIS_EARLIER_RUN = re.compile(r"[A-Za-z][A-Za-z ,'&/-]* \((?P<code>CP-[0-9A-Z]+)\), earlier run")
-# Display names of the modules, the same pairs as `groups` in apps/issuer-library/credit_os/web/
-# screen.js (a test compares them). Decision 11 of 2026-11-12: a module is named in prose by this
+# Display names of the modules, matching `MODULE_NAMES` in web/src/pages/connected/api.ts
+# (a test compares them). Decision 11 of 2026-11-12: a module is named in prose by this
 # name, never by its code, and the launcher sends the list so the model does not invent names.
 MODULE_NAMES = {
     "CP-0": "Source readiness",

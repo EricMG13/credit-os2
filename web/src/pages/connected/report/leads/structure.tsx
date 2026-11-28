@@ -6,7 +6,7 @@ import { RestructuringLead } from "./cp4c";
 import type { Leads } from "./types";
 
 /** Lead visuals of this stage's modules (docs/design/screen-map.md, Modules). */
-export const LEADS: Leads = {
+export const STRUCTURE_LEADS: Leads = {
   "CP-3": SecurityLead,
   "CP-3C": RefinancingLead,
   "CP-3D": MarketLead,

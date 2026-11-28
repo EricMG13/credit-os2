@@ -4,7 +4,7 @@ import {
   basisNotes,
   columnAt,
   figureSource,
-  readCell,
+  readFigureCell,
   unitOf,
   type FigureSource,
 } from "../../overview/figureData";
@@ -55,7 +55,7 @@ function everyReason(source: Ready, unit: string) {
   const groups = new Map<string, string[]>();
   for (const [at, row] of source.table.rows.entries()) {
     const text = texts[at] ?? "";
-    const cell = readCell(text, texts, unit);
+    const cell = readFigureCell(text, texts, unit);
     if (cell.value !== null || cell.reason === null || !/^Not (?:supplied|calculated):/.test(text))
       return null;
     const reason = words(text.trim());

@@ -23,7 +23,7 @@ import {
   Trace,
 } from "./leads/parts";
 import { Legend, MarkSwatch } from "./leads/kit/marks/Legend";
-import { closed, IN_EVIDENCE, readerCell } from "./leads/read";
+import { closed, CELL_IN_EVIDENCE, readerCell } from "./leads/read";
 import { sourceOf, writtenTable } from "./leads/written";
 
 const SCENARIOS = [
@@ -299,7 +299,7 @@ function position(measure: string, cell: string) {
 
 function readerDetail(value: string) {
   const cell = readerCell(value);
-  return cell === IN_EVIDENCE ? "See the scenario evidence." : cell;
+  return cell === CELL_IN_EVIDENCE ? "See the scenario evidence." : cell;
 }
 
 /** A case's name as a working page draws it: a name carrying a code or a register id is in Evidence. */

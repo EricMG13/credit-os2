@@ -212,7 +212,7 @@ def test_verification_record_under_cap():
 
 
 def test_instruction_files_thin():
-    for name in ("AGENTS.md", "CLAUDE.md"):
+    for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
         assert within_cap((REPO / name).read_text(), 201), name
 
 

@@ -82,7 +82,7 @@ export const pairNamed = (data: EarningsAgainstDebt) =>
     : null;
 
 /** The stated change with its sign: "+1,355", "−6,585", "0". */
-export const changeText = (change: string) => signedText(group(change), Number(change));
+export const signedChangeText = (change: string) => signedText(group(change), Number(change));
 
 /** "up, better", "up, worse", "down", "unchanged": direction, and better or worse only from `tone()`. */
 function changeNote(key: string, change: string) {
@@ -110,7 +110,7 @@ export function dumbbellRows(data: EarningsAgainstDebt): DumbbellRow[] {
       series: seriesOf(measure),
       ...(change === null
         ? {}
-        : { change: changeText(change), note: changeNote(TONE_KEY[measure.key], change) }),
+        : { change: signedChangeText(change), note: changeNote(TONE_KEY[measure.key], change) }),
     };
   });
 }
@@ -165,7 +165,7 @@ export function leverageReading(
   const change =
     moved === null
       ? ""
-      : `, ${changeText(moved)}x${word ? `, ${word}` : ""}${pair ? ` (${pair})` : ""}`;
+      : `, ${signedChangeText(moved)}x${word ? `, ${word}` : ""}${pair ? ` (${pair})` : ""}`;
   return `${leverage.label} on its own scale: ${figures.join(", ")}${change}.`;
 }
 
@@ -446,7 +446,7 @@ export function earningsReading(data: EarningsAgainstDebt, form: string) {
     const change =
       moved === null
         ? ""
-        : `, ${changeText(moved)} ${changeNote(TONE_KEY[measure.key], moved)}${pair ? ` (${pair})` : ""}`;
+        : `, ${signedChangeText(moved)} ${changeNote(TONE_KEY[measure.key], moved)}${pair ? ` (${pair})` : ""}`;
     return `${measure.label} ${figures.join(", ")}${change}`;
   });
   return `${data.unit}, ${form} on one scale from zero: ${parts.join("; ")}.`;
@@ -469,7 +469,7 @@ export function earningsTable(data: EarningsAgainstDebt) {
         ? [
             moved === null
               ? "Not stated"
-              : `${changeText(moved)}, ${changeNote(TONE_KEY[measure.key], moved)}`,
+              : `${signedChangeText(moved)}, ${changeNote(TONE_KEY[measure.key], moved)}`,
           ]
         : []),
     ];
@@ -486,7 +486,7 @@ export function earningsTable(data: EarningsAgainstDebt) {
             ? [
                 levMoved === null
                   ? "Not stated"
-                  : `${changeText(levMoved)}x${levWord ? `, ${levWord}` : ""}`,
+                  : `${signedChangeText(levMoved)}x${levWord ? `, ${levWord}` : ""}`,
               ]
             : []),
         ],

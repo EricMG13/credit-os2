@@ -8,11 +8,11 @@ import {
   publishedRunForFolder,
   readerText,
   reportPath,
+  type LibraryRun,
 } from "../publishedReport";
 import { buildReportView } from "../reportView";
 import { plainText, richParts } from "../richText";
 import { issuerPassageBody, leadIdentity, publishedLead } from "../issuerEntry";
-import type { LibraryRun } from "./group";
 import type { LoadSnapshot } from "./rowSnapshot";
 
 type CardFinding = { body: string; href: string };

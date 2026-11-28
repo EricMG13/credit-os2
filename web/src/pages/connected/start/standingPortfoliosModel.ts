@@ -12,7 +12,7 @@ import {
 } from "../api";
 import { asSentence, errorText } from "../useResource";
 import { comparisonFacts } from "./plain";
-import { FILE_COUNT_LIMIT, FILE_SIZE_LIMIT, FILE_TYPES } from "./referencePortfolio";
+import { FILE_COUNT_LIMIT, FILE_TYPES, PORTFOLIO_FILE_SIZE_LIMIT } from "./referencePortfolio";
 
 export const STANDING_TITLE = "Standing portfolios";
 export const STANDING_EXPLANATION =
@@ -84,7 +84,7 @@ function chosenProblems(files: readonly File[]) {
   const problems = files.flatMap((file) =>
     !FILE_TYPES.test(file.name)
       ? [`${file.name} is not a CSV or Excel file.`]
-      : file.size > FILE_SIZE_LIMIT
+      : file.size > PORTFOLIO_FILE_SIZE_LIMIT
         ? [`${file.name} exceeds the 20 MB limit.`]
         : [],
   );

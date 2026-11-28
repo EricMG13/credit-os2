@@ -11,7 +11,7 @@ import {
   netDebtView,
   showPeriodsTile,
   statedPeriods,
-  type Figure,
+  type FoundationFigure,
 } from "./foundationData";
 import { InterestCoverTile } from "./InterestCover";
 import { MaturityTile } from "./Maturity";
@@ -19,7 +19,7 @@ import { NetDebtTile } from "./NetDebt";
 import { PeriodsTile } from "./Periods";
 import { SegmentsTile } from "./Segments";
 
-const FIGURES: readonly Figure[] = [
+const FIGURES: readonly FoundationFigure[] = [
   "earnings",
   "ladder",
   "netDebt",

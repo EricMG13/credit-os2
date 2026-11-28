@@ -323,7 +323,7 @@ def test_no_check_reader_or_library_names_a_cut_or_routing_register():
             name: (ROOT / "apps/issuer-library/credit_os" / name).read_text()
             for name in ("store.py", "source.py", "handoff_fields.py", "cashflow.py", "evidence.py")
         },
-        # `firstHeading` is read by store.py:1154 and views.js:91 (T5B.3 and T6A.7 stay in scope).
+        # `firstHeading` is read by store.py:1154 (T5B.3 and T6A.7 stay in scope).
         "catalog.json": (ROOT / "apps/issuer-library/credit_os/catalog.json").read_text(),
     }
     ids = sorted({i for ids in CUT.values() for i in ids} | set(ROUTING_IDS))

@@ -115,15 +115,16 @@ def bundle(target: Path, architecture: str | None) -> None:
     engine = target / "engine"
     engine.mkdir(exist_ok=True)
     shutil.copyfile(APP / "engine/run_workflow.py", engine / "run_workflow.py")
-    # The static library: its update script, the Credit OS store and page parts (not their tests),
-    # and the workflow wrapper (bundled Python).
+    # The issuer-library publisher: its update script, the Credit OS store package,
+    # and the workflow wrapper (bundled Python). The legacy static web frontend is retired.
     shutil.copyfile(APP / "update_library.py", engine / "update_library.py")
     if (engine / "credit_os").exists():
         shutil.rmtree(engine / "credit_os")
-    tests = shutil.ignore_patterns(
-        "*.test.cjs", "*_check.cjs", "__pycache__", "*.pyc", "index.html"
+    shutil.copytree(
+        APP / "credit_os",
+        engine / "credit_os",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    shutil.copytree(APP / "credit_os", engine / "credit_os", ignore=tests)
     for name, lines in WRAPPERS.items():
         (target / name).write_text("\n".join(lines) + "\n", encoding="ascii", newline="\r\n")
     shutil.copyfile(ROOT / "cases/context/research-minimal.json", engine / "smoke-context.json")

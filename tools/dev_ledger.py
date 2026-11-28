@@ -173,7 +173,7 @@ def approved_policy(args: argparse.Namespace) -> str | None:
     fields = {"client", "routes", "max_attempt_seconds", "unmetered"}
     if not isinstance(policy, dict) or set(policy) != fields:
         raise ValueError("invalid dispatch policy fields")
-    if policy["client"] not in ("codex", "claude") or policy["unmetered"] is not True:
+    if policy["client"] not in ("codex", "claude", "gemini") or policy["unmetered"] is not True:
         raise ValueError("development dispatch requires a supported subscription client")
     if type(policy["max_attempt_seconds"]) is not int or policy["max_attempt_seconds"] < 1:
         raise ValueError("max_attempt_seconds must be a positive integer")

@@ -138,8 +138,9 @@ cost against the existing run. Treat unknown or mixed causation as ungraded for 
 Apply only model routes within approved bounds and qualified for that client and environment.
 
 Use subscription access for development workers and reviewers. Use Astra at medium effort on
-Codex and Fable at medium effort on Claude when those models are selected. If the approved
-subscription route cannot be verified or has no capacity, queue that work and report the reason.
+Codex, Fable at medium effort on Claude, and the `GEMINI.md` Gemini model ladder on Antigravity
+when those clients are selected. If the approved subscription route cannot be verified or has no
+capacity, queue that work and report the reason.
 
 ### Launching workers from a Codex chat
 
