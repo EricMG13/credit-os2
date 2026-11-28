@@ -95,5 +95,8 @@ export const writes = {
     post(id === null ? "/digests" : `/digests/${part(id)}/edit`, form),
   dropDigest: (id: string) => remove(`/digests/${part(id)}`),
   runDigest: (id: string) => post(`/digests/${part(id)}/run`),
+  /** Explicitly mark every issue in the digest read. */
   readDigest: (id: string) => post(`/digests/${part(id)}/read`),
+  readDigestIssue: (digest: string, issue: string) =>
+    post(`/digests/${part(digest)}/issues/${part(issue)}/read`),
 };

@@ -7,13 +7,23 @@ import { focusField } from "./fields";
  * Each step and the review sheet is a history entry, so the browser's Back and Forward move
  * between them with everything typed kept. `show` moves the form to a place and says whether it
  * could; an entry the form cannot show, such as a review it no longer holds, is passed over.
+ * "stay" means the form must not leave where it is (a request is outstanding): the entry the
+ * browser moved to is replaced by a fresh one for the place still shown, so the URL, the
+ * history and the shown step agree.
  */
-export function useStepHistory(place: Place, show: (target: Place) => boolean) {
+export function useStepHistory(place: Place, show: (target: Place) => boolean | "stay") {
   const entry = useRef(place);
   const arrive = useEffectEvent((target: Place) => {
-    if (target !== place && !show(target)) {
-      window.history.back();
-      return;
+    if (target !== place) {
+      const shown = show(target);
+      if (shown === "stay") {
+        window.history.pushState({ startRun: place }, "");
+        return;
+      }
+      if (!shown) {
+        window.history.back();
+        return;
+      }
     }
     entry.current = target;
   });

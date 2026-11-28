@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
-import { pathwayModules, moduleName, drawnModules } from "../api";
+import { moduleName, drawnModules } from "../api";
+import { focusChoices as focusChoicesFor, runModules } from "./focus";
 import { field, label } from "../layout";
 import { AssumptionFields } from "./AssumptionFields";
 import {
@@ -29,7 +30,6 @@ import { RowEditor } from "./RowEditor";
 import { ROW_SPECS, type RowKind } from "./rows";
 import { ValuationFields } from "./ValuationFields";
 import {
-  ANY_FOCUS,
   ATTACHMENTS,
   ISSUER_LIST_BOXES,
   ISSUER_TEXT_BOXES,
@@ -335,12 +335,10 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
 }
 
 function RowEditors({ view, kinds }: { view: IntakeView; kinds: readonly RowKind[] }) {
-  const focusChoices = [
-    ["", ANY_FOCUS] as const,
-    ...drawnModules(pathwayModules(view.run.pathway)).map(
-      (id) => [id, moduleName(id, view.run.pathway)] as const,
-    ),
-  ];
+  const focusChoices = focusChoicesFor(
+    runModules(view.run.pathway, view.requested, view.modules),
+    view.run.pathway,
+  );
   return (
     <div className="grid gap-4 lg:col-span-2">
       {kinds.map((kind) => (

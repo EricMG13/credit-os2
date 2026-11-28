@@ -67,6 +67,19 @@ WILDCARD_MESSAGE = (
 )
 
 
+# What ``BaseHTTPRequestHandler`` does to the text it logs: C0, DEL and C1 characters and the
+# backslash are written as escapes, so a request cannot forge a log line or drive the terminal.
+_ESCAPES = {
+    **{code: f"\\x{code:02x}" for code in (*range(0x20), *range(0x7F, 0xA0))},
+    ord("\\"): "\\\\",
+}
+
+
+def printable(text: str) -> str:
+    """``text`` with control characters (C0, DEL, C1) and backslashes escaped for a log line."""
+    return text.translate(_ESCAPES)
+
+
 class ClientGone(Exception):
     """The client's connection failed while its request body was being read."""
 
@@ -182,12 +195,12 @@ class Handler(BaseHTTPRequestHandler):
         method = getattr(self, "command", None)
         path = getattr(self, "path", None)
         if isinstance(method, str) and isinstance(path, str):
-            return method, self._safe_request_target(path)
+            return printable(method), printable(self._safe_request_target(path))
 
         request_line = getattr(self, "requestline", "")
         words = request_line.split(maxsplit=2)
         if len(words) >= 2:
-            return words[0], self._safe_request_target(words[1])
+            return printable(words[0]), printable(self._safe_request_target(words[1]))
         return "", ""
 
     @staticmethod
@@ -241,14 +254,19 @@ class Handler(BaseHTTPRequestHandler):
             # A client that reset or stalled mid-body is not a service failure: one info line. Only
             # the reading of the request body raises this; the same errors met anywhere else (a
             # timeout on the shared folder) fall to the 500 below.
-            self.logger.info("%s %s: connection lost (%s)", self.command, self._safe_path(), gone)
+            self.logger.info(
+                "%s %s: connection lost (%s)",
+                printable(self.command),
+                self._safe_path(),
+                printable(str(gone)),
+            )
             self.close_connection = True
         except Exception:
             # The only catch-all, documented: whatever a handler raises becomes a 500 with fixed
             # text. The traceback goes to the log; neither it, the exception text nor any
             # environment value (the provider key) reaches the client. KeyboardInterrupt and
             # SystemExit (BaseException) are not caught.
-            self.logger.exception("%s %s", self.command, self._safe_path())
+            self.logger.exception("%s %s", printable(self.command), self._safe_path())
             self.send_reply(refuse(500, FAILED))
 
     def check_origin(self) -> None:
@@ -299,7 +317,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
         except OSError as error:  # the peer went away or stalled: nothing more can be said to it
             self.logger.info(
-                "%s %s: reply not delivered (%s)", self.command, self._safe_path(), error
+                "%s %s: reply not delivered (%s)",
+                printable(self.command),
+                self._safe_path(),
+                printable(str(error)),
             )
 
     def content_length(self) -> int:

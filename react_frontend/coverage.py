@@ -294,7 +294,7 @@ def _run_entry(
         cell, output = _cell(workspace, record, key, code)
         if code in fixed:
             cells[code] = cell
-        elif code not in NO_COLUMN and output is not None:
+        elif code not in NO_COLUMN and (output is not None or cell["state"] == "unreadable"):
             other.append({"code": code, "title": module_titles.get(code, code), **cell})
         if output is not None and cell["state"] == "assessed":
             sections = workspace.get("handoffs", {}).get(output["sha256"], [])

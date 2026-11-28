@@ -241,6 +241,7 @@ function ModuleRecord({
           <PublishedTable
             evidence
             emptyLabel="Not recorded for this module"
+            pathway={pathway}
             table={{
               type: "table",
               line: 0,
@@ -260,6 +261,7 @@ function ModuleRecord({
             evidence
             heading={`${name}: ${callsTitle}`}
             emptyLabel="Not recorded for this call"
+            pathway={pathway}
             table={{
               type: "table",
               line: 0,

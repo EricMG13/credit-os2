@@ -335,6 +335,23 @@ def _period_cash(
     return check.model_copy(update={"cash_movement_bridges": tuple(bridges)})
 
 
+def _pro_forma_only(book: FinancialBook, node: PeriodConstruction) -> set[str]:
+    """Facilities whose rows all sit in pro forma periods ending on the node's date, other than
+    the node's own: those belong to another scenario, not to this period's debt (the rule of
+    `financial_reconciliation._debt`)."""
+    scenarios = {
+        p.period_id
+        for p in book.periods
+        if p.period_type == "PF"
+        and p.period_id != node.own_period_id
+        and node.end_date is not None
+        and p.end_date == node.end_date
+    }
+    return {r.facility_id for r in book.facilities if r.period_id in scenarios} - {
+        r.facility_id for r in book.facilities if r.period_id not in scenarios
+    }
+
+
 def _bridges(
     book: FinancialBook,
     report: HistoricalReport,
@@ -375,11 +392,15 @@ def _bridges(
     segments = tuple(dict.fromkeys(r.segment_id for r in book.segments))
     addbacks = tuple(dict.fromkeys(r.addback_id for r in book.addbacks))
     facilities = {r.facility_id: r for r in book.facilities}
+    other_scenarios = _pro_forma_only(book, node)
     debt = tuple(
         fid
         for fid, row in facilities.items()
-        if row.facility_type == "DEBT ADJUSTMENT"
-        or row.lease_classification not in {"FINANCE_LEASE", "OPERATING_LEASE"}
+        if fid not in other_scenarios
+        and (
+            row.facility_type == "DEBT ADJUSTMENT"
+            or row.lease_classification not in {"FINANCE_LEASE", "OPERATING_LEASE"}
+        )
     )
     undisclosed = not segments and book.segment_disclosure.status in {
         "not_disclosed",

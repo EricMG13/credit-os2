@@ -259,7 +259,13 @@ def _loop_error(loop: LoopState | None) -> str | None:
     """The first job of the loop whose last pass failed, as /api/status shows it."""
     if loop is None:
         return None
-    return loop.last_error or loop.ai_error or loop.digest_error or loop.market_error
+    return (
+        loop.last_error
+        or loop.ai_error
+        or loop.digest_error
+        or loop.market_error
+        or loop.logo_error
+    )
 
 
 def _ai_status(req: _Req, now: datetime) -> dict[str, str | None]:

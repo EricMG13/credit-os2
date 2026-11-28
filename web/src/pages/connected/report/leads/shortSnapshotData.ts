@@ -1,8 +1,9 @@
+import { parsePeriod } from "@/utils/periodOrder";
 import { SCREEN_TITLES, type OutputEntry } from "../../publishedReport";
-import { changeBetween, changePeriod, yearApart } from "./kit/changes";
+import { changeBetween, changePeriod, yearApart, type Period } from "./kit/changes";
 import { group, readCell } from "./kit/numbers";
-import { reasonText, safeText } from "./kit/reader";
-import { allTables, periodLabel, tableWith } from "./kit/tables";
+import { citesSource, IN_EVIDENCE, reasonText, safeText } from "./kit/reader";
+import { allTables, tableWith } from "./kit/tables";
 import { tone } from "../../signal";
 
 /*
@@ -54,8 +55,90 @@ const TONE_KEYS: Record<string, string> = {
   "undrawn committed facilities": "undrawn",
 };
 
-/** A year apart in either order. */
-const apart = (a: string, b: string) => yearApart(a, b) || yearApart(b, a);
+type ComparisonPeriod = Period & {
+  closing: readonly [year: number, month: number, day: number] | null;
+  basis: string;
+};
+
+function consecutive(prior: ComparisonPeriod, current: ComparisonPeriod) {
+  if (prior.basis !== current.basis || !yearApart(prior, current)) return false;
+  const { closing: earlier } = prior;
+  const { closing: later } = current;
+  if (!earlier || !later) return earlier === later;
+  return later[0] - earlier[0] === 1 && later[1] === earlier[1] && later[2] === earlier[2];
+}
+
+const apart = (a: ComparisonPeriod | null, b: ComparisonPeriod | null) =>
+  a !== null && b !== null && (consecutive(a, b) || consecutive(b, a));
+
+const DATED_PERIOD = /^(?:(.*?) \/ )?(\d{4}-\d{2}-\d{2})(?=$|[\s.,;:!?()\[])/;
+const PERIOD_NOTE = /(\s*\((?:[^()]|\([^()]*\))*\))/g;
+const PERIOD_SOURCE =
+  /^(?:(?:annual|quarterly|interim)(?: report)?|(?:Form )?10-?[KQ]|prospectus|[\w.-]+\.[a-z]{2,5})? *(?:\(?p(?:p|g|ages?)?\.? *\d+(?:[-–]\d+)?\)?)?\.?$/i;
+
+const PERIOD_SOURCE_LABEL = /^(?:per\s+)?(?:Source \d+|(?:the )?SEC filing)\.?$/i;
+
+const periodCitesSource = (text: string) =>
+  PERIOD_SOURCE_LABEL.test(text.trim()) ||
+  citesSource(text.trimStart().replace(/^["“'‘]?\d+[KMB]\b/i, ""));
+
+function periodQualifier(text: string): string | null {
+  const attribution = /^(.*?)(?:\s+(?:per|from|according to)\s+|:\s+)(.+)$/i.exec(text);
+  if (attribution?.[2] && periodCitesSource(attribution[2])) {
+    const qualification = safeText(attribution[1] ?? "");
+    return qualification !== IN_EVIDENCE && !periodCitesSource(qualification)
+      ? qualification
+      : null;
+  }
+  const visible = safeText(text);
+  if (visible !== IN_EVIDENCE && !periodCitesSource(visible)) return visible;
+  return PERIOD_SOURCE_LABEL.test(text.trim()) || PERIOD_SOURCE.test(text.trim()) ? "" : null;
+}
+
+/** Read the written period once so display cleanup cannot drop a valid closing date or its basis. */
+function readFigurePeriod(written: string): {
+  visible: string;
+  comparison: ComparisonPeriod | null;
+} {
+  const text = written.trim();
+  const dated = DATED_PERIOD.exec(text);
+  if (!dated) {
+    const visible = safeText(text);
+    const label = text.includes(" / ") || visible === IN_EVIDENCE ? null : changePeriod(visible);
+    return { visible, comparison: label ? { ...label, closing: null, basis: "" } : null };
+  }
+  const [, fiscal, date = ""] = dated;
+  const heading = safeText(dated[0]);
+  let ambiguous = heading === IN_EVIDENCE || Boolean(fiscal?.includes(" / "));
+  const qualification = (clause: string) => {
+    const kept = periodQualifier(clause);
+    if (kept === null) ambiguous = true;
+    return kept ?? "";
+  };
+  const tail = text
+    .slice(dated[0].length)
+    .split(PERIOD_NOTE)
+    .map((part, index) => {
+      if (index % 2 === 0) {
+        const kept = qualification(part.trim());
+        return kept ? part.replace(part.trim(), () => kept) : "";
+      }
+      const open = part.indexOf("(");
+      const note = part.slice(open + 1, -1);
+      const kept = note.split(/;\s*/).map(qualification).filter(Boolean).join("; ");
+      return kept ? `${part.slice(0, open)}(${kept})` : "";
+    })
+    .join("");
+  const closing = parsePeriod(date)?.end;
+  const label = ambiguous ? null : changePeriod(fiscal ?? date);
+  const basis = norm(tail)
+    .replace(/[.!?]+$/, "")
+    .trim();
+  return {
+    visible: safeText(heading + tail),
+    comparison: label && closing ? { ...label, closing, basis } : null,
+  };
+}
 
 const norm = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -72,34 +155,35 @@ function split(text: string) {
   const match = bracketed ?? /^([^\d\-]*?)(-?[\d,]+(?:\.\d+)?)(\D*)$/.exec(plain);
   if (!match) return null;
   const negative = bracketed !== null;
-  const digits = (match[2] ?? "").replaceAll(",", "");
-  if (readCell(digits).kind !== "number") return null;
-  const number = negative && Number(digits) !== 0 ? `-${digits}` : digits;
+  const reading = readCell(match[2] ?? "");
+  if (reading.kind !== "number") return null;
+  const number = negative && reading.value !== 0 ? `-${reading.text}` : reading.text;
   const suffix = negative ? `${match[3] ?? ""}${match[4] ?? ""}` : (match[3] ?? "");
   return { prefix: (match[1] ?? "").trim(), number, suffix: suffix.trim() };
 }
 
 function figureOf(value: string, period: string): Figure {
   const reading = readCell(value);
-  const when = safeText(period);
   if (reading.kind === "gap")
     return {
       kind: "gap",
       text: safeText(value),
       reason: reasonText(reading.reason),
-      period: when,
+      period,
     };
-  return { kind: "value", text: safeText(value), period: when };
+  return { kind: "value", text: safeText(value), period };
 }
 
-type Row = { fig: Figure; line: number };
+type Row = { fig: Figure; comparison: ComparisonPeriod | null; line: number };
 
 /** Two rows of one measure as prior and current, only when their periods are a year apart. */
 function pair(measure: string, a: Row, b: Row) {
-  if (!apart(a.fig.period, b.fig.period)) return null;
-  const [first, second] = [changePeriod(a.fig.period), changePeriod(b.fig.period)];
+  const { comparison: first } = a;
+  const { comparison: second } = b;
   if (!first || !second) return null;
-  const [prior, current] = first.year < second.year ? [a, b] : [b, a];
+  const firstIsPrior = first.year < second.year;
+  const [prior, current] = firstIsPrior ? [a, b] : [b, a];
+  const [priorPeriod, currentPeriod] = firstIsPrior ? [first, second] : [second, first];
   const p = prior.fig.kind === "value" ? split(prior.fig.text) : null;
   const c = current.fig.kind === "value" ? split(current.fig.text) : null;
   let change: KeyFigure["change"] = null;
@@ -108,8 +192,8 @@ function pair(measure: string, a: Row, b: Row) {
     marks = { prior: Number(p.number), current: Number(c.number), suffix: c.suffix };
     const unit = (part: NonNullable<typeof p>) => `${part.prefix}|${part.suffix}`;
     const made = changeBetween(
-      { period: prior.fig.period, cell: p.number, unit: unit(p) },
-      { period: current.fig.period, cell: c.number, unit: unit(c) },
+      { period: priorPeriod, cell: p.number, unit: unit(p) },
+      { period: currentPeriod, cell: c.number, unit: unit(c) },
     );
     const key = TONE_KEYS[norm(measure)];
     if (made && made.sign !== null) {
@@ -167,11 +251,15 @@ export function readKeyFigures(entry: OutputEntry): KeyFigures {
       reason: "This page could not read a row of the key figures.",
     };
   const at = (name: string) => table.headers.indexOf(name);
-  const rows = table.rows.map((row) => ({
-    measure: safeText(row.cells[at("Measure")] ?? ""),
-    fig: figureOf(row.cells[at("Value")] ?? "", periodLabel(row.cells[at("Period")] ?? "")),
-    line: row.line,
-  }));
+  const rows = table.rows.map((row) => {
+    const period = readFigurePeriod(row.cells[at("Period")] ?? "");
+    return {
+      measure: safeText(row.cells[at("Measure")] ?? ""),
+      fig: figureOf(row.cells[at("Value")] ?? "", period.visible),
+      comparison: period.comparison,
+      line: row.line,
+    };
+  });
   const used = new Set<number>();
   const figures: KeyFigure[] = [];
   rows.forEach((row, index) => {
@@ -182,7 +270,7 @@ export function readKeyFigures(entry: OutputEntry): KeyFigures {
         otherIndex > index &&
         !used.has(otherIndex) &&
         norm(other.measure) === norm(row.measure) &&
-        apart(row.fig.period, other.fig.period),
+        apart(row.comparison, other.comparison),
     );
     const other = matchAt >= 0 ? rows[matchAt] : undefined;
     const joined = other ? pair(row.measure, row, other) : null;

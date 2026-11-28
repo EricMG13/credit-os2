@@ -172,25 +172,29 @@ export function checkAnalysis(page: AnalysisPage, path: string): void {
   checkTraceNames(page, path);
 }
 
-/** Every trace control is named by its item's text, so no two items on the page may share one. */
+/** The text naming a rendered trace control must be unique on the page. */
 function checkTraceNames(page: AnalysisPage, path: string): void {
-  const named: { name: string; where: string }[] = [
+  const named = [
     ...page.findings.map((f, i) => ({
       name: f.title,
+      trace: f.trace,
       where: `${at(child(path, "findings"), i)}.title`,
     })),
     ...page.measures.stats.map((m, i) => ({
       name: m.label,
+      trace: m.trace,
       where: `${at(child(path, "measures.stats"), i)}.label`,
     })),
-    { name: page.headroom.title, where: child(path, "headroom.title") },
-    { name: page.segments.title, where: child(path, "segments.title") },
-    { name: page.contrary.title, where: child(path, "contrary.title") },
-    { name: page.watch.title, where: child(path, "watch.title") },
+    ...(["headroom", "segments", "contrary", "watch"] as const).map((key) => ({
+      name: page[key].title,
+      trace: page[key].trace,
+      where: child(path, `${key}.title`),
+    })),
     ...page.limitations.items.map((l, i) => ({
       name: l.title,
+      trace: l.trace,
       where: `${at(child(path, "limitations.items"), i)}.title`,
     })),
   ];
-  distinctTraceControlNames(named);
+  distinctTraceControlNames(named.filter((item) => item.trace !== null));
 }

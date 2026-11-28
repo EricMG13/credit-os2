@@ -212,8 +212,8 @@ def pdf_page_text(page: PageObject) -> tuple[str, str | None]:
     layout = page.extract_text(extraction_mode="layout", layout_mode_strip_rotated=False)
     plain = page.extract_text()
     if not layout.strip():
-        # Only readable text replaces the page; anything else leaves it to OCR or "empty".
-        return (plain, PLAIN_ONLY) if _substantive(plain) else (layout, None)
+        # Alphabetic text is usable without numbers. A numeric page marker still allows OCR.
+        return (plain, PLAIN_ONLY) if any(char.isalpha() for char in plain) else (layout, None)
     # Plain mode may split a number layout reads whole, so compare the amount of text, not tokens.
     if _alnum(plain) <= _alnum(layout):
         return layout, None

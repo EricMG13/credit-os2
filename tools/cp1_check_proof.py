@@ -17,12 +17,13 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-
 from deploy_workflow.credit_os_catalogue import period_order
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
 from deploy_workflow.owners import cpos_launch
 from deploy_workflow.owners.cpos_cp1_check import cp1_issues
+from deploy_workflow.owners.cpos_cp1_statements import _findings, _table
+
+ROOT = Path(__file__).resolve().parents[1]
 
 TESTS = ROOT / "tests/test_cpos_launch.py"
 ISSUER = "Northbridge Synthetic Group"
@@ -41,31 +42,53 @@ def instruction_budget() -> dict[str, int]:
     raise SystemExit(f"INSTRUCTION_BUDGET not found in {TESTS}")
 
 
+def _diagnostic_rows(lines: list[str], heading: str, *columns: str) -> list[dict[str, str]] | str:
+    """Read a complete table, or explain why it cannot support the comparison."""
+    table = _table(lines, heading)
+    if not table:
+        return f"`{heading}` has no table"
+    header, *rows = table
+    for column in columns:
+        if column not in header:
+            return f"`{heading}` missing column `{column}`"
+    if not rows:
+        return f"`{heading}` has no data rows"
+    if any(len(row) != len(header) for row in rows):
+        return f"`{heading}` row has the wrong number of cells"
+    return [dict(zip(header, row, strict=True)) for row in rows]
+
+
 def ladder_diagnostic(text: str) -> list[str]:
-    """The `Chart data: debt maturities` rows summed against each `Net debt data` Gross debt, for
-    a handoff that has no reconciliation table to say how they relate. A diagnostic read from the
-    handoff's own tables, not a check issue: it states a shortfall and does not judge it."""
-    lines = cp1_check._findings(text)
-    cells = [r["Debt maturing"] for r in cp1_check._records(lines, cp1_check.LADDER_HEADING)]
-    figures = [cp1_check._number(c) for c in cells]
-    if not cells or any(f is None for f in figures):
-        return ["the maturity ladder has a row that is not a stated number; no sum is worked"]
-    total = sum((f for f in figures if f is not None), Decimal(0))
-    out = []
-    rows = [
-        r
-        for r in cp1_check._records(lines, cp1_check.NET_DEBT_HEADING)
-        if period_order(r["Period"]) is not None
-    ]
-    if rows:  # the ladder is drawn at the latest balance-sheet date
-        row = max(rows, key=lambda r: period_order(r["Period"]) or ())
-        gross = cp1_check._number(row.get("Gross debt", ""))
-        if gross is not None:
-            out.append(
-                f"debt maturities sum to {total:,}; Net debt data Gross debt for "
-                f"{row['Period']} is {gross:,}; the ladder is {gross - total:,} short"
-            )
-    return out
+    """Compare the maturity ladder with the latest Gross debt when no reconciliation is given."""
+    lines = _findings(text)
+    ladder = _diagnostic_rows(lines, cp1_check.LADDER_HEADING, "Period", "Debt maturing")
+    if isinstance(ladder, str):
+        return [ladder]
+    figures = [cp1_check._number(row["Debt maturing"]) for row in ladder]
+    if any(figure is None for figure in figures):
+        return ["`Debt maturing` has no stated number in a ladder row; no sum is worked"]
+    rows = _diagnostic_rows(lines, cp1_check.NET_DEBT_HEADING, "Period", "Gross debt")
+    if isinstance(rows, str):
+        return [rows]
+    ordered = [(key, row) for row in rows if (key := period_order(row["Period"])) is not None]
+    notes = []
+    if len(ordered) != len(rows):
+        notes.append("`Net debt data` `Period` has no readable value in a row")
+    if not ordered:
+        return notes
+
+    _, row = max(ordered, key=lambda item: item[0])
+    period = row["Period"]
+    gross = cp1_check._number(row["Gross debt"])
+    if gross is None:
+        notes.append(f"`Gross debt` has no stated number for {period}")
+        return notes
+    total = sum((figure for figure in figures if figure is not None), Decimal(0))
+    notes.append(
+        f"debt maturities sum to {total:,}; Net debt data Gross debt for "
+        f"{period} is {gross:,}; the ladder is {gross - total:,} short"
+    )
+    return notes
 
 
 def check_handoffs(paths: list[Path]) -> int:
@@ -76,7 +99,7 @@ def check_handoffs(paths: list[Path]) -> int:
         print(f"{path}: {len(issues)} issue(s)")
         for number, issue in enumerate(issues, 1):
             print(f"  {number}. {issue}")
-        if cp1_check._table(cp1_check._findings(text), cp1_check.RECON_HEADING) is None:
+        if _table(_findings(text), cp1_check.RECON_HEADING) is None:
             for note in ladder_diagnostic(text):
                 print(f"  diagnostic (not a check issue): {note}")
         found += len(issues)

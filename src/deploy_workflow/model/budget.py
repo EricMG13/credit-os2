@@ -5,7 +5,8 @@ Layout, under the run's Execution directory (``owner_workflow.AUDIT``):
     owner-run-audit/reservations/<call_id>           {"usd", "config_id", "retry_of"}
     owner-run-audit/reservations/<call_id>.settled   {"status", "usd", "retryable"}
 
-A reservation marker is written (``O_CREAT|O_EXCL``, ``fsync``) before ``reserve`` returns, so a
+A reservation marker is created once and whole (a temporary file is written and ``fsync``ed, then
+``os.link``ed to its name; an existing name is a duplicate) before ``reserve`` returns, so a
 crash after a send leaves evidence. A new ``Budget`` over the same directory recomputes its
 state from the markers. A reservation with no ``.settled`` marker at load is a crash-left unknown
 charge: it stays held, is listed by ``unsettled``, and stops the run until settled or released
@@ -41,6 +42,7 @@ import json
 import os
 import re
 import threading
+import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Context, Decimal, DecimalException, Inexact, InvalidOperation
@@ -69,6 +71,7 @@ __all__ = [
 AUDIT = "owner-run-audit"  # owner_workflow.AUDIT
 RESERVATIONS = "reservations"
 _SETTLED = ".settled"
+_TEMP_PREFIX = ".tmp-"  # a marker being written; never a marker (a call id has no ".")
 # Money sums must be exact: a sum wider than the context raises instead of rounding.
 _EXACT = Context(prec=120, traps=[InvalidOperation, Inexact])
 _ID = re.compile(r"[A-Za-z0-9_-]+")
@@ -164,7 +167,16 @@ class ReservationSnapshot:
     retryable: bool
 
 
-def read_reservation_snapshot(run_dir: Path) -> tuple[ReservationSnapshot, ...]:
+def _marker_names(directory: Path) -> list[str]:
+    """The marker names in ``directory``, sorted; a marker still being written is not one."""
+    return sorted(
+        path.name for path in directory.iterdir() if not path.name.startswith(_TEMP_PREFIX)
+    )
+
+
+def read_reservation_snapshot(  # noqa: C901, PLR0912, PLR0915 - pre-existing (over the limits at base)
+    run_dir: Path,
+) -> tuple[ReservationSnapshot, ...]:
     """Read and validate an existing execution directory's reservation journal read-only."""
     execution = Path(run_dir)
     directory = execution / AUDIT / RESERVATIONS
@@ -179,7 +191,7 @@ def read_reservation_snapshot(run_dir: Path) -> tuple[ReservationSnapshot, ...]:
         return ()
     if not directory.is_dir():
         raise BudgetError("reservation directory is not a directory")
-    names = sorted(path.name for path in directory.iterdir())
+    names = _marker_names(directory)
     holds: dict[str, _Hold] = {}
     settled: dict[str, _Settlement] = {}
     for name in names:
@@ -276,19 +288,27 @@ def _call_id(value: object) -> str:
 
 
 def _write_once(path: Path, payload: dict[str, object]) -> None:
-    """Create ``path`` exclusively, write, fsync the file and its directory."""
+    """Create ``path`` exactly once and whole: write and fsync a temporary file in the same
+    directory, then link it to the final name (an existing name is a DuplicateCall), unlink the
+    temporary and fsync the directory. A crash or a concurrent reader never finds an empty or
+    partial marker under the final name."""
     data = json.dumps(payload, sort_keys=True).encode()
+    temp = path.with_name(f"{_TEMP_PREFIX}{path.name}.{os.getpid()}.{uuid.uuid4().hex}")
+    fd = os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError:
-        raise DuplicateCall(f"{path.name} already exists") from None
-    try:
-        view = memoryview(data)
-        while view:
-            view = view[os.write(fd, view) :]
-        os.fsync(fd)
+        try:
+            view = memoryview(data)
+            while view:
+                view = view[os.write(fd, view) :]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        try:
+            os.link(temp, path)
+        except FileExistsError:
+            raise DuplicateCall(f"{path.name} already exists") from None
     finally:
-        os.close(fd)
+        temp.unlink(missing_ok=True)
     _fsync_dir(path.parent)
 
 

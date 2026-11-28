@@ -207,7 +207,9 @@ def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
     _finite_figures(instrument)
     in_bucket = [  # a position with no stated asset type is read as the instrument's
         row
-        for row in rows(portfolio, rating_bucket=instrument.rating_bucket)
+        for row in rows(
+            portfolio, rating_bucket=instrument.rating_bucket, read_as=instrument.asset_type
+        )
         if row.position.asset_type in (instrument.asset_type, None)
     ]
     bucket_rows = [row for row in in_bucket if row.spread is not None]
@@ -311,6 +313,9 @@ STATE: dict[Outcome, str] = {
     "does_not_apply": "does not apply",
 }
 WORD = re.compile(r"[a-z0-9]+")
+# A pure figure or ordinal, with a unit or scale suffix (`50m`, `5x`, `10bp`, `80c`, `80pts`); a
+# letter qualifier (`2l`, `144a`) is not one.
+FIGURE = re.compile(r"\d+(?:st|nd|rd|th|m|mm|mn|bn|k|x|bps?|pct|c|pts)?")
 
 
 def eligible_types(
@@ -344,8 +349,8 @@ def _stem(word: str) -> str:
 
 
 def _unplain(words: Sequence[str]) -> list[str]:
-    """The words not plain and not a figure or ordinal (`10`, `2nd`)."""
-    return [word for word in words if word not in PLAIN_WORDS and not word[0].isdigit()]
+    """The words not plain and not a pure figure or ordinal (`10`, `2nd`; not `2l` or `144a`)."""
+    return [word for word in words if word not in PLAIN_WORDS and not FIGURE.fullmatch(word)]
 
 
 def _sector_rest(parameter: str, sector: str | None) -> list[str] | None:

@@ -80,6 +80,39 @@ def _attempt(event: Mapping[str, Any]) -> str:
     return value if isinstance(value, str) else ""
 
 
+_STARTED_NO_COMPLETION = "started, no completion reported"  # the reasons model/handoff.py writes
+_NO_READABLE_CHARGE = "completed after the module ended, no readable charge"
+
+
+def _cancel_late_anonymous(
+    events: Sequence[Mapping[str, Any]],
+    found: dict[Any, tuple[Any, Any]],
+    anonymous: dict[Any, list[int]],
+) -> None:
+    """An anonymous late completion, charged or with no readable charge, cannot be matched to its
+    start: it cancels one anonymous "started, no completion reported" disclosure of its module,
+    and no more than there are (a failed completion's record is a different summary). An
+    unreadable one stays as the summary's own disclosure. The module's disclosed count drops
+    with each cancelled start, so no summary is counted twice or not at all."""
+    open_starts: dict[Any, list[Any]] = {}
+    late: dict[Any, int] = {}
+    for number, e in enumerate(events):
+        module = e.get("module")
+        name, reason = e.get("event"), e.get("reason")
+        if _attempt(e):
+            continue
+        if name == "compaction_uncharged" and reason == _STARTED_NO_COMPLETION:
+            open_starts.setdefault(module, []).append((module, number))
+        elif name == "compaction_charge_late" or (
+            name == "compaction_uncharged" and reason == _NO_READABLE_CHARGE
+        ):
+            late[module] = late.get(module, 0) + 1
+    for module, charges in late.items():
+        for key in open_starts.get(module, [])[:charges]:
+            del found[key]
+            anonymous[module][2] -= 1
+
+
 def _uncharged_summaries(events: Sequence[Mapping[str, Any]]) -> dict[Any, tuple[Any, Any]]:
     """The context summaries with no reported charge, key -> (module, call). One attempt is one
     summary however many events name it; an event with no attempt id is one summary of its own.
@@ -107,6 +140,7 @@ def _uncharged_summaries(events: Sequence[Mapping[str, Any]]) -> dict[Any, tuple
                 ended.add((module, attempt))
             else:
                 counts[1] += 1
+    _cancel_late_anonymous(events, found, anonymous)
     for key, where in started.items():
         if key not in ended:
             found.setdefault(key, where)

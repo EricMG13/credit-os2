@@ -1,5 +1,5 @@
 import { ArrowRight, ChevronDown, ChevronUp } from "@untitledui/icons";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { BarCell } from "@/components/kit/BarCell";
 import { Segmented } from "@/components/kit/Segmented";
@@ -25,15 +25,17 @@ import {
   moduleRecords,
   numericColumns,
   RECORD_KINDS,
+  readableTitle,
   scaleNote,
   statedGap,
+  tableWithCellWords,
   unitColumn,
   type AmountColumn,
   type HeldRecord,
   type RecordTable,
 } from "./moduleRecordsModel";
 
-type Run = Pick<PublishedRun, "folder">;
+type Run = Pick<PublishedRun, "folder"> & { pathway?: string | null };
 
 const TOGGLE =
   "flex min-h-8 flex-none cursor-pointer items-center gap-1.5 rounded-ds-sm border border-border-control px-3 text-small font-medium text-text-secondary outline-focus-ring transition duration-100 ease-linear hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
@@ -104,10 +106,10 @@ function barLegend({ amount, negative }: { amount: boolean; negative: boolean })
 }
 
 /** A stated gap of the compact view: its leading words, the full text for every reader. */
-function gapChip(_column: number, cell: string) {
+function gapChip(cell: string, pathway?: string | null) {
   const words = statedGap(cell);
   if (words === null) return undefined;
-  const text = readerText(cell);
+  const text = readerText(cell, pathway);
   return (
     <span
       title={text}
@@ -168,7 +170,7 @@ function useNarrow(): boolean {
 }
 
 /** A card's value: a reference as an Evidence link, a stated gap as its chip, else as written. */
-function cardValue(cell: string, column: number, href: string): ReactNode {
+function cardValue(cell: string, href: string, pathway?: string | null): ReactNode {
   if (!cell.trim()) return <span aria-label="Left blank">—</span>;
   if (containsReference(cell))
     return (
@@ -176,7 +178,7 @@ function cardValue(cell: string, column: number, href: string): ReactNode {
         In Evidence
       </Button>
     );
-  const chip = gapChip(column, cell);
+  const chip = gapChip(cell, pathway);
   if (chip) return chip;
   const figure = /^[(+\-−]?\d[\d,]*(?:\.\d+)?\)?(?:%|x|bps)?$/.test(cell.trim());
   return isOneLine(cell) ? (
@@ -186,7 +188,7 @@ function cardValue(cell: string, column: number, href: string): ReactNode {
       {cell}
     </span>
   ) : (
-    richParts(cell, readerText)
+    richParts(cell, (words) => readerText(words, pathway))
   );
 }
 
@@ -216,21 +218,21 @@ function RecordCards({
           >
             <div className="flex items-start justify-between gap-2">
               <p className="min-w-0 text-small font-semibold text-text-primary">
-                {cardValue(name, first, href)}
+                {cardValue(name, href, run.pathway)}
               </p>
               <TraceControl
                 trace={traceKey(entry, row.line)}
-                label={`Show sources for ${readerText(name || "this row")}`}
+                label={`Show sources for ${readableTitle(name, "this row", run.pathway)}`}
               />
             </div>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-small">
               {rest.map((column) => (
                 <div key={column} className="contents">
                   <dt className="text-text-tertiary">
-                    {plainText(readerText(table.headers[column] ?? ""))}
+                    {plainText(readerText(table.headers[column] ?? "", run.pathway))}
                   </dt>
                   <dd className="min-w-0 text-text-secondary">
-                    {cardValue(row.cells[column] ?? "", column, href)}
+                    {cardValue(row.cells[column] ?? "", href, run.pathway)}
                   </dd>
                 </div>
               ))}
@@ -258,12 +260,17 @@ function RecordGap({ run, entry, record }: { run: Run; entry: OutputEntry; recor
 function RecordDrawing({
   run,
   entry,
-  record,
+  record: written,
 }: {
   run: Run;
   entry: OutputEntry;
   record: RecordTable;
 }) {
+  // A cell that states its words and cites the source in a bracket is drawn as those words.
+  const record = useMemo(
+    () => ({ ...written, table: tableWithCellWords(written.table) }),
+    [written],
+  );
   const [all, setAll] = useState(false);
   const narrow = useNarrow();
   const form = tableForm(record, all);
@@ -312,20 +319,23 @@ function RecordDrawing({
           wideBars
           records
           emptyLabel="Left blank"
+          pathway={run.pathway}
           drawCell={(column, cell) =>
-            drawUnits(column, cell) ?? (compact && !all ? gapChip(column, cell) : undefined)
+            drawUnits(column, cell) ?? (compact && !all ? gapChip(cell, run.pathway) : undefined)
           }
         />
       )}
       {drawnBars.size > 0 && (
         <>
           <Legend items={barLegend(drawnTones(record.table, drawnBars))} />
-          <p className="text-caption text-text-tertiary">{scaleNote(record.table, record.title)}</p>
+          <p className="text-caption text-text-tertiary">
+            {scaleNote(record.table, record.title, run.pathway)}
+          </p>
         </>
       )}
       {referenced.map((column) => (
         <p key={column} className="text-caption text-text-tertiary">
-          {`${plainText(readerText(record.table.headers[column] ?? ""))}: in Evidence, by row.`}
+          {`${plainText(readerText(record.table.headers[column] ?? "", run.pathway))}: in Evidence, by row.`}
         </p>
       ))}
     </div>
@@ -350,6 +360,7 @@ function ChosenRecord({
           block={note}
           trace={traceKey(entry, note.line)}
           href={evidencePath(run.folder, entry, note.line)}
+          pathway={run.pathway}
         />
       ))}
       <RecordDrawing run={run} entry={entry} record={record} />
@@ -538,7 +549,7 @@ export function ModuleRecords({
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const body = useId();
-  const { tables, evidence } = moduleRecords(entry);
+  const { tables, evidence } = moduleRecords(entry, run.pathway);
   if (!tables.length && !evidence.length) return null;
   const Chevron = open ? ChevronUp : ChevronDown;
   const toggle = (

@@ -184,15 +184,32 @@ class Writer:
 
     def draft(self, scope: digests.Scope) -> object:
         owner = scope.digest.owner
+        if scope.claim is None:
+            raise ai_ledger.ClaimLost("a digest draft requires a claim")
         try:
             answer = ai_call.call(
-                self.db, self.model, self.guard, "digest", prompt(scope, self.nonce()), owner=owner
+                self.db,
+                self.model,
+                self.guard,
+                "digest",
+                prompt(scope, self.nonce()),
+                owner=owner,
+                claim=ai_ledger.DigestClaim(scope.digest.id, scope.claim),
             )
+        except ai_ledger.ClaimLost:
+            raise
         except ai_ledger.NameFull as refused:
             self.full.add(owner)
             raise digests.WriterFailed(str(refused), again=True) from None
         except ai_ledger.Refused as refused:
             raise self._stop(str(refused), fault=False) from None
+        except ai_call.BusyBeforeSend as busy:  # nothing was reserved or sent: not paid
+            raise self._stop(f"the store was busy before the call: {busy}", fault=True) from None
+        except ai_call.SettlementFault as fault:
+            # The open reservation still guards recovery. Stop model calls for this pass.
+            self.calls += 1
+            self.stopped, self.fault = str(fault), True
+            raise
         self.calls += 1
         if self.calls >= self.per_pass:
             self.stopped = f"this pass made its {self.per_pass} digest calls; the others wait"
@@ -203,7 +220,10 @@ class Writer:
             raise digests.WriterFailed(failed)
         draft = read(answer.text, scope)
         if draft is None:
-            ai_ledger.relabel(self.db, answer.call_id, "result failed its check")
+            try:
+                ai_ledger.relabel(self.db, answer.call_id, "result failed its check")
+            except sqlite3.Error:
+                log.exception("Signal digest call %s: could not record validation", answer.call_id)
             log.warning("Signal digest call %s: the result failed its check", answer.call_id)
             raise digests.WriterFailed("the model's result failed its check")
         return draft

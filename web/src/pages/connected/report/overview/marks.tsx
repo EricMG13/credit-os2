@@ -470,11 +470,20 @@ export function DeltaBar({
   );
 }
 
+/** The narrowest a stated part of a split bar is drawn, in pixels. */
+const MIN_PART = 2;
+
 /** Two stated parts side by side, each drawn to its size. Positive parts only. */
 export function SplitBar({ first, second, label }: { first: Mark; second: Mark; label: string }) {
   const { ref, width } = useFrame(SMALL.view);
   if (first.value <= 0 || second.value <= 0) return null;
   const cut = (first.value / (first.value + second.value)) * width;
+  // A stated part keeps a visible width; the two parts and the 2 px between them stay in the frame.
+  const firstWidth = Math.min(
+    Math.max(cut - 1, MIN_PART),
+    Math.max(width - 2 - MIN_PART, MIN_PART),
+  );
+  const secondAt = firstWidth + 2;
   const ends = endLabels(first.text, second.text, width);
   return (
     <svg
@@ -485,8 +494,15 @@ export function SplitBar({ first, second, label }: { first: Mark; second: Mark; 
       aria-label={label}
       className="block"
     >
-      <rect x="0" y="6" width={cut - 1} height="14" rx="2" className="fill-chart-1" />
-      <rect x={cut + 1} y="6" width={width - 1 - cut} height="14" rx="2" className="fill-chart-2" />
+      <rect x="0" y="6" width={firstWidth} height="14" rx="2" className="fill-chart-1" />
+      <rect
+        x={secondAt}
+        y="6"
+        width={Math.max(width - secondAt, 0)}
+        height="14"
+        rx="2"
+        className="fill-chart-2"
+      />
       <Label label={ends.left} size={TEXT} className={cx(TICK, "fill-text-primary")} />
       <Label label={ends.right} size={TEXT} className={TICK} />
     </svg>

@@ -24,7 +24,9 @@ import {
   type Reading,
   type Mode,
 } from "./api";
+import { fileRoles } from "./start/contextSummary";
 import { sendableAssumptions } from "./start/assumptions";
+import { checkQuestionFocus, runModules } from "./start/focus";
 import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start/rows";
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
 import { Breadcrumb } from "./layout";
@@ -401,7 +403,10 @@ function useIntakeSession() {
   const focusedBeforeRef = useRef<{ node: HTMLElement; text: string } | null>(null);
   // Set when Submit has started the run, so leaving the page for it is not warned about.
   const submittedRef = useRef(false);
-  return { draftRef, reviewedRef, activeRef, focusedBeforeRef, submittedRef };
+  // Mirrors the submitUncertain state synchronously: a popstate can arrive after the reply is
+  // known but before React has committed the state.
+  const uncertainRef = useRef(false);
+  return { draftRef, reviewedRef, activeRef, focusedBeforeRef, submittedRef, uncertainRef };
 }
 
 function useIntakeViewState() {
@@ -540,7 +545,8 @@ function IntakeForm({
     selectionProblem,
     setSelectionProblem,
   } = reviewState;
-  const { draftRef, reviewedRef, activeRef, focusedBeforeRef, submittedRef } = useIntakeSession();
+  const { draftRef, reviewedRef, activeRef, focusedBeforeRef, submittedRef, uncertainRef } =
+    useIntakeSession();
   const { folderInput, moved, setMoved, changeNotice, setChangeNotice } = useIntakeViewState();
   const {
     inspections,
@@ -589,6 +595,7 @@ function IntakeForm({
     setAccepted(new Set());
     setApproved(false);
     setSubmitUncertain(false);
+    uncertainRef.current = false;
   }
 
   function changeIdentity<K extends keyof Context["identity"]>(
@@ -910,7 +917,11 @@ function IntakeForm({
   function makeAnswers(result: Reading, details: Record<string, unknown>, id: string): Answers {
     checkResearchCutoff();
     const available = new Set(result.documents.map(storedName));
-    const chosen = (key: Attachment) => available.has(attachments[key] ?? "");
+    const held = (key: Attachment) => available.has(attachments[key] ?? "");
+    // The three file boxes count only where the page draws them for this pathway and level; the
+    // agreement is drawn with the Legal documents choice, which is on every pathway.
+    const drawn = new Set<Attachment>(fileRoles({ earnings, level, run }));
+    const chosen = (key: Attachment) => (key === "agreement" || drawn.has(key)) && held(key);
     if (legal !== "none" && !chosen("agreement"))
       throw new FieldProblem("agreement", "Choose the uploaded file that is the agreement.");
     checkEarningsPeriods();
@@ -987,6 +998,11 @@ function IntakeForm({
       const listed: unknown[] = Array.isArray(questions) ? questions : [];
       details.research_questions = [...listed, { text: note, focus_module: "" }];
     }
+    checkQuestionFocus(
+      details.research_questions ?? context.research_questions,
+      runModules(run.pathway, requested, modules),
+      run.pathway,
+    );
     return details;
   }
 
@@ -1145,12 +1161,14 @@ function IntakeForm({
           setAccepted(new Set());
           setApproved(false);
           setSubmitUncertain(false);
+          uncertainRef.current = false;
           const taken = await idProblem(failure);
           if (taken) throw taken;
           setError(
             `${asSentence(draftErrorText(failure))} Review the run again before submitting.`,
           );
         } else {
+          uncertainRef.current = true;
           setSubmitUncertain(true);
           setError(lostSubmitText(failure));
         }
@@ -1330,8 +1348,13 @@ function IntakeForm({
     goTo(target);
   }
 
-  /** Moves to a place the browser's Back or Forward named; false when the form cannot show it. */
-  function showPlace(target: Place) {
+  /**
+   * Moves to a place the browser's Back or Forward named; false when the form cannot show it,
+   * "stay" while a request is outstanding or a submit's outcome is unknown (the review, and the
+   * Submit that is safe to repeat, must stay where they are).
+   */
+  function showPlace(target: Place): boolean | "stay" {
+    if (activeRef.current || uncertainRef.current || submittedRef.current) return "stay";
     // A review is made by Review run and not kept once left, and a step past Documents needs
     // documents that were read: Forward to either is passed over.
     if (target === "review" || (target !== "documents" && reading === undefined)) return false;

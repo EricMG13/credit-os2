@@ -14,6 +14,7 @@ import { traceForLine } from "../ReportContent";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import { Tile } from "./overview/Tile";
 import { readerTrace } from "./PublishedTrace";
+import { lineIsHidden } from "./evidenceDrawn";
 import { citationsAt } from "./traceCitations";
 
 function referencedText(node: TreeNode): string {
@@ -51,6 +52,7 @@ export function TraceSplit({
   /** The claim tile's address: where a trace address lands, the tile itself taking focus. */
   claimId?: string;
 }) {
+  if (lineIsHidden(entry, line)) return null;
   const stored = traceForLine(snapshot, entry, index, line, run.pathway);
   if (!stored) return null;
   // The words the drawer draws: a module is named, never shown by its code. The supplied files are

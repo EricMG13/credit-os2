@@ -76,7 +76,7 @@ function chartOutput(entry: OutputEntry): {
       title: figure.title ?? figure.name,
       category: "map",
     })),
-  ];
+  ].map(drawnGap);
   const withheld = parseError || state?.established === false || blocked(entry);
   const coveredLines = new Set([...charts, ...chartGaps].map(({ table }) => table));
   return {

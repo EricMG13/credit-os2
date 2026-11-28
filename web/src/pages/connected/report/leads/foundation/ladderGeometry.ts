@@ -63,7 +63,7 @@ const cellAt = (step: LadderStep, period: string) =>
 
 /** A side the drawing places beneath: an earlier gap names its period. */
 const priorOf = (side: Side, period: string): WaterfallPrior =>
-  "gap" in side ? { gap: `${period}: ${side.gap}` } : side;
+  "gap" in side ? { gap: `${period}: ${side.gap}` } : { ...side, asWritten: true };
 
 /** Each step as a Waterfall row: a level or a deduction as written, or a gap with its reason. */
 export function ladderRows(data: CashLadder, periods: LadderPeriods): WaterfallRow[] {
@@ -152,7 +152,7 @@ export function levelsBreak(rows: readonly WaterfallRow[]) {
   return false;
 }
 
-/** True when every row of a period is a stated gap: it is written as its reason, not drawn. */
+/** True when every row for the current period is a gap, regardless of earlier figures. */
 export const allGaps = (rows: readonly WaterfallRow[]) =>
   rows.length > 0 && rows.every((row) => row.kind === "gap");
 

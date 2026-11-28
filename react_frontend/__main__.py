@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -12,12 +13,15 @@ from deploy_workflow.model.copilot_adapter import CopilotAdapter
 from deploy_workflow.model.turn import ModelSpec
 from react_frontend import serve
 
+_LOG = logging.getLogger(__name__)
+
 
 def _seat_models() -> dict[str, frozenset[str]]:
     spec = ModelSpec("copilot-sol-medium", "copilot", "gpt-6.1-sol", "medium")
     try:
         models = asyncio.run(CopilotAdapter(spec, STANDING_RULING).seat_models())
-    except Exception:  # noqa: BLE001 - an optional runtime query must never block offline startup
+    except Exception as error:  # noqa: BLE001 - an optional runtime query must never block offline startup
+        _LOG.warning("Copilot seat query failed: %s", type(error).__name__)
         models = {}
     if not models:
         print(

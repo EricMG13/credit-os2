@@ -24,8 +24,8 @@ import type { Lead, LeadProps } from "./types";
  * CP-1D earnings quality lead. Contract: the add-back bridge, assessment T1D.2 and T1D.6 leverage.
  * The typed T1D.4 bridge keeps signed adjustments separate from explicitly not-credited amounts.
  * Support (supported / not supported) is drawn only where the assessment states a word for that
- * step's own name; it is never inferred. No sum, difference or comparison is stated in words:
- * the drawing places stated figures, and the table view lists them. The accepted share of a step is
+ * step's own name; it is never inferred. The drawing places stated figures, and the table view
+ * lists them. The accepted share of a step is
  * one colour on every row, the not accepted share another. Any further `Chart data:` section of the
  * module is listed as stated by `UnreadFigures`, so no published chart is lost.
  */
@@ -114,7 +114,10 @@ function splitLegend(bridge: Bridge): LegendEntry[] {
 /** A stated step's amount with the money unit it ends in drawn as the currency's symbol ("$200m"). */
 const statedUnit = (text: string) => {
   const split = splitMoneyUnit(text);
-  return split ? writtenUnit(split.amount, split.unit) : text;
+  if (!split) return text;
+  return split.amount.startsWith("+")
+    ? `+${writtenUnit(split.amount.slice(1), split.unit)}`
+    : writtenUnit(split.amount, split.unit);
 };
 
 const signedAmount = (amount: string, sign?: "" | "+" | "-") =>
@@ -277,15 +280,12 @@ function LeverageTile({ props }: { props: LeadProps }) {
                 caption={`${basis.label} against ${leverage.labels.restated}`}
                 rows={leverage.measures.flatMap((item) => {
                   const other = item.others?.[at];
-                  // With one further basis the table's delta is that comparison, as written.
-                  const delta = others.length === 1 && item.delta ? { change: item.delta } : {};
                   return other
                     ? [
                         {
                           label: item.measure,
                           prior: sideOf(other),
                           current: sideOf(item.restated),
-                          ...delta,
                         },
                       ]
                     : [];

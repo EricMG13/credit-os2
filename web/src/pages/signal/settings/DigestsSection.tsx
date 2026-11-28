@@ -151,7 +151,7 @@ function FormActions({
 }: {
   page: SignalPageWrite | null;
   editing: boolean;
-  onSave: () => void;
+  onSave: (() => void) | undefined;
   onCancel: () => void;
 }) {
   if (page !== null) {
@@ -162,7 +162,7 @@ function FormActions({
             Cancel edit
           </Button>
         ) : null}
-        <Button color="primary" onPress={onSave}>
+        <Button color="primary" onPress={onSave} isDisabled={onSave === undefined}>
           Save digest
         </Button>
       </div>
@@ -210,9 +210,10 @@ export function DigestsSection({
 }) {
   const page = usePageWrite();
   const edited = digests.find((digest) => digest.id === editing) ?? null;
+  const missing = editing !== null && edited === null;
   return (
     <Section
-      title={edited === null ? form.name : `Edit ${edited.name}`}
+      title={missing ? "Edit digest" : edited === null ? form.name : `Edit ${edited.name}`}
       hint="A digest is written by a model from the stories it covers, on its schedule."
     >
       <div className="flex max-w-[640px] flex-col gap-5">
@@ -270,12 +271,21 @@ export function DigestsSection({
             onChange("brief", text);
           }}
         />
+        {missing ? (
+          <p role="status" className="text-small text-text-secondary">
+            This digest no longer exists. Cancel the edit to start a new digest.
+          </p>
+        ) : null}
         <FormActions
           page={page}
-          editing={edited !== null}
-          onSave={() => {
-            onWrite(writes.digest(edited?.id ?? null, bodyOf(edited, value)), true);
-          }}
+          editing={editing !== null}
+          onSave={
+            missing
+              ? undefined
+              : () => {
+                  onWrite(writes.digest(editing, bodyOf(edited, value)), true);
+                }
+          }
           onCancel={() => {
             onEdit(null);
           }}

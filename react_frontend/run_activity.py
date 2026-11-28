@@ -292,6 +292,7 @@ def listing(layout: Layout) -> http_base.Reply:
     )[:_ENDED_SHOWN]
     snapshot = activity.snapshot(layout, records, now=datetime.now(UTC), held=_held(layout))
     root = layout.runs.resolve()
+    by_id = {item.id: item for item in records}
     return http_base.Reply(
         200,
         {
@@ -311,7 +312,12 @@ def listing(layout: Layout) -> http_base.Reply:
                     "files": len(shown["files"]),
                     "modules": _planned(
                         _manifest(root / shown["id"]),
-                        shown.get("modules", activity.module_states(shown["pathway"], [])),
+                        shown.get(
+                            "modules",
+                            activity.module_states(
+                                shown["pathway"], [], by_id[shown["id"]].modules
+                            ),
+                        ),
                     ),
                 }
                 for shown in snapshot["runs"]
@@ -349,7 +355,7 @@ def reply(layout: Layout, run_id: str) -> http_base.Reply:
     snapshot = activity.snapshot(layout, [record], now=datetime.now(UTC))
     [shown] = snapshot["runs"]
     usage = _usage(directory)
-    states = shown.get("modules", activity.module_states(record.pathway, []))
+    states = shown.get("modules", activity.module_states(record.pathway, [], record.modules))
     manifest = _manifest(directory)
     modules = _planned(manifest, states)
     return http_base.Reply(

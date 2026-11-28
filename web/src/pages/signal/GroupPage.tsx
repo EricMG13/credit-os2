@@ -65,8 +65,11 @@ function ThreadForm({
       fields={kind === "story" ? [story, note] : [note]}
       action={kind === "story" ? "Attach story" : "Start thread"}
       onSend={({ text }) => {
-        const chosen = stories.find((one) => one.id === text["story"]);
-        const storyId = kind === "story" ? (chosen?.id ?? null) : null;
+        const storyId =
+          kind === "story" ? (stories.find((one) => one.id === text["story"])?.id ?? null) : null;
+        if (kind === "story" && storyId === null) {
+          return Promise.resolve("Choose a story that is still in the feed.");
+        }
         return actions
           .write(writes.thread(group.id, storyId, (text["note"] ?? "").trim()))
           .then((answer) => answer.refusal);

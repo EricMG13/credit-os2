@@ -18,9 +18,13 @@ from urllib.parse import urlsplit
 
 SUMMARY_LIMIT = 300
 _ATOM = "{http://www.w3.org/2005/Atom}"
-_DTD = re.compile(rb"<!(DOCTYPE|ENTITY)", re.IGNORECASE)
+# A DTD or entity declaration in the prolog: after the whitespace, processing instructions (the XML
+# declaration included) and comments (possessive, so it never backtracks into a comment) that
+# precede the root element. A DOCTYPE in an item's CDATA or a comment is text, not a declaration.
+_DTD = re.compile(rb"(?:\s|<\?.*?\?>|<!--.*?-->)*+<!(?:DOCTYPE|ENTITY)", re.IGNORECASE | re.DOTALL)
 
 
+_LEADING = re.compile(rb"(?:\xef\xbb\xbf|[ \t\r\n])*+")
 _DTD_MESSAGE = "feed declares a DTD or entities"
 
 
@@ -239,7 +243,9 @@ def parse(body: bytes) -> Parsed:
     # A server template's line break before `<?xml` is not part of the document (expat refuses a
     # declaration that is not at byte 0); a UTF-8 BOM and whitespace are dropped, a UTF-16 one kept.
     body = body.removeprefix(b"\xef\xbb\xbf").lstrip(b" \t\r\n")
-    if _DTD.search(body):
+    # Any DTD this byte check cannot see (a UTF-16 body, say) is refused by `_RefuseDoctype`.
+    # The check also skips repeated or reordered BOMs and whitespace; the parser gets `body` as is.
+    if _DTD.match(_LEADING.sub(b"", body, count=1)):
         raise FeedError(_DTD_MESSAGE)
     try:
         parser = ET.XMLParser(target=_RefuseDoctype())

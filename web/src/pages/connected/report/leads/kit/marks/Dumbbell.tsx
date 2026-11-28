@@ -223,7 +223,7 @@ function lay(
         ? first
         : null;
     const side = [
-      ...(inline ? [] : changes),
+      ...(inline ? changes.slice(1) : changes),
       ...reasons(row, periods).flatMap((text) =>
         wrap(text, f.changeWidth).map((line) => ({ text: line, kind: "reason" as const })),
       ),

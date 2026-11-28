@@ -3,7 +3,6 @@
 Part of the library's store (`credit_os.store`, which re-exports every name here).
 """
 
-import json
 import re
 from collections import Counter
 from pathlib import Path, PurePosixPath
@@ -15,6 +14,7 @@ from credit_os.source import (
     describe,
     regular_chunks,
     sha256,
+    strict_loads,
 )
 
 SHA_TEXT = re.compile(r"[0-9a-f]{64}")
@@ -38,7 +38,7 @@ def run_json(path: Path, issues: list[str], what: str) -> Any:
     """A run file's JSON, or None with an issue naming why not (a documented fail-open: the
     Evidence page then lacks that part; the failure is in Workspace issues)."""
     try:
-        return json.loads(b"".join(regular_chunks(path, follow=False)).decode("utf-8"))
+        return strict_loads(b"".join(regular_chunks(path, follow=False)).decode("utf-8"))
     except FileNotFoundError:
         return None
     except (OSError, ValueError) as error:
@@ -128,7 +128,7 @@ def run_calls(run_dir: Path, folder: str, issues: list[str]) -> list[dict[str, A
         if not line.strip():
             continue
         try:
-            call = json.loads(line)
+            call = strict_loads(line)
         except ValueError:
             call = None
         if not isinstance(call, dict):

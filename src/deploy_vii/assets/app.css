@@ -252,6 +252,7 @@ tr.row-memo th,tr.row-memo td{font-style:italic;color:var(--rb-ink-2)}
 .passport{border:1px solid var(--rb-rule);border-top:3px solid var(--rb-blue);padding:var(--rb-s-4) var(--rb-s-5);display:flex;flex-direction:column;gap:var(--rb-s-3)}
 .passport.calculated{border-top-color:var(--rb-navy)}
 .passport.synthetic{border-top-color:var(--rb-neu)}
+.passport.uncited{border-top-color:var(--rb-neu)}
 .passport.gap{border:1px dashed var(--rb-neu)}
 .passport-head{display:flex;align-items:center;gap:var(--rb-s-3)}
 .passport-head .close{margin-left:auto;width:var(--rb-target);height:var(--rb-target);border:0;background:transparent;color:var(--rb-ink-2);display:inline-flex;align-items:center;justify-content:center}

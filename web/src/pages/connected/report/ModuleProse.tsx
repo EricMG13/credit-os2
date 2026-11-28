@@ -48,11 +48,23 @@ export function placeProse(prose: readonly ProseSection[]): Placed[] {
   return placed;
 }
 
-function TypedTables({ prose, entry }: { prose: ProseSection; entry: OutputEntry }) {
+function TypedTables({
+  prose,
+  entry,
+  pathway,
+}: {
+  prose: ProseSection;
+  entry: OutputEntry;
+  pathway?: string | null;
+}) {
   return prose.typed.map((table) => (
     <div key={table.line} className="min-w-0">
-      {typedModuleTable(entry.output.module, prose.section.heading, table, (line) =>
-        traceKey(entry, line),
+      {typedModuleTable(
+        entry.output.module,
+        prose.section.heading,
+        table,
+        (line) => traceKey(entry, line),
+        pathway,
       )}
     </div>
   ));
@@ -62,10 +74,12 @@ function ProseTile({
   placed,
   entry,
   folder,
+  pathway,
 }: {
   placed: Placed;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const { prose, span, measured } = placed;
   const id = ANCHOR.section(prose.section.line);
@@ -75,7 +89,7 @@ function ProseTile({
     return (
       <Tile span={12} label={`${prose.title} table`} className="self-start">
         <div id={id} tabIndex={-1} className="grid min-w-0 gap-4 outline-none">
-          <TypedTables prose={prose} entry={entry} />
+          <TypedTables prose={prose} entry={entry} pathway={pathway} />
         </div>
       </Tile>
     );
@@ -101,11 +115,12 @@ function ProseTile({
               block={block}
               trace={traceKey(entry, block.line)}
               href={evidencePath(folder, entry, block.line)}
+              pathway={pathway}
             />
           </div>
         ))}
       </div>
-      <TypedTables prose={prose} entry={entry} />
+      <TypedTables prose={prose} entry={entry} pathway={pathway} />
     </Tile>
   );
 }
@@ -115,13 +130,22 @@ export function ProseTiles({
   prose,
   entry,
   folder,
+  pathway,
 }: {
   prose: readonly ProseSection[];
   entry: OutputEntry;
   folder: string;
+  /** The run's pathway, which names its modules in the tables. */
+  pathway?: string | null;
 }) {
   return placeProse(prose).map((placed) => (
-    <ProseTile key={placed.prose.section.line} placed={placed} entry={entry} folder={folder} />
+    <ProseTile
+      key={placed.prose.section.line}
+      placed={placed}
+      entry={entry}
+      folder={folder}
+      pathway={pathway}
+    />
   ));
 }
 
@@ -131,11 +155,13 @@ export function DrawingGapTile({
   entry,
   folder,
   span,
+  pathway,
 }: {
   gap: DrawingGap;
   entry: OutputEntry;
   folder: string;
   span: 6 | 12;
+  pathway?: string | null;
 }) {
   return (
     <Tile
@@ -145,10 +171,10 @@ export function DrawingGapTile({
       title={<span className="first-letter:uppercase">{gap.title}</span>}
     >
       {gap.blocks.map((block) => {
-        const text = proseWithoutMachinery(readParagraph(block.text).body);
+        const text = proseWithoutMachinery(readParagraph(block.text).body, pathway);
         // The module's words as written; hatched only where they state a gap.
         const words = text ? (
-          richParts(text, readerText)
+          richParts(text, (words) => readerText(words, pathway))
         ) : (
           <Button
             href={evidencePath(folder, entry, block.line)}

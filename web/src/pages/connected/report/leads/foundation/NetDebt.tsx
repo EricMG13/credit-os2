@@ -449,6 +449,7 @@ function Liquidity({ view }: { view: NetDebtView }) {
           Liquidity
           {total && <span className="font-normal text-text-tertiary">{` · ${total}`}</span>}
         </p>
+        <p className="text-text-tertiary">{`Reporting unit: ${view.unit} unless shown with the figure.`}</p>
         {reason && (
           <p data-liquidity-unit className="text-gap-text">
             {reason}

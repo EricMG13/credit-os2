@@ -411,8 +411,10 @@ def sources_rows(cp0_sections: list[dict[str, Any]]) -> Iterator[tuple[str, str]
             continue
         for block in section["blocks"]:
             if block["type"] == "text":
-                if listed := LISTED_SOURCE.match(block["text"].strip()):
-                    yield listed["file"], listed["sha"]
+                # The parser keeps consecutive "* " lines in one block: each line is an entry.
+                for text_line in block["text"].split("\n"):
+                    if listed := LISTED_SOURCE.match(text_line.strip()):
+                        yield listed["file"], listed["sha"]
                 continue
             if block["type"] != "table":
                 continue
@@ -510,7 +512,8 @@ def quote_span(quote: str, text: str) -> tuple[int, int] | None:
     if NUMBER.fullmatch(quote.strip()):
         found = re.search(rf"(?<!\d)(?<!\d,){number_pattern(quote)}(?!\d)(?!\.\d)", text)
     else:
-        found = re.search(re.escape(quote), text)
+        # A run of whitespace in the quote is any run of whitespace on the page (line breaks).
+        found = re.search(r"\s+".join(map(re.escape, re.split(r"\s+", quote))), text)
     return found.span() if found else None
 
 
@@ -574,6 +577,14 @@ def source_bytes(path: Path) -> tuple[bytes | None, str | None, str | None]:
     return raw, hashlib.sha256(raw).hexdigest(), None
 
 
+def normal_hash(listed: str) -> str:
+    """A listed sha256 as comparable hex: no padding, backticks or ``sha256:``; lower case."""
+    text = listed.strip().strip("`").strip()
+    if text[:7].lower() == "sha256:":
+        text = text[7:]
+    return text.strip().lower()
+
+
 class Pages:
     """Source-text files of one run, read once each, with the run's inventory."""
 
@@ -582,7 +593,7 @@ class Pages:
         self.files: dict[str, str | None] = {}
         for key, (file, sha) in inv.items():
             kept = self.files.setdefault(file, key)
-            if kept is not None and inv[kept][1] != sha:
+            if kept is not None and normal_hash(inv[kept][1]) != normal_hash(sha):
                 self.files[file] = None
         self.index = key_index(tuple(inv), getattr(inv, "alternates", frozenset()))
         self.folder = run_dir / "source-text"
@@ -617,13 +628,14 @@ def issuer_chip(loc: Locator, line: int, quote: str | None, pages: Pages) -> dic
         return chip(as_gap(loc), line, reason="no inventory")
     if entry is None:
         return chip(as_gap(loc), line, reason="key not in inventory")
-    file, expected = entry
+    file, listed = entry
+    expected = normal_hash(listed)
     if not is_file_name(file):
         return chip(as_gap(loc), line, reason="source name not a file name")
     texts, actual, problem = pages.get(file)
     fields: dict[str, Any] = {
         "file": file,
-        "sha256": expected or None,
+        "sha256": listed or None,
         "hash_matches_inventory": None if actual is None or not expected else actual == expected,
         "quote": quote,
         "reason": problem,

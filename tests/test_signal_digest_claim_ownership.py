@@ -89,22 +89,23 @@ def test_late_completion_cannot_change_the_recovered_run(tmp_path, outcome, succ
         assert after.next_run_at == (NEXT_DUE + timedelta(days=7) if successor else NEXT_DUE)
 
 
-def test_scheduled_pass_leaves_a_new_request_pending_during_an_active_claim(tmp_path):
+def test_manual_request_is_refused_during_an_active_claim(tmp_path):
     with closing(store.open_db(tmp_path)) as db, closing(store.open_db(tmp_path)) as other:
         ident = _ready(db)
         asked = DUE + timedelta(minutes=1)
 
         def request_during_write() -> None:
-            digests.request_run(other, "Mara L", ident, asked)
+            with pytest.raises(digests.Conflict, match="This digest is being written now"):
+                digests.request_run(other, "Mara L", ident, asked)
             ran = digests.run_due(other, asked, RecordingWriter())
             assert not ran and not ran.waiting and not ran.left_due
             row = other.execute("SELECT claimed_at, run_requested_at FROM digests").fetchone()
-            assert tuple(row) == (DUE.isoformat(), asked.isoformat())
+            assert tuple(row) == (DUE.isoformat(), None)
 
         ran = digests.run_due(db, DUE, DelayedWriter(request_during_write))
         assert [(found, run.outcome) for found, run in ran] == [(ident, "written")]
         assert count(db, "digest_runs") == 1
-        assert digests.owned(db, "Mara L", ident).requested_at == asked
+        assert digests.owned(db, "Mara L", ident).requested_at is None
 
 
 def test_failure_before_claiming_leaves_a_successor_claim_intact(tmp_path, monkeypatch):
@@ -143,9 +144,12 @@ def test_storage_failure_rolls_back_and_records_the_still_owned_run(tmp_path):
         assert not ran and not ran.waiting and not ran.left_due
         assert count(db, "digest_issues") == 0
         row = db.execute("SELECT outcome, reason FROM digest_runs").fetchone()
-        assert tuple(row) == ("skipped", "the run failed (RuntimeError); see the log")
+        assert tuple(row) == (
+            "skipped",
+            f"{digests.NOT_WRITTEN}the run failed (RuntimeError); see the log",
+        )
         digest = digests.owned(db, "Mara L", ident)
-        assert (digest.period_from, digest.next_run_at, digest.story_mark) == (DUE, NEXT_DUE, 2)
+        assert (digest.period_from, digest.next_run_at, digest.story_mark) == (DUE, NEXT_DUE, 1)
         assert db.execute("SELECT claimed_at FROM digests").fetchone()[0] is None
 
 
@@ -198,7 +202,13 @@ def test_a_busy_issue_write_expires_and_clears_its_queued_request(tmp_path, monk
                 ai_run.digest_pass(db, DUE, setup(tmp_path, model, clock=DUE))
         assert count(db, "digest_issues") == 0
         waiting = DUE + timedelta(minutes=1)
-        digests.request_run(other, "Mara L", ident, waiting)
+        with pytest.raises(digests.Conflict, match="This digest is being written now"):
+            digests.request_run(other, "Mara L", ident, waiting)
+        # Recovery must clear a request queued by an earlier version.
+        other.execute(
+            "UPDATE digests SET run_requested_at=? WHERE id=?", (waiting.isoformat(), ident)
+        )
+        other.commit()
 
         boundary = DUE + ai_ledger.CALL_BOUND
         assert not ai_run.digest_pass(other, boundary, setup(tmp_path, model, clock=boundary))

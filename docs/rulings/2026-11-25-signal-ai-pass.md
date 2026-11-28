@@ -80,3 +80,7 @@ owner's word: "your recommendation on 2", where item 2 of the list put to the ow
 that this ruling's wording was out of date. It narrows what may spend and widens nothing. Lines
 written by `signal ai pass` are shown on the page only while the application was started with
 the switch.
+
+## Digest claims and failure recovery
+
+The owner decided on 27 November that Signal refuses a new manual digest request while a claim is held. If storing a generated issue fails, the digest keeps stories added after the failed run read its scope for a later run. These decisions apply to the sectioned review integration.

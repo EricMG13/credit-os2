@@ -6,6 +6,7 @@ import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
 import type { SourcedTrace } from "@/pages/library/parts/TraceParts";
 import type { Trace } from "@/pages/library/slice";
 import { handoffBlockAt, traceForLine } from "../ReportContent";
+import { lineIsHidden } from "./evidenceDrawn";
 import { citationsAt } from "./traceCitations";
 import type { TreeNode } from "@/pages/library/slice";
 import {
@@ -76,7 +77,13 @@ export function PublishedTraceProvider({
       if (!href.startsWith(prefix)) return null;
       const location = resolveEvidenceLocation(entries, href.slice(prefix.length));
       const line = location?.line;
-      if (!location || line === undefined || !handoffBlockAt(location.entry, line)) return null;
+      if (
+        !location ||
+        line === undefined ||
+        !handoffBlockAt(location.entry, line) ||
+        lineIsHidden(location.entry, line)
+      )
+        return null;
       return () => {
         const base = traceForLine(snapshot, location.entry, location.index, line, pathway);
         const trace = base && { ...base, citations: citationsAt(snapshot, location.entry, line) };
@@ -119,7 +126,7 @@ export function PublishedTraceProvider({
         entries,
         item.startsWith(prefix) ? item.slice(prefix.length) : item,
       );
-      return location?.line === undefined
+      return location?.line === undefined || lineIsHidden(location.entry, location.line)
         ? undefined
         : citationsAt(snapshot, location.entry, location.line);
     },

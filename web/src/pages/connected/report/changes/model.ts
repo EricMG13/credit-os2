@@ -72,32 +72,33 @@ const MODULE_CODE = /\s*\(CP-(?:\d+[A-Z]?|L\d+|DR|MEMO|MODEL|OS|PARSE)\)/gi;
 /** The bracket the shared reader leaves where it has no name for a bracketed code. */
 const UNNAMED_BRACKET = ` (${UNNAMED_MODULE})`;
 
-export const words = (text: string) =>
-  readerText(text).replace(MODULE_CODE, "").replaceAll(UNNAMED_BRACKET, "");
+export const words = (text: string, pathway?: string | null) =>
+  readerText(text, pathway).replace(MODULE_CODE, "").replaceAll(UNNAMED_BRACKET, "");
 
 /** A comparison's stated problem for the reader: a problem that cites a file or path is not drawn. */
-export const problemSentence = (problem: string) =>
-  containsReference(problem) ? "The comparison could not be read." : words(problem);
+export const problemSentence = (problem: string, pathway?: string | null) =>
+  containsReference(problem) ? "The comparison could not be read." : words(problem, pathway);
 
 const plain = (text = "") =>
   text.replaceAll("**", "").replaceAll("`", "").trim().replace(/\s+/g, " ");
 const nothing = (text: string) => text === "" || /^[—–-]$/.test(text);
 
-function causeOf(cell: string | undefined): Cause {
-  const text = words(plain(cell));
+function causeOf(cell: string | undefined, pathway?: string | null): Cause {
+  const text = words(plain(cell), pathway);
   if (text === "") return { kind: "absent" };
   if (nothing(text)) return { kind: "dash" };
   return containsReference(text) ? { kind: "referenced" } : { kind: "written", text };
 }
 
 /** A written cell in the module's words; null for a placeholder or a cell that cites a source. */
-function written(cell: string | undefined) {
-  const text = words(plain(cell));
+function written(cell: string | undefined, pathway?: string | null) {
+  const text = words(plain(cell), pathway);
   return nothing(text) || containsReference(text) ? null : text;
 }
 
 /** A label compared on the whole: module names applied, marks, case and spacing normalised. */
-const fullKey = (text = "") => words(plain(text)).toLowerCase().replace(/\s+/g, " ").trim();
+const fullKey = (text = "", pathway?: string | null) =>
+  words(plain(text), pathway).toLowerCase().replace(/\s+/g, " ").trim();
 
 /** The label without a trailing "(unit)", only where that bracket is the measure's own unit. */
 function withoutUnit(key: string, unit: string | null | undefined) {
@@ -127,12 +128,19 @@ type PackMeasure = NonNullable<NonNullable<PublishedChanges["pack"]>["measures"]
  * trimmed only where it is the measure's own unit). A measure with two candidate rows, or a row
  * claimed by two measures, matches none: both stay unmatched rather than take a wrong cause.
  */
-function matchRows(measures: readonly PackMeasure[], rows: readonly IssuerRow[]) {
+function matchRows(
+  measures: readonly PackMeasure[],
+  rows: readonly IssuerRow[],
+  pathway?: string | null,
+) {
   const candidates = measures.map((measure) => {
     const unit = measure.unit ?? measure.current?.unit ?? measure.prior?.unit;
-    const wanted = new Set([fullKey(measure.label), withoutUnit(fullKey(measure.label), unit)]);
+    const wanted = new Set([
+      fullKey(measure.label, pathway),
+      withoutUnit(fullKey(measure.label, pathway), unit),
+    ]);
     return rows.filter(({ cells }) => {
-      const key = fullKey(cells[0]);
+      const key = fullKey(cells[0], pathway);
       return wanted.has(key) || wanted.has(withoutUnit(key, unit));
     });
   });
@@ -167,10 +175,11 @@ export function classifyMeasures(
   trace: (label: string) => string | undefined,
   entry?: OutputEntry,
   folder = "",
+  pathway?: string | null,
 ): MeasureMatches {
   const rows = comparisonRows(change, "reader");
   const measures = change.pack?.measures ?? [];
-  const matched = matchRows(measures, issuerTable(entry)?.rows ?? []);
+  const matched = matchRows(measures, issuerTable(entry)?.rows ?? [], pathway);
   const groups: MeasureMatches = {
     moved: [],
     revised: [],
@@ -190,7 +199,7 @@ export function classifyMeasures(
     const cause: Cause = !entry
       ? { kind: "noModule" }
       : issuer
-        ? causeOf(issuer.cells[3])
+        ? causeOf(issuer.cells[3], pathway)
         : { kind: "unmatched" };
     // The comparison's own "Unresolved" says it cannot tell why the figure differs, so the page
     // does not call the difference better or worse: the direction is not established.
@@ -206,14 +215,9 @@ export function classifyMeasures(
       delta: shown && sign !== null ? delta : null,
       sign: shown ? sign : null,
       tone: toned === "none" || unresolved ? null : toned,
-      reason: stated(reason.replace(/ · Same-period analysis change$/, "")),
+      reason: stated(reason.replace(/ · Same-period analysis change$/, ""), pathway),
       cause,
-      effect:
-        !entry || (!issuer && !written(effect))
-          ? null
-          : written(effect)
-            ? { kind: "written", text: written(effect) ?? "" }
-            : causeOf(issuer?.cells[4]),
+      effect: effectOf(entry, issuer, effect, pathway),
       href: !entry
         ? trace(label)
         : issuer
@@ -228,8 +232,25 @@ export function classifyMeasures(
   return groups;
 }
 
-function stated(reason: string) {
-  return containsReference(reason) ? "See comparison evidence." : words(reason);
+/**
+ * A measure's effect: the issuer row's own Effect cell when the row exists (the verdict's analysis
+ * change is the analysis's word, drawn elsewhere as the cause); the analysis change only where the
+ * module wrote no issuer row for the measure. No comparison module: no effect.
+ */
+function effectOf(
+  entry: OutputEntry | undefined,
+  issuer: IssuerRow | undefined,
+  analysisChange: string,
+  pathway?: string | null,
+): Cause | null {
+  if (!entry) return null;
+  if (issuer) return causeOf(issuer.cells[4], pathway);
+  const text = written(analysisChange, pathway);
+  return text ? { kind: "written", text } : null;
+}
+
+export function stated(reason: string, pathway?: string | null) {
+  return containsReference(reason) ? "See comparison evidence." : words(reason, pathway);
 }
 
 function amountOf(value: string | number | null | undefined) {
@@ -255,8 +276,6 @@ export function statusColumn(status: string): StatusColumn | null {
 /** A cell of a CP-8 register in the module's words, or the fact that it cites a source or is empty. */
 export type Cell = Cause;
 
-const cellOf = causeOf;
-
 /**
  * The issuer-table rows that are not one of the pack's measures (a new facility, an outlook), and the
  * contract's own "No material change" row, which is the module saying nothing changed, not a fact.
@@ -265,6 +284,7 @@ export function issuerFacts(
   entry: OutputEntry | undefined,
   folder: string,
   matchedLines: ReadonlySet<number>,
+  pathway?: string | null,
 ) {
   const table = issuerTable(entry);
   const facts: {
@@ -281,9 +301,9 @@ export function issuerFacts(
   for (const { cells, line } of table.rows) {
     if (matchedLines.has(line)) continue;
     const href = evidencePath(folder, entry, line);
-    if (fullKey(cells[0]) === "no material change") {
-      const cause = cellOf(cells[3]);
-      const effect = cellOf(cells[4]);
+    if (fullKey(cells[0], pathway) === "no material change") {
+      const cause = causeOf(cells[3], pathway);
+      const effect = causeOf(cells[4], pathway);
       // The module may write its reason in the Cause cell and leave Effect a dash.
       const none = cause.kind === "written" && cause.text.toLowerCase() === "none";
       const reason =
@@ -298,11 +318,11 @@ export function issuerFacts(
     facts.push({
       line,
       href,
-      label: cellOf(cells[0]),
-      before: cellOf(cells[1]),
-      after: cellOf(cells[2]),
-      cause: cellOf(cells[3]),
-      effect: cellOf(cells[4]),
+      label: causeOf(cells[0], pathway),
+      before: causeOf(cells[1], pathway),
+      after: causeOf(cells[2], pathway),
+      cause: causeOf(cells[3], pathway),
+      effect: causeOf(cells[4], pathway),
     });
   }
   return { facts, noChange };
@@ -313,6 +333,7 @@ export function analysisRows(
   entry: OutputEntry | undefined,
   folder: string,
   knownCodes: ReadonlySet<string> = new Set(),
+  pathway?: string | null,
 ) {
   const table =
     entry && namedTable(entry, "What changed: the analysis", ["Module", "Status", "Cause", "Why"]);
@@ -323,10 +344,10 @@ export function analysisRows(
     .map(({ cells, line }) => ({
       line,
       href: evidencePath(folder, entry, line),
-      module: cellOf(cells[0]),
-      status: cellOf(cells[1]),
-      cause: cellOf(cells[2]),
-      why: cellOf(cells[3]),
+      module: causeOf(cells[0], pathway),
+      status: causeOf(cells[1], pathway),
+      cause: causeOf(cells[2], pathway),
+      why: causeOf(cells[3], pathway),
     }));
 }
 
@@ -362,6 +383,7 @@ const statusKey = (text: string) =>
 export function ledgerOf(
   entry: OutputEntry | undefined,
   folder: string,
+  pathway?: string | null,
 ): { groups: LedgerGroup[] } | { table: Table } | null {
   if (!entry) return null;
   const table = ledgerTable(entry);
@@ -372,14 +394,14 @@ export function ledgerOf(
   const byStatus = new Map<string, { heading: string; items: LedgerItem[] }>();
   for (const { cells, line } of table.rows) {
     const empty = nothing(plain(cells[limitation]));
-    const note = closed < 0 ? null : written(cells[closed]);
+    const note = closed < 0 ? null : written(cells[closed], pathway);
     if (empty && !note && nothing(plain(cells[status]))) continue;
-    const raw = words(plain(cells[status]));
+    const raw = words(plain(cells[status]), pathway);
     const asWritten = raw === "" ? "Not stated" : raw;
     const key =
       raw === "" ? "not stated" : nothing(raw) ? "—" : statusKey(raw) || raw.toLowerCase();
     const item: LedgerItem = {
-      text: written(cells[limitation]),
+      text: written(cells[limitation], pathway),
       missing: empty,
       note,
       noteLabel: closed < 0 ? "" : (table.headers[closed] ?? ""),
@@ -423,6 +445,7 @@ export function passageItems(
   entry: OutputEntry | undefined,
   heading: string,
   folder: string,
+  pathway?: string | null,
 ): PassageItem[] | null {
   if (!entry) return null;
   const sections = passages(entry.sections).filter((section) => section.heading === heading);
@@ -431,6 +454,8 @@ export function passageItems(
     sections.flatMap(({ blocks }) => blocks),
     entry,
     folder,
+    false,
+    pathway,
   );
 }
 
@@ -439,8 +464,8 @@ export function passageItems(
  * be parsing its judgement. Every other block of the passage follows as body. A first paragraph
  * that cites a source is a link to Evidence, not a missing verdict.
  */
-export function verdictOf(entry: OutputEntry | undefined, folder: string) {
-  const items = passageItems(entry, "Bottom line", folder) ?? [];
+export function verdictOf(entry: OutputEntry | undefined, folder: string, pathway?: string | null) {
+  const items = passageItems(entry, "Bottom line", folder, pathway) ?? [];
   const first = items.find((item) => item.kind === "text");
   if (first?.kind !== "text") return null;
   return { first, body: items.filter((item) => item !== first) };
@@ -469,6 +494,7 @@ function blockItems(
   entry: OutputEntry,
   folder: string,
   ledger = false,
+  pathway?: string | null,
 ): PassageItem[] {
   return blocks.flatMap((block): PassageItem[] => {
     if (block.type === "table")
@@ -480,7 +506,7 @@ function blockItems(
       {
         kind: "text",
         line: block.line,
-        text: containsReference(body) ? null : words(body),
+        text: containsReference(body) ? null : words(body, pathway),
         href: evidencePath(folder, entry, block.line),
       },
     ];
@@ -492,7 +518,7 @@ function blockItems(
  * a table that does not follow the contract. Drawn as written, so nothing a handoff carries is dropped.
  * A register-like section under Findings (a period table, a source context) is a link to Evidence.
  */
-export function leftovers(entry: OutputEntry | undefined, folder: string) {
+export function leftovers(entry: OutputEntry | undefined, folder: string, pathway?: string | null) {
   if (!entry) return [];
   const used = new Set<Block>(
     [
@@ -513,6 +539,7 @@ export function leftovers(entry: OutputEntry | undefined, folder: string) {
         entry,
         folder,
         section.heading === "Limitations ledger",
+        pathway,
       );
     } else if (
       role === "registers" &&
@@ -528,7 +555,7 @@ export function leftovers(entry: OutputEntry | undefined, folder: string) {
                 href: evidencePath(folder, entry, section.line),
               },
             ]
-          : blockItems(section.blocks, entry, folder);
+          : blockItems(section.blocks, entry, folder, false, pathway);
     }
     if (items.length > 0) out.push({ heading: section.heading, items });
   }

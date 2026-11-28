@@ -77,9 +77,17 @@ _CUSHION = re.compile(
 )
 # What a hyphenated pair of figures counts when it is not a threshold range (`12-18 months`).
 _COUNTED = re.compile(
-    r"^\s*\)?\s*(?:months?|years?|quarters?|periods?|notch(?:es)?|days?|weeks?|times)\b",
+    r"^\s*\)?\s*(?:(?:consecutive|successive)\s+)?(?:months?|years?|quarters?|periods?|notch(?:es)?|days?|weeks?|times)\b",
     re.IGNORECASE,
 )
+_FISCAL = re.compile(
+    r"(?:FY|CY|LTM|H[12]|Q[1-4])\s*$", re.IGNORECASE
+)  # `FY25-26`: years, not bounds
+# An affirmative breach: the whole word, not negated (`no breach`, `not a breach`, `without
+# breach`) and not a risk assessment (`breach risk low`).
+_BREACH = re.compile(r"\bbreach(?:ed|es|ing)?\b(?!\s+risk)", re.IGNORECASE)
+_NEGATED = re.compile(r"\b(?:no|not|without)\s+(?:\w+\s+)?$", re.IGNORECASE)
+_LOW_RISK = re.compile(r"^breach risk:?\s+(?:is\s+)?(?:low|remote|minimal|negligible|none)\b")
 _RANGE = re.compile(r"(?<=[\d%x×])\s*[-–—]\s*(?=\d)")
 _YEAR = re.compile(r"(?<![\d,.])(?:FY|CY|LTM|H[12]|Q[1-4]\s*)?(?:19|20)\d{2}[A-Z]?(?![\d,.])")
 CP2H_NOTE = (
@@ -139,6 +147,21 @@ def _values(cell: str, tables: types.ModuleType) -> list[_Figure]:
     return [_one(_figures(part, tables), "", part) for part in _parts(cell)]
 
 
+def _is_range(text: str, joined: re.Match[str], bounds: list[list[_Figure]], unit: str) -> bool:
+    """Whether a joined pair of figures is a range: both sides in the trigger's unit, or both
+    bare and not a fiscal-year pair; one bare side is a range (`5.0-5.5x`, `5.0 and 5.5x`) unless
+    a count or duration word follows it (`6.0x and 2 consecutive quarters` is one bound)."""
+    kinds = [{f.unit for f in side} - {""} for side in bounds]
+    units = kinds[0] | kinds[1]
+    if unit and units and units != {unit}:  # a range is in the trigger's own unit
+        return False
+    if kinds[0] and kinds[1]:
+        return True
+    if not kinds[0] and not kinds[1]:
+        return not _FISCAL.search(text[: joined.start(1)])
+    return not _COUNTED.match(text[joined.end() :])  # `6.0x and 2 consecutive quarters`
+
+
 def _thresholds(cell: str, unit: str, tables: types.ModuleType) -> list[_Figure]:
     """A point threshold, or the two bounds of a range only where a range marker joins them
     (`5.0x-5.5x`, `5.0x to 5.5x`, `between 5.0x and 5.5x`); any other second figure (a duration,
@@ -148,8 +171,7 @@ def _thresholds(cell: str, unit: str, tables: types.ModuleType) -> list[_Figure]
         if _COUNTED.match(text[joined.end() :]):  # `12-18 months`: a duration, not bounds
             continue
         bounds = [_figures(joined[1], tables), _figures(joined[2], tables)]
-        units = {f.unit for side in bounds for f in side} - {""}
-        if unit and units and units != {unit}:  # a range is in the trigger's own unit
+        if not _is_range(text, joined, bounds, unit):
             continue
         return [_one(bounds[0], unit, cell), _one(bounds[1], unit, cell)]
     return [_one(_figures(cell, tables), unit, cell)]
@@ -267,14 +289,29 @@ def _headroom(
     return worst
 
 
+def _affirmative_breach(stated: str) -> bool:
+    """Whether the status text states a breach (`breach`, `breached`), not its negation or a
+    risk of one."""
+    return any(not _NEGATED.search(stated[: m.start()]) for m in _BREACH.finditer(stated))
+
+
+def _status_word(stated: str) -> str | None:
+    """The status word the text starts with; `Breach risk low` reads Compliant, and any other
+    `Breach risk ...` or negated breach has no status word."""
+    word = next((w for w in STATUSES if stated.startswith(w)), None)
+    if word != "breach" or _affirmative_breach(stated):
+        return word
+    return "compliant" if _LOW_RISK.match(stated) else None
+
+
 def _status(where: _Where, cell: str, period: dict[str, Any], slack: float) -> Outcome:
     stated = _label(cell)
-    word = next((w for w in STATUSES if stated.startswith(w)), None)
+    word = _status_word(stated)
     if word is None:
         why = f"Status `{cell}` is none of Compliant, At threshold, Breached"
         return where("not checked", stated=cell, reason=why)
     found = str(period["status"])
-    if word == "compliant" and found == "Breached" and re.search(r"breach", stated):
+    if word == "compliant" and found == "Breached" and _affirmative_breach(stated):
         why = (
             f"`{cell}` reads a breach as not a trigger (REF_CP-2H_C: a point-in-time breach "
             "is not automatically a trigger); the script's Breached is the point test only"

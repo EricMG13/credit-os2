@@ -31,7 +31,7 @@ export type FigureKind = LeadKind;
 /** The bottom line as the module wrote it: the passage's first paragraph, else its summary. */
 export type BottomLineSource =
   | { kind: "passage"; block: TextBlock; rest: TextBlock[] }
-  | { kind: "summary"; text: string; rest: string; line: number }
+  | { kind: "summary"; text: string; line: number }
   | null;
 
 /** A reader section drawn on the page: its prose, and the typed tables drawn with it. */
@@ -62,8 +62,20 @@ function bottomLineOf(entry: OutputEntry, passage: Section | undefined): BottomL
   if (first) return { kind: "passage", block: first, rest };
   const summary = entry.output.summary;
   if (!summary || containsReference(summary.bottomLine)) return null;
-  const limitation = containsReference(summary.limitation) ? "" : summary.limitation;
-  return { kind: "summary", text: summary.bottomLine, rest: limitation, line: summary.line };
+  return { kind: "summary", text: summary.bottomLine, line: summary.line };
+}
+
+/**
+ * The module's own summary limitation, for the Limitations tile, where the page drew its summary
+ * as the bottom line (the Bottom line passage held no paragraph). One that cites a source is left
+ * to Evidence.
+ */
+function summaryLimitation(entry: OutputEntry, bottomLine: BottomLineSource) {
+  const summary = entry.output.summary;
+  if (bottomLine?.kind !== "summary" || !summary) return undefined;
+  const text = summary.limitation.trim();
+  if (!text || containsReference(text)) return undefined;
+  return { text, line: summary.line };
 }
 
 const wordCount = (paragraphs: TextBlock[]) =>
@@ -86,6 +98,7 @@ function proseSection(
   role: string,
   typedTables: boolean,
   tableCentred: boolean,
+  pathway?: string | null,
 ): ProseSection | null {
   if (heldInEvidence(section.heading, role)) return null;
   // The handoff's own section: the finding blocks leave out a coded section's plain tables.
@@ -96,7 +109,7 @@ function proseSection(
   const paragraphs =
     role === "registers" || tableCentred ? [] : textBlocks(section).filter(readable);
   if (!paragraphs.length && !typed.length) return null;
-  const title = readableTitle(section.heading, "Untitled section");
+  const title = readableTitle(section.heading, "Untitled section", pathway);
   return { section, title, paragraphs, typed, words: wordCount(paragraphs) };
 }
 
@@ -106,7 +119,7 @@ const KIND_OF_DRAWING: [RegExp, FigureKind][] = [
 ];
 
 /** Drawing sections with prose and no table: the module's words for a visual it did not draw. */
-function drawingGaps(entry: OutputEntry): DrawingGap[] {
+function drawingGaps(entry: OutputEntry, pathway?: string | null): DrawingGap[] {
   return classifySections(entry.sections).flatMap(({ section, role }) => {
     if (role !== "drawing" || section.blocks.some((block) => block.type === "table")) return [];
     const blocks = textBlocks(section).filter(readable);
@@ -114,7 +127,7 @@ function drawingGaps(entry: OutputEntry): DrawingGap[] {
     const kind = KIND_OF_DRAWING.find(([prefix]) => prefix.test(section.heading))?.[1] ?? "figures";
     return [
       {
-        title: readableTitle(section.heading, "Untitled figure"),
+        title: readableTitle(section.heading, "Untitled figure", pathway),
         kind,
         blocks,
         line: section.line,
@@ -148,11 +161,19 @@ const BASIS_COLUMNS = [
 ] as const;
 
 /** A cell for the basis line: as written, a stated gap as a gap, nothing for a cited source. */
-function basisPart(name: string, text: string | undefined): BasisPart | null {
+function basisPart(
+  name: string,
+  text: string | undefined,
+  pathway?: string | null,
+): BasisPart | null {
   const cell = text?.trim() ?? "";
   if (!cell || containsReference(cell)) return null;
   // A cell holding only a dash states nothing: a gap like "Not stated" ("Entity: —").
-  return { name, text: readerText(cell), gap: /^(?:not |withheld)|^[\u2014\u2013-]$/i.test(cell) };
+  return {
+    name,
+    text: readerText(cell, pathway),
+    gap: /^(?:not |withheld)|^[\u2014\u2013-]$/i.test(cell),
+  };
 }
 
 /** Currency and unit read as one part, drawn as the currency's symbol ("$m"), where both are stated. */
@@ -169,7 +190,7 @@ function joinMoney(parts: BasisPart[]) {
   );
 }
 
-function entityBasis(entry: OutputEntry): Basis {
+function entityBasis(entry: OutputEntry, pathway?: string | null): Basis {
   const key = entry.sections.find((section) => /entity period key/i.test(section.heading));
   const table = key?.blocks.find((block): block is Table => block.type === "table");
   const row = table?.rows[0];
@@ -177,10 +198,10 @@ function entityBasis(entry: OutputEntry): Basis {
   const at = (header: string) =>
     row.cells[table.headers.findIndex((name) => name.trim() === header)];
   const parts = joinMoney(
-    BASIS_COLUMNS.flatMap(([header, name]) => basisPart(name, at(header)) ?? []),
+    BASIS_COLUMNS.flatMap(([header, name]) => basisPart(name, at(header), pathway) ?? []),
   );
   if (!parts.length) return null;
-  const entity = basisPart("Entity", at("Entity Name") ?? row.cells[0]);
+  const entity = basisPart("Entity", at("Entity Name") ?? row.cells[0], pathway);
   return {
     kind: "entity",
     entity: entity && !entity.gap ? entity.text : "",
@@ -196,13 +217,13 @@ function entityBasis(entry: OutputEntry): Basis {
  * entity period key, named, with each of its cells as written or as the gap it states; else the
  * periods of its Period table.
  */
-function basisOf(entry: OutputEntry): Basis {
-  const stated = entityBasis(entry);
+function basisOf(entry: OutputEntry, pathway?: string | null): Basis {
+  const stated = entityBasis(entry, pathway);
   if (stated) return stated;
   const periods = namedTable(entry, "Period table", ["Period", "Start", "End"]);
   const names =
     periods?.rows.flatMap(({ cells }) => {
-      const part = basisPart("Period", cells[0]);
+      const part = basisPart("Period", cells[0], pathway);
       return part && !part.gap ? [part.text] : [];
     }) ?? [];
   return names.length ? { kind: "periods", periods: names } : null;
@@ -219,7 +240,13 @@ export function moduleFrame(
   {
     figureTableLines = [],
     typedTables = true,
-  }: { figureTableLines?: readonly number[]; typedTables?: boolean } = {},
+    pathway,
+  }: {
+    figureTableLines?: readonly number[];
+    typedTables?: boolean;
+    /** The run's pathway, which names its modules. */
+    pathway?: string | null;
+  } = {},
 ) {
   const tableCentred = DATA_MODULES.has(entry.output.module);
   const slots = passages(entry.sections);
@@ -252,8 +279,14 @@ export function moduleFrame(
     .filter((section) => !slotLines.has(section.line))
     .flatMap(
       (section) =>
-        proseSection(entry, section, roles.get(section.line) ?? "", typedTables, tableCentred) ??
-        [],
+        proseSection(
+          entry,
+          section,
+          roles.get(section.line) ?? "",
+          typedTables,
+          tableCentred,
+          pathway,
+        ) ?? [],
     );
   const charts = drawingLines(entry, figureTableLines);
   const charted = slots
@@ -273,8 +306,9 @@ export function moduleFrame(
       }),
     ) as Partial<Record<(typeof PASSAGE_NAMES)[number], Section>>,
     prose,
-    drawingGaps: drawingGaps(entry),
-    basis: basisOf(entry),
+    drawingGaps: drawingGaps(entry, pathway),
+    summaryLimitation: summaryLimitation(entry, bottomLine),
+    basis: basisOf(entry, pathway),
     missing: missingPassages(entry, bottomLine ? [...drawn, "Bottom line"] : drawn),
     parseError: entry.output.parseError,
   };

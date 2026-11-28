@@ -297,6 +297,18 @@ function ByPeriod({ name, series }: { name: string; series: Series }) {
   );
 }
 
+function seriesCaption(point: Point, unit: string) {
+  const figure = figureShown(point, unit);
+  if (figure !== null) return figure;
+  const plain = point.cell.replaceAll("**", "").replaceAll("`", "").trim();
+  const [, status, detail] = /^(Not(?: [a-z]+)+):\s*(\S.*)$/i.exec(plain) ?? [];
+  if (status && detail) {
+    const reason = readerCell(detail);
+    return reason ? `${status}: ${reason}` : status;
+  }
+  return readerCell(point.cell) || "Not stated";
+}
+
 /**
  * One measure of the Financial foundation: its latest figure by period with its period, basis cell
  * and owner in words. "from <prior>" and the before-to-after mark only for the period a year earlier
@@ -366,7 +378,7 @@ function SeriesStat({
         <GapCell word={readerCell(latest.cell) || "Not stated"} />
       )}
       {alongside && beside && (
-        <Caption>{`${alongside.name} ${figureShown(beside, other?.unit ?? "") ?? beside.cell}`}</Caption>
+        <Caption>{`${alongside.name} ${seriesCaption(beside, other?.unit ?? "")}`}</Caption>
       )}
       {basis && <Caption>{basis}</Caption>}
       {before && (

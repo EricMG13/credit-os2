@@ -92,6 +92,7 @@ from deploy_workflow.model.handoff import (
     WEB_SEARCH_MODULE,
     Check,
     _pages,
+    first_handoff_reservation,
     recorded_web_lookup,
     settled_web_lookup,
     web_lookup_offered,
@@ -106,6 +107,7 @@ from deploy_workflow.model.pricing import (
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
 from deploy_workflow.owners import (
+    cp2g,
     cpos_custom,
     cpos_forecast,
     cpos_launch_methods,
@@ -1480,8 +1482,16 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
             texts[module] = head + block.encode() + mark + method
     guesses, documents = _documents(covers)
     _add_reading_notes(texts, reading_notes, pinned, documents)
-    # The loop's own bound for the first call of the largest module; later calls hold more.
-    hold = max(
+    own_sources = {
+        **pinned,
+        CONTEXT_SOURCE_ID: HandoffInput(
+            path=os.path.relpath(context_path, directory), sha256=_sha(raw_context)
+        ),
+    }
+    high = sent_at_high(config, high_modules, ordered)
+    # CP-0 can be sized now. Keep the instruction-based estimate for later modules, whose
+    # upstream handoffs are not yet available. The executor prices every request before sending.
+    later_hold = max(
         request_reservation_usd(price_of(config), len(text) + 4096, output_limit(config))
         + (
             web_search_usd(WEB_SEARCH_CALLS_PER_TURN)
@@ -1491,10 +1501,19 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         for module, text in texts.items()
         if module != "CP-8"
     )
+    first_hold = first_handoff_reservation(
+        run,
+        texts["CP-0"],
+        {name: spec.sha256 for name, spec in own_sources.items()},
+        config=config,
+        max_output=output_limit(config),
+        effort="high" if "CP-0" in high else CONFIGS[config].effort,
+    )
+    hold = max(later_hold, first_hold)
     estimate = _custom_estimate(
         completion,
         compared=prior is not None,
-        high=sent_at_high(config, high_modules, ordered),
+        high=high,
         hold=hold,
     )
     provider_cap = _provider_cap(cap, estimate)
@@ -1509,10 +1528,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     request = HandoffPlan(
         run=run,
         sources={
-            **pinned,
-            CONTEXT_SOURCE_ID: HandoffInput(
-                path=os.path.relpath(context_path, directory), sha256=_sha(raw_context)
-            ),
+            **own_sources,
             **{
                 name: HandoffInput(path=path, sha256=_sha(earlier[name]))
                 for name, path in (prior_sources(prior) if prior is not None else {}).items()
@@ -2053,7 +2069,9 @@ def _downside_issues(
     of TDG (2026-11-25): the module held cash interest flat in its tables but stated only
     `downside_shock`, and its 6.66x stood beside Python's 6.8089x. Documented fail-open, logged at
     WARNING: nothing is raised for a blocked module, for a block without a downside case, or when
-    Python cannot read table T2H.6's period, case and net-leverage cells (no guess)."""
+    Python cannot read table T2H.6's period, case and net-leverage cells (no guess). An analyst
+    overpayment also skips this comparison. CP-OS records the reason and withholds the forecast
+    during delivery."""
     if inputs.downside_shock is None and inputs.downside_drivers is None:
         return ()
     if method_scripts.blocked(text):
@@ -2062,7 +2080,11 @@ def _downside_issues(
     if not stated:
         log.warning("downside net leverage not checked against Python's: T2H.6 is not read")
         return ()
-    computed = _computed_downside(task, text)
+    try:
+        computed = _computed_downside(task, text)
+    except cp2g.AnalystDebtOverpayment as error:
+        log.warning("downside net leverage not checked against Python's: %s", error)
+        return ()
     differing = []
     for year, printed in stated.items():
         python = computed.get(year)

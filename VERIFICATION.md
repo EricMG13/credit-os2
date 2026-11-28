@@ -4,6 +4,42 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-27 — Signal reservation and paid write follow-up
+
+- Independent review of `016302d3` found a stale worker could reserve after its claim had been
+  recovered and a paid write fault could allow a manual retry before the next slot. Both new
+  cases failed first with two SQLite connections and fake models. The repair checks ownership in
+  the transaction that reserves the call and records paid storage faults at the planned story
+  mark. 163 targeted tests passed, including the request handler and recovery tests. No live call.
+- Review of `9a2078f2` found that an unsettled call or an unwritten failure receipt could still
+  release a manual slot early. The two follow-up regressions failed first with synthetic model
+  replies and SQLite faults. The repair keeps unsettled calls held and applies the post-call
+  storage recovery to failure receipts. The fallback records the original trigger and planned
+  story scope. 165 targeted tests passed, including the loopback request and hosted Signal paths.
+- Exact-candidate review of `891e0403` found an unsettled call could still allow another digest
+  call in the same pass past the per-pass limit, and CI reported two `Coverage.detail.test.tsx`
+  failures after `main` made Monitor the default Coverage view. `ai_digest.Writer.draft` now stops
+  further calls for the pass on `SettlementFault` (146 targeted Signal and repo-rules tests plus
+  the changed-code quality gate passed), and `Coverage.detail.test.tsx` selects `?view=matrix`
+  (eslint, prettier, tsc, and 35 Coverage tests passed). No live call.
+- Adversarial audit of `fdd43c3c` found `ai_call.charge` did not catch `BudgetError` from
+  `exact_sum`, non-SQLite post-reserve exceptions in `ai_call._settle` bypassed `SettlementFault`,
+  `Coverage.detail.test.tsx` used substring focus assertions, the claim-retention test probed at
+  `CALL_BOUND` rather than past it, and unrecordable post-claim failures landed in `left_due`
+  instead of `held`. All five were fixed test-first, re-verified by scoped adversarial review
+  (0 findings, 573 Signal pytest tests, 36 Coverage Vitest tests, quality gate 0 findings), and
+  re-proved in real Chrome and Edge (`proof:connected`). No live call.
+
+## 2026-11-27 — Sectioned review integration against main
+
+- Combined draft `686d9837` with main `06e1c997`. Resolved twelve conflict paths. Kept main's
+  Foundation comparison rules, Colour legends and Signal claim ownership, and the draft's evidence
+  filtering, pathway labels and digest failure isolation.
+- Owner decisions D-04 and D-05. Refuse new manual requests during a digest claim. A failed write
+  advances the story mark only through the planned scope. The 113 ownership, recovery, concurrent
+  SQLite and digest scope tests passed. The browser web changes passed TypeScript and 487 focused
+  tests covering Foundation and Signal forms. This evidence uses fixtures. It records no paid run.
+
 ## 2026-11-27 — Coordinator activity timeline
 
 Live Chrome and Edge exercised rejection, same-attempt recovery, refresh and retained drafts.
@@ -70,6 +106,29 @@ focus and blur. The marker and row still receive their own activation callbacks.
   their probes exiting 0. Two fix rounds.
 - Not verified: Windows (`as_uri()` read-write open), a real Linux run (simulated), the weekly
   full suite, and the Signal settings failure's cause.
+
+## 2026-11-26 — Sectioned code review of the app (branch `claude/compassionate-cori-rjp34q`), integrated
+
+- Scope: offline only; no provider call, no paid run. Eleven path-disjoint sections of non-test app code, each in its own cloud sub-session; reviewers Sonnet (medium effort) running the `code-review` skill at xhigh on standing code with per-file coverage; fixes by `mx-feature` with a failing test first, `mx-adversary` on money, ordering and security fixes, two counted rounds, then `mx-autonomous` and a fresh `mx-feature`. A branch may not carry a regression against base `030805f` introduced by its own fixes. Plan critique by `mx-advisor`; findings needing a ruling are held for the owner.
+- S05 (owners cp3-cpos, `030805f..0a08c46`, merged `c2b4a03`): fixed attemptless late-compaction double disclosure, reader parse before paid calls, empty period chart tables, comma grouping (`1,5` read as 15), gapped optional rows read as zero in statement identities (High), T4.18 faults, the forecast row reader and dated part-year flow bases. Retired-route findings (page_unit, cpdr, cpl10, cp3c, cp3d, cp4c native owner checks; `OwnerWorkflow(` built nowhere in `src/`) recorded, not fixed. Scope: deterministic unit tests on synthetic handoffs; coordinator re-ran the 714 targeted tests and the gate on the merged tree; no presentation change.
+- S06 (signal, inbox, research, run_start, prompts, tools, react_frontend; `030805f..2967ade`, merged `0634e91`): 38 High/Medium fixed with fail-first tests, among them paid-call ordering in Signal digests (no double payment left on the tested paths), fence look-alike detection, the scheduler and run records, feed DTD checks and web-lookup row, charset and fetch-key handling; `mx-adversary` audited the money, ordering and security fixes; two regressions its own fixes caused were repaired to base behaviour. Open for the owner: a second paid digest call on a busy stale-claim settle (C5-T1), an older source id at a shared address (C9-T1), contrary limitations in the dossier (C10-F3), two findings in text sent to models. Coordinator re-ran on the merged tree: signal 1,881 (with `CI=true`), inbox and run start 884, react and launcher 476, research/prompts/tools 1,013 passed; gate 0. Fidelity (synthetic fixtures): the Activity module list for a queued custom run, Coverage's unreadable CP-2H row and the Teams "Run started" file count match their inputs.
+- S10 (web connected: top level, start, visuals, coverage, library rows, export; `030805f..f953cc5`, merged `eb84325`): 41 High/Medium fixed, among them Back during an in-flight submit, focus routing, raw handoff reasons and citations drawn on the Forecast page (now drawn exactly or as "Amount recorded in model evidence."), purpose-report passages dropped without a withheld count, and period brackets kept in prose. Two existing assertions changed with the coordinator's approval, both now disclosing a passage base dropped silently. A lane-fitting regression was reverted to base. Open for the owner: lane label overlap and some citation shapes (Q7), the Portfolio Decision export (Q10), gap and chart/table disclosure (Q11). Coordinator re-ran on the merged tree: tsc, eslint and prettier on the changed files, knip, vitest connected 1,336 + top level 1,076 + ConnectedApp 228 + report 2,831, all passed. Fidelity, fixtures only: schedule amounts drawn exactly or as the evidence sentence; withheld counts match the unprinted fixture passages; no real issuer run or browser render.
+- S03 (workflow core, `src/deploy_workflow/*.py`, 14 chunks, `030805f..e5d94b9`, merged `76d21d5`): 6 High and about 110 Medium fixed test-first, among them the delivery boundary, Credit Snapshot workbook cells and units, the EV copy-check scale, the bridge closing gap, method checks, CP-8 figure checks, reference portfolios, source-text extraction and control characters in request log lines; each fix replayed against base on test inputs and `tests/fixtures`. One conflict with `main` (`credit_snapshot._source_rows`) resolved keeping both sides. Fidelity: workbook cells compared with the literal handoff text and model JSON (kind, text, unit, number format) for the changed readers; issuer-library pages not re-rendered. Scope: synthetic and fixture inputs, no live run.
+- S02 (engine input and model layer, `0634e917..74abe13`, merged after `main` `9b4fbe7` at `a9481bd`): money fixes (Anthropic usage merge, connect failures booked as not sent, the ruled 1 byte per token for anthropic and openrouter, Copilot partial or unavailable credits booked unknown, atomic budget markers), key redaction after escapes and in bad arguments, the handoff web row and workbook comment sheets, and the portfolio-export checker; two of its fixes regressed and were reverted to base, leaving two checker defects open for the owner. Coordinator re-ran on the merged tree: its 13 new test files and `test_changes` 812, `tests/model` 943, and the 59 files that use the changed modules 6,915 passed. Fidelity, fixture only: the trace drawer's passport kind word, Evidence text and TEST DATA banner match each fixture fact's citations and run kind.
+- S09 (web report pages: Forecast, Overview, Changes, Modules, Evidence and the other analysis pages; `8cf9087..bceef8d`, merged after `07a69a0`): 4 High and about 50 Medium fixed test-first, among them source references kept off reader pages, figures, separators and qualifications drawn exactly, missing versus zero, pathway names, and search and trace reading hidden sections; one existing assertion changed with the coordinator's ruling (bridge amounts drawn without forced decimals). Open for the owner: gap phrases drawn as the evidence sentence, a dropped `restated` qualification, stress-chart parsing (Q18), a lead sentence above a gap table (Q20), the trace drawer on hidden lines and the portfolio-basis failure wording (coordinator fixes queued). One merge conflict with `main`'s report repair (`moduleFrameModel.proseSection`) resolved keeping both parameters. Coordinator re-ran on the merged tree: vitest report 3,098, ReportContent 52, ReportLibrary 103, visuals 480, export 116, libraryRows 36 passed; eslint, prettier and tsc clean. Fidelity: drawn values against synthetic handoff fixtures in 49 new tests (jsdom, no browser or real run).
+- Codex refresh merged main `4f9689bd` and kept both verification records. On the merged tree: 645 targeted offline account, auth, Run Start, inbox and repo-rules tests passed, as did the Python gate and Node 24.16.0 typecheck. Seventeen Node tests checked sign-in and the queued report fixes against synthetic inputs, including hidden trace content, portfolio-basis errors and pathway-specific wording.
+- S01 (engine core, `f3e13da..a49ef2ab`): preserved the Claude closures, reviewed the 52 other top-level Python files whole, and repaired the active PDF fallback for alphabetic agreement text. The 150 merged-tree tests and quality gate passed. Scope: synthetic PDF pages and report fixtures, including retained layout, original periods, table limitations, and trace lines. Unresolved historical chunk labels, retired-route findings and Q21 remain recorded in the review.
+- S12 (accounts delta, `07a69a04..9f9ec894`): reviewed the original and newer main hunks, applied the existing Analyst/Admin policy to standing portfolio mutations, and made disable revoke current sessions atomically while retaining recorded sign-in timestamps. The independent static audit, merged-tree gate and 325 offline account, role and Run Start tests passed. Scope: SQLite lifecycle and test application paths, with no presentation change or production Entra proof.
+- First-exchange hold (`bc74cdfc`): preflight prices the assembled initial CP-0 request from pinned inputs. Independent rate arithmetic and BASE/candidate request digests matched on the checked offline routes. The money audit and 251 merged-tree handoff/launch checks passed, as did the quality gate. Scope: synthetic inputs, with no paid call. Later-module sizing and unusual environment-specific redaction expansion remain subject to the actual pre-send reserve.
+- S04 (CP-1/CP-2 owners, `07a69a04..da8ea88b`): reviewed the full allowlist, refused repayments above known opening debt and updated the owner-approved scale fixture to repay exactly USD 590m. The companion acceptance fix records the forecast refusal while the rest of the report still publishes. Independent audit and 326 merged-tree tests passed, plus the quality gate. Scope: deterministic synthetic CP-1/CP-2G outputs, T2H.6, and the report and completion event, with retired owner issues held.
+- S07 (library/tooling, `07a69a04..9cc8fffa`): recovered legacy holds and downloads, serialized the publication scan and install, localized malformed input issues, and repaired selected-revision packaging and proof navigation. The merged-tree gate, 211 Python tests, 578 Node library/resolver tests, production build and 79 script tests passed on Node 24.16.0. Scope: synthetic publication with actual macOS process contention and rollback, plus jsdom proof navigation. Native Windows concurrency and surviving BASE malformed nested-pack cases remain open.
+- S11 (shared web, `1925062c..10e6d9ac`): reviewed the full shared, Model, Run and Signal scope, preserved drafts across queued or stale writes, scoped digest read marks to the displayed issue, and matched chart legends and bridge labels to their data. The two owner-approved test updates cover paused digest reads and Portfolio Fit gap titles. Node 24.16.0 merged-tree checks passed (809 Model, 1,252 Signal and 298 Run tests, TypeScript and imports). Scope: synthetic DOM and checked-in fixtures, no browser or live service proof.
+- S08 report leads (`1925062c..a0b28bdb`) preserve stated units, periods, figures, qualifiers, gaps and source handling. Fidelity checks used retained fixtures and synthetic DOM cases. The staged lead and caller run passed 1,450 tests. The final bridge wording passed 57 focused tests on the merge and independent React rendering, with only authored amounts shown.
+- S08 Foundation passed 1,358 section tests and 3,149 merged report and reader tests on Node 24.16.0. The two owner-approved assertions check FY2023 segment values alongside explicit FY2024 gaps and the retained Interest cover period row. Fidelity checks matched the older TransDigm FY2023/FY2024 CP-1 handoff and synthetic gap, unit and comparison cases. The merged build, all 79 script tests, the quality gate and four import contracts passed.
+- Final branch review corrected CP-3 unit selection and locked Signal form inputs while a write is pending. The independent CP-3 audit checked 29 scenarios and the merged rerun passed 575 tests. Signal passed 214 focused tests and independent cancellation and stale-response checks. Scope was offline with synthetic handoffs and service responses.
+- The fast CI job selects all 77 review-added Python test files. The offline selection passed 10,601 tests, plus six new CP-3 cases, after shorter macOS temporary paths resolved five environment errors. The merged quality gate, four import contracts and 577 library tests passed. Shared ForecastBreaks fixtures preserved the tested inputs and assertions, and the web duplication check passed at 2.97%.
+- Node 24.16.0 passed lint, formatting, types, unused and duplicate checks, both production builds and all 79 script tests. Before the Foundation merge, the eight bounded web batches passed all 10,046 tests in 657 files. Merged V8 line coverage was 98.36% against the existing 80% threshold.
+- Not verified: native Windows, real browser and live/provider execution, the weekly full Python suite, and a full web-suite rerun after the Foundation merge.
 
 ## 2026-11-26 — Main-based TransDigm preview repairs
 
@@ -919,81 +978,3 @@ then 5; the narrow layout and the controls listed below.
   where main's spec named navy and ultramarine; spec updated). The Export PDF control and preview
   keep main's markup, not yet restyled. Follow-on items 20 to 22 record what the merge left open.
 - Trimmed the oldest entries to keep this record under 1,000 lines.
-
-## 2026-11-25 — Frontend redesign: every screen rebuilt and merged
-
-- Scope: the ten redesign branches (Run activity and progress with the module pipeline; Evidence
-  and the trace drawer; Changes and Calendar; report header, Overview and History; Library and
-  Coverage; Forecast; the module page frame; the module leads for all 22 modules; Start run)
-  merged into `claude/exciting-albattani-v1zoug`, plus the coordinator's integration commits.
-  Design authority `DESIGN.md`; the map of what each screen shows is `docs/design/screen-map.md`.
-  Delivery still adds no analysis: every branch was reviewed adversarially for derived numbers,
-  page-made judgements, false gap reasons, hidden content and machinery in reader text, by
-  independent reviewers on each round and a final review before each merge, on retained TransDigm
-  FY2024 handoffs (outdated evidence, used for shape only), the proof handoffs and the synthetic
-  Northbridge run. No paid run, no provider call.
-- What the page sends at Start run is unchanged: 19 recorded request transcripts from 18 drives
-  match byte for byte in CI mode, and independent drives (every pathway, re-pressed options,
-  edits after review, failures and retries) are byte-identical to the old page's captures.
-  Consent gating, caps (Lite 15, Full 25, Deep 40, purpose pathways 20) and `X-Shown-Cap` are as
-  before.
-- Integration review (independent, of the coordinator's own commits): six defects, all repaired
-  in `3759f22` and `f708842` with tests that fail without the repair. A prose-only chart section
-  was drawn twice on four Financials leads, once denying it ("could not read"); a records address
-  (`#modules/<code>/records/<table>`) threw on a malformed escape and did nothing on a change
-  within the module; phone styles start below 480 px, not at it; several phone targets were
-  narrow or short; the limits disclosure had lost its chevron. The render check itself was
-  lenient (a hit on a parent counted, width unmeasured) and is now strict.
-- Fidelity check (presentation change): `docs/design/preview/check-render.cjs` on the final
-  build over the synthetic run, every page (14 module pages, a module's records, Overview,
-  Changes, Forecast, Evidence, Calendar, History, Library, Coverage, Run activity, Start run) at
-  1440, 1024, 480, 479 and 390: 113 of 125 passed on `f708842`; the 12 failures were all 24 px
-  event-lane marks sitting 2 px apart, fixed in `b40da32` and rechecked on every page with a lane
-  (30 page widths) with no failures (no sideways scroll, no unnamed scroll box, no cut
-  text, no target under 32 px or under 44 px below 480 px in either dimension, no text under
-  12 px, no overlapping chart label). Screenshots were looked at for the pages each review names.
-- Tests: full `npm run gates` on `b40da32` passes every step (lint, format, types, 454 files and
-  7,737 tests with coverage, audit, knip, duplication, build, 78 script tests, file gates). Python
-  front-end tests (15 files, 295 tests) passed on `c632e84`; the currency proof (5 tests, pound
-  and franc, reading the built pages) passes on `f708842`, and its new checks fail on a wrong
-  value. Quality gate 0 findings. Known timing-sensitive tests (pass alone,
-  fail only under load): the connected app's "reads the published handoff…" (wait raised to
-  10 s), `report.auditFollowups` T17, and `ReportLibrary.design` under parallel runs.
-- Not run: the confidence-review and rewrite-tournament skills are not in this session; the
-  independent review above stood in for the first, and a comparison of the changed parsers kept
-  one address parser (the scroll to the records reuses the router's).
-- Judged changes to record:
-  - Forecast prints the model's published display ("118"); exact values are in the calculation
-    download, which the currency proof now checks for the downside path and base interest.
-  - The Overview figure row is the financial foundation's own figures (revenue, EBITDA, cover,
-    leverage, cash with undrawn facilities), as the screen map asks; the catalogue's total
-    liquidity and free cash flow are in that module's records.
-  - "Will refuse" at Start run keeps the error red (`DESIGN.md` now allows red for a refusal).
-  - `DESIGN.md` reader words: machinery (handoff, registers, ids, file names) stays on Evidence;
-    "module" is the reader's word outside a lead, so gaps such as "The module wrote no such
-    passage" stay. Leads keep the stricter rule (no "the module"), enforced by test.
-- For the owner's local validation (rendering only; content findings were all fixed):
-  - Overview: with a three-sentence bottom line the first headline figure starts near y=900 at
-    1440×900; about 160 px empty under the call tile.
-  - Module pages: tiles take their content height, which leaves holes beside a taller neighbour
-    on several leads (about 500 px under Downside's break points and Rates' added interest);
-    Ratings and Covenants, and Liquidity and Restructuring, still look alike; a one-edge map on
-    Business & governance leaves space beside its side column; the paragraph trace sits beside
-    the text, not at the tile edge.
-  - Financial foundation: "1,158"/"1,160" labels collide at 390 on cash interest; three pro forma
-    marks at 4.88x overlap the dashed rule. Earnings delta, Ratings migration, Market-implied risk
-    and Restructuring are not in the synthetic run, so their leads were seen only in test renders;
-    nor is the portfolio limits disclosure (its chevron is checked in tests only).
-  - Forecast: 4,617 px at 1440 (target 4,500); at 390 it is longer than the old page (chart-table
-    list); headline figures are 20 px where the mockup has 36 (kit `StatsStrip` has no size
-    option yet).
-  - Top bar: between 480 and about 510 px the areas wrap to a second row (no sideways scroll).
-  - Coverage: the matrix has one tab stop per cell (no roving focus); seven issuers and part of an
-    eighth show at 1440×900.
-  - Start run: Submit sits just below the first screen at 1280×800 and 1024×768 for three limits,
-    and near 1,090 px with five at 1440; the dialog still says "Start a synthetic test?" (pinned
-    by the recorded transcripts and scripts; your call); the Documents step is restyled rather
-    than restructured.
-  - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
-- Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
-- Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.

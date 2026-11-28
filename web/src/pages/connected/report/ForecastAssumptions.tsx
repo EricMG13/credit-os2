@@ -1,5 +1,6 @@
 import { ChevronRight, Plus } from "@untitledui/icons";
-import { containsReference, readerText, unitLabel } from "../publishedReport";
+import { readerText, unitLabel } from "../publishedReport";
+import { cites } from "./forecastData";
 import { changeSign, exactDifference } from "../signal";
 import { DIVERGING } from "../visuals/signal/scales";
 import { driverTable } from "./forecastDrivers";
@@ -18,13 +19,10 @@ function NotStated() {
 
 const NOTE_IN_EVIDENCE = "The model's note on the downside case is in Evidence.";
 
-/** A table id such as T2B.1, which `containsReference` does not recognise. */
-const TABLE_ID = /\bT\d+[A-Z]*\.\d+\b/u;
-
 /** The model's downside note for the reader: module names, and no reference drawn here. */
 function readerNote(note: string) {
   const text = readerText(note);
-  return containsReference(text) || TABLE_ID.test(text) ? NOTE_IN_EVIDENCE : text;
+  return cites(text) ? NOTE_IN_EVIDENCE : text;
 }
 
 /** The small accent mark that, with the words, says a recorded value differs from base. */

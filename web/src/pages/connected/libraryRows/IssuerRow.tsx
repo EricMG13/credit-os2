@@ -76,6 +76,11 @@ function Runs({ group }: { group: IssuerGroup }) {
   );
 }
 
+/** The two qualifications on a next event, worded once for the closed row and the opened panel. */
+const WITHIN_PERIOD = "Timing falls within the recorded period; the exact date is unresolved.";
+const UNPLACED =
+  "Some dated rows in this report could not be placed on the Calendar, so an earlier date may exist.";
+
 function NextEventDetail({
   group,
   next,
@@ -131,14 +136,11 @@ function NextEventDetail({
       </p>
       {event.status && <p className="text-caption text-text-secondary">{event.status}</p>}
       {event.withinRecordedPeriod && (
-        <p className="text-caption text-text-secondary">
-          Timing falls within the recorded period; the exact date is unresolved.
-        </p>
+        <p className="text-caption text-text-secondary">{WITHIN_PERIOD}</p>
       )}
       {event.unplaced && (
         <p className="text-caption text-gap-text">
-          Some dated rows in this report could not be placed on the Calendar, so an earlier date may
-          exist.{" "}
+          {UNPLACED}{" "}
           <TextLink href={`${reportPath(linked.id)}#calendar`} className={QUIET_LINK}>
             Open its Calendar
           </TextLink>
@@ -349,6 +351,12 @@ export function IssuerRow({
                   </time>
                   <span className="text-text-secondary">{next.event.name}</span>
                 </p>
+              )}
+              {"event" in next && next.event.withinRecordedPeriod && (
+                <span className="text-caption text-text-secondary">{WITHIN_PERIOD}</span>
+              )}
+              {"event" in next && next.event.unplaced && (
+                <span className="text-caption text-gap-text">{UNPLACED}</span>
               )}
               {next.status === "none" && (
                 <span className="text-small text-gap-text">No upcoming date stated</span>

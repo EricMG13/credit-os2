@@ -57,6 +57,35 @@ def test_a_lasting_operational_error_is_recorded_and_the_digest_moves_on(db, mon
     assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-12-04 07:00")
 
 
+@pytest.mark.parametrize("error_kind", ["operational", "other"])
+def test_an_unrecordable_post_claim_failure_lands_in_held_not_left_due(db, monkeypatch, error_kind):
+    story(db, source(db), "Plant closure", at("2026-11-26 09:00"))
+    ident = make(db)
+    monkeypatch.setattr(digests, "_record_failure", _raise(1, "cannot write failure record"))
+
+    class FailingWriter:
+        def clock(self) -> Any:
+            return at("2026-11-27 07:00")
+
+        def blocked(self, owner: str) -> None:
+            return None
+
+        def draft(self, scope: digests.Scope) -> object:
+            if error_kind == "operational":
+                error = sqlite3.OperationalError("no such table: x")
+                error.sqlite_errorcode = 1  # type: ignore[attr-defined]
+                raise error
+            raise RuntimeError("boom after claim")
+
+        def store(self, db: Any, scope: digests.Scope, draft: object, now: Any) -> int:
+            raise AssertionError("not reached")
+
+    ran = digests.run_due(db, at("2026-11-27 07:00"), FailingWriter())
+    assert list(ran) == []
+    assert ran.held == [ident]
+    assert ran.left_due == []
+
+
 @pytest.mark.parametrize(
     ("code", "text"), [(5, "database is locked"), (6, "table is locked"), (261, "busy")]
 )

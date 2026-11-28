@@ -52,8 +52,10 @@ Rules (docs/development/live-runner.md, "Statement extraction"):
 Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 
 - `more_values_than_header_years`: the line has more numeric cells than the table's header
-  lines hold four-digit years (counted over all header lines; none counted when the headers
-  name no year). A footnote marker `(1)` two spaces before the values reads as a value of -1.
+  lines hold four-digit years (read on the header line nearest the data that holds a four-digit
+  year, the column-header row; a title line above it naming the same or more years does not
+  count; none counted when the headers name no year). A footnote marker
+  `(1)` two spaces before the values reads as a value of -1.
 - `label_ends_numeric`: the label's last token is a numeric cell (`1,234`, `$5`, `(12)`, a nil
   dash, a split `(12 )`) or a minus-signed number (`-120`, `\u2212120`), which stops the scan.
   Two numbers one space apart are one text cell, so the scan stops there and they stay
@@ -61,23 +63,24 @@ Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
 - `ambiguous_separator`: a value is printed with one dot and exactly three digits after it
   (`1.234`) on a page whose data lines also print a whole number: the dot may be a thousands
   separator (1,234), so the value read (1.234) may be a thousand times too small.
-- `footnote_marker`: the header lines hold N > 0 four-digit years and the line has N + 1 raw
-  values whose first is `(n)`, or a bare `n` when a header line has a cell that is the word Note or
-  Notes on its own, starting left of the leftmost year column (one or two digits, no `$`), and
-  ends left of the column where the leftmost four-digit year of the
-  header lines starts (both read after the pipe rewrite): that first cell is a footnote marker,
-  dropped from `raw_values` and `values` (the label is unchanged), and the line does not also get
-  `more_values_than_header_years`. A note reference of several numbers (`7 and 9`,
-  `8, 9, 11 and 16`) is label text, two or more spaces after the label; under a Note or Notes
-  header it counts as the extra cell: the line has N raw values and the reference ends left of
-  that column, and it is dropped from the label (the values are unchanged). Rows below a later
-  header line that is not a data row are not under the Note column. Both conditions are
-  required: a small first value with no extra value, one right of the first year, or one under no
-  Note header (a two-column table under one year) is a value. Under a Note column, a row of N
-  values whose first is an unsigned bare number of one or two digits left of the years, with a
-  sign folded into a later cell, keeps that number in its label and is flagged
-  `label_ends_numeric`. With no year in the headers
-  the marker `(n)` still reads as -1 and is flagged as above.
+- `footnote_marker`: the header line nearest the data that holds a four-digit year (the
+  column-header row; a title line above it naming the same or more years does not count) holds
+  N > 0 of them and the
+  line has N + 1 raw values whose first is `(n)`, or a bare `n` when a header line has a cell that
+  is the word Note or Notes on its own, starting left of the leftmost year column (one or two
+  digits, no `$`), and ends left of the column where the leftmost four-digit year of that same
+  line starts (both read after the pipe rewrite): that first cell
+  is a footnote marker, dropped from `raw_values` and `values` (the label is unchanged), and the
+  line does not also get `more_values_than_header_years`. A note reference of several numbers (`7
+  and 9`, `8, 9, 11 and 16`) is label text, two or more spaces after the label; under a Note or
+  Notes header it counts as the extra cell: the line has N raw values and the reference ends left
+  of that column, and it is dropped from the label (the values are unchanged). Rows below a later
+  header line that is not a data row are not under the Note column. Both conditions are required:
+  a small first value with no extra value, one right of the first year, or one under no Note
+  header (a two-column table under one year) is a value. Under a Note column, a row of N values
+  whose first is an unsigned bare number of one or two digits left of the years, with a sign
+  folded into a later cell, keeps that number in its label and is flagged `label_ends_numeric`.
+  With no year in the headers the marker `(n)` still reads as -1 and is flagged as above.
 
 `ExtractedTable.source_id` names the table's source: `extract_pack_statements` sets it and
 binds locators per source, so two sources may share a locator; `extract_statement_lines` sets
@@ -360,8 +363,10 @@ def _label_candidates(
     row_index: int,
     row_label: str,
     header_indexes: Collection[int],
+    omitted_indexes: Collection[int] = (),
 ) -> tuple[ExtractedLabelPart, ...]:
-    """Exact contiguous label fragments above and on a row, bounded by blank/header/data lines."""
+    """Exact contiguous label fragments above and on a row. The walk stops at a blank, header,
+    period-header, statement-title or data line, or an omitted line whose last cell is a number."""
     first = row_index
     while first > 0:
         previous_index = first - 1
@@ -370,6 +375,7 @@ def _label_candidates(
         if (
             not stripped
             or previous_index in header_indexes
+            or previous_index in omitted_indexes
             or _is_period_header(previous)
             or _STATEMENT_TITLE.search(previous)
             or _cells(previous) is not None
@@ -455,14 +461,28 @@ def _flags(line: ExtractedLine, years: int, footnote: bool, integers: bool) -> t
     return tuple(flags)
 
 
-def _year_column(headers: Sequence[str]) -> int | None:
-    """The column where the leftmost four-digit year of the header lines starts."""
-    starts = [
-        match.start()
-        for header in headers
-        if (match := _YEAR.search(_PIPE.sub("  ", header) if "|" in header else header))
-    ]
-    return min(starts, default=None)
+def _year_lines(headers: Sequence[str]) -> tuple[int, int | None]:
+    """N and the column where the leftmost year starts, both read from the header line nearest
+    the data that holds a four-digit year (the column-header row); title lines above it do not
+    count."""
+    for header in reversed(headers):
+        text = _PIPE.sub("  ", header) if "|" in header else header
+        if first := _YEAR.search(text):
+            return len(_YEAR.findall(text)), first.start()
+    return 0, None
+
+
+def _is_number(token: str) -> bool:
+    return bool(_NUMERIC_CELL.fullmatch(token) or _UNREAD_NUMBER.fullmatch(token))
+
+
+def _value_shaped(line: str) -> bool:
+    """An omitted line whose last cell (two or more spaces, a pipe or a leader run before it) is a
+    number: a row of values, which bounds a label walk. A prose line ending in a number one space
+    after a word (`Senior notes due 2031`) is a label fragment."""
+    read = _strip_leader(_PIPE.sub("  ", line) if "|" in line else line)[0]
+    cells = [cell.group() for cell in _CELL.finditer(read)]
+    return bool(cells) and _is_number(cells[-1].replace(" ", ""))
 
 
 def _footnote_marker(
@@ -503,6 +523,31 @@ def _page_lines(text: str) -> tuple[list[str], list[str]]:
     """A page's lines as printed, and as read (a Unicode thousands space made an ASCII one)."""
     shown = [line.removesuffix("\r") for line in text.split("\n")]
     return shown, [_GROUP_SPACE.sub(" ", line) for line in shown]
+
+
+def _with_candidates(
+    lines: Sequence[str],
+    printed: ExtractedLine,
+    final: ExtractedLine,
+    header_indexes: Collection[int],
+    omitted_indexes: Collection[int],
+) -> ExtractedLine:
+    """`final` with label candidates whose last is the row's own final label (after the
+    note-reference and kept-number rewrites), less the continuation lines offered above it."""
+    row_cells = _cells(lines[final.line_no - 1])
+    assert row_cells is not None
+    candidates = _label_candidates(
+        lines, final.line_no - 1, row_cells.label, header_indexes, omitted_indexes
+    )
+    prefix = printed.label.removesuffix(row_cells.label).rstrip()
+    own = final.label.removeprefix(prefix).strip()
+    return replace(
+        final,
+        label_candidates=(
+            *candidates[:-1],
+            ExtractedLabelPart(line_no=candidates[-1].line_no, text=own),
+        ),
+    )
 
 
 def extract_statement_lines(
@@ -548,11 +593,10 @@ def extract_statement_lines(
     header_boundaries.update(
         index for index, raw_line in enumerate(lines) if _is_period_header(raw_line)
     )
-    years = sum(len(_YEAR.findall(header)) for header in headers)
+    years, year_column = _year_lines(headers)
     # Any value printed as a whole number makes a `1.234` beside it ambiguous.
     integers = any(_INTEGER.fullmatch(raw) for line in found for raw in line.raw_values)
     flagged: list[ExtractedLine] = []
-    year_column = _year_column(headers)
     note_header = year_column is not None and any(
         _NOTE_HEADER.fullmatch(cell.group()) and cell.start() < year_column
         for header in headers
@@ -603,24 +647,17 @@ def extract_statement_lines(
                 currency_values=printed.currency_values[1:],
             )
         flagged.append(replace(data, flags=_flags(data, years, footnote, integers)))
-    bounded: list[ExtractedLine] = []
-    for flagged_line in flagged:
-        row_cells = _cells(lines[flagged_line.line_no - 1])
-        assert row_cells is not None
-        bounded.append(
-            replace(
-                flagged_line,
-                label_candidates=_label_candidates(
-                    lines, flagged_line.line_no - 1, row_cells.label, header_boundaries
-                ),
-            )
-        )
     kept = {line.line_no - 1 for line in found}.union(header_at)
     omitted = tuple(
         OmittedLine(line_no=index + 1, text=shown[index])
         for index, text in enumerate(lines)
         if index not in kept and _is_omitted_candidate(text)
     )
+    omitted_at = {line.line_no - 1 for line in omitted if _value_shaped(lines[line.line_no - 1])}
+    bounded = [
+        _with_candidates(lines, printed, flagged_line, header_boundaries, omitted_at)
+        for printed, flagged_line in zip(found, flagged, strict=True)
+    ]
     return ExtractedTable(
         locator=locator,
         headers=headers,

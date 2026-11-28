@@ -147,17 +147,19 @@ export function LedgerTile({
   ledger,
   entry,
   folder,
+  pathway,
   lead = [],
 }: {
   ledger: ReturnType<typeof ledgerOf>;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
   /** What the module wrote above the ledger: it says how to read it, so it is drawn with it. */
   lead?: PassageItem[];
 }) {
   if (!ledger) return null;
   const intro = lead.length > 0 && (
-    <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+    <PassageBody items={lead} noun="passage" entry={entry} folder={folder} pathway={pathway} />
   );
   if ("table" in ledger)
     return (
@@ -165,6 +167,7 @@ export function LedgerTile({
         {intro}
         <PublishedTable
           table={withoutReferenceColumns(ledger.table)}
+          pathway={pathway}
           rowSource={(line, label) => (
             <PublishedSource
               href={evidencePath(folder, entry, line)}
@@ -211,10 +214,12 @@ export function LeftoverTile({
   sections,
   entry,
   folder,
+  pathway,
 }: {
   sections: ReturnType<typeof leftovers>;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   if (sections.length === 0) return null;
   return (
@@ -222,7 +227,13 @@ export function LeftoverTile({
       {sections.map(({ heading, items }, index) => (
         <section key={`${String(index)}-${heading}`} className="grid gap-3" aria-label={heading}>
           <h4 className="text-caption text-text-tertiary">{heading}</h4>
-          <PassageBody items={items} noun="passage" entry={entry} folder={folder} />
+          <PassageBody
+            items={items}
+            noun="passage"
+            entry={entry}
+            folder={folder}
+            pathway={pathway}
+          />
         </section>
       ))}
     </Tile>

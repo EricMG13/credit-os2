@@ -31,7 +31,7 @@ type Work = "fetch" | "replace";
 export type StandingView = {
   /** The service's listing; undefined until it has answered. */
   listing?: readonly StandingPortfolio[];
-  /** Why the listing could not be loaded, as a sentence; "" otherwise. */
+  /** Why the listing or the automatic first fetch failed, in full sentences; "" otherwise. */
   problem: string;
   /** The portfolios being fetched or replaced, by key. */
   working: Readonly<Partial<Record<string, Work>>>;
@@ -128,20 +128,30 @@ export function useStandingPortfolios(): StandingView {
     // Asked after each wait: the page may have left meanwhile.
     const left = () => signal.aborted;
     let absent: string[] = [];
+    // Which step is running, so a failure is worded as that step's.
+    let step: "listing" | "fetch" = "listing";
     const load = async () => {
       const first = listed(await getStandingPortfolios(signal));
       if (left()) return;
       setListing(first);
       absent = first.filter(neverFetched).map(({ key }) => key);
       if (absent.length === 0) return;
+      step = "fetch";
       ensuring.current ??= ensureStandingPortfolios();
       setWorking((now) => ({ ...now, ...Object.fromEntries(absent.map((key) => [key, "fetch"])) }));
       const after = listed(await ensuring.current);
-      if (!left()) setListing(after);
+      if (left()) return;
+      setListing(after);
     };
     load()
       .catch((failure: unknown) => {
-        if (!left()) setProblem(asSentence(errorText(failure)));
+        if (left()) return;
+        const reason = asSentence(errorText(failure));
+        setProblem(
+          step === "listing"
+            ? `The standing portfolios could not be listed. ${reason}`
+            : `The automatic fetch of the standing portfolios failed. ${reason}`,
+        );
       })
       .finally(() => {
         if (!left()) setWorking((now) => without(now, absent));
@@ -150,6 +160,12 @@ export function useStandingPortfolios(): StandingView {
       control.abort();
     };
   }, []);
+
+  /** A newer listing; the automatic-fetch notice goes only once no fund is still never fetched. */
+  function settled(next: StandingPortfolio[]) {
+    setListing(next);
+    if (!next.some(neverFetched)) setProblem("");
+  }
 
   function begin(key: string, work: Work) {
     setWorking((now) => ({ ...now, [key]: work }));
@@ -164,7 +180,7 @@ export function useStandingPortfolios(): StandingView {
     begin(key, "fetch");
     try {
       const done = await refreshStandingPortfolio(key);
-      setListing(listed(done));
+      settled(listed(done));
       finish(key, fetchedNote(done));
     } catch (failure) {
       finish(key, refused(failure));
@@ -187,7 +203,7 @@ export function useStandingPortfolios(): StandingView {
       await clearStandingFiles(key);
       for (const file of files) await uploadStandingFile(key, file);
       const read = await storeStandingFiles(key);
-      setListing(listed(read));
+      settled(listed(read));
       finish(key, { text: `Stored. ${comparisonFacts(read.portfolio).join(" ")}`, alert: false });
     } catch (failure) {
       finish(key, refused(failure));

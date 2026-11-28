@@ -12,7 +12,9 @@ import {
   type PublishedChanges,
   type PublishedRun,
   type Snapshot,
+  withoutReferences,
 } from "../publishedReport";
+import { withoutReference } from "./moduleRecordsModel";
 import { PublishedTable } from "../ReportContent";
 import { MaturityPair, usableProfile } from "./changes/MaturityPair";
 import { MeasureList } from "./changes/MeasureList";
@@ -25,6 +27,7 @@ import {
   leftovers,
   passageItems,
   problemSentence,
+  stated,
   verdictOf,
   words,
   type PassageItem,
@@ -42,16 +45,37 @@ import { PublishedSource } from "./PublishedTrace";
 
 const BUTTON = "min-h-8 max-[480px]:min-h-11";
 
+const SAME_PERIOD = " · Same-period analysis change";
+/** Measure, Earlier, Current and Difference: figures and labels, drawn without a citation token. */
+const FIGURE_COLUMNS = 4;
+function readerCell(cell: string, column: number) {
+  if (!containsReference(cell)) return cell;
+  // Removes only a gap id after the empty-set mark, so a missing value stays distinct from zero.
+  if (column < FIGURE_COLUMNS) return withoutReference(cell.replace(/(∅)\s*\[?G\d+\]?/gu, "$1"));
+  const revision = cell.endsWith(SAME_PERIOD);
+  const reason = revision ? cell.slice(0, -SAME_PERIOD.length) : cell;
+  return (withoutReferences(reason) || stated(reason)) + (revision ? SAME_PERIOD : "");
+}
+
 export function ComparisonTable({
   rows,
   source,
+  evidence = true,
+  pathway,
 }: {
+  pathway?: string | null;
   rows: string[][];
   source?: (label: string, index: number) => string | undefined;
+  /** True (the Evidence page) draws a cell's references; false keeps only its own words. */
+  evidence?: boolean;
 }) {
+  // PublishedTable's reader mode would add its own link or "unavailable" note to a citing cell;
+  // the row already has its one trace control, so each cell is drawn without its references.
+  const drawn = evidence ? rows : rows.map((cells) => cells.map(readerCell));
   return (
     <PublishedTable
       evidence
+      pathway={pathway}
       rowSource={
         source &&
         ((line, label) => {
@@ -76,7 +100,7 @@ export function ComparisonTable({
           "Comparability",
           "Analysis change",
         ],
-        rows: rows.map((cells, line) => ({ cells, line })),
+        rows: drawn.map((cells, line) => ({ cells, line })),
       }}
     />
   );
@@ -118,17 +142,23 @@ export function ReportChanges({
     return (
       <>
         <h2 className="font-display text-h3 text-text-primary">Changes since the last run</h2>
-        <NoComparison change={change} />
+        <NoComparison change={change} pathway={run.pathway} />
         {entry && (
           <Bento>
-            <Passages entry={entry} folder={run.folder} withBottomLine />
-            <FactsTile result={issuerFacts(entry, run.folder, new Set())} />
-            <AnalysisTile rows={analysisRows(entry, run.folder)} />
-            <LedgerTile ledger={ledgerOf(entry, run.folder)} entry={entry} folder={run.folder} />
-            <LeftoverTile
-              sections={leftovers(entry, run.folder)}
+            <Passages entry={entry} folder={run.folder} pathway={run.pathway} withBottomLine />
+            <FactsTile result={issuerFacts(entry, run.folder, new Set(), run.pathway)} />
+            <AnalysisTile rows={analysisRows(entry, run.folder, undefined, run.pathway)} />
+            <LedgerTile
+              ledger={ledgerOf(entry, run.folder, run.pathway)}
               entry={entry}
               folder={run.folder}
+              pathway={run.pathway}
+            />
+            <LeftoverTile
+              sections={leftovers(entry, run.folder, run.pathway)}
+              entry={entry}
+              folder={run.folder}
+              pathway={run.pathway}
             />
           </Bento>
         )}
@@ -183,12 +213,14 @@ function Verdict({
   change,
   entry,
   folder,
+  pathway,
 }: {
   change: PublishedChanges;
   entry: OutputEntry | undefined;
   folder: string;
+  pathway?: string | null;
 }) {
-  const verdict = verdictOf(entry, folder);
+  const verdict = verdictOf(entry, folder, pathway);
   return (
     <Tile
       span={12}
@@ -224,7 +256,13 @@ function Verdict({
           <GapNote>The comparison does not state a verdict in a sentence.</GapNote>
         )}
         {verdict && entry && verdict.body.length > 0 && (
-          <PassageBody items={verdict.body} noun="passage" entry={entry} folder={folder} />
+          <PassageBody
+            items={verdict.body}
+            noun="passage"
+            entry={entry}
+            folder={folder}
+            pathway={pathway}
+          />
         )}
         <ComparedDates change={change} />
         <GapSentence>Stance, earlier → current: the comparison does not state it</GapSentence>
@@ -245,6 +283,7 @@ function Measures({
   trace,
   folder,
   lead,
+  pathway,
 }: {
   change: PublishedChanges;
   entry: OutputEntry | undefined;
@@ -252,9 +291,10 @@ function Measures({
   folder: string;
   /** What the module wrote above its table of measures: it qualifies every figure drawn here. */
   lead: PassageItem[];
+  pathway?: string | null;
 }) {
   const [view, setView] = useState<"list" | "table">("list");
-  const groups = classifyMeasures(change, trace.measure, entry, folder);
+  const groups = classifyMeasures(change, trace.measure, entry, folder, pathway);
   const rows = comparisonRows(change, "reader");
   if (!rows.length)
     return (
@@ -290,11 +330,16 @@ function Measures({
       }
     >
       {entry && lead.length > 0 && (
-        <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+        <PassageBody items={lead} noun="passage" entry={entry} folder={folder} pathway={pathway} />
       )}
       {view === "table" ? (
         <section aria-label="Earlier against current">
-          <ComparisonTable rows={rows} source={(_label, index) => hrefs.get(index)} />
+          <ComparisonTable
+            rows={rows}
+            evidence={false}
+            pathway={pathway}
+            source={(_label, index) => hrefs.get(index)}
+          />
         </section>
       ) : (
         <>
@@ -364,16 +409,22 @@ function Comparison({
   trace: Trace;
 }) {
   const pack = change.pack;
-  const { unmoved, matchedLines } = classifyMeasures(change, trace.measure, entry, run.folder);
+  const { unmoved, matchedLines } = classifyMeasures(
+    change,
+    trace.measure,
+    entry,
+    run.folder,
+    run.pathway,
+  );
   const folder = run.folder;
-  const ledger = entry ? ledgerOf(entry, folder) : null;
+  const ledger = entry ? ledgerOf(entry, folder, run.pathway) : null;
   // A register's lead paragraph is drawn with the register it qualifies; the rest stays last.
   const placed = new Set([
     ...(comparisonRows(change, "reader").length > 0 ? [ISSUER_REGISTER] : []),
     ...(pack?.modules?.length ? [ANALYSIS_REGISTER] : []),
     ...(ledger ? [LEDGER_REGISTER] : []),
   ]);
-  const written = entry ? leftovers(entry, folder) : [];
+  const written = entry ? leftovers(entry, folder, run.pathway) : [];
   const lead = (heading: string) =>
     placed.has(heading)
       ? written.filter((section) => section.heading === heading).flatMap(({ items }) => items)
@@ -382,13 +433,14 @@ function Comparison({
   const analysisLead = lead(ANALYSIS_REGISTER);
   return (
     <Bento>
-      <Verdict change={change} entry={entry} folder={folder} />
+      <Verdict change={change} entry={entry} folder={folder} pathway={run.pathway} />
       <Measures
         change={change}
         entry={entry}
         trace={trace}
         folder={folder}
         lead={lead(ISSUER_REGISTER)}
+        pathway={run.pathway}
       />
       {Boolean(pack?.modules?.length) && (
         <Tile span={5} label="Modules" title="What changed in the analysis" className="self-start">
@@ -398,32 +450,48 @@ function Comparison({
             </p>
           )}
           {entry && analysisLead.length > 0 && (
-            <PassageBody items={analysisLead} noun="passage" entry={entry} folder={folder} />
+            <PassageBody
+              items={analysisLead}
+              noun="passage"
+              entry={entry}
+              folder={folder}
+              pathway={run.pathway}
+            />
           )}
-          <ModuleMatrix change={change} source={trace.module} />
+          <ModuleMatrix change={change} source={trace.module} pathway={run.pathway} />
         </Tile>
       )}
       <Maturities
         profile={pack?.maturity_profile}
         omitted={pack?.omitted?.maturity_profile}
+        pathway={run.pathway}
         traces={pack?.maturity_profile ? maturityTraces(snapshot, run, entries, change) : undefined}
       />
-      {entry && <Passages entry={entry} folder={folder} />}
+      {entry && <Passages entry={entry} folder={folder} pathway={run.pathway} />}
       {entry && (
-        <LedgerTile ledger={ledger} entry={entry} folder={folder} lead={lead(LEDGER_REGISTER)} />
+        <LedgerTile
+          ledger={ledger}
+          entry={entry}
+          folder={folder}
+          pathway={run.pathway}
+          lead={lead(LEDGER_REGISTER)}
+        />
       )}
-      <FactsTile result={issuerFacts(entry, folder, matchedLines)} />
+      <FactsTile result={issuerFacts(entry, folder, matchedLines, run.pathway)} />
       {entry && (
         <AnalysisTile
           rows={analysisRows(
             entry,
             folder,
             new Set((pack?.modules ?? []).map((item) => item.module)),
+            run.pathway,
           )}
           title="Also compared in the analysis"
         />
       )}
-      {entry && <LeftoverTile sections={rest} entry={entry} folder={folder} />}
+      {entry && (
+        <LeftoverTile sections={rest} entry={entry} folder={folder} pathway={run.pathway} />
+      )}
       {unmoved.length > 0 && (
         <Tile span={12} label="Measures that did not move" title="Measures that did not move">
           <details>
@@ -450,10 +518,12 @@ function Comparison({
 function Passages({
   entry,
   folder,
+  pathway,
   withBottomLine = false,
 }: {
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
   withBottomLine?: boolean;
 }) {
   const tile = (
@@ -466,9 +536,10 @@ function Passages({
       span={span}
       title={title}
       noun={noun}
-      items={passageItems(entry, title, folder)}
+      items={passageItems(entry, title, folder, pathway)}
       entry={entry}
       folder={folder}
+      pathway={pathway}
       {...extra}
     />
   );
@@ -485,10 +556,12 @@ function Passages({
 function Maturities({
   profile,
   omitted,
+  pathway,
   traces,
 }: {
   profile?: MaturityProfile;
   omitted?: string;
+  pathway?: string | null;
   traces?: ReturnType<typeof maturityTraces>;
 }) {
   const gap = (reason: string) => (
@@ -502,7 +575,7 @@ function Maturities({
   );
   if (!profile)
     return omitted
-      ? gap(containsReference(omitted) ? "See the comparison evidence." : words(omitted))
+      ? gap(containsReference(omitted) ? "See the comparison evidence." : words(omitted, pathway))
       : null;
   if (!usableProfile(profile))
     return gap("The published comparison does not contain a usable maturity schedule.");
@@ -510,9 +583,15 @@ function Maturities({
 }
 
 /** The designed empty state: one fixed sentence on a solid chip and the one action that fixes it. */
-function NoComparison({ change }: { change: PublishedChanges | null | undefined }) {
+function NoComparison({
+  change,
+  pathway,
+}: {
+  change: PublishedChanges | null | undefined;
+  pathway?: string | null;
+}) {
   const sentence = change?.problem
-    ? problemSentence(change.problem)
+    ? problemSentence(change.problem, pathway)
     : noComparisonSentence(change?.note);
   return (
     <Bento>

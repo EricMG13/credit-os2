@@ -369,7 +369,9 @@ def check_methodology(
 def reader_summary(text: str) -> dict[str, Any] | None:
     """The handoff's own reader tables, verbatim; None when they are not in the expected form."""
     tables = reader_tables(text)
-    if len(tables) < 2 or tuple(tables[0][0]) != TABLES[0] or tuple(tables[1][0]) != TABLES[1]:
+    if len(tables) < 2 or not tables[0] or not tables[1]:
+        return None
+    if tuple(tables[0][0]) != TABLES[0] or tuple(tables[1][0]) != TABLES[1]:
         return None
     if len(tables[0]) != 2 or any(len(row) != 3 for row in tables[0] + tables[1]):
         return None

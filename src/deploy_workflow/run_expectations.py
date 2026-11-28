@@ -69,6 +69,18 @@ def _rx(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern, re.IGNORECASE)
 
 
+# Words that may qualify a credit agreement or indenture title ("FIRST LIEN", "TERM LOAN", "SENIOR
+# NOTES"). A qualified title must be the whole line: the title words, then at most a full stop, a
+# date or "dated as of ...". The unqualified reading (`the`, `this`, `amended and restated`) is as
+# before and matches the start of a line.
+_QUALIFIERS = (
+    r"(?:(?:the|this|first|second|third|fourth|fifth|lien|term|loan|senior|secured|unsecured|"
+    r"notes|revolving|amended|and|restated) )*"
+)
+_TITLE_END = (
+    r"(?=\s*[.,;:]?\s*(?:\(?dated as of\b.*|[a-z]{3,9} \d{1,2}, \d{4}|\d{1,2} [a-z]{3,9} \d{4})?"
+    r"\s*[.,]?$)"
+)
 # A title line starts with the phrase, so a sentence that merely mentions a document does not count.
 LINE_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -79,8 +91,20 @@ LINE_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = (
         "financial_report",
         _rx(r"(?:group )?consolidated (?:financial statements|statements? of|balance sheet)"),
     ),
-    ("credit_agreement", _rx(r"(?:(?:the|this) )?(?:amended and restated )?credit agreement\b")),
-    ("indenture", _rx(r"(?:(?:the|this) )?(?:(?:\w+ )?supplemental )?indenture\b")),
+    (
+        "credit_agreement",
+        _rx(
+            r"(?:(?:the|this) )?(?:amended and restated )?credit agreement\b"
+            rf"|{_QUALIFIERS}credit agreement\b{_TITLE_END}"
+        ),
+    ),
+    (
+        "indenture",
+        _rx(
+            r"(?:(?:the|this) )?(?:(?:\w+ )?supplemental )?indenture\b"
+            rf"|{_QUALIFIERS}(?:(?:\w+ )?supplemental )?indenture\b{_TITLE_END}"
+        ),
+    ),
     ("amendment", _rx(r"amendment no\.? ?\d+|\w+ amendment to\b")),
     ("intercreditor", _rx(r"(?:(?:the|this) )?intercreditor agreement\b")),
     ("compliance_certificate", _rx(r"compliance certificate\b")),
@@ -101,6 +125,15 @@ LINE_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("portfolio", _rx(r"portfolio holdings\b")),
     ("prior_decision", _rx(r"investment committee decision memo\b")),
 )
+LINE_PHRASES_BY_KIND = {kind: rx for kind, rx in LINE_PHRASES}
+# The kinds a file name is searched for, anywhere in it, when no title-start phrase is found.
+NAME_SEARCH_KINDS = ("credit_agreement", "indenture", "amendment")
+# Words that make a file name something other than the agreement itself.
+_NOT_PRIMARY = _rx(
+    r"\b(?:summary|memo\w*|certificate|compliance|comparison|redline|blackline|schedule|exhibit"
+    r"|term sheet|presentation)\b"
+)
+_AMENDMENT_WORD = _rx(r"\bamend")
 # Cover wording that HTML filings run into one line, found anywhere on page 1. The SEC form title
 # is upper case; the same words in a body sentence are not a cover.
 COVER_PHRASES: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -162,12 +195,21 @@ def _wraps(previous: str, line: str) -> bool:
     return open_prose and len(line.split()) > 6 and not line.isupper()
 
 
+def _title_continues(previous: str) -> bool:
+    """True when ``previous`` is an amendment title ending "to", so the next line finishes it."""
+    return bool(LINE_PHRASES_BY_KIND["amendment"].match(previous)) and previous.lower().endswith(
+        " to"
+    )
+
+
 def _hits(lines: list[str]) -> dict[str, str]:
     """Kind -> the text that matched, from title lines (a line, or a line joined to the next)."""
     found: dict[str, str] = {}
     for index, line in enumerate(lines):
         if index and _wraps(lines[index - 1], line):
             continue  # A wrapped body line that happens to begin with a document noun.
+        if index and _title_continues(lines[index - 1]):
+            continue  # The second line of a title wrapped over two lines.
         following = lines[index + 1] if index + 1 < len(lines) else ""
         for candidate in (line, f"{line} {following}"):
             for kind, rx in LINE_PHRASES:
@@ -180,6 +222,20 @@ def _hits(lines: list[str]) -> dict[str, str]:
     return found
 
 
+def _name_search(spaced: str) -> dict[str, str]:
+    """Kind -> matched words for the deal documents named anywhere in a file name. A name with a
+    word of a derived document (summary, certificate, redline, ...) is not classified; a name with
+    an amendment word is never a primary agreement."""
+    if _NOT_PRIMARY.search(spaced):
+        return {}
+    kinds = ("amendment",) if _AMENDMENT_WORD.search(spaced) else NAME_SEARCH_KINDS
+    found: dict[str, str] = {}
+    for kind in kinds:
+        if match := LINE_PHRASES_BY_KIND[kind].search(spaced):
+            found[kind] = match.group(0).strip()
+    return found
+
+
 def _kind(name: str, lines: list[str], pages: Sequence[str]) -> tuple[str, str]:
     if found := _hits(lines):
         if len(found) > 1:
@@ -189,7 +245,8 @@ def _kind(name: str, lines: list[str], pages: Sequence[str]) -> tuple[str, str]:
     for number, page in enumerate(pages, 1):
         if match := INDEX_PHRASE.search(" ".join(page.split())):
             return "financial_report", f"found {match.group(0)!r} on page {number}"
-    named = _hits([" ".join(re.split(r"[-_.]+", name))])
+    spaced = " ".join(re.split(r"[-_.]+", name))
+    named = _hits([spaced]) or _name_search(spaced)
     if len(named) == 1:
         ((kind, text),) = named.items()
         return kind, f"file name contains {text!r}"
@@ -377,7 +434,7 @@ def _failing(f: Facts) -> str:
         first = book.report.issues[0]
         parts.append(
             f"{book.source}: {count(len(book.report.issues), 'finding')}; first: "
-            f"{finding_text(first)}."
+            f"{finding_text(first, export=book.export)}."
         )
     return " " + " ".join(parts)
 

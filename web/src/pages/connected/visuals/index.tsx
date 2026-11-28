@@ -7,7 +7,11 @@ import { ChartWithTable } from "@/components/chart/ChartWithTable";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import { containsReference, readerText, unitLabel } from "../publishedReport";
 import { PublishedSource } from "../report/PublishedTrace";
-import { usePortfolioBasis, usePortfolioBasisLoading } from "../report/PortfolioBasis";
+import {
+  usePortfolioBasis,
+  usePortfolioBasisFailed,
+  usePortfolioBasisLoading,
+} from "../report/PortfolioBasis";
 import { portfolioLimits } from "./PortfolioLimits";
 import { publishedChart } from "./charts";
 import { edgeMap } from "./EdgeMap";
@@ -117,6 +121,7 @@ export function LegacyVisuals({
   const published = record(output);
   const basis = usePortfolioBasis();
   const loading = usePortfolioBasisLoading();
+  const failed = usePortfolioBasisFailed();
   const sourceSections = sections ?? published.sections;
   const tables = publishedTables(sourceSections);
   const qualified = new Set(chartsWithQualifications(published, sourceSections));
@@ -200,6 +205,13 @@ export function LegacyVisuals({
                 <p role="status" className="text-small text-text-secondary">
                   Loading the portfolio limits.
                 </p>
+              ) : limits && failed ? (
+                <>
+                  <p role="note" className="text-small text-text-secondary">
+                    The portfolio basis could not be loaded.
+                  </p>
+                  {!print && <ChartTable caption={title} {...chartTable(table)} />}
+                </>
               ) : (
                 <>
                   <GapPanel

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from deploy_workflow.run_events import EVENTS, progress
 from . import admission
 from .library_cards import response_assessment
 
+_LOG = logging.getLogger(__name__)
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _RESPONSE = re.compile(r"requests/(CP-[A-Z0-9]+)/([0-9a-f]{64})/([1-3])\.response\.md\Z")
 _COMPLETED = re.compile(r"completed-([0-9a-f]{64})\.json\Z")
@@ -148,7 +150,8 @@ def execution(directory: Path, record: runs.Record, manifest: dict[str, Any]) ->
         return mode
     try:
         return _adapter_execution(_Reads(directory), record)
-    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError):
+    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
+        _LOG.warning("run %s execution unknown: %s: %s", record.id, type(error).__name__, error)
         return None
 
 
@@ -203,9 +206,8 @@ def _events(reader: _Reads) -> list[dict[str, Any]] | None:
     if not (reader.root / EVENTS).exists():
         return None
     raw = reader.raw(EVENTS)
+    # The bound is `_Reads.raw`'s: 4 MiB for this file and the reader's 32 MiB total.
     lines = raw.decode("utf-8").splitlines()
-    if len(lines) > 1000:
-        raise Refused("too many metadata events")
     events = []
     for index, line in enumerate(lines):
         try:
@@ -336,12 +338,15 @@ def _one_output(
             ):
                 checked.append(value)
         return checked[0] if len(checked) == 1 else unknown
-    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError):
+    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
+        _LOG.warning("response identity of %s unknown: %s: %s", code, type(error).__name__, error)
         return unknown  # Optional display metadata: unavailable is explicit, not a module verdict.
 
 
 def module_outputs(directory: Path, record: runs.Record) -> list[dict[str, str | None]] | None:
     """Only accepted event states or a pinned final selection can identify a response."""
+    if not os.path.lexists(directory / "workflow.json"):
+        return None  # A queued run has no folder yet: expected, not a failure to log.
     reader = _Reads(directory)
     try:
         workflow = _workflow(reader, record)
@@ -371,7 +376,10 @@ def module_outputs(directory: Path, record: runs.Record) -> list[dict[str, str |
             if value["response_sha256"] is not None:
                 context["hashes"][code] = value["response_sha256"]
         return result
-    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError):
+    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
+        _LOG.warning(
+            "run %s module outputs unavailable: %s: %s", record.id, type(error).__name__, error
+        )
         return None  # Historical/corrupt metadata must not become a recorded empty result.
 
 
@@ -379,6 +387,8 @@ def library_admission(layout: Layout, record: runs.Record) -> str | None:
     """Current scoped publication membership; no claim about an admission timestamp."""
     if record.status in ("queued", "running"):
         return "not-listed"
+    if not os.path.lexists(layout.engine / "library" / "data.js"):
+        return None  # No publication yet: an explicit unknown, expected and not logged.
     try:
         # A linked path or a publication over the size limit is unknown. The parse is the one
         # the service keeps between requests.
@@ -397,6 +407,15 @@ def library_admission(layout: Layout, record: runs.Record) -> str | None:
             return "not-listed"
         published = scoped[0].get("pathway"), listed[0].get("name"), listed[0].get("date")
         return "listed" if published == (record.pathway, record.issuer_name, record.as_of) else None
-    except (Refused, OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
+    except (
+        Refused,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RecursionError,
+    ) as error:
+        _LOG.warning("run %s admission unknown: %s: %s", record.id, type(error).__name__, error)
         # A malformed optional publication is an explicit unknown, not a missing run record.
         return None

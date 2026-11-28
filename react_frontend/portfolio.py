@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from deploy_workflow import portfolio_workbook
 from deploy_workflow.context import load_context
 from deploy_workflow.library_index import Refused, read_inside, read_pinned
 
+_LOG = logging.getLogger(__name__)
 PORTFOLIO = re.compile(r"/connected/portfolio/([0-9A-Za-z][0-9A-Za-z._-]{0,79})")
 DIGEST = re.compile(r"[0-9a-f]{64}")
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
@@ -248,5 +250,8 @@ def attested(root: Path, folder: str, snapshot: dict[str, Any] | None) -> Basis 
         return None
     try:
         return _for_run(root, folder, snapshot)
-    except (Refused, OSError, ValueError, TypeError, KeyError, AttributeError):
+    except (Refused, OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        _LOG.warning(
+            "run %s plotting receipt unavailable: %s: %s", folder, type(error).__name__, error
+        )
         return None

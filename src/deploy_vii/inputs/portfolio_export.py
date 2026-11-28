@@ -50,7 +50,9 @@ DM_RANGE = (Decimal(-1000), Decimal(10000))  # basis points
 FIGI = re.compile(r"^[A-Z0-9]{12}$")
 TOKEN = re.compile(r"^#(?:N/?A|VALUE!|REF!|DIV/0!|NAME\?|NUM!|NULL!)", re.IGNORECASE)
 RATING_LIKE = re.compile(r"^(?:[A-Z][a-z]{0,2}\d?|[A-Z]{1,3}[+-]?)\s*/\s*\S")
-MOJIBAKE = re.compile("[�\u0000-\u0008\u000b\u000c\u000e-\u001f]|Ã.|â€")
+MOJIBAKE = re.compile(
+    "[�\u0000-\u0008\u000b\u000c\u000e-\u001f]|Ã[\u0080-\u00bf€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]|â€"
+)
 WITHDRAWN = frozenset({"WR", "NR"})
 NOT_AVAILABLE = frozenset({"N/A", "N/R"})  # an agency's part that gives no rating, as NR does
 # An agency slash (`B2 / B`, `B2/B`), or a whole error token as one agency's part: the token and
@@ -123,6 +125,7 @@ FIX: Mapping[str, str] = {
     "layout": "export the report with its sections A to E, each a title row, a header row and "
     "data rows",
     "column": "export the sheet with its full header row",
+    "maturity": "export the holdings with their maturity dates",
     "missing": "add the holdings sheet: without it no stated figure can be verified",
     "par_cell": "enter the position's par in Holdings, a plain number",
     "repeated": "supply one export: remove the other files that hold the same part",
@@ -238,9 +241,12 @@ def share(part: Decimal, whole: Decimal) -> Decimal:
     return EXACT.divide(EXACT.multiply(part, HUNDRED), whole) if whole else Decimal(0)
 
 
-def within(stated: Quantity, exact: Decimal, *, marked: bool = False) -> bool:
-    """Whether a stated figure is the exact one, allowing its rounding (and a mark at mid)."""
-    allowed = stated.half_unit
+def within(
+    stated: Quantity, exact: Decimal, *, marked: bool = False, extra: Decimal = Decimal(0)
+) -> bool:
+    """Whether a stated figure is the exact one, allowing its rounding (and a mark at mid); `extra`
+    is the rounding of the other stated figures `exact` was computed from."""
+    allowed = EXACT.add(stated.half_unit, extra)
     if marked:
         allowed = EXACT.add(allowed, EXACT.multiply(MARK_TOLERANCE, stated.value.copy_abs()))
     return EXACT.abs(EXACT.subtract(stated.value, exact)) <= allowed
@@ -626,6 +632,11 @@ def section_key(title: str) -> str | None:
     return next((key for key, words in _SECTION_KEYS if any(w in text for w in words)), None)
 
 
+def is_breach_status(status: str) -> bool:
+    """A status that says the limit is breached: it names a breach (`Breach`, `In breach`)."""
+    return "breach" in folded(status)
+
+
 def _is_title(row: Sequence[str]) -> bool:
     filled = _cells(row)
     return len(filled) == 1 and bool(row) and row[0] == filled[0]
@@ -950,10 +961,12 @@ def _holding(
     return Holding(number, sheet, text, picked)
 
 
-def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
+def holding_rows(raw: bytes, sheet: str, export: Export, *, holdings: bool = True) -> list[Holding]:
     """The rows under the header of `sheet`; rows of empty cells are counted, not read."""
     rows = sheet_rows(raw, sheet)
-    return [] if rows is None else rows_under_header(rows, sheet, export, _formats(raw, sheet))
+    if rows is None:
+        return []
+    return rows_under_header(rows, sheet, export, _formats(raw, sheet), holdings=holdings)
 
 
 def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
@@ -1038,14 +1051,17 @@ def rows_under_header(
     sheet: str,
     export: Export,
     spans: Mapping[tuple[int, int], Span] | None = None,
+    *,
+    holdings: bool = True,
 ) -> list[Holding]:
     """The rows under the holdings header; rows of empty cells are counted, not read, and total,
-    subtotal and note rows (`row_kind`) are noted, not read as positions."""
+    subtotal and note rows (`row_kind`) are noted, not read as positions. Only the holdings sheet
+    (`holdings`) sets the export's holding columns; a market sheet's are its own."""
     header = holdings_header(rows)
     if header is None:
         return []
     start, columns = header
-    if "par" in columns:
+    if "par" in columns and holdings:
         export.holding_columns = dict(columns)
     out: list[Holding] = []
     for number, cells in rows:
@@ -1083,7 +1099,7 @@ def _read_export(files: Mapping[str, bytes]) -> Export:
     for part in found:
         export.roles[part.label] = part.role
         if part.role == "market":
-            export.market = holding_rows(files[part.file], part.sheet or "", export)
+            export.market = holding_rows(files[part.file], part.sheet or "", export, holdings=False)
             continue
         if part.role in SINGLE and (before := read.get(part.role)) is not None:
             export.repeated.setdefault(part.role, [before.label]).append(part.label)
@@ -1124,7 +1140,7 @@ PRIORITY: Mapping[str, int] = {
     **dict.fromkeys(
         (
             *("par", "nav", "count", "share", "absent", "metric", "missing", "layout", "column"),
-            *("repeated", "refused"),
+            *("repeated", "refused", "maturity"),
         ),
         1,
     ),
@@ -1318,6 +1334,11 @@ def _weighted(rows: Iterable[tuple[Decimal, Decimal]]) -> Decimal | None:
     return EXACT.divide(sum((EXACT.multiply(w, v) for w, v in pairs), Decimal(0)), weight)
 
 
+def _identified(text: str) -> bool:
+    """An identifier cell that holds a value: not empty, an error token or a not-applicable mark."""
+    return cell_kind(text) == "value"
+
+
 def _unnamed(text: str) -> bool:
     """An empty cell, a vendor error token (`#N/A N/A`) or a not-applicable marker (`N/A`, `-`):
     it names nothing."""
@@ -1338,7 +1359,7 @@ def recompute(rows: Sequence[Holding]) -> Recomputed:
         if not _unnamed(holding.text.get("borrower", "")):
             out.names.setdefault(key, holding.text.get("borrower", ""))
             out.borrowers.setdefault(key, []).append(holding)
-        if holding.text.get("ticker"):
+        if _identified(holding.text.get("ticker", "")):
             out.tickers.add(holding.text["ticker"])
             if not _unnamed(holding.text.get("borrower", "")):
                 out.tickers_of.setdefault(key, set()).add(holding.text["ticker"].upper())
@@ -1528,7 +1549,7 @@ def _figi_findings(file: str, sheet: str, rows: Sequence[Holding], findings: Fin
         findings.add(file, sheet, "FIGI", problem, "figi")
     used: dict[str, list[Holding]] = {}
     for holding in rows:
-        if holding.text.get("figi"):
+        if _identified(holding.text.get("figi", "")):
             used.setdefault(holding.text["figi"], []).append(holding)
     for figi, held in used.items():
         if len(held) < 2:
@@ -1554,7 +1575,7 @@ def _ticker_findings(file: str, sheet: str, rows: Sequence[Holding], findings: F
     names: dict[str, dict[str, int]] = {}
     for holding in rows:
         ticker, name = holding.text.get("ticker", ""), holding.text.get("borrower", "")
-        if ticker and name and not _unnamed(name):
+        if _identified(ticker) and name and not _unnamed(name):
             names.setdefault(ticker, {}).setdefault(name, holding.row)
     for ticker, borrowers in names.items():
         if len(borrowers) > 1:
@@ -1950,12 +1971,17 @@ def _yield_note(found: Recomputed) -> str:
 
 
 def _life_note(shape: Profile) -> str:
+    undated = (
+        f"; it leaves out {count(len(shape.undated), 'position')} with no maturity"
+        if shape.undated
+        else ""
+    )
     if not shape.centuries or shape.life_corrected is None:
-        return ""
+        return undated
     fixed = plain(shape.life_corrected.quantize(SHOWN, context=EXACT))
     return (
         f"; with the {count(shape.centuries, 'maturity')} before 1950 read as 20xx it would be "
-        f"{fixed} yrs (not applied)"
+        f"{fixed} yrs (not applied){undated}"
     )
 
 
@@ -2091,6 +2117,12 @@ def _internal_findings(file: str, claims: Mapping[str, Claim], findings: Finding
     if price is not None and nav is not None and par is not None and par.value.value:
         ratio = share(nav.value.value, par.value.value)
         allowed = EXACT.add(price.value.half_unit, Decimal("0.0005"))
+        if nav.value.value:  # the ratio of two rounded figures: each one's relative rounding
+            relative = EXACT.add(
+                EXACT.divide(nav.value.half_unit, EXACT.abs(nav.value.value)),
+                EXACT.divide(par.value.half_unit, EXACT.abs(par.value.value)),
+            )
+            allowed = EXACT.add(allowed, EXACT.multiply(EXACT.abs(ratio), relative))
         if EXACT.abs(EXACT.subtract(price.value.value, ratio)) > allowed:
             problem = (
                 f"the weighted average price is stated as {price.text}; the stated NAV over the "
@@ -2419,7 +2451,7 @@ def sector_section_findings(export: Export, found: Recomputed, findings: Finding
             limit is not None
             and limit.operator != ">="
             and _breached(replace(limit, operator="<="), exact)
-            and ("breach" not in folded(status))
+            and not is_breach_status(status)
         ):
             problem = (
                 f"{name}: the holdings give {pct(exact)} against the limit "
@@ -2460,9 +2492,10 @@ _MAXIMUM = re.compile(r"\b(?:max|maximum|at most|up to|no more than)\b")
 _EXCLUDED = re.compile(r"\b(?:exclu\w*|prohibit\w*|not permitted)")
 _MINIMUM = re.compile(r"\b(?:min|minimum|at least|no less than)\b")
 _NAMED = re.compile(
-    r"\(largest:\s*(?P<name>[^)]+)\)|largest (?:issuer|sector|obligor):\s*(?P<after>.+)$"
+    r"\(largest:\s*(?P<name>[^)]+)\)|largest (?:issuer|sector|obligor):\s*(?P<after>.+)$",
+    re.IGNORECASE,
 )
-_ORDINAL = re.compile(r"\b(?P<n>\d+)(?:st|nd|rd|th) largest sector\b")
+_ORDINAL = re.compile(r"\b(?P<n>\d+)(?:st|nd|rd|th) largest sector\b", re.IGNORECASE)
 
 
 def _same_family(a: Quantity, b: Quantity) -> bool:
@@ -2742,7 +2775,7 @@ def _own_arithmetic(
 ) -> None:
     where, cell = "Constraints", f"row {item.number}"
     status = item.text("status")
-    if status and _breached(limit, current.value) != ("breach" in folded(status)):
+    if status and _breached(limit, current.value) != is_breach_status(status):
         problem = (
             f"{item.label}: status {status} with current value {item.cells['current']} against "
             f"the limit {item.cells['limit']}"
@@ -2752,7 +2785,8 @@ def _own_arithmetic(
     if headroom is not None and _same_family(headroom, limit):
         room = EXACT.subtract(limit.value, current.value)
         expected = room if limit.operator == "<=" else room.copy_negate()
-        if not within(headroom, expected):
+        # The limit is a policy figure, exact; the current value is a stated, rounded measure.
+        if not within(headroom, expected, extra=current.half_unit):
             problem = (
                 f"{item.label}: headroom {item.cells['headroom']} is not the limit "
                 f"{item.cells['limit']} less the current value {item.cells['current']} "
@@ -2786,7 +2820,7 @@ def _against_holdings(
         note=goal.note,
     )
     status = item.text("status")
-    if _breached(limit, goal.value) and "breach" not in folded(status):
+    if _breached(limit, goal.value) and not is_breach_status(status):
         problem = (
             f"{item.label}: on the holdings' {_unit_text(goal)} ({goal.what}) the limit "
             f"{item.cells['limit']} is breached; the status says {status or 'none'}"
@@ -3211,19 +3245,47 @@ def rating_bucket(holding: Holding) -> str:
     return next(name for name, worst in BUCKETS if number <= worst)
 
 
+# "Below Investment Grade", "Sub-IG", "Non-Investment Grade": the opposite of investment grade, so
+# not the IG bucket, and a range over several buckets (BB, B, CCC): no bucket.
+_NOT_IG = re.compile(r"(?<![a-z])(?:below|sub|non|not)[\s-]+(?:investment|ig(?![a-z]))")
+
+
+_WEAKER = re.compile(r"(?<![a-z])(?:below|lower|worse)(?![a-z])")
+BELOW_IG = ("BB", "B", "CCC")  # the buckets a below-investment-grade row covers
+
+
 def label_bucket(label: str) -> str | None:
-    """The bucket a report's rating row names, or None (e.g. Other) when it names none."""
+    """The bucket a report's rating row names, or None (e.g. Other) when it names none. A
+    below-investment-grade label names one only with one bucket word and no range (`CCC (below
+    IG)`); `Non-IG`, `Sub-IG (BB+ and below)` span several buckets: none of them."""
     text = folded(label)
-    for bucket, words in (
-        ("Unrated", ("unrated", "not rated", "nr")),
-        ("CCC", ("ccc", "caa")),
-        ("IG", ("ig", "investment", "baa", "bbb")),
-        ("BB", ("bb", "ba")),
-        ("B", ("b",)),
-    ):
-        if any(re.search(rf"(?<![a-z]){re.escape(w)}(?![a-z])", text) for w in words):
-            return bucket
-    return None
+    negated = _NOT_IG.search(text) is not None
+    text = _NOT_IG.sub(" ", text)
+    hits = [
+        bucket
+        for bucket, words in (
+            ("Unrated", ("unrated", "not rated", "nr")),
+            ("CCC", ("ccc", "caa")),
+            ("IG", ("ig", "investment", "baa", "bbb")),
+            ("BB", ("bb", "ba")),
+            ("B", ("b",)),
+        )
+        if any(re.search(rf"(?<![a-z]){re.escape(w)}(?![a-z])", text) for w in words)
+    ]
+    if negated and (len(hits) != 1 or hits[0] == "IG" or _WEAKER.search(text)):
+        return None
+    return hits[0] if hits else None
+
+
+def _row_buckets(name: str) -> tuple[str, ...]:
+    """The buckets a report's rating row covers: the one it names, or BB, B and CCC for a
+    below-investment-grade row that names none (`Non-IG`)."""
+    if _label_kind(name) != "row":
+        return ()
+    bucket = label_bucket(name)
+    if bucket is not None:
+        return (bucket,)
+    return BELOW_IG if _NOT_IG.search(folded(name)) else ()
 
 
 def corrected(when: date) -> date:
@@ -3247,6 +3309,7 @@ class Profile:
     life: Decimal | None = None
     life_corrected: Decimal | None = None
     by_maturity: list[tuple[date, date, Decimal]] = field(default_factory=list)  # given, fixed, mv
+    undated: list[tuple[int, Decimal]] = field(default_factory=list)  # priced, no maturity: row, mv
     centuries: int = 0
 
 
@@ -3269,6 +3332,8 @@ def profile(rows: Sequence[Holding], as_of: date | None) -> Profile:
             out.by_maturity.append((holding.maturity, fixed, value))
             if as_of is not None:
                 lives.append((par, years_to(holding.maturity, as_of), years_to(fixed, as_of)))
+        else:
+            out.undated.append((holding.row, value))
     out.life = _weighted((w, given) for w, given, _ in lives)
     out.life_corrected = _weighted((w, fixed) for w, _, fixed in lives)
     return out
@@ -3299,6 +3364,8 @@ def maturity_bounds(label: str) -> tuple[Decimal, Decimal] | int | None:
 def maturity_value(
     found: Profile, bounds: tuple[Decimal, Decimal] | int, as_of: date | None, fixed: bool
 ) -> Decimal | None:
+    if not found.by_maturity:
+        return None
     total = Decimal(0)
     for given, mended, value in found.by_maturity:
         when = mended if fixed else given
@@ -3357,7 +3424,7 @@ def borrower_ticker_findings(file: str, rows: Sequence[Holding], findings: Findi
     shown: dict[str, str] = {}
     for holding in rows:
         name, ticker = holding.text.get("borrower", ""), holding.text.get("ticker", "")
-        if name and ticker and not _unnamed(name):
+        if name and _identified(ticker) and not _unnamed(name):
             shown.setdefault(folded(name), name)
             tickers.setdefault(folded(name), {}).setdefault(ticker, holding.row)
     for key, found in tickers.items():
@@ -3395,12 +3462,15 @@ def rating_section_findings(
     listed: set[str] = set()
     for number, row in section.rows:
         name = label_of(row, columns)
-        bucket = label_bucket(name) if _label_kind(name) == "row" else None
-        if bucket is None:
+        buckets = _row_buckets(name)
+        if not buckets:
             continue
-        listed.add(bucket)
-        borrowers = Decimal(len(shape.bucket_borrowers.get(bucket, ())))
-        value = share(shape.buckets.get(bucket, Decimal(0)), found.value)
+        listed.update(buckets)
+        held = set().union(*(shape.bucket_borrowers.get(b, set()) for b in buckets))
+        borrowers = Decimal(len(held))
+        held_value = sum((shape.buckets.get(b, Decimal(0)) for b in buckets), Decimal(0))
+        value = share(held_value, found.value)
+        bucket = ", ".join(buckets)
         for index, label, exact, how in (
             (columns.pct, "its share", value, {"marked": True, "shown": pct}),
             (columns.count, "its issuer count", borrowers, {"shown": _count}),
@@ -3420,6 +3490,11 @@ def rating_section_findings(
             findings.add(file, section.title, "rows", problem, "share")
 
 
+def _comparable_bucket(row: Sequence[str], columns: Columns) -> bool:
+    name = label_of(row, columns)
+    return _label_kind(name) == "row" and maturity_bounds(name) is not None
+
+
 def maturity_section_findings(
     export: Export, found: Recomputed, shape: Profile, as_of: date | None, findings: Findings
 ) -> None:
@@ -3429,6 +3504,18 @@ def maturity_section_findings(
     if section is None or not found.value:
         return
     file, columns = export.files["exposure"], section_columns(section.header)
+    spare = sum((value for _, value in shape.undated), Decimal(0))
+    if shape.undated and any(_comparable_bucket(row, columns) for _, row in section.rows):
+        problem = (
+            "no priced holding has a maturity, so the report's maturity buckets cannot be checked"
+            if not shape.by_maturity
+            else f"the priced holdings on {rows_named([row for row, _ in shape.undated])} "
+            f"({money(spare)}) have no maturity, so each maturity bucket is checked against a "
+            "range: the dated holdings' figure up to that amount more"
+        )
+        findings.add(file, section.title, "rows", problem, "maturity")
+    if not shape.by_maturity:
+        return
     for number, row in section.rows:
         name = label_of(row, columns)
         bounds = maturity_bounds(name) if _label_kind(name) == "row" else None
@@ -3449,6 +3536,10 @@ def maturity_section_findings(
             text, stated = _stated(row, index)
             if stated is None:
                 continue
+            goal = exact
+            if spare:  # the undated holdings may fall in this bucket: any figure up to theirs
+                high = EXACT.add(exact, spare if shown is money else share(spare, found.value))
+                goal = min(max(stated.value, exact), high)
             note = (
                 f"; with the maturities before 1950 read as 20xx it would be {shown(other)} "
                 "(not applied)"
@@ -3460,7 +3551,7 @@ def maturity_section_findings(
                 file,
                 claim,
                 f"maturity bucket {name}: {label}",
-                exact,
+                goal,
                 findings,
                 fix="share",
                 marked=True,

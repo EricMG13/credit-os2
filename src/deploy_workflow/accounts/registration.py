@@ -27,7 +27,12 @@ type IdentityClaims = Mapping[str, object]
 
 
 def _text_claim(claims: IdentityClaims, key: str, *, required: bool = True) -> str | None:
+    """A claim's text; control, format and surrogate characters are refused.
+
+    An optional claim sent empty is absent."""
     value = claims.get(key)
+    if isinstance(value, str) and not value.strip() and not required:
+        return None  # an optional claim sent empty is absent, not a reason to deny
     if value is None and not required:
         return None
     if (

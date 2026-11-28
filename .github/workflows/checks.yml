@@ -74,7 +74,72 @@ jobs:
             tests/test_signal_*.py \
             tests/test_accounts_*.py \
             tests/test_auth_*.py \
-            tests/test_publication_reuse.py tests/test_cpos_parallel.py
+            tests/test_publication_reuse.py tests/test_cpos_parallel.py \
+            tests/test_account_disable_and_preparation_policy.py \
+            tests/test_balance_movement_quantity.py \
+            tests/test_bindings_effective_pathway.py \
+            tests/test_budget_marker_atomic.py \
+            tests/test_changes_reading.py \
+            tests/test_chart_series_review.py \
+            tests/test_citation_chips_and_fidelity.py \
+            tests/test_copilot_credits_status.py \
+            tests/test_cpos_cp1_check_review.py \
+            tests/test_cpos_first_exchange_hold.py \
+            tests/test_cpos_forecast_debt_repayment_limit.py \
+            tests/test_cpos_forecast_review.py \
+            tests/test_cpos_forecast_withholding_on_acceptance.py \
+            tests/test_cpos_launch_review.py \
+            tests/test_cpos_launch_tables.py \
+            tests/test_cpos_reader_run_pages.py \
+            tests/test_credit_snapshot_reading.py \
+            tests/test_credit_snapshot_workbook_captions.py \
+            tests/test_credit_snapshot_workbook_cells.py \
+            tests/test_credit_snapshot_workbook_units.py \
+            tests/test_execution_bounded_issues.py \
+            tests/test_facility_fx_undated.py \
+            tests/test_financial_adapter_pf.py \
+            tests/test_financial_reconciliation_pf.py \
+            tests/test_handoff_comment_sheets_errors.py \
+            tests/test_handoff_dispatch_logging.py \
+            tests/test_handoff_list_sources_latest.py \
+            tests/test_handoff_workbook_pages.py \
+            tests/test_http_base_logging.py \
+            tests/test_inbox_runs_record_types.py \
+            tests/test_inbox_scheduler_record_files.py \
+            tests/test_library_nonfinite_run_files.py \
+            tests/test_library_publication_round_three.py \
+            tests/test_library_tooling_review.py \
+            tests/test_library_unreadable_workflow.py \
+            tests/test_loop_helpers_bad_arguments.py \
+            tests/test_markdown_delivery_literal.py \
+            tests/test_method_scripts_checks.py \
+            tests/test_method_scripts_completeness_columns.py \
+            tests/test_method_scripts_cp2_triggers.py \
+            tests/test_method_scripts_ev_copy.py \
+            tests/test_method_scripts_recovery.py \
+            tests/test_model_handoff_delivery_readers.py \
+            tests/test_pdf_reading_order_fallback.py \
+            tests/test_period_reconciliation_pf.py \
+            tests/test_portfolio_export_review.py \
+            tests/test_pricing_bytes_per_token.py \
+            tests/test_prompts_fence_edges.py \
+            tests/test_prose_charts_review.py \
+            tests/test_providers_usage_merge.py \
+            tests/test_recommendation_qualifiers.py \
+            tests/test_redact_escapes.py \
+            tests/test_reference_portfolios_reading.py \
+            tests/test_report_passport_kind.py \
+            tests/test_report_view_effective_pathway.py \
+            tests/test_report_view_review.py \
+            tests/test_research_intake_empty_items.py \
+            tests/test_research_weblookup_review.py \
+            tests/test_run_expectations_documents.py \
+            tests/test_run_start_submissions_walk_errors.py \
+            tests/test_source_text_extraction.py \
+            tests/test_statement_extract_labels.py \
+            tests/test_statement_history_undated.py \
+            tests/test_transport_connect_not_sent.py \
+            tests/test_cp3_ev_metric_unit.py
 
   web:
     name: connected application (lint, types, tests, build)

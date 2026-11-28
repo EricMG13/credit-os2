@@ -725,6 +725,7 @@ export type ProForma = {
   netDebt: Reading;
   leverage: Reading;
   unit: string;
+  reportingUnit: string;
   /** The row's Basis and limitation words, sources left out. */
   basis: string | null;
   line: number;
@@ -789,6 +790,7 @@ function adjustmentsOf(entry: OutputEntry) {
     netDebt: readCell(text(row, "Pro forma net debt")),
     leverage: readCell(text(row, "Pro forma net leverage")),
     unit: unitLabel(text(row, "Reporting unit")),
+    reportingUnit: text(row, "Reporting unit"),
     basis: basisOf(row),
     line: row.line,
   }));

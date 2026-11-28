@@ -482,7 +482,7 @@ def test_f2_reservation_rates_are_the_top_input_and_output_the_hold_prices() -> 
 
 
 # Property tests (fix round 2, G4). The bytes per token by configuration kind are worked here:
-# copilot-opus 1, a long-tier Copilot configuration 3, every other 2; framing is 4,096 tokens.
+# copilot-opus 1, a long-tier Copilot configuration 3, direct Anthropic and OpenRouter 1, other 2;
 _BYTES_PER_TOKEN = {
     "copilot-opus-medium": 1,
     "copilot-opus-high": 1,
@@ -490,7 +490,7 @@ _BYTES_PER_TOKEN = {
     "copilot-sol-high": 3,
     "copilot-luna-xhigh": 3,
     "sol-medium": 2,
-    "opus-medium": 2,
+    "opus-medium": 1,
 }
 _CONFIGS = st.sampled_from(sorted(_BYTES_PER_TOKEN))
 

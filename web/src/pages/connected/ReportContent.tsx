@@ -514,6 +514,7 @@ export function PublishedTable({
   heading: tableHeading,
   emptyLabel = "Left blank",
   amounts,
+  pathway,
   ...form
 }: {
   table: Table;
@@ -528,9 +529,11 @@ export function PublishedTable({
   rowSource?: (line: number, label: string) => ReactNode;
   rowHref?: (line: number) => string | undefined;
   href?: string;
+  /** The run's pathway: a module the pathway names differently is drawn by that name. */
+  pathway?: string | null;
 } & TableForm) {
   // A module is named on every page, Evidence included: its code is never drawn.
-  const shown = readerText;
+  const shown = (text: string) => readerText(text, pathway);
   const columns = form.columns ?? displayColumns(table.headers, evidence, table.rows);
   if (!columns.length || !table.rows.length) return null;
   const pinned = (column: number, background: string) =>
@@ -640,8 +643,6 @@ function readerBlock(block: Block): boolean {
 }
 
 const RECORDS_ID = "statements-and-records";
-// One register code (T4.4, P3, T2F.2); the prefix also takes the dash that follows it.
-const CODE = String.raw`[TP]\d+[A-Z]?(?:\.\d+)?`;
 // A heading's register code is stripped only where it is plainly one: a dotted number (T4.18,
 // TDR.3, P2.1) or a code set off by a dash or colon ("T1 - Register"); "T2 Heathrow" keeps its word.
 const DOTTED_CODE = String.raw`(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?`;
@@ -649,7 +650,6 @@ const SET_OFF_CODE = String.raw`(?:TL|T|P)[A-Z0-9]{0,5}`;
 const RECORD_PREFIX = new RegExp(
   String.raw`^(?:${DOTTED_CODE}(?:\s*[-\u2013\u2014:]\s*|\s+)|${SET_OFF_CODE}\s*[-\u2013\u2014:]\s+)`,
 );
-const RECORD_CODE = new RegExp(String.raw`^${CODE}\s`);
 
 /** The register tables a working page draws; every other register table is held in Evidence. */
 export function registerBlocks(section: Section, entry: OutputEntry) {
@@ -671,8 +671,13 @@ export function registerBlocks(section: Section, entry: OutputEntry) {
 
 // A finding section whose heading starts with a register code: its prose stays on the page,
 // its tables go to Evidence unless they are promoted.
+// Only a code with a digit counts: a dotted one, or one set off by a dash or colon ("T1 - Leverage").
+// "PD: Base case" and "TLB - Terms" are words, and "T2 Heathrow" keeps its word.
+const CODED_HEADING = new RegExp(
+  String.raw`^(?:${DOTTED_CODE}(?:\s*[-\u2013\u2014:]\s*|\s+)|(?:TL|T|P)(?=[A-Z0-9]{0,5}\d)[A-Z0-9]{0,5}\s*[-\u2013\u2014:]\s+)`,
+);
 const isCoded = (section: Section, role: string) =>
-  role === "finding" && RECORD_CODE.test(section.heading);
+  role === "finding" && CODED_HEADING.test(section.heading);
 
 // Coded sections with a table that the page does not draw; Evidence holds those tables.
 export function recordSections(sections: Section[], entry: OutputEntry) {
@@ -749,10 +754,12 @@ export function FindingParagraph({
   block,
   trace,
   href,
+  pathway,
 }: {
   block: Extract<Block, { type: "text" }>;
   trace: string;
   href: string;
+  pathway?: string | null;
 }) {
   const { body } = readParagraph(block.text);
   if (!body) return null;
@@ -764,7 +771,7 @@ export function FindingParagraph({
             Read this passage in Evidence
           </Button>
         ) : (
-          richParts(body, readerText)
+          richParts(body, (text) => readerText(text, pathway))
         )}
       </p>
       <TraceControl trace={trace} label="Show sources for this passage" />
@@ -879,9 +886,11 @@ function FindingsSummary({
   entry,
   summaryTrace,
   marker,
+  pathway,
 }: {
   summary: Summary;
   entry: OutputEntry;
+  pathway?: string | null;
   summaryTrace: Trace | null | undefined | false;
   marker?: ReactNode;
 }) {
@@ -892,8 +901,8 @@ function FindingsSummary({
       marker={marker}
       text={{
         label: "Bottom line",
-        lead: readerText(summary.bottomLine),
-        rest: containsReference(summary.limitation) ? "" : readerText(summary.limitation),
+        lead: readerText(summary.bottomLine, pathway),
+        rest: containsReference(summary.limitation) ? "" : readerText(summary.limitation, pathway),
         trace: summaryTrace ? traceKey(entry, summary.line) : null,
       }}
     />
@@ -965,7 +974,12 @@ function findingsLayout(
   };
 }
 
-function followingParagraphs(section: Section, entry: OutputEntry, folder: string) {
+function followingParagraphs(
+  section: Section,
+  entry: OutputEntry,
+  folder: string,
+  pathway?: string | null,
+) {
   return section.blocks
     .slice(1)
     .map((block) =>
@@ -975,6 +989,7 @@ function followingParagraphs(section: Section, entry: OutputEntry, folder: strin
           block={block}
           trace={traceKey(entry, block.line)}
           href={evidencePath(folder, entry, block.line)}
+          pathway={pathway}
         />
       ) : null,
     );
@@ -1121,7 +1136,9 @@ function BottomLinePassage({
 }: FindingSectionProps & { first: Extract<Block, { type: "text" }> }) {
   const body = readParagraph(first.text).body;
   const referenced = containsReference(body);
-  const prose = referenced ? "" : readerText(body.replaceAll("**", "").replaceAll("`", ""));
+  const prose = referenced
+    ? ""
+    : readerText(body.replaceAll("**", "").replaceAll("`", ""), run.pathway);
   return (
     <div
       className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3"
@@ -1161,6 +1178,7 @@ function BottomLinePassage({
         section={section}
         entry={entry}
         folder={run.folder}
+        pathway={run.pathway}
         overview={overview}
         overviewLabel={overviewLabel}
       />
@@ -1172,18 +1190,20 @@ function BottomLineContinuation({
   section,
   entry,
   folder,
+  pathway,
   overview,
   overviewLabel,
 }: {
   section: Section;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
   overview: boolean;
   overviewLabel?: string;
 }) {
   if (!overview) {
     return section.blocks.slice(1).some((block) => block.type === "text") ? (
-      <div className={card}>{followingParagraphs(section, entry, folder)}</div>
+      <div className={card}>{followingParagraphs(section, entry, folder, pathway)}</div>
     ) : null;
   }
   if (section.blocks.length < 2) return null;
@@ -1193,7 +1213,7 @@ function BottomLineContinuation({
         {overviewLabel ?? (entry.output.module === "CP-1B" ? "Earnings view" : "Credit view")},
         continued
       </summary>
-      <div className="mt-3 grid gap-3">{followingParagraphs(section, entry, folder)}</div>
+      <div className="mt-3 grid gap-3">{followingParagraphs(section, entry, folder, pathway)}</div>
     </details>
   );
 }
@@ -1204,12 +1224,14 @@ function PassageBlock({
   overview,
   entry,
   folder,
+  pathway,
 }: {
   block: Block;
   section: Section;
   overview: boolean;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const key = (line: number) => traceKey(entry, line);
   if (block.type === "text")
@@ -1218,6 +1240,7 @@ function PassageBlock({
         block={block}
         trace={key(block.line)}
         href={evidencePath(folder, entry, block.line)}
+        pathway={pathway}
       />
     );
   if (block.type !== "table") return null;
@@ -1230,6 +1253,7 @@ function PassageBlock({
           drawCell={unitCells(block)}
           traceAt={key}
           rowHref={(line) => evidencePath(folder, entry, line)}
+          pathway={pathway}
         />
       )}
     </div>
@@ -1263,7 +1287,9 @@ function FindingSection(props: FindingSectionProps) {
     <Fragment key={section.line}>
       <section className={card} id={`finding-${String(section.line)}`} tabIndex={-1}>
         <h2 className={`${heading} first-letter:uppercase`}>
-          {richParts(drawingTitle(findingLabel(section, overviewLabel)), readerText)}
+          {richParts(drawingTitle(findingLabel(section, overviewLabel)), (text) =>
+            readerText(text, run.pathway),
+          )}
         </h2>
         {section.blocks.map((block) => (
           <PassageBlock
@@ -1273,6 +1299,7 @@ function FindingSection(props: FindingSectionProps) {
             overview={overview}
             entry={entry}
             folder={run.folder}
+            pathway={run.pathway}
           />
         ))}
       </section>
@@ -1409,6 +1436,7 @@ export function ReportFindings({
           entry={entry}
           summaryTrace={summaryTrace}
           marker={marker}
+          pathway={run.pathway}
         />
         {!drawnBottomLine && trailingFigures}
         {drawn}

@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Protocol
 
 from deploy_workflow.model.adapter import AdapterReply
-from deploy_workflow.model.budget import exact_sum
+from deploy_workflow.model.budget import BudgetError, exact_sum
 from deploy_workflow.model.configs import CONFIGS
 from deploy_workflow.model.pricing import PricingError, price_usage
 from deploy_workflow.model.turn import Message, TurnRequest, Usage
@@ -96,6 +96,14 @@ class Guard:
     homes: list[Path] = field(default_factory=list)  # exchange homes this job's calls made
 
 
+class BusyBeforeSend(sqlite3.OperationalError):
+    """The store was busy or locked before the call was reserved (the gate's reads, the store id,
+    the hold): nothing was reserved, sent or paid. Raised only from that part of ``call``, so a busy
+    fault anywhere later (the model call, its settling) is not this error. It is the busy
+    ``sqlite3.OperationalError`` itself (same ``sqlite_errorcode``), so a caller that handles a busy
+    store (the story pass's callers, the command line) still does."""
+
+
 @dataclass(frozen=True)
 class Answer:
     """What came back: the reply's text (None when there is no usable reply) and the outcome."""
@@ -129,12 +137,12 @@ def charge(reply: AdapterReply, config_id: str) -> Decimal | None:
     usage = reply.turn.usage if reply.turn is not None else reply.usage
     try:
         priced = price_usage(config_id, usage or Usage(), reply.billed_usd)
-    except PricingError:
+        extra = _compactions_usd(reply)
+        if priced.usd is None or extra is None:
+            return None
+        return exact_sum((priced.usd, extra))
+    except (PricingError, BudgetError):
         return None
-    extra = _compactions_usd(reply)
-    if priced.usd is None or extra is None:
-        return None
-    return exact_sum((priced.usd, extra))
 
 
 def _outcome(reply: AdapterReply) -> str:
@@ -153,6 +161,24 @@ def _release(model: Model, digest: str) -> None:
             log.warning("could not release a Signal model session: %s", type(error).__name__)
 
 
+class SettlementFault(Exception):
+    """An already attempted call could not be settled. Its reservation stays open."""
+
+
+def _settle(
+    db: sqlite3.Connection,
+    call_id: int,
+    guard: Guard,
+    outcome: str,
+    billed: tuple[AdapterReply, str] | None = None,
+) -> None:
+    try:
+        actual = charge(*billed) if billed is not None else None
+        ai_ledger.settle(db, call_id, actual, outcome, guard.clock())
+    except Exception as error:  # post-reserve fault keeps reservation/claim held
+        raise SettlementFault(f"call {call_id} could not be settled") from error
+
+
 def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuration, hold and owner
     db: sqlite3.Connection,
     guard: Guard,
@@ -160,6 +186,7 @@ def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuratio
     config_id: str,
     usd: Decimal,
     owner: str | None,
+    claim: ai_ledger.DigestClaim | None,
 ) -> int:
     """The gate checked again, then the hold; ai_ledger.Refused (nothing held) when it is off or
     no longer names `config_id`, or a limit refuses it."""
@@ -170,7 +197,7 @@ def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuratio
     if gate.config_id != config_id:
         raise ai_ledger.Refused(f"the ruling no longer allows {config_id}")
     return ai_ledger.reserve(
-        db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap, owner=owner
+        db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap, owner=owner, claim=claim
     )
 
 
@@ -251,15 +278,24 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
     prompt: Prompt,
     *,
     owner: str | None = None,
+    claim: ai_ledger.DigestClaim | None = None,
 ) -> Answer:
     """Check the gate, reserve, make one call, settle. ai_ledger.Refused when no call may be made
     (nothing is held then); a digest call names its digest's `owner` (the per-name limit). A
+    store busy or locked before the hold is ``BusyBeforeSend`` (nothing reserved or sent). A
     call that raises is settled as unknown (it may have been sent), which switches the pass off;
     the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
-    store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
     homes = Path.cwd() / HOMES  # where the adapter makes this exchange's home
-    call_id = _reserve(db, guard, purpose, model.config_id, usd, owner)
+    try:
+        store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
+        call_id = _reserve(db, guard, purpose, model.config_id, usd, owner, claim)
+    except sqlite3.OperationalError as error:
+        if not ai_ledger.is_busy(error):
+            raise
+        busy = BusyBeforeSend(str(error))  # no hold was made: nothing can be paid
+        busy.sqlite_errorcode = error.sqlite_errorcode  # is_busy held, so it has one
+        raise busy from error
     tag = f"{store_id}-{call_id}"  # never the same in another store
     digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
     home = homes / digest / reservation
@@ -278,12 +314,12 @@ def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
         if not there:
             guard.homes.append(home)  # it may have been sent: the home is this call's
-        ai_ledger.settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
+        _settle(db, call_id, guard, f"raised: {type(error).__name__}"[:80])
         return Answer(None, "raised", call_id)
     if _caused(there, reply, home):
         guard.homes.append(home)
     outcome = _outcome(reply)
-    ai_ledger.settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
+    _settle(db, call_id, guard, outcome, (reply, model.config_id))
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None

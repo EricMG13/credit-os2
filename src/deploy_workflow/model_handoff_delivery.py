@@ -29,7 +29,7 @@ from deploy_vii.contracts import (
     TableRow,
     View,
 )
-from deploy_vii.model._cells import CONTEXT, calc
+from deploy_vii.model._cells import CONTEXT, calc, no_negative_zero
 from deploy_vii.model.frame import Cell, SourceRef
 from deploy_vii.model.metrics import _ratio
 from deploy_vii.model.periods import LTM_DAYS
@@ -59,6 +59,7 @@ from deploy_workflow.handoff_delivery import (
     names_issuer,
     physical_lines,
     plain,
+    refuse_structural_tail,
     table,
     table_row,
 )
@@ -188,10 +189,11 @@ def _shown(lines: list[str], source: str) -> list[str]:
     """The lines as a Markdown viewer shows them: comments removed, fenced code blanked. Lines
     are not removed, so numbers hold. A comment never closed would hide the rest: refused."""
     shown, fenced, opened = [], False, False
-    for line in lines:
+    for number, line in enumerate(lines, 1):
         if opened:
             end = line.find("-->")
             text, opened = ("", True) if end < 0 else _inline_comments(line[end + 3 :])
+            refuse_structural_tail(text, number, source)
             shown.append(text)
             continue
         found = HEADING_START.match(line)
@@ -351,7 +353,9 @@ class _AnnualReader:
             )
         if not SOURCE_NUMBER.fullmatch(lexeme):
             raise ValueError(f"model_number: unsupported source spelling {lexeme}")
-        value = Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", ""))
+        value = no_negative_zero(
+            Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", ""))
+        )
         if not value.is_finite():
             raise ValueError("model_number: nonfinite input")
         return Cell(value, basis="REPORTED", sources=(ref,))
@@ -505,7 +509,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
             source_id="annual", source_sha256=reader.spec.sha256, locator=locator, quote=quote
         )
         ref = SourceRef("annual", locator, carrying.group(0))
-        amount = Decimal(carrying.group(1).replace(",", ""))
+        amount = no_negative_zero(Decimal(carrying.group(1).replace(",", "")))
         parts.append((Cell(amount, basis="REPORTED", sources=(ref,)), 1))
         named.add(low)
     if repeated is not None:
@@ -611,7 +615,7 @@ def _quarter_cell(number: int, cells: list[str], column: int, source: str = "qua
         return Cell(None, "NOT_STATED", note="Source missing/dash retained, never zero")
     if not SOURCE_NUMBER.fullmatch(lexeme):
         raise ValueError(f"model_number: unsupported source spelling {lexeme}")
-    value = Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", ""))
+    value = no_negative_zero(Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", "")))
     return Cell(value, basis="REPORTED", sources=(SourceRef(source, f"line {number}", lexeme),))
 
 
@@ -720,7 +724,11 @@ def _annual_adjusted(lines: list[str], year: str) -> Cell:
     while top > 0 and table_row(lines[top - 1]) is not None:
         top -= 1
     headers, rows = table([(i + 1, lines[i]) for i in range(top, len(lines))])
-    found = next(r for r in rows if _plain(r[2][0]) == wanted)
+    found = next((r for r in rows if _plain(r[2][0]) == wanted), None)
+    if found is None:  # the one row is the table's header line, so it has no value row
+        return Cell(
+            None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
+        )
     if year not in headers:
         return Cell(None, "WINDOW_MISSING", note=f"{year} is not a column of that annual table")
     return _quarter_cell(found[0], found[2], headers.index(year), "annual")
@@ -821,7 +829,7 @@ def _quarter_cells(
     return result
 
 
-# The line under a table header, exactly as the reader applies it (unstripped).
+# The row under a table header, as `table_row` returns it (indent and trailing space removed).
 TABLE_SEPARATOR = re.compile(r"\|[ :|\-]+\|")
 
 
@@ -858,11 +866,8 @@ def _literal_tables(
             heading = plain(found[1]) or DEFAULT_TABLE_TITLE
         elif BOLD_LABEL.fullmatch(lines[i].strip()):
             heading = plain(lines[i].strip())
-        if not (
-            lines[i].startswith("|")
-            and i + 1 < len(lines)
-            and TABLE_SEPARATOR.fullmatch(lines[i + 1])
-        ):
+        under = table_row(lines[i + 1]) if i + 1 < len(lines) else None
+        if table_row(lines[i]) is None or under is None or not TABLE_SEPARATOR.fullmatch(under):
             i += 1
             continue
         headers, rows = table([(j + 1, lines[j]) for j in range(i, len(lines))])
@@ -1115,13 +1120,24 @@ def _model_figures(
     )
 
 
+def _names_run_issuer(key: str, text: str, run: Run, aliases: tuple[str, ...]) -> bool:
+    """Whether the handoff names the run's issuer (or an alias): a quarter/forecast title, else
+    anywhere. An empty declared file has no title and names nobody."""
+    if key not in {"quarter", "forecast"}:
+        return names_issuer(text, (run.issuer_name, *aliases))
+    lines = physical_lines(text)
+    return bool(lines) and names_issuer(lines[0], (run.issuer_name, *aliases, run.issuer_id))
+
+
 def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 statements at base)
     run: Run,
     inputs: Mapping[str, HandoffInput],
     raw_inputs: Mapping[str, bytes],
     layout: ModelDelivery,
+    aliases: tuple[str, ...] = (),
 ) -> ModelPublication:
-    """Render a current source-bound Model; no providers, journals or output writes."""
+    """Render a current source-bound Model; no providers, journals or output writes. `aliases`
+    are the layout's other names for the issuer, as `require_issuer` accepts them."""
     if set(inputs) != set(raw_inputs) or not {"annual", "current_synthesis"} <= set(inputs):
         raise ValueError("model_inputs: annual and current synthesis are required")
     if set(inputs) - {"annual", "current_synthesis", "quarter", "forecast", "forecast_exact"}:
@@ -1152,11 +1168,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         text = raw.decode("utf-8")
         # A quarter/forecast handoff declares its issuer in the title; the others may name it
         # anywhere. A name counts only as whole words.
-        declared = key in {"quarter", "forecast"}
-        if not names_issuer(
-            physical_lines(text)[0] if declared else text,
-            (run.issuer_name, run.issuer_id) if declared else (run.issuer_name,),
-        ):
+        if not _names_run_issuer(key, text, run, aliases):
             raise ValueError(f"model_issuer: {key}")
         source, raw_facts, raw_tables, raw_bindings = _literal_tables(key, raw, spec.sha256)
         sources.append(source)

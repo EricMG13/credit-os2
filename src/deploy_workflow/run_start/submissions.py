@@ -395,14 +395,15 @@ def _stored(root: Path, *, strict: bool = False, any_error: bool = False) -> dic
     found: dict[str, int] = {}
 
     def unreadable(error: OSError) -> None:
-        # Only a folder that exists but cannot be read is refused; one that vanished (a seal
-        # renamed it) is left to the callers' own retry, as before.
-        if not any_error and not isinstance(error, PermissionError):
+        # Only a folder that vanished (a seal renamed it) is forgiven, left to the callers' own
+        # retry; any other error (EIO, ESTALE, ELOOP, not a directory, no permission) is refused.
+        if not any_error and isinstance(error, FileNotFoundError):
             return
         try:
             shown = Path(error.filename).relative_to(root).as_posix() if error.filename else ""
         except ValueError:
             shown = ""
+        shown = "" if shown == "." else shown
         shown = shown or "a folder"
         raise Refused(f"{shown!r} cannot be read")
 
@@ -863,15 +864,19 @@ def refuse_filed_elsewhere(layout: Layout, answers: Answers) -> None:
     )
 
 
+def document_names(root: Path) -> list[str]:
+    """The sorted relative names of the source documents the digest covers under ``root``: every
+    stored file but the scheduler-written context.json. A link is a ``Refused``."""
+    return sorted(rel for rel in _stored(root, strict=True) if rel != _CONTEXT_NAME)
+
+
 def folder_digest(root: Path, answers: Answers) -> str:
     """Bind the current launch settings and source bytes in an upload or queued folder."""
     run = answers["context"].get("run")
     pathway = run.get("pathway") if isinstance(run, dict) else None
     cap = PATHWAY_CAP_USD.get(cast(PathwayId, pathway)) if isinstance(pathway, str) else None
     files = []
-    for rel in sorted(_stored(root, strict=True)):
-        if rel == _CONTEXT_NAME:  # made from the answers (the scheduler writes it); never uploaded
-            continue
+    for rel in document_names(root):  # context.json is made from the answers, never uploaded
         sha = hashlib.sha256()
         with (root / rel).open("rb") as stream:
             while chunk := stream.read(_CHUNK):

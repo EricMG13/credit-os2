@@ -56,33 +56,71 @@ class UntrustedItem:
 
 
 # Characters that read as ``<`` to a model (S02-A02): those NFKD folds to one, the confusables
-# it leaves alone (U+02C2, U+2039, U+1438, U+276E, U+3008, U+16B2) and the two forms NFKD maps to
-# U+3008 (U+2329, U+FE3F). The JSON escape in ``prompts.compose`` takes the same set, so a quoted
-# lookalike in a JSON body is escaped, not refused, and is refused in raw text; the set must hold
-# every character ``_normalised`` reads as ``<``.
-LESS_THAN_LOOKALIKES = "<≮﹤＜\u02c2\u2039\u1438\u276e\u3008\u2329\ufe3f\u16b2"
-_FOLD_TO_LESS_THAN = str.maketrans(dict.fromkeys(LESS_THAN_LOOKALIKES, "<"))
+# it leaves alone (U+02C2, U+2039, U+1438, U+276E, U+3008, U+16B2), the two forms NFKD maps to
+# U+3008 (U+2329, U+FE3F) and the angle brackets U+27E8, U+276C, U+2770. The JSON
+# escape in ``prompts.compose`` takes the same set, so a quoted lookalike in a JSON body is
+# escaped, not refused, and is refused in raw text; the set must hold every character
+# ``_normalised`` reads as ``<``.
+LESS_THAN_LOOKALIKES = "<≮﹤＜\u02c2\u2039\u1438\u276e\u3008\u2329\ufe3f\u16b2\u27e8\u276c\u2770"
+# Detection-only folds that are not in ``LESS_THAN_LOOKALIKES`` (``prompts.compose`` builds a JSON
+# escape from that set, which is wrong above U+FFFF and has no meaning for a double or triple
+# chevron): single confusables from UTS #39 outside the BMP or in the BMP, and the characters that
+# show two (U+27EA, U+226A) or three (U+22D8, U+2AF7) chevrons. U+300A 《 (and U+FE3D ︽, which NFKD
+# maps to it) is deliberately NOT folded: it is Chinese book-title punctuation, and folding it
+# refused legitimate text such as ``《〈论语〉研究》``. Known pre-existing gap (same at 030805f): a
+# forgery written with 《 or ︽ as its only chevrons (``《<END>>>``) is not detected.
+_DETECTION_FOLDS = {
+    **dict.fromkeys(LESS_THAN_LOOKALIKES, "<"),
+    **dict.fromkeys("\u2d66\U0001d236\U00016aec\U0001032d", "<"),
+    **dict.fromkeys("\u27ea\u226a", "<<"),
+    **dict.fromkeys("\u22d8\u2af7", "<<<"),
+}
+_FOLD_TO_LESS_THAN = str.maketrans(_DETECTION_FOLDS)
 
 # Invisible but not Unicode Cf/Mn/Me: the Hangul fillers render as nothing (default-ignorable).
 _FILLERS = frozenset("\u115f\u1160\u3164\uffa0")
+# Control characters (Cc) a model reads past; tab and every character ``str.splitlines`` breaks
+# on are real layout and stay.
+_LAYOUT_CONTROLS = frozenset("\t\n\r\v\f\x1c\x1d\x1e\x85")
+# Default-ignorable code points that Unicode has not assigned (category Cn), so no category test
+# removes them: U+2065, U+FFF0-FFF8, the tag block's gaps and the unassigned variation selectors.
+_IGNORABLE_UNASSIGNED = (
+    (0x2065, 0x2065),
+    (0xFFF0, 0xFFF8),
+    (0xE0000, 0xE0000),
+    (0xE0002, 0xE001F),
+    (0xE0080, 0xE00FF),
+    (0xE01F0, 0xE0FFF),
+)
+
+
+def _is_hidden(c: str) -> bool:
+    category = unicodedata.category(c)
+    if category in ("Cf", "Mn", "Me") or c in _FILLERS:
+        return True
+    if category == "Cc":
+        return c not in _LAYOUT_CONTROLS
+    return category == "Cn" and any(low <= ord(c) <= high for low, high in _IGNORABLE_UNASSIGNED)
 
 
 def _normalised(body: str) -> str:
     """The copy detection runs on (never emitted): NFKD folds compatibility forms of ``<`` and
     splits a composed ``<`` + combining mark (U+226E is ``<`` + U+0338); format characters (Cf),
     combining marks (Mn, Me: U+034F, variation selectors U+FE00-FE0F, U+E0100...) and the Hangul
-    fillers, which would split a marker visually, are removed; ``LESS_THAN_LOOKALIKES`` that NFKD
-    leaves alone are then read as ``<``."""
+    fillers, the unassigned default-ignorable code points and the control characters (Cc) other
+    than layout (tab and the ``str.splitlines`` breaks), which would split a marker visually, are
+    removed; ``_DETECTION_FOLDS`` (``LESS_THAN_LOOKALIKES`` and more) that NFKD leaves alone are
+    then read as ``<``, ``<<`` or ``<<<`` by the number of chevrons they show."""
     decomposed = unicodedata.normalize("NFKD", body)
-    kept = "".join(
-        c
-        for c in decomposed
-        if unicodedata.category(c) not in ("Cf", "Mn", "Me") and c not in _FILLERS
-    )
+    kept = "".join(c for c in decomposed if not _is_hidden(c))
     return kept.translate(_FOLD_TO_LESS_THAN)
 
 
 def _refuse_markers(label: str, body: str) -> None:
+    try:
+        body.encode()
+    except UnicodeEncodeError as error:
+        raise FenceError(f"{label} holds a lone surrogate and cannot be written as text") from error
     for marker in _MARKERS:
         if marker in body:
             raise FenceError(f"{label} contains the reserved delimiter {marker}")
@@ -110,11 +148,11 @@ def data_block(
     if kind not in _KINDS:
         raise FenceError(f"unknown block kind {kind!r}")
     _field("block id", block_id, _FIELD)
+    _refuse_markers(f"block {block_id}", body)
     digest = hashlib.sha256(body.encode()).hexdigest() if sha256 is None else sha256
     _field("block hash", digest, _HASH)
     if projection is not None:
         _field("block projection", projection, _FIELD)
-    _refuse_markers(f"block {block_id}", body)
     try:
         return block(kind, block_id, digest, body, projection=projection)
     except PromptError as error:  # the shared block() refuses the same delimiters

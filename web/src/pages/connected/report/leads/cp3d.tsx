@@ -4,10 +4,12 @@ import { basisNotes, blockedReason, readCell } from "../overview/figureData";
 import { Key } from "../overview/figureParts";
 import { Bento, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
+import { clauses } from "./kit/reader";
 import { CompactGap, GapCell, KeyValues, LeadFigure, LeadGap, statedGap, Trace } from "./parts";
 import {
   chartOf,
   columnOf,
+  IN_EVIDENCE,
   leadHref,
   readerCell,
   readerCellOf,
@@ -46,20 +48,62 @@ function dayOf(text: string) {
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === text ? time : null;
 }
 
-function quotes(table: SourceTable) {
+const SOURCE_CLASS = "Source class";
+const BASIS = "Basis and limitation";
+
+// Filing labels can be plain words in this column. Require an explicit document label
+// so a finding such as "available positions start at 10K" remains intact.
+const FILING_NAME = String.raw`(?:the\s+)?(?:SEC filing|annual report|10-[KQ]|Form 10-?[KQ])`;
+const FILING_LINK = String.raw`(?:per|see|from|in)\s+`;
+const FILING_LABEL = new RegExp(String.raw`^(?:${FILING_LINK})?${FILING_NAME}[.,;]?$`, "i");
+const FILING_SUFFIX = new RegExp(String.raw`\s+${FILING_LINK}${FILING_NAME}(?=[.,;]?$)`, "i");
+
+/** Keep each qualification beside its quote even if another clause names a source. */
+function quoteDetail(text: string) {
+  const plain = text.replace(/\s*\(([^()]*)\)/g, (group, contents: string) =>
+    FILING_LABEL.test(contents.trim()) ? "" : group,
+  );
+  const kept = clauses(plain)
+    .filter((clause) => !FILING_LABEL.test(clause))
+    .map((clause) => readerCell(clause.replace(FILING_SUFFIX, "")))
+    .filter((clause) => clause && clause !== IN_EVIDENCE);
+  return kept.join(" ").replace(/[;,]$/, "") || (text.trim() ? IN_EVIDENCE : "");
+}
+
+function quoteTable(table: SourceTable): SourceTable {
+  const columns = new Set([columnOf(table, SOURCE_CLASS), columnOf(table, BASIS)]);
+  return {
+    ...table,
+    rows: table.rows.map((row) =>
+      row.map((text, at) => (columns.has(at) ? quoteDetail(text) : text)),
+    ),
+  };
+}
+
+function quotes(table: SourceTable, sharedBasis: string) {
   const at = COLUMNS.map((name) => columnOf(table, name));
   if (at.some((column) => column < 0)) return null;
-  const [name = 0, maturity = 1, yieldAt = 2] = at;
+  const [name = 0, maturity = 1, yieldAt = 2, , , source = -1] = at;
+  const basis = columnOf(table, BASIS);
   const scope = table.rows.map((row) => row[yieldAt] ?? "");
   return table.rows.map((row, index) => {
     const unit = row.at(-2) ?? "";
     const cell = readerCellOf(readCell(row[yieldAt] ?? "", scope, unit));
+    const sourceClass = row[source] ?? "";
+    const qualification = row[basis] ?? "";
+    const details = [
+      ...new Set([
+        /^last trade$/i.test(sourceClass) ? "" : sourceClass,
+        qualification === sharedBasis ? "" : qualification,
+      ]),
+    ].filter((text) => text && text !== IN_EVIDENCE);
     return {
       name: readerCell(row[name] ?? "") || "Instrument not stated",
       maturity: readerCell(row[maturity] ?? ""),
       day: dayOf(row[maturity] ?? ""),
       cell,
       unit,
+      details,
       line: table.rowLines?.[index] ?? table.line,
       index,
     };
@@ -192,6 +236,7 @@ function Points({ points }: { points: readonly Placed[] }) {
           <span className="flex min-w-0 flex-col">
             <span className="text-small wrap-anywhere text-text-primary">{point.name}</span>
             <span className="font-mono text-caption text-text-tertiary">{point.maturity}</span>
+            <QuoteDetails details={point.details} />
           </span>
           <span className="font-mono text-small font-medium text-text-primary tabular-nums">
             {withStatedUnit(point.cell.text, point.unit)}
@@ -202,12 +247,29 @@ function Points({ points }: { points: readonly Placed[] }) {
   );
 }
 
+function QuoteDetails({ details }: { details: readonly string[] }) {
+  return details.map((detail) => (
+    <span key={detail} className="text-caption wrap-anywhere text-text-secondary">
+      {detail}
+    </span>
+  ));
+}
+
+function sharedBasis(table: SourceTable) {
+  const basis = columnOf(table, BASIS);
+  const notes = new Set(table.rows.map((row) => row[basis] ?? ""));
+  const [note] = notes;
+  return notes.size === 1 && note !== IN_EVIDENCE ? (note ?? "") : "";
+}
+
 function YieldFigure({ entry, href }: { entry: LeadProps["entry"]; href: Href }) {
   // A chart the module wrote as prose only is the frame's, in the module's words.
   if (statedInProse(entry, `Chart data: ${TITLE}`)) return null;
   const chart = chartOf(entry, TITLE);
-  const rows = chart.state === "ready" ? quotes(chart.table) : null;
-  if (chart.state !== "ready" || !rows)
+  const table = chart.state === "ready" ? quoteTable(chart.table) : null;
+  const basis = table ? sharedBasis(table) : "";
+  const rows = table ? quotes(table, basis) : null;
+  if (!table || !rows)
     return (
       <ChartGap
         chart={chart}
@@ -234,7 +296,7 @@ function YieldFigure({ entry, href }: { entry: LeadProps["entry"]; href: Href })
   const reading = `Yield against maturity date${unit ? `, in ${unit}` : ""}. ${placed
     .map(
       (point) =>
-        `${point.name} matures ${point.maturity} at ${withStatedUnit(point.cell.text, point.unit)}.`,
+        `${point.name} matures ${point.maturity} at ${withStatedUnit(point.cell.text, point.unit)}.${point.details.length ? ` ${point.details.join("; ")}` : ""}`,
     )
     .join(" ")}`;
   const axis = placed.length >= AXIS_FROM;
@@ -250,8 +312,8 @@ function YieldFigure({ entry, href }: { entry: LeadProps["entry"]; href: Href })
             : `Yield in ${unit}, by maturity date`
           : undefined
       }
-      legend={axis && <Key tone="primary">Observed yield</Key>}
-      trace={<Trace href={href(chart.table.line)} name={TITLE} />}
+      legend={axis && <Key tone="primary">Stated yield</Key>}
+      trace={<Trace href={href(table.line)} name={TITLE} />}
       figure={
         <div className="flex min-w-0 flex-col gap-3">
           {!placed.length ? (
@@ -275,14 +337,15 @@ function YieldFigure({ entry, href }: { entry: LeadProps["entry"]; href: Href })
                 <li key={row.index} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                   <span className="text-caption wrap-anywhere text-text-secondary">{row.name}</span>
                   <Unplaced row={row} />
+                  <QuoteDetails details={row.details} />
                 </li>
               ))}
             </ul>
           )}
         </div>
       }
-      table={writtenTable(chart.table, href)}
-      notes={basisNotes(chart.table)}
+      table={writtenTable(table, href)}
+      notes={basis ? [basis] : units.size > 1 ? basisNotes(table) : []}
     />
   );
 }

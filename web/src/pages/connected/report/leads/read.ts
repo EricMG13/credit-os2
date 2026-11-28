@@ -103,6 +103,7 @@ function leadingWords(clause: string) {
 /** A bracketed group whose words cite a source or an id: "(credit_agreement.pdf page 3)", "(T2F.2)". */
 const BRACKETED = /\s*(?:\([^()]*\)|\[[^\]]*\])/g;
 const cited = (group: string) => readerReason(group.trim().slice(1, -1)) === null;
+const plainCell = (text: string) => text.replaceAll("**", "").replaceAll("`", "").trim();
 
 /**
  * A cell for a working page, by the reader rule (`readerReason`): as written, module codes as names;
@@ -110,7 +111,7 @@ const cited = (group: string) => readerReason(group.trim().slice(1, -1)) === nul
  * the readable words and figures stay. "In Evidence" when nothing readable is left.
  */
 export function readerCell(text: string) {
-  const plain = text.replaceAll("**", "").replaceAll("`", "").trim();
+  const plain = plainCell(text);
   if (!plain) return "";
   // The reader rule reads a leading "- " as a list marker; a cell keeps it as written.
   const marker = /^[-*] /.exec(plain)?.[0] ?? "";
@@ -272,8 +273,9 @@ export function chartsStartingWith(entry: OutputEntry, prefix: string) {
 }
 
 export type Edge = {
-  /** The source node as the module wrote it: tells nodes apart when two read the same on the page. */
+  /** Internal endpoint identities when the displayed names are screened. */
   key?: string;
+  toKey?: string;
   from: string;
   relationship: string;
   type: string;
@@ -302,6 +304,24 @@ const rowReasons = (cells: readonly string[]) => [
   ...new Set(cells.flatMap((cell) => NOT_SUPPLIED.exec(cell.trim())?.[1] ?? [])),
 ];
 
+// Node identity keeps the pre-screened words and ignores Markdown formatting and spacing.
+const mapNodeKey = (text: string) => plainCell(text).replace(/\s+/g, " ");
+
+// Number screened nodes in handoff order when one shared label would obscure the connections.
+function nameScreenedNodes(edges: Edge[]): Edge[] {
+  const keys = new Set(edges.flatMap(({ key, toKey }) => [key, toKey]));
+  keys.delete(undefined);
+  if (keys.size < 2) return edges;
+  const names = new Map(
+    [...keys].map((key, index) => [key, `${IN_EVIDENCE} (${String(index + 1)})`]),
+  );
+  return edges.map((edge) => ({
+    ...edge,
+    from: names.get(edge.key) ?? edge.from,
+    to: names.get(edge.toKey) ?? edge.to,
+  }));
+}
+
 /**
  * A `Map: <name>` edge table: every fully stated row an edge, every other row a gap with its stated
  * reason. Read from the published descriptor, or from the handoff's own table when the store
@@ -328,16 +348,19 @@ export function mapOf(entry: OutputEntry, name: string): MapRead {
   table.rows.forEach((row, index) => {
     const [from = "", relationship = "", type = "", to = ""] = row;
     const line = table.rowLines?.[index] ?? table.line;
-    if ([from, relationship, type, to].every(stated))
+    if ([from, relationship, type, to].every(stated)) {
+      const fromName = readerCell(from);
+      const toName = readerCell(to);
       edges.push({
-        key: from,
-        from: readerCell(from),
+        key: fromName === IN_EVIDENCE ? mapNodeKey(from) : undefined,
+        toKey: toName === IN_EVIDENCE ? mapNodeKey(to) : undefined,
+        from: fromName,
         relationship: readerCell(relationship),
         type: readerCell(type),
-        to: readerCell(to),
+        to: toName,
         line,
       });
-    else
+    } else
       gaps.push({
         line,
         reason: readerCell(capital(rowReasons(row.slice(0, 4)).join("; ") || ROW_UNREAD)),
@@ -347,7 +370,7 @@ export function mapOf(entry: OutputEntry, name: string): MapRead {
     const reasons = [...new Set(gaps.map((gap) => gap.reason))];
     return { state: "gap", reason: reasons.join("; "), line: table.line };
   }
-  return { state: "ready", edges, gaps, line: table.line };
+  return { state: "ready", edges: nameScreenedNodes(edges), gaps, line: table.line };
 }
 
 /** One dated row of a lane as the page shows it; precision and publication as the module states them. */

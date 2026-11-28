@@ -142,7 +142,7 @@ def _lowered(name: str) -> str:
 def _form_name(entry: Entry, form: str | None) -> str:
     head, dash, tail = entry.title.partition(" - ")
     if dash:
-        return tail.strip()
+        return tail.strip() if form is not None else entry.title.strip()
     return "" if head.strip() == form else head.strip()
 
 

@@ -11,7 +11,6 @@ import { GapWayOn } from "./kit/LeadFrame";
 import { Legend, MarkSwatch, type LegendKind } from "./kit/marks/Legend";
 import {
   axisAsOf,
-  IN_EVIDENCE,
   type Edge,
   type Lane,
   type LaneEvent,
@@ -457,8 +456,8 @@ export function LeadGap({
   );
 }
 
-/** A source node's identity: its words on the page, or as written when it reads In Evidence. */
-const nodeOf = (edge: Edge) => (edge.from === IN_EVIDENCE ? (edge.key ?? edge.from) : edge.from);
+const sourceId = (edge: Edge) => edge.key ?? edge.from;
+const targetId = (edge: Edge) => edge.toKey ?? edge.to;
 
 type Placed = { id: string; name: string; depth: number };
 
@@ -466,8 +465,8 @@ type Placed = { id: string; name: string; depth: number };
 export function mapLayout(edges: readonly Edge[]) {
   const names = new Map<string, string>();
   for (const edge of edges) {
-    if (!names.has(nodeOf(edge))) names.set(nodeOf(edge), edge.from);
-    if (!names.has(edge.to)) names.set(edge.to, edge.to);
+    if (!names.has(sourceId(edge))) names.set(sourceId(edge), edge.from);
+    if (!names.has(targetId(edge))) names.set(targetId(edge), edge.to);
   }
   const out = new Map<string, string[]>();
   const reaches = (from: string, to: string) => {
@@ -482,9 +481,9 @@ export function mapLayout(edges: readonly Edge[]) {
     return false;
   };
   for (const edge of edges) {
-    const from = nodeOf(edge);
-    if (from !== edge.to && !reaches(edge.to, from))
-      out.set(from, [...(out.get(from) ?? []), edge.to]);
+    const from = sourceId(edge);
+    const to = targetId(edge);
+    if (from !== to && !reaches(to, from)) out.set(from, [...(out.get(from) ?? []), to]);
   }
   const depth = new Map([...names.keys()].map((id) => [id, 0]));
   for (let pass = 0; pass < names.size; pass += 1) {
@@ -625,6 +624,7 @@ type Route = { key: number; path: string; x: number; y: number; edge: Edge };
 /** Connectors between the measured nodes, the edge's words at each one's middle. */
 function useRoutes(edges: readonly Edge[]) {
   const box = useRef<HTMLDivElement>(null);
+  const nodes = useRef(new Map<string, HTMLElement>());
   const [drawn, setDrawn] = useState<{ width: number; height: number; routes: Route[] }>({
     width: 0,
     height: 0,
@@ -635,13 +635,10 @@ function useRoutes(edges: readonly Edge[]) {
     if (!node) return;
     const measure = () => {
       const frame = node.getBoundingClientRect();
-      const rect = (id: string) =>
-        [...node.querySelectorAll<HTMLElement>("[data-node]")]
-          .find((item) => item.dataset.node === id)
-          ?.getBoundingClientRect();
+      const rect = (id: string) => nodes.current.get(id)?.getBoundingClientRect();
       const routes = edges.flatMap((edge, key): Route[] => {
-        const from = rect(nodeOf(edge));
-        const to = rect(edge.to);
+        const from = rect(sourceId(edge));
+        const to = rect(targetId(edge));
         if (!from || !to) return [];
         const x1 = from.right - frame.left;
         const y1 = from.top + from.height / 2 - frame.top;
@@ -660,7 +657,7 @@ function useRoutes(edges: readonly Edge[]) {
       observer.disconnect();
     };
   }, [edges]);
-  return { box, drawn };
+  return { box, drawn, nodes };
 }
 
 /**
@@ -670,7 +667,7 @@ function useRoutes(edges: readonly Edge[]) {
 function MapDrawing({ edges, tones }: { edges: readonly Edge[]; tones?: EdgeTones | undefined }) {
   const columns = mapLayout(edges);
   const arrow = useId();
-  const { box, drawn } = useRoutes(edges);
+  const { box, drawn, nodes: elementById } = useRoutes(edges);
   return (
     <div
       ref={box}
@@ -681,7 +678,14 @@ function MapDrawing({ edges, tones }: { edges: readonly Edge[]; tones?: EdgeTone
       {columns.map((nodes, at) => (
         <div key={at} className="flex min-w-0 flex-col justify-center gap-3">
           {nodes.map((node) => (
-            <span key={node.id} data-node={node.id} className={NODE}>
+            <span
+              key={node.id}
+              ref={(element) => {
+                if (element) elementById.current.set(node.id, element);
+                else elementById.current.delete(node.id);
+              }}
+              className={NODE}
+            >
               {node.name}
             </span>
           ))}
@@ -776,7 +780,7 @@ export function NodeList({
 }) {
   const { ref, width } = useMeasuredWidth<HTMLDivElement>();
   const tones = typeColours ? edgeTones(edges) : undefined;
-  const nodes = [...new Map(edges.map((edge) => [nodeOf(edge), edge.from])).entries()];
+  const nodes = [...new Map(edges.map((edge) => [sourceId(edge), edge.from])).entries()];
   const [only] = edges;
   const layout =
     only && edges.length === 1
@@ -814,7 +818,7 @@ export function NodeList({
             <h4 className={NODE}>{name}</h4>
             <ul className={cx("flex min-w-0", inline ? "flex-wrap" : "flex-col gap-1.5")}>
               {edges
-                .filter((edge) => nodeOf(edge) === node)
+                .filter((edge) => sourceId(edge) === node)
                 .map((edge) => {
                   const tone = toneOf(tones, edge);
                   const glyph = tone && EDGE_CLASS[tone].text;

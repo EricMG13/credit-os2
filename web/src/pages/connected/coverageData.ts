@@ -1,6 +1,7 @@
 import { request } from "./ahead";
 import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
 import { writtenUnit } from "./moneyUnits";
+import { prose } from "./coverage/shared";
 import { DECISION_MODULES, periodPlace } from "./reportView";
 
 /**
@@ -232,7 +233,8 @@ function says(data: Coverage, issuer: Issuer, run: CoverageRun, query: string): 
     data.fields.filter((item) => DECISION_MODULES.includes(item.module)).map((item) => item.id),
   );
   for (const fact of factsOf(data, run.key)) {
-    if (fact.at === null && !withheld.has(fact.field)) texts.push(fact.text, fact.impact ?? "");
+    if (fact.at === null && !withheld.has(fact.field))
+      texts.push(prose(fact.text) ?? "", prose(fact.impact) ?? "");
   }
   return texts.some((text) => text.toLowerCase().includes(wanted));
 }

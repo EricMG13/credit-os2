@@ -6,7 +6,6 @@ Part of the library's store (`credit_os.store`, which re-exports every name here
 import datetime
 import decimal
 import hashlib
-import json
 import re
 from collections.abc import Callable
 from typing import Any, NamedTuple, NotRequired, TypedDict
@@ -16,6 +15,7 @@ from credit_os.source import (
     describe,
     display_date,
     physical_lines,
+    strict_loads,
     text_or_none,
     valid_date,
 )
@@ -1677,11 +1677,11 @@ def read_cashflow(
     """
     stage = CASHFLOW_FILES[0]
     try:
-        exact = json.loads(files[stage].decode("utf-8"))
+        exact = strict_loads(files[stage].decode("utf-8"))
         forecast = forecast_inputs(exact)
         units = recorded_units(exact)
         stage = CASHFLOW_FILES[1]
-        record = json.loads(files[stage].decode("utf-8"))
+        record = strict_loads(files[stage].decode("utf-8"))
         fiscal = fiscal_inputs(record)
         quarter_values = quarter_inputs(record)
         columns = history_inputs(record)

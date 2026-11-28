@@ -221,9 +221,22 @@ const UNORDERED =
   "These periods give no single latest reported period, so no latest figure or change is drawn.";
 
 /** Every period's cell as written, in the table's order, where no latest can be chosen. */
-function AsWritten({ series, href }: { series: Series; href: Href }) {
+function AsWritten({
+  series,
+  href,
+  title,
+  said = true,
+}: {
+  series: Series;
+  href: Href;
+  /** The series' own title, where the tile draws more than one list. */
+  title?: string;
+  /** Whether this list says the unordered sentence (once per tile). */
+  said?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-1">
+      {title && <Note>{title}</Note>}
       <ul className="flex flex-col gap-0.5 text-small text-text-primary">
         {series.points.map((point) =>
           point.figure === null ? (
@@ -237,7 +250,7 @@ function AsWritten({ series, href }: { series: Series; href: Href }) {
           ),
         )}
       </ul>
-      <p className="text-caption text-text-tertiary">{UNORDERED}</p>
+      {said && <p className="text-caption text-text-tertiary">{UNORDERED}</p>}
     </div>
   );
 }
@@ -399,37 +412,116 @@ const sameUnit = (a: Reading, b: Reading) =>
 const markToneOf = (reading: Reading) => (reading.state === "ready" ? reading.markTone : "none");
 const toneOf = (reading: Reading) => (reading.state === "ready" ? reading.tone : "none");
 
-/** Cash and undrawn facilities are both stated for the same latest period: one bar, two parts. */
-function split(cash: Reading, undrawn: Reading) {
-  const first = latestMark(cash);
-  const second = latestMark(undrawn);
-  return Boolean(first && second && first.label === second.label);
+/** The caption line a figure's note takes, in the tile's small print. */
+const Note = ({ children }: { children: ReactNode }) => (
+  <p className="text-caption text-text-secondary">{children}</p>
+);
+
+/** A stated figure a mark cannot draw (zero or below): said in words, as written. */
+const notDrawn = (mark: Mark, title = "") =>
+  `Stated, not drawn: ${title && `${title} `}${mark.text} in ${mark.label}`;
+
+/** One part of a bar that is not drawn, as written; its words say when it is the part not drawn. */
+const partSaid = (title: string, mark: Mark) =>
+  mark.value > 0 ? `${title} ${mark.text} in ${mark.label}` : notDrawn(mark, title);
+
+/**
+ * Undrawn facilities as the module states them where the split bar does not draw them: the latest
+ * figure as written with its period, or the latest period's gap in the module's words.
+ */
+function UndrawnNote({ undrawn, cash, href }: { undrawn: Reading; cash: Reading; href: Href }) {
+  if (undrawn.state === "absent") {
+    // Cash's own gap box already says a shared reason once.
+    if (cash.state === "absent" && cash.reason === undrawn.reason) return null;
+    return (
+      <GapNote>
+        <Reason text={undrawn.reason} href={href(undrawn.line)} />
+      </GapNote>
+    );
+  }
+  if (undrawn.state === "unordered")
+    return (
+      <AsWritten
+        series={undrawn.series}
+        href={href}
+        title={undrawn.title}
+        said={cash.state !== "unordered"}
+      />
+    );
+  const mark = latestMark(undrawn);
+  if (mark) return <Note>{`${undrawn.title} ${mark.text} in ${mark.label}`}</Note>;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Note>{undrawn.title}</Note>
+      <GapLine point={undrawn.timeline.latest} href={href} />
+    </div>
+  );
 }
 
-function CashMark({ cash, undrawn }: { cash: Reading; undrawn: Reading }) {
+/**
+ * Cash against the undrawn facilities of the same latest period: one bar, two parts, where both
+ * are positive. Where the bar cannot be drawn, each part says so in words; undrawn facilities
+ * are always either in the bar or stated beneath it.
+ */
+function CashMark({ cash, undrawn, href }: { cash: Reading; undrawn: Reading; href: Href }) {
   const first = latestMark(cash);
   const second = latestMark(undrawn);
-  if (first && second && first.label === second.label)
+  if (first && second && first.label === second.label) {
+    if (first.value > 0 && second.value > 0)
+      return (
+        <div className="flex flex-col gap-1.5">
+          <SplitBar
+            first={first}
+            second={second}
+            label={`${cash.title} ${first.text} beside ${undrawn.title} ${second.text} in ${first.label}.`}
+          />
+          <ul aria-label="Parts of the bar" className="flex flex-col gap-0.5">
+            <li>
+              <Key tone="primary">{`${cash.title} ${first.text}`}</Key>
+            </li>
+            <li>
+              <Key tone="secondary">{`${undrawn.title} ${second.text}`}</Key>
+            </li>
+          </ul>
+        </div>
+      );
     return (
-      <div className="flex flex-col gap-1.5">
-        <SplitBar
-          first={first}
-          second={second}
-          label={`${cash.title} ${first.text} beside ${undrawn.title} ${second.text} in ${first.label}.`}
-        />
-        <ul aria-label="Parts of the bar" className="flex flex-col gap-0.5">
-          <li>
-            <Key tone="primary">{`${cash.title} ${first.text}`}</Key>
-          </li>
-          <li>
-            <Key tone="secondary">{`${undrawn.title} ${second.text}`}</Key>
-          </li>
-        </ul>
+      <div className="flex flex-col gap-1">
+        <Note>{partSaid(cash.title, first)}</Note>
+        <Note>{partSaid(undrawn.title, second)}</Note>
       </div>
     );
+  }
   const pair = ends(cash);
   return (
-    pair && <DeltaBar {...pair} tone={toneOf(cash)} label={spoken(cash.title, slotsOf(cash))} />
+    <div className="flex flex-col gap-1.5">
+      <Drawn reading={cash}>
+        {pair && <Change pair={pair} tone={toneOf(cash)} reading={cash} />}
+      </Drawn>
+      <UndrawnNote undrawn={undrawn} cash={cash} href={href} />
+    </div>
+  );
+}
+
+/** A delta bar, or in words the stated ends it cannot draw (zero or below). */
+function Change({
+  pair,
+  tone: ink,
+  reading,
+}: {
+  pair: { from: Mark; to: Mark };
+  tone: MarkTone;
+  reading: Reading;
+}) {
+  const hidden = [pair.from, pair.to].filter(({ value }) => value <= 0);
+  if (hidden.length === 0)
+    return <DeltaBar {...pair} tone={ink} label={spoken(reading.title, slotsOf(reading))} />;
+  return (
+    <div className="flex flex-col gap-1">
+      {hidden.map((mark) => (
+        <Note key={mark.label}>{notDrawn(mark)}</Note>
+      ))}
+    </div>
   );
 }
 
@@ -508,16 +600,10 @@ export function FigureRow({ run, view }: RowProps) {
           )}
         </SmallTile>
         <SmallTile reading={ebitda} href={href}>
-          {ebitdaEnds && (
-            <DeltaBar
-              {...ebitdaEnds}
-              tone={toneOf(ebitda)}
-              label={spoken(ebitda.title, slotsOf(ebitda))}
-            />
-          )}
+          {ebitdaEnds && <Change pair={ebitdaEnds} tone={toneOf(ebitda)} reading={ebitda} />}
         </SmallTile>
-        <SmallTile reading={cash} href={href} whole={split(cash, of("undrawn"))}>
-          <CashMark cash={cash} undrawn={of("undrawn")} />
+        <SmallTile reading={cash} href={href} whole>
+          <CashMark cash={cash} undrawn={of("undrawn")} href={href} />
         </SmallTile>
       </div>
     </>

@@ -85,8 +85,11 @@ export function maturityTraces(
       )
     : undefined;
   return {
+    // A summary-only earlier run carries no modules, so it has no handoff to trace.
     prior:
-      earlier && scheduleTrace(earlier[1].folder, outputEntries(snapshot, earlier[1], earlier[0])),
+      earlier && Object.hasOwn(earlier[1], "modules")
+        ? scheduleTrace(earlier[1].folder, outputEntries(snapshot, earlier[1], earlier[0]))
+        : undefined,
     current: scheduleTrace(run.folder, entries),
   };
 }

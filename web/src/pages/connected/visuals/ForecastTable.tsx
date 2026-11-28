@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import { containsReference, readerText } from "../publishedReport";
+import { drawnReason, EVIDENCE_REASON } from "./drawnQualifications";
 import type { Grid } from "./LegacyForecast";
 import { word } from "./visualData";
 import type { ForecastSource } from "../report/ForecastRecord";
@@ -119,7 +120,8 @@ function ForecastCell({
   evidenceOnlyQualifications?: boolean;
 }) {
   const display = word(cell.display);
-  const reason = readerText(word(cell.reason));
+  const recorded = drawnReason(word(cell.reason));
+  const reason = recorded && evidenceOnlyQualifications ? EVIDENCE_REASON : recorded;
   const exact = word(cell.exact);
   return (
     <td
@@ -130,9 +132,7 @@ function ForecastCell({
       {display}
       {showReason && reason && (
         <span className="mt-1 block min-w-40 max-w-56 wrap-anywhere whitespace-normal text-left text-small text-text-tertiary">
-          {evidenceOnlyQualifications || containsReference(reason)
-            ? "Reason recorded in model evidence."
-            : reason}
+          {reason}
         </span>
       )}
     </td>

@@ -1,10 +1,30 @@
 """Validate sourced cross-statement movement coverage, never invent a plug."""
 
-from deploy_vii.financial_contracts import FinancialBook
+from deploy_vii.financial_contracts import FinancialBook, statement_dimensions
 from deploy_vii.statement_validation import OPTIONAL_ITEMS, REQUIRED_ITEMS
 
 
-def balance_movement_issues(book: FinancialBook) -> tuple[str, ...]:
+def _non_monetary_items(book: FinancialBook) -> set[str]:
+    """BS items with a share-count or per-share line in any period. A bridge reads the item's
+    opening and closing lines, which can lie in any period, so any such line disqualifies it."""
+    return {
+        row.item_id
+        for row in book.statement_lines
+        if row.statement == "BS" and statement_dimensions(book, row).kind != "monetary"
+    }
+
+
+def _item_issue(item: str, non_monetary: set[str]) -> str | None:
+    if item not in (*REQUIRED_ITEMS["BS"], *OPTIONAL_ITEMS["BS"]) and not item.startswith("other:"):
+        return "Balance movement requires a BS item"
+    if item in non_monetary:
+        return "Balance movement requires a monetary BS item"
+    return None
+
+
+def balance_movement_issues(  # noqa: PLR0912 - pre-existing (13 branches at base, unchanged)
+    book: FinancialBook,
+) -> tuple[str, ...]:
     periods = {period.period_id: period for period in book.periods}
     movement_rows = {}
     issues = []
@@ -24,6 +44,7 @@ def balance_movement_issues(book: FinancialBook) -> tuple[str, ...]:
         if period is None or period.period_type == "PERIOD_END":
             issues.append(f"Balance movement requires a flow period: {key}")
 
+    non_monetary = _non_monetary_items(book)
     bridge_ids: set[str] = set()
     bridge_scopes: set[tuple[str, str]] = set()
     assigned_movements: set[tuple[str, str]] = set()
@@ -37,10 +58,8 @@ def balance_movement_issues(book: FinancialBook) -> tuple[str, ...]:
         if period is None or period.period_type == "PERIOD_END":
             issues.append(f"Balance movement bridge requires a flow period: {bridge.bridge_id}")
         item = bridge.balance_item_id
-        if item not in (*REQUIRED_ITEMS["BS"], *OPTIONAL_ITEMS["BS"]) and not item.startswith(
-            "other:"
-        ):
-            issues.append(f"Balance movement requires a BS item: {bridge.bridge_id}")
+        if (issue := _item_issue(item, non_monetary)) is not None:
+            issues.append(f"{issue}: {bridge.bridge_id}")
         movement_ids = bridge.movement_ids
         if len(movement_ids) != len(set(movement_ids)):
             issues.append(f"Duplicate movement reference: {bridge.bridge_id}")

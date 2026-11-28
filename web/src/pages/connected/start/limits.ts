@@ -140,13 +140,14 @@ export function leaveOut(
   requested: readonly string[],
   modules: readonly string[],
 ): string[] | null {
-  if (group.outcome !== "will_refuse" || group.causes.some((cause) => cause.scope === "run")) {
+  const refusingCauses = group.causes.filter((cause) => cause.outcome === "will_refuse");
+  if (group.outcome !== "will_refuse" || refusingCauses.some((cause) => cause.scope === "run")) {
     return null;
   }
   const refusing = new Set(
-    [...group.causes, ...group.consequences.filter((item) => item.outcome === "will_refuse")].map(
-      (item) => item.scope,
-    ),
+    [...group.causes, ...group.consequences]
+      .filter((item) => item.outcome === "will_refuse")
+      .map((item) => item.scope),
   );
   const selected = modules.length ? modules : requested;
   const chosen = requested.filter((code) => selected.includes(code));

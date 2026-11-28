@@ -1,8 +1,16 @@
 // Every write the live screens make, over the service's current sample: what is sent, that the
 // snapshot is read again once the service accepts, and that a refusal shows the service's own
 // sentence and reads nothing. Paths, bodies, names and sentences are written out by hand.
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { currentWith, lookAgain, refusal, serve, showLive, type Snapshot } from "./test-helpers";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  currentWith,
+  go,
+  lookAgain,
+  refusal,
+  serve,
+  showLive,
+  type Snapshot,
+} from "./test-helpers";
 
 const READ = "GET /signal/api/snapshot?format=2";
 const REFUSED = "that is not allowed just now";
@@ -604,17 +612,124 @@ describe("marks sent for the reader", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("tells the service a digest was read when its page opens with an unread issue", async () => {
+  it("does not mark issues read when a paused digest only displays their summaries", async () => {
     const service = serve(currentWith());
     showLive("#/signal/main/digest/1");
-    await drawn("Daily shipping");
-    await waitFor(() => {
-      expect(service.writes()).toEqual(["POST /signal/api/digests/1/read"]);
-    });
-    service.calls.length = 0;
-    window.location.hash = "#/signal/main/digest/2";
+    await screen.findByRole("heading", { name: "Daily shipping", level: 1 });
+    expect(
+      screen.getByRole("heading", { name: "Daily shipping: 24 November", level: 3 }),
+    ).toBeInTheDocument();
+    expect(service.writes()).toEqual([]);
+
+    await go("#/signal/main/digest/2");
     await drawn("Weekly packaging");
     expect(service.writes()).toEqual([]);
+  });
+});
+
+const ISSUE_2_READ = "POST /signal/api/digests/1/issues/2/read";
+const ISSUE_3_READ = "POST /signal/api/digests/1/issues/3/read";
+const ISSUED_LATER = "Daily shipping: 25 November";
+
+function activeDigests(snapshot: Snapshot) {
+  snapshot.settings.ai = { ...snapshot.settings.ai, state: "on", notice: null };
+  for (const digest of snapshot.digests) digest.paused = null;
+  for (const digest of snapshot.channels.digests) {
+    digest.paused = false;
+    digest.unread = digest.id === "1";
+  }
+}
+
+function afterIssuePublication(snapshot: Snapshot) {
+  activeDigests(snapshot);
+  const digest = snapshot.digests.find((one) => one.id === "1");
+  const previousIssue = digest?.issues[0];
+  const previousCard = snapshot.feed.digests.find((one) => one.id === "d2");
+  if (digest === undefined || previousIssue === undefined || previousCard === undefined) {
+    throw new Error("The sample carries issue 2 of Daily shipping");
+  }
+  previousCard.unread = false;
+  digest.issues.unshift({
+    ...previousIssue,
+    id: "3",
+    title: ISSUED_LATER,
+    date: "Wed 25 Nov 2026",
+  });
+  snapshot.feed.digests.unshift({
+    ...previousCard,
+    id: "d3",
+    issueId: "3",
+    title: ISSUED_LATER,
+    date: "Wed 25 Nov",
+    unread: true,
+  });
+  snapshot.feed.views["for-you"].top.unshift("d3");
+  snapshot.feed.views["for-you"].latest.unshift("d3");
+}
+
+describe("automatic read marks for an active digest", () => {
+  it("marks the displayed issue by id and leaves a fresh issue unread until it is displayed", async () => {
+    const service = serve(currentWith(activeDigests));
+    let send!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      send = resolve;
+    });
+    service.replies.set(ISSUE_2_READ, () => pending);
+    showLive("#/signal/main/digest/1");
+    await screen.findByRole("heading", { name: "Daily shipping: 24 November", level: 1 });
+    await waitFor(() => {
+      expect(service.writes()).toEqual([ISSUE_2_READ]);
+    });
+
+    await go("#/signal/main/feed/latest");
+    service.snapshot = currentWith(afterIssuePublication);
+    await act(async () => {
+      send(Response.json({ read: true }));
+      await pending;
+    });
+    await waitFor(() => {
+      expect(service.reads()).toBe(2);
+    });
+    await go("#/signal/main/feed/for-you");
+    const fresh = await screen.findByRole("heading", { name: ISSUED_LATER, level: 2 });
+    expect(fresh.closest("article")).toHaveTextContent("Unread");
+    expect(service.writes()).toEqual([ISSUE_2_READ]);
+
+    await go("#/signal/main/digest/1");
+    await screen.findByRole("heading", { name: ISSUED_LATER, level: 1 });
+    await waitFor(() => {
+      expect(service.writes()).toEqual([ISSUE_2_READ, ISSUE_3_READ]);
+    });
+    expect(service.bodies).toEqual([]);
+  });
+
+  it("sends no mark when only an earlier issue is unread", async () => {
+    const service = serve(
+      currentWith((snapshot) => {
+        activeDigests(snapshot);
+        for (const card of snapshot.feed.digests) card.unread = card.issueId === "1";
+      }),
+    );
+    showLive("#/signal/main/digest/1");
+    await screen.findByRole("heading", { name: "Daily shipping: 24 November", level: 1 });
+    expect(service.writes()).toEqual([]);
+  });
+
+  it("uses the displayed issue id even when its card was left out of the feed", async () => {
+    const service = serve(
+      currentWith((snapshot) => {
+        activeDigests(snapshot);
+        snapshot.feed.digests = snapshot.feed.digests.filter((card) => card.id !== "d2");
+        const view = snapshot.feed.views["for-you"];
+        view.top = view.top.filter((id) => id !== "d2");
+        view.latest = view.latest.filter((id) => id !== "d2");
+      }),
+    );
+    showLive("#/signal/main/digest/1");
+    await screen.findByRole("heading", { name: "Daily shipping: 24 November", level: 1 });
+    await waitFor(() => {
+      expect(service.writes()).toEqual([ISSUE_2_READ]);
+    });
   });
 });
 

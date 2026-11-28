@@ -84,7 +84,17 @@ function SlashCircle() {
 }
 
 /** One paragraph exactly as written, or the way to read it in Evidence when it cites a source. */
-function Prose({ text, href, className }: { text: string; href: string; className: string }) {
+function Prose({
+  text,
+  href,
+  className,
+  pathway,
+}: {
+  text: string;
+  href: string;
+  className: string;
+  pathway?: string | null;
+}) {
   const body = readParagraph(text).body;
   if (containsReference(body))
     return (
@@ -92,17 +102,19 @@ function Prose({ text, href, className }: { text: string; href: string; classNam
         Read this passage in Evidence
       </Button>
     );
-  return <p className={className}>{richParts(body, readerText)}</p>;
+  return <p className={className}>{richParts(body, (words) => readerText(words, pathway))}</p>;
 }
 
 function BottomLineText({
   source,
   entry,
   folder,
+  pathway,
 }: {
   source: NonNullable<BottomLineSource>;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const line = source.kind === "passage" ? source.block.line : source.line;
   const text = source.kind === "passage" ? source.block.text : source.text;
@@ -116,6 +128,7 @@ function BottomLineText({
           <Prose
             text={text.replaceAll("**", "").replaceAll("`", "")}
             href={evidencePath(folder, entry, line)}
+            pathway={pathway}
             className="max-w-bottom-line text-h3 font-medium text-balance wrap-anywhere text-text-primary lg:text-h2"
           />
         </div>
@@ -153,27 +166,27 @@ function Continuation({
   source,
   entry,
   folder,
+  pathway,
 }: {
   source: NonNullable<BottomLineSource>;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const wide = useWideScreen(768);
   const paragraphs =
-    source.kind === "passage" ? (
-      source.rest.map((block) => (
-        <FindingParagraph
-          key={block.line}
-          block={block}
-          trace={traceKey(entry, block.line)}
-          href={evidencePath(folder, entry, block.line)}
-        />
-      ))
-    ) : source.rest ? (
-      <p className="reading-copy text-body text-text-secondary">{readerText(source.rest)}</p>
-    ) : null;
-  const some = source.kind === "passage" ? source.rest.length > 0 : Boolean(source.rest);
-  if (!some) return null;
+    source.kind === "passage"
+      ? source.rest.map((block) => (
+          <FindingParagraph
+            key={block.line}
+            block={block}
+            trace={traceKey(entry, block.line)}
+            href={evidencePath(folder, entry, block.line)}
+            pathway={pathway}
+          />
+        ))
+      : null;
+  if (source.kind !== "passage" || !source.rest.length) return null;
   const place = "order-4 flex min-w-0 flex-col gap-3 lg:col-span-2 lg:row-start-3";
   if (wide) return <div className={place}>{paragraphs}</div>;
   return (
@@ -251,12 +264,14 @@ function HeaderBottom({
   hollow,
   owed,
   folder,
+  pathway,
 }: {
   entry?: OutputEntry;
   bottomLine: BottomLineSource;
   hollow?: Section;
   owed: boolean;
   folder: string;
+  pathway?: string | null;
 }) {
   if (entry?.output.parseError) {
     const reason = entry.output.parseError;
@@ -264,7 +279,9 @@ function HeaderBottom({
       <Bottom>
         <GapNote>
           This module's output could not be read into sections
-          {containsReference(reason) ? "." : `: ${closedSentence(readerText(reason))}`}{" "}
+          {containsReference(reason)
+            ? "."
+            : `: ${closedSentence(readerText(reason, pathway))}`}{" "}
           <Button href={evidencePath(folder, entry)} color="link-gray" size="sm">
             Open Evidence
           </Button>
@@ -275,7 +292,7 @@ function HeaderBottom({
   if (entry && bottomLine)
     return (
       <Bottom>
-        <BottomLineText source={bottomLine} entry={entry} folder={folder} />
+        <BottomLineText source={bottomLine} entry={entry} folder={folder} pathway={pathway} />
       </Bottom>
     );
   if (entry && hollow)
@@ -284,7 +301,13 @@ function HeaderBottom({
         <span className="text-caption text-text-tertiary">
           <Anchor id={ANCHOR.bottomLine}>Bottom line</Anchor>
         </span>
-        <HollowPassage section={hollow} title="Bottom line" entry={entry} folder={folder} />
+        <HollowPassage
+          section={hollow}
+          title="Bottom line"
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       </Bottom>
     );
   return owed ? (
@@ -329,6 +352,7 @@ export function ModuleHeader({
   about,
   confidence,
   hollow,
+  pathway,
 }: {
   module: FrameModule;
   entry?: OutputEntry;
@@ -343,6 +367,8 @@ export function ModuleHeader({
   /** What the module says the issuer is (Business & governance only). */
   about?: ReactNode;
   confidence?: ReactNode;
+  /** The run's pathway, which names its modules. */
+  pathway?: string | null;
 }) {
   const blocked = module.state === "Not assessable";
   const stage = stageLine(module);
@@ -368,9 +394,10 @@ export function ModuleHeader({
           hollow={hollow}
           owed={owed || blocked}
           folder={folder}
+          pathway={pathway}
         />
         {entry && bottomLine && !entry.output.parseError && (
-          <Continuation source={bottomLine} entry={entry} folder={folder} />
+          <Continuation source={bottomLine} entry={entry} folder={folder} pathway={pathway} />
         )}
       </div>
     </Tile>
@@ -381,16 +408,19 @@ function Paragraph({
   block,
   entry,
   folder,
+  pathway,
 }: {
   block: TextBlock;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   return (
     <FindingParagraph
       block={block}
       trace={traceKey(entry, block.line)}
       href={evidencePath(folder, entry, block.line)}
+      pathway={pathway}
     />
   );
 }
@@ -401,11 +431,13 @@ function PassageTable({
   title,
   entry,
   folder,
+  pathway,
 }: {
   table: Table;
   title: string;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   if (!table.rows.length) return <GapNote>{NO_ROWS}</GapNote>;
   return (
@@ -415,6 +447,7 @@ function PassageTable({
       drawCell={unitCells(table)}
       traceAt={(line) => traceKey(entry, line)}
       rowHref={(line) => evidencePath(folder, entry, line)}
+      pathway={pathway}
     />
   );
 }
@@ -428,11 +461,13 @@ function HollowPassage({
   title,
   entry,
   folder,
+  pathway,
 }: {
   section: Section;
   title: string;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -453,6 +488,7 @@ function HollowPassage({
             title={title}
             entry={entry}
             folder={folder}
+            pathway={pathway}
           />
         ) : null,
       )}
@@ -465,21 +501,26 @@ function PassageBlocks({
   section,
   entry,
   folder,
+  pathway,
 }: {
   section: Section;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   return section.blocks.map((block) =>
     block.type === "text" ? (
-      readable(block) && <Paragraph key={block.line} block={block} entry={entry} folder={folder} />
+      readable(block) && (
+        <Paragraph key={block.line} block={block} entry={entry} folder={folder} pathway={pathway} />
+      )
     ) : block.type === "table" ? (
       <PassageTable
         key={block.line}
         table={block}
-        title={readableTitle(section.heading)}
+        title={readableTitle(section.heading, undefined, pathway)}
         entry={entry}
         folder={folder}
+        pathway={pathway}
       />
     ) : null,
   );
@@ -489,10 +530,12 @@ function KeyFindings({
   section,
   entry,
   folder,
+  pathway,
 }: {
   section: Section;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const paragraphs = section.blocks.filter(
     (block): block is TextBlock => block.type === "text" && readable(block),
@@ -512,7 +555,7 @@ function KeyFindings({
             >
               {String(at + 1).padStart(2, "0")}
             </span>
-            <Paragraph block={block} entry={entry} folder={folder} />
+            <Paragraph block={block} entry={entry} folder={folder} pathway={pathway} />
           </li>
         ))}
       </ol>
@@ -523,6 +566,7 @@ function KeyFindings({
           title={KEY_FINDINGS}
           entry={entry}
           folder={folder}
+          pathway={pathway}
         />
       ))}
     </>
@@ -540,6 +584,7 @@ export function ModuleFindings({
   missing,
   entry,
   folder,
+  pathway,
 }: {
   keyFindings?: Section;
   contrary?: Section;
@@ -547,13 +592,22 @@ export function ModuleFindings({
   missing: readonly string[];
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
   const left = keyFindings ?? hollow.findings ?? missing.includes(KEY_FINDINGS);
   const right = contrary ?? hollow.contrary ?? missing.includes(CONTRARY);
   if (!left && !right) return null;
   const [leftSpan, rightSpan] = left && right ? ([7, 5] as const) : ([12, 12] as const);
   const hollowOf = (section: Section | undefined, name: string) =>
-    section && <HollowPassage section={section} title={name} entry={entry} folder={folder} />;
+    section && (
+      <HollowPassage
+        section={section}
+        title={name}
+        entry={entry}
+        folder={folder}
+        pathway={pathway}
+      />
+    );
   return (
     <>
       {left && (
@@ -564,7 +618,7 @@ export function ModuleFindings({
           title={<Anchor id={ANCHOR.findings}>{KEY_FINDINGS}</Anchor>}
         >
           {keyFindings ? (
-            <KeyFindings section={keyFindings} entry={entry} folder={folder} />
+            <KeyFindings section={keyFindings} entry={entry} folder={folder} pathway={pathway} />
           ) : (
             (hollowOf(hollow.findings, KEY_FINDINGS) ?? <GapNote>{MISSING_PASSAGE}</GapNote>)
           )}
@@ -579,7 +633,7 @@ export function ModuleFindings({
           tone={contrary ? "counter" : "plain"}
         >
           {contrary ? (
-            <PassageBlocks section={contrary} entry={entry} folder={folder} />
+            <PassageBlocks section={contrary} entry={entry} folder={folder} pathway={pathway} />
           ) : (
             (hollowOf(hollow.contrary, CONTRARY) ?? <GapNote>{MISSING_PASSAGE}</GapNote>)
           )}
@@ -607,10 +661,10 @@ const GAP_WORD = /^(Not supplied|Not calculated|Not assessable|Not established|W
 
 /** The module's reason as written; one that cites a source or a register code keeps its word and
  * leaves the rest to Evidence. */
-function gapReason(reason: string) {
-  if (!containsReference(reason) && !holdsCode(reason)) return readerText(reason);
+function gapReason(reason: string, pathway?: string | null) {
+  if (!containsReference(reason) && !holdsCode(reason)) return readerText(reason, pathway);
   // The module's own words without the clause that cites the source; the source is in Evidence.
-  const kept = proseWithoutMachinery(reason).replace(/[\s,;:\u2013\u2014-]+$/, "");
+  const kept = proseWithoutMachinery(reason, pathway).replace(/[\s,;:\u2013\u2014-]+$/, "");
   if (kept) return `${kept}.`.replace(/\.\.$/, ".");
   return `${GAP_WORD.exec(reason)?.[1] ?? "Not established"}. The reason cites a source, shown in Evidence.`;
 }
@@ -645,18 +699,21 @@ function ChartGapWell({
   gap,
   entry,
   folder,
+  pathway,
 }: {
   gap: ChartGap;
   entry: OutputEntry;
   folder: string;
+  pathway?: string | null;
 }) {
-  const title = readerText(gap.title);
+  // The title as every other drawn title is: without the file or page it cites.
+  const title = readableTitle(gap.title, "This figure", pathway);
   return (
     <GapWell trace={traceKey(entry, gap.line)} label={`Show sources for ${title}`}>
       <p className="text-small font-medium text-text-primary first-letter:uppercase">
         {title}: not drawn
       </p>
-      <p className="text-caption text-text-secondary">{gapReason(gap.reason)}</p>
+      <p className="text-caption text-text-secondary">{gapReason(gap.reason, pathway)}</p>
       {/* The link itself is the 32 px target, not a taller box around a 20 px link. */}
       <Button
         href={evidencePath(folder, entry, gap.line)}
@@ -682,6 +739,8 @@ export function ModuleLimitations({
   folder,
   span,
   hollow,
+  pathway,
+  summaryLimitation,
 }: {
   section?: Section;
   /** The Limitations passage when it holds no paragraph to read. */
@@ -691,12 +750,26 @@ export function ModuleLimitations({
   entry: OutputEntry;
   folder: string;
   span: 8 | 12;
+  pathway?: string | null;
+  /** The module's summary limitation, drawn here when its Limitations passage holds no paragraph. */
+  summaryLimitation?: { text: string; line: number };
 }) {
   const paragraphs = (section?.blocks ?? []).filter(
     (block): block is TextBlock => block.type === "text" && readable(block),
   );
   const tables = (section?.blocks ?? []).filter((block): block is Table => block.type === "table");
-  if (!paragraphs.length && !tables.length && !owed && !gaps.length && !hollow) return null;
+  // The summary's limitation is drawn last unless a drawn paragraph already says the same.
+  const said = (words: string) => words.replace(/\s+/g, " ").trim().toLowerCase();
+  const summary =
+    summaryLimitation &&
+    !paragraphs.some(
+      ({ text }) =>
+        said(readParagraph(text).body) === said(readParagraph(summaryLimitation.text).body),
+    )
+      ? summaryLimitation
+      : undefined;
+  if (!paragraphs.length && !tables.length && !owed && !gaps.length && !hollow && !summary)
+    return null;
   const title = "Limitations of this module";
   return (
     <Tile
@@ -707,9 +780,18 @@ export function ModuleLimitations({
       kicker="As the module reports them"
     >
       {hollow ? (
-        <HollowPassage section={hollow} title={title} entry={entry} folder={folder} />
+        <HollowPassage
+          section={hollow}
+          title={title}
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       ) : (
-        owed && !paragraphs.length && !tables.length && <GapNote>{MISSING_PASSAGE}</GapNote>
+        owed &&
+        !paragraphs.length &&
+        !tables.length &&
+        !summary && <GapNote>{MISSING_PASSAGE}</GapNote>
       )}
       <ul className="flex flex-col">
         {paragraphs.map((block) => (
@@ -721,6 +803,7 @@ export function ModuleLimitations({
             <Prose
               text={block.text}
               href={evidencePath(folder, entry, block.line)}
+              pathway={pathway}
               className="text-small text-text-primary"
             />
           </GapWell>
@@ -731,11 +814,29 @@ export function ModuleLimitations({
             gap={gap}
             entry={entry}
             folder={folder}
+            pathway={pathway}
           />
         ))}
+        {summary && (
+          <GapWell trace={traceKey(entry, summary.line)} label="Show sources for this limitation">
+            <Prose
+              text={summary.text}
+              href={evidencePath(folder, entry, summary.line)}
+              pathway={pathway}
+              className="text-small text-text-primary"
+            />
+          </GapWell>
+        )}
       </ul>
       {tables.map((table) => (
-        <PassageTable key={table.line} table={table} title={title} entry={entry} folder={folder} />
+        <PassageTable
+          key={table.line}
+          table={table}
+          title={title}
+          entry={entry}
+          folder={folder}
+          pathway={pathway}
+        />
       ))}
     </Tile>
   );

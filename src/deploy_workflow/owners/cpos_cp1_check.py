@@ -59,8 +59,8 @@ from deploy_workflow.owners.cpos_periods import (
 # `cpos_periods` (the forecast reads the Period table too); importers keep these names.
 __all__ = ["PERIOD_HEADER", "money_unit"]
 
-_NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?", re.ASCII)
-_TWO_PLACES = re.compile(r"-?\d[\d,]*\.\d{2}", re.ASCII)
+_NUMBER = re.compile(r"-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?", re.ASCII)
+_TWO_PLACES = re.compile(r"-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}", re.ASCII)
 _PERIOD_HEADER = re.compile(r"FY\d{4}|Q[1-4] \d{4}|H1 \d{4}|9M \d{4}", re.ASCII)
 _FISCAL = re.compile(r"(FY\d{4})(?: / (\d{4}-\d{2}-\d{2}))?", re.ASCII)
 _FY_HEADER = re.compile(r"FY\d{4}", re.ASCII)
@@ -1138,7 +1138,8 @@ def _adds_up(
 ) -> str | None:
     """Parts (and the optional rows when stated) must add to the total, to half a unit of the
     finest printed place among them."""
-    labels = [*parts, *(o for o in optional if _stated(found.cell(o, at)) is not None)]
+    present = [o for o in optional if found.cell(o, at) is not None]
+    labels = [*parts, *present]
     figures = [_stated(found.cell(label, at)) for label in labels]
     held = _stated(found.cell(total, at))
     if held is None or any(f is None for f in figures):
@@ -1287,7 +1288,8 @@ def stated_asset_type(text: str, *, instrument: str = "") -> str | None:
 def _asset_type_issues(lines: list[str], *, required: bool) -> list[str]:
     register = register_table("\n".join(lines), "T4.18", raw_cells=True)
     if isinstance(register, str):
-        return []
+        no_register = register.startswith("the handoff has no ")
+        return [] if no_register or not required else [f"T4.18: {register}."]
     headers, rows = register
     columns = asset_type_columns(headers)
     if not columns and not required:  # Inspecting a historical handoff permits the old shape.

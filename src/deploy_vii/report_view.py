@@ -1809,7 +1809,11 @@ def _token_runs(
     by_fact = {fact_id: ids for (owner, fact_id), ids in refs.items() if owner == module.module_id}
     out: list[TextRun] = []
     for run in resolve(text, prose.bind(module.facts), by_fact, names=names):
-        if run.kind == "text":
+        if run.kind == "text" and not run.text.strip():
+            # A run cannot be blank: the space between two tokens stays on the run before it.
+            if out:
+                out[-1] = out[-1].model_copy(update={"text": out[-1].text + run.text})
+        elif run.kind == "text":
             out.append(TextRun(text=run.text, kind="pen" if judged else "text"))
         else:
             out.append(TextRun(text=run.text, kind=run.kind, ref_id=run.ref_id))
@@ -1868,7 +1872,9 @@ def _prose_lines(
 def _summary(lines: tuple[Line, ...], rows: tuple[Row, ...]) -> str | None:
     """The one line a collapsed block shows: its first line of prose or its first row."""
     if lines:
-        return _clip(" ".join(run.text for run in lines[0].runs if run.kind != "fig"))
+        # A figure run keeps its text; only the trace mark (a run whose text is its ref id) goes.
+        marks = (run for run in lines[0].runs if run.kind != "fig" or run.text != run.ref_id)
+        return _clip(" ".join(run.text for run in marks))
     if rows:
         return _clip(f"{rows[0].label}: " + ", ".join(cell.text for cell in rows[0].cells))
     return None
@@ -2269,7 +2275,7 @@ def _registered_figures(
     return figures
 
 
-def _block(
+def _block(  # noqa: PLR0913 - existing signature
     block_id: str,
     pathway: Pathway,
     view: View,
@@ -2304,6 +2310,7 @@ def _block(
         "numbered": spec.numbered,
         "pinned": spec.pinned,
     }
+    slots: list[_Slot] = []  # prose bindings carry no table, so no register limitation
     if shown and spec.kind == "prose":
         lines = _prose_lines(shown, view, refs)
         if lines:
@@ -2347,6 +2354,15 @@ def _block(
                 for figure in figures
                 if figure.chart.reason
             )
+            # Every populated register's own limitation reaches the reader; a further register's
+            # is prefixed with its tab label, since its tab (rows) can carry no note.
+            further = (
+                f"{item.label}: {item.limitation}"
+                for item in slots
+                if item is not primary and item.rows and item.limitation
+            )
+            tail = _strip_note(block_id) if degraded else chart_note
+            note = "; ".join(t for t in (primary.limitation, *further, tail) if t)
             return Block(
                 **{**shape, "summary": _summary((), primary.rows) if spec.collapsed else None},
                 kind=kind,
@@ -2363,7 +2379,7 @@ def _block(
                 figures=_na_strip(block_id, spec.owner, primary.scale, _strip_reason(block_id))
                 if degraded
                 else figures,
-                note=_strip_note(block_id) if degraded else chart_note or None,
+                note=note or None,
             )
     blocked_because = {
         code: module.limitations[0]
@@ -2374,6 +2390,9 @@ def _block(
     if shown:
         words_state = "absent"
         note = f"Absent: {' · '.join(spec.producers)} supplied no rows for this block."
+        stated = tuple(dict.fromkeys(item.limitation for item in slots if item.limitation))
+        if stated:  # the producers' own words on the empty register, verbatim
+            note = f"{note} {' '.join(stated)}"
     kind = spec.kind if spec.kind != "chart" else "dense"
     return Block(
         block_id=block_id,
@@ -2742,7 +2761,7 @@ def build(view: View, pathway: Pathway, maps: Iterable["BindingMap"]) -> ReportV
             module.status in SHOWN_STATUSES or module.facts or module.tables or module.claims
         ):
             _validate_cp1b_layout(module)
-    if issues := validate_bindings(view, maps):
+    if issues := validate_bindings(view, maps, pathway=pathway):
         more = f" (and {len(issues) - 3} more)" if len(issues) > 3 else ""
         raise ValueError("Bindings do not cover the view: " + "; ".join(issues[:3]) + more)
     passports, index = build_index(view)
@@ -2949,6 +2968,8 @@ def _rv3_figures(
     Only peers whose T1C.1 ``included`` fact reads "Included" are drawn; an excluded peer's
     T1C.3 and T1C.5 facts are never read. No included peer, no figure.
     """
+    from deploy_vii.financial_series import numbered_labels
+
     module = _shown_module(view, "CP-1C")
     if module is None:
         return ()
@@ -2966,6 +2987,11 @@ def _rv3_figures(
             peers.append((match.group(1), names[match.group(1)]))
     if not peers:
         return ()
+    # Two peers may print one name: number them (1), (2) in row order.
+    peers = [
+        (peer_id, name)
+        for (peer_id, _), name in zip(peers, numbered_labels([n for _, n in peers]), strict=True)
+    ]
     figures = []
     for fig_id, unit_class, unit, metrics in _RV3_PANELS:
         if any(f"T1C.3.issuer.{m}" not in facts for m in metrics):
@@ -3154,7 +3180,7 @@ register_figure_producer(
 # --- Stage 3 chart wiring W2, group c: CR.2 (CP-2D) and CR.3 (CP-3C) ------------------------------
 
 
-def _liquidity_figure(
+def _liquidity_figure(  # noqa: PLR0913 -- one figure's fixed wiring; the options are keyword-only
     block_id: str,
     module: ModuleView,
     refs: Mapping[tuple[str, str], tuple[str, ...]],
@@ -3204,7 +3230,9 @@ def _liquidity_figure(
         row_header=row_header,
         columns=(record.axis_label,) if len(record.series) == 1 else tuple(record.series),
         rows=rows,
-        note=record.reason,
+        # The shell draws a plotted chart's twin note under it; a figure's `summary` only for a
+        # figure set beside a table, so the record's limitation note travels on the twin.
+        note=" ".join(text for text in (record.reason, record.note) if text) or None,
     )
     return Figure(
         fig_id=record.fig_id,
@@ -3248,7 +3276,7 @@ def _cr2_figures(
             owner="CP-2D",
             row_header="Step",
             placement="above",
-            summary=record.note,
+            summary=None,
         )
         for record in cp2d_chart_series(module)
     )

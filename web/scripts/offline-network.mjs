@@ -28,6 +28,8 @@ export function isLoopbackRequest(address) {
   );
 }
 
+const PEER_RESET_CODES = new Set(["ECONNRESET", "EPIPE", "ECONNABORTED", "ECANCELED"]);
+
 // Playwright routes do not intercept every redirected request. The browser proxy
 // terminates those requests locally, without DNS lookup or an upstream connection.
 export async function createOfflineProxy() {
@@ -40,6 +42,15 @@ export async function createOfflineProxy() {
   const sockets = new Set();
   server.on("connection", (socket) => {
     sockets.add(socket);
+    // Node's http.Server detaches its internal error handler on "connect"; keep
+    // one on every accepted socket so peer TCP resets (ECONNRESET) destroy cleanly.
+    socket.on("error", (error) => {
+      if (PEER_RESET_CODES.has(error?.code)) {
+        socket.destroy();
+        return;
+      }
+      throw error;
+    });
     socket.once("close", () => sockets.delete(socket));
   });
   server.on("connect", (request, socket) => {
