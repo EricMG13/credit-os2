@@ -205,6 +205,10 @@ class Writer:
             raise self._stop(str(refused), fault=False) from None
         except ai_call.BusyBeforeSend as busy:  # nothing was reserved or sent: not paid
             raise self._stop(f"the store was busy before the call: {busy}", fault=True) from None
+        except ai_call.SettlementFault as fault:
+            # The open reservation still guards recovery. Stop model calls for this pass.
+            self.stopped, self.fault = str(fault), True
+            raise
         self.calls += 1
         if self.calls >= self.per_pass:
             self.stopped = f"this pass made its {self.per_pass} digest calls; the others wait"

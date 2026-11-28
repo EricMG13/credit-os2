@@ -16,6 +16,12 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   replies and SQLite faults. The repair keeps unsettled calls held and applies the post-call
   storage recovery to failure receipts. The fallback records the original trigger and planned
   story scope. 165 targeted tests passed, including the loopback request and hosted Signal paths.
+- Exact-candidate review of `891e0403` found an unsettled call could still allow another digest
+  call in the same pass past the per-pass limit, and CI reported two `Coverage.detail.test.tsx`
+  failures after `main` made Monitor the default Coverage view. `ai_digest.Writer.draft` now stops
+  further calls for the pass on `SettlementFault` (146 targeted Signal and repo-rules tests plus
+  the changed-code quality gate passed), and `Coverage.detail.test.tsx` selects `?view=matrix`
+  (eslint, prettier, tsc, and 35 Coverage tests passed). No live call.
 
 ## 2026-11-27 — Sectioned review integration against main
 

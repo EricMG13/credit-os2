@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 from signal_ai_fakes import FakeModel, ok, setup
+from test_signal_digest import make
 from test_signal_digest_claim_ownership import DUE, NEXT_DUE, REPLY, _ready
 
 from deploy_workflow.signal import ai_digest, ai_ledger, ai_run, digests, store
@@ -79,3 +80,25 @@ def test_failed_settlement_keeps_claim_and_prevents_second_paid_call(tmp_path, m
         assert ai_ledger.totals(db, "2026-11").open_calls == 1
         with pytest.raises(digests.Conflict, match="being written now"):
             digests.request_run(db, "Mara L", ident, DUE + timedelta(minutes=31))
+
+
+def test_failed_settlement_stops_new_calls_for_the_pass(tmp_path, monkeypatch):
+    with closing(store.open_db(tmp_path)) as db:
+        _ready(db)
+        for index in range(10):
+            make(db, owner=f"Member {index}", name=f"Digest {index}")
+        model = FakeModel([ok(REPLY)] * 11)
+        ai_ledger.set_cap(db, Decimal(15), DUE)
+        settle = ai_ledger.settle
+
+        def fail_first(database, call_id, *args):
+            if call_id == 1:
+                raise sqlite3.IntegrityError("simulated ledger write failure")
+            return settle(database, call_id, *args)
+
+        monkeypatch.setattr(ai_ledger, "settle", fail_first)
+        with pytest.raises(ai_run.DigestsLeftDue, match="hold their claim"):
+            ai_run.digest_pass(db, DUE, setup(tmp_path, model, clock=DUE))
+
+        assert ai_ledger.totals(db, "2026-11").open_calls == 1
+        assert len(model.requests) == 1

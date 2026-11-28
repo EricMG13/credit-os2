@@ -38,6 +38,7 @@ function answer() {
 
 test("an issuer brought back by the search does not take focus from the search box", async () => {
   answer();
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("button", { name: "Alpha plc" }));
   await waitFor(() => {
@@ -55,6 +56,7 @@ test("an issuer brought back by the search does not take focus from the search b
 
 test("opening another issuer while one is open moves focus to its heading", async () => {
   answer();
+  window.history.replaceState(null, "", "/coverage?view=matrix");
   render(<Coverage />);
   fireEvent.click(await screen.findByRole("button", { name: "Alpha plc" }));
   await waitFor(() => {
