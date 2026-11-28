@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { request } from "node:http";
+import { connect } from "node:net";
 import { test } from "node:test";
 import { createOfflineProxy, installOfflineGuard, isLoopbackRequest } from "./offline-network.mjs";
 
@@ -103,6 +104,63 @@ test("denial proxy terminates HTTP and CONNECT locally without an upstream", asy
         outbound.end();
       });
       assert.equal(status, 403);
+    }
+    assert.deepEqual(proxy.attempts, [
+      { target: "http://example.invalid/path", method: "GET" },
+      { target: "example.invalid:443", method: "CONNECT" },
+    ]);
+  } finally {
+    await proxy.close();
+  }
+});
+
+test("denial proxy survives client TCP reset after rejecting HTTP and CONNECT", async () => {
+  const proxy = await createOfflineProxy();
+  try {
+    const local = new URL(proxy.settings.server);
+    for (const [target, rawRequest] of [
+      [
+        "http://example.invalid/path",
+        "GET http://example.invalid/path HTTP/1.1\r\nHost: example.invalid\r\n\r\n",
+      ],
+      [
+        "example.invalid:443",
+        "CONNECT example.invalid:443 HTTP/1.1\r\nHost: example.invalid:443\r\n\r\n",
+      ],
+    ]) {
+      const response = await new Promise((resolve, reject) => {
+        let head = "";
+        let settled = false;
+        let errored = false;
+        const client = connect({ host: local.hostname, port: Number(local.port) }, () => {
+          client.write(rawRequest);
+        });
+        client.on("error", (error) => {
+          if (!settled) {
+            errored = true;
+            settled = true;
+            reject(error);
+          }
+        });
+        client.once("close", () => {
+          if (errored) return;
+          if (!settled) {
+            settled = true;
+            reject(new Error(`Proxy closed before completing response head for ${target}`));
+            return;
+          }
+          setTimeout(() => resolve(head), 10);
+        });
+        client.on("data", (chunk) => {
+          if (settled) return;
+          head += chunk.toString("utf8");
+          if (head.includes("\r\n\r\n")) {
+            settled = true;
+            client.resetAndDestroy();
+          }
+        });
+      });
+      assert.match(response, /^HTTP\/1\.1 403 Forbidden\r\n/u, target);
     }
     assert.deepEqual(proxy.attempts, [
       { target: "http://example.invalid/path", method: "GET" },
