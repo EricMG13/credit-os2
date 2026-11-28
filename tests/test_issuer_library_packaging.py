@@ -37,8 +37,6 @@ def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     for name in [
         *("engine/bridge.py", "engine/store.py", "engine/catalog.json", "engine/run_workflow.py"),
         *("update_library.py", "credit_os/store.py", "credit_os/catalog.json"),
-        *("credit_os/web/index.html", "credit_os/web/static.test.cjs"),
-        "credit_os/web/brand/symbol.svg",
     ]:
         (app / name).parent.mkdir(parents=True, exist_ok=True)
         (app / name).write_text("x")
@@ -179,7 +177,7 @@ def test_the_package_ships_the_static_library_and_its_windows_wrapper(
         for p in (engine / "credit_os").rglob("*")
         if p.is_file()
     )
-    assert shipped == ["catalog.json", "store.py", "web/brand/symbol.svg"]  # No page or node tests.
+    assert shipped == ["catalog.json", "store.py"]  # No retired static web frontend.
     # store.REPO is engine/ in the package, so visual_catalogue() reads this exact path.
     assert (engine / "docs/visualisations/catalogue.csv").read_text() == "id\nV1\n"
     # The launcher reads CP-2's Risk Rubric table from this file, relative to engine/.
@@ -209,8 +207,7 @@ def test_the_package_ships_the_signal_code_and_no_signal_page(
     signal = target / "engine/src/deploy_workflow/signal"
     assert (signal / "service.py").read_text() == "SERVICE = 1"
     assert not (signal / "web").exists()
-    assert (target / "engine/credit_os/web/brand/symbol.svg").is_file()
-    assert not (target / "engine/credit_os/web/index.html").exists()
+    assert not (target / "engine/credit_os/web").exists()
 
 
 def test_the_package_purges_its_retired_files(tmp_path: Path, offline: list[str]) -> None:

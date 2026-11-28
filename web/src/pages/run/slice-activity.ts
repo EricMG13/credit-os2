@@ -47,7 +47,7 @@ export type ActivityLine = {
   text: string;
   state: RunState | "Not assessable";
 };
-export type Figure =
+export type RunFigure =
   { value: string | null; bar: Bar } | { value: string | null; bar: null; note: string }; // a missing figure draws "n.a." and no bar
 export type RunRecord = {
   kind: "run";
@@ -58,8 +58,8 @@ export type RunRecord = {
   line: string | null;
   alert: RunAlert | null;
   open: Link | null;
-  spend: Figure;
-  finished: Figure;
+  spend: RunFigure;
+  finished: RunFigure;
   elapsed: { value: string | null; note: string };
   modules:
     | { kind: "steps"; steps: ModuleStep[] }
@@ -88,7 +88,7 @@ const alert = (v: unknown, path: string): RunAlert => {
     alt: orNull(o, "alt", path, link),
   };
 };
-const figure = (v: unknown, path: string): Figure => {
+const figure = (v: unknown, path: string): RunFigure => {
   const o = obj(v, path);
   const value = strOrNull(o, "value", path);
   if (o.bar === null) return { value, bar: null, note: str(o, "note", path) };

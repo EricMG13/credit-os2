@@ -9,7 +9,7 @@ import { ResearchLead } from "./cpdr";
 import type { Leads } from "./types";
 
 /** Lead visuals of this stage's modules (docs/design/screen-map.md, Modules). */
-export const LEADS: Leads = {
+export const CREDIT_LEADS: Leads = {
   "CP-1A": BusinessLead,
   "CP-DR": ResearchLead,
   "CP-2": CreditLead,

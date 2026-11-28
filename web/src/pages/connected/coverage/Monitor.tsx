@@ -18,7 +18,7 @@ import { Sparkline } from "../visuals/signal/Sparkline";
 import { MonitorDetails } from "./MonitorDetails";
 import { headroom } from "./direction";
 
-export const MONITOR_GROUPS: readonly { name: string; fields: readonly string[] }[] = [
+const MONITOR_GROUPS: readonly { name: string; fields: readonly string[] }[] = [
   {
     name: "Leverage",
     fields: ["cp-1/leverage/total-debt-ebitda", "cp-1/leverage/net-debt-ebitda"],

@@ -101,13 +101,12 @@ While working, run the targeted tests for what changed, each run within a few mi
 
 ```bash
 uv run pytest tests/test_library_index.py tests/test_update_library.py tests/test_cpos_launch.py -q
-node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-library/credit_os/web/static.test.cjs apps/issuer-library/credit_os/web/calendar.test.cjs
+npm --prefix web test
 ```
 
 - `checks.yml`, on every pull request and by hand: the changed-code gate and the import
-  direction above; the fast tests (`-m "not live and not browser"`, the files listed in the
-  workflow) with the known failures in `tests/known-failures.txt` deselected; and the page logic
-  under Node. The fast tests include the connected server's (`tests/test_react_*.py`) and the
+  direction above; and the fast tests (`-m "not live and not browser"`, the files listed in the
+  workflow) with the known failures in `tests/known-failures.txt` deselected. The fast tests include the connected server's (`tests/test_react_*.py`) and the
   synthetic end-to-end run (`proof/test_launcher.py`). The Signal backend's tests
   (`tests/test_signal_*.py`) run there with the web dependencies installed (`npm --prefix web ci`),
   because each snapshot they build is read by the real React reader; under `CI=true` a missing
@@ -125,7 +124,5 @@ node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-librar
   `tests/known-failures.txt` is new.
 - `npm --prefix web run proof:connected` exercises the synthetic desktop workflow.
   Pass `-- --include-mobile` to include the narrower diagnostic checks.
-- The browser check of the generated page (`tests/test_library_page_browser.py`, marker
-  `browser`) needs Node with the `playwright` package; it is run by hand.
 - Paid provider runs are never part of CI. They are an explicit command with a ruling
   (`docs/COPILOT.md`, `README.md`).

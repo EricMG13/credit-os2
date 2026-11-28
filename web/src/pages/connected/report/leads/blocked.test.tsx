@@ -1,13 +1,13 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { entry } from "../overview/rows.fixture";
-import { LEADS as credit } from "./credit";
+import { CREDIT_LEADS } from "./credit";
 import { bottomLine, leadProps } from "./lead.fixture";
-import { LEADS as structure } from "./structure";
+import { STRUCTURE_LEADS } from "./structure";
 
 afterEach(cleanup);
 
-const LEADS = Object.entries({ ...credit, ...structure });
+const LEADS = Object.entries({ ...CREDIT_LEADS, ...STRUCTURE_LEADS });
 
 it("covers all thirteen leads", () => {
   expect(LEADS).toHaveLength(13);

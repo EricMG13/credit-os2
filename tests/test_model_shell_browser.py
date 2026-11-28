@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from test_library_page_browser import visit
+from browser_helper import visit
 
 from deploy_vii.contracts import (
     Citation,

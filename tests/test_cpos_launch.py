@@ -3733,14 +3733,16 @@ def test_the_method_block_is_pinned_so_a_past_run_is_marked_earlier_methods_only
     assert now == METHOD_TEXT_SHA256_AT_1B41E65
 
 
-def screen_module_names():
-    source = (ROOT / "apps/issuer-library/credit_os/web/screen.js").read_text()
-    groups = source.partition("const groups = [")[2].partition("\n];")[0]
-    return dict(re.findall(r"\['(CP-[0-9A-Z]+)','([^']+)'\]", groups))
+def react_module_names():
+    source = (ROOT / "web/src/pages/connected/api.ts").read_text(encoding="utf-8")
+    block = source.partition("const MODULE_NAMES: Readonly<Record<string, string>> = {")[2]
+    block = block.partition("\n};")[0]
+    return dict(re.findall(r'"(CP-[0-9A-Z]+)":\s*"([^"]+)"', block))
 
 
-def test_module_names_equal_the_display_names_screen_js_shows():
-    assert cpos_launch.MODULE_NAMES == screen_module_names()
+def test_module_names_equal_the_display_names_the_react_app_shows():
+    names = react_module_names()
+    assert {code: names[code] for code in cpos_launch.MODULE_NAMES} == cpos_launch.MODULE_NAMES
     assert len(cpos_launch.MODULE_NAMES) >= 20
 
 
@@ -4588,13 +4590,6 @@ def test_refresh_library_loads_the_checkout_update_library(tmp_path, capsys):
     assert not (tmp_path / "library" / "index.html").exists()
     printed = capsys.readouterr().out
     assert "Library:" in printed and "(0 run(s))" in printed
-
-
-def library_browser_shell(index: Path) -> Path:
-    """Pair generated workspace data with the separately shipped static reader for browser tests."""
-    shell = ROOT / "apps/issuer-library/credit_os/web"
-    shutil.copytree(shell, index.parent, dirs_exist_ok=True)
-    return index
 
 
 def test_refresh_library_reports_a_real_refusal_and_keeps_going(tmp_path, capsys):
@@ -5595,205 +5590,6 @@ def test_delivery_fails_closed_when_the_pinned_handoff_no_longer_yields_the_fore
         assert module in request.handoffs
 
 
-@pytest.mark.browser
-def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
-    tmp_path, provider, capsys
-):
-    """Headless Chrome over file://: Forecast shows the Python-computed model, and a run without
-    CP-2G shows the not-published notice."""
-    from test_library_page_browser import visit
-
-    code, _, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
-    assert code == 0 and "Library not updated" not in seen.err
-    text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
-    data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
-    (model,) = data["workspace"]["models"]
-    dom, console = visit(
-        library_browser_shell(tmp_path / "library/index.html"),
-        f"#W-Forecast/{model['id']}?c={RUN_ID}",
-    )
-    assert console == []
-    assert "FY2026E" in dom and "1,050" in dom and "Downside" in dom
-    assert "No forecast model was published" not in dom
-    other = tmp_path / "other"
-    other.mkdir()
-    code, _, seen = forecast_run(other, provider, capsys, None, modules=("CP-2A",))
-    assert code == 0 and "Library not updated" not in seen.err
-    dom, console = visit(
-        library_browser_shell(other / "library/index.html"), f"#W-Forecast/none?c={RUN_ID}"
-    )
-    assert console == []
-    assert "No forecast model was published from this run’s files" in dom
-
-
-UNFILLED = re.compile(r"\b(undefined|NaN|null|\[object Object\])\b")
-
-
-@pytest.mark.one_width  # calls run_live_handoffs itself, which is one at a time
-@pytest.mark.browser
-def test_a_short_snapshot_run_in_the_library_is_listed_with_its_label_and_cp_l10_leads_the_overview(
-    tmp_path, provider, capsys
-):
-    """Owner, 2026-11-11: CP-2 and CP-6 do not run in a short snapshot, so CP-L10 leads (H5)."""
-    from test_library_page_browser import visit
-
-    launch(tmp_path, pathway="short_snapshot")  # writes the context and the issuer folder
-    prepared = prepare(
-        tmp_path / "context.json",
-        tmp_path / "issuer",
-        tmp_path / "runs" / RUN_ID,
-        config="sol-medium",
-        cap="15",
-    )
-    routes = list(prepared.plan.layout.routes)
-    provider.answer = lambda context: short_snapshot_answer(context, routes)
-    run_live_handoffs(
-        prepared.manifest,
-        prepared.directory,
-        ruling=RULING,
-        check=checker(prepared.layout),
-        config="sol-medium",
-    )
-    cpos_launch._refresh_library(prepared.directory)
-    assert "Library not updated" not in capsys.readouterr().err
-    text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
-    data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
-    assert data["workspace"]["runs"][RUN_ID]["pathway"] == "short_snapshot"
-    index = tmp_path / "library/index.html"
-    dom, console = visit(library_browser_shell(index), f"#W-Overview?c={RUN_ID}")
-    assert console == []
-    shown = re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>|\s+", " ", dom)
-    assert "Short credit snapshot" in shown  # the run label names the pathway as words
-    lead = re.search(
-        r'(?s)<section class="overview-part" id="overview-lead"[^>]*>.*?</section>', dom
-    )
-    assert lead is not None
-    lead_text = re.sub(r"\s+([,.;:])", r"\1", " ".join(re.sub(r"<[^>]+>", " ", lead[0]).split()))
-    assert "Creditors are covered today but only just" in lead_text
-    # The key finding is the why grid's, beside the lead rather than inside it.
-    why = re.search(r'(?s)<section class="overview-part g24" id="overview-why".*?</section>', dom)
-    assert why is not None
-    why_text = re.sub(r"\s+([,.;:])", r"\1", " ".join(re.sub(r"<[^>]+>", " ", why[0]).split()))
-    assert "Cover is thin at 3.1x" in why_text
-    # The Overview no longer names the module that wrote the lead (ruling: no "Written by"); CP-L10
-    # leads when its tile (named "Short credit snapshot", opening CP-L10) holds the sentence the
-    # lead draws, and no other module's tile does.
-    tiles = re.findall(r'(?s)<details class="mt".*?</details>', dom)
-    leading = [t for t in tiles if "Creditors are covered today but only just" in t]
-    assert len(leading) == 1 and 'class="mt-name">Short credit snapshot<' in leading[0]
-    assert 'href="#CP-L10/' in leading[0]
-    assert UNFILLED.search(shown) is None, UNFILLED.findall(shown)
-
-
-@pytest.mark.browser
-@pytest.mark.parametrize("pathway", sorted(PATHWAY_MODULES))
-def test_each_pathways_run_reaches_the_library_screens(tmp_path, provider, capsys, pathway):
-    """Sweep 2026-11-10 (wiring): one run per pathway, launched into runs/, is listed by the real
-    library, and its screens and report render with no console message or unfilled value."""
-    from test_library_page_browser import visit
-
-    argv = launch(tmp_path, "--live", "--ruling", str(RULING), pathway=pathway)
-    argv[argv.index("--out") + 1] = str(tmp_path / "runs" / RUN_ID)
-    routes = list(
-        prepare(
-            tmp_path / "context.json",
-            tmp_path / "issuer",
-            tmp_path / "preview",
-            config="sol-medium",
-            cap="15",
-        ).plan.layout.routes
-    )
-    forecast = "CP-2G" in PATHWAY_MODULES[pathway]
-    provider.answer = lambda context: (
-        forecast_answer(context, routes, named_forecast_block())
-        if forecast
-        else answer(context, routes)
-    )
-    assert main(argv) == 0
-    assert "Library not updated" not in capsys.readouterr().err
-    text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
-    data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
-    assert list(data["workspace"]["runs"]) == [RUN_ID]
-    models = data["workspace"]["models"]
-    assert len(models) == forecast
-    (delivery,) = (tmp_path / "runs" / RUN_ID / "deliveries").iterdir()
-    pages = [
-        (library_browser_shell(tmp_path / "library/index.html"), f"#W-{route}?c={RUN_ID}")
-        for route in (
-            "Overview",
-            "Reports/list",
-            f"Reports/{delivery.name}",
-            "Evidence/sources",
-            f"Forecast/{models[0]['id'] if models else 'none'}",
-        )
-    ]
-    for page, route in pages:
-        dom, console = visit(page, route)
-        shown = re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>|\s+", " ", dom)
-        assert console == [], (route, console)
-        assert UNFILLED.search(shown) is None, (route, UNFILLED.findall(shown))
-        assert ISSUER in shown, route
-
-
-@pytest.mark.browser
-def test_a_lite_run_fills_the_library_pages_and_its_forecast_page_states_the_gap(
-    tmp_path, provider, capsys
-):
-    """A synthetic lite run (no CP-MODEL, so no forecast) launched into runs/ and read in the real
-    library: it is labelled "Lite credit assessment", CP-2 writes the Overview lead, the Forecast
-    page says that no forecast was published, and no page shows an unfilled value."""
-    from test_library_page_browser import visit
-
-    argv = launch(tmp_path, "--live", "--ruling", str(RULING), pathway="lite_credit_assessment")
-    argv[argv.index("--out") + 1] = str(tmp_path / "runs" / RUN_ID)
-    routes = list(
-        prepare(
-            tmp_path / "context.json",
-            tmp_path / "issuer",
-            tmp_path / "preview",
-            config="sol-medium",
-            cap="15",
-        ).plan.layout.routes
-    )
-    provider.answer = lambda context: answer(context, routes)
-    assert main(argv) == 0
-    seen = capsys.readouterr()
-    assert "Library not updated" not in seen.err and "Model not published" not in seen.err
-    assert_called(provider, LITE_MODULES)
-    text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
-    data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
-    assert data["workspace"]["runs"][RUN_ID]["pathway"] == "lite_credit_assessment"
-    assert data["workspace"]["models"] == []
-    index = tmp_path / "library/index.html"
-    shown = {}
-    for name, route in {
-        "Overview": f"#W-Overview/overview?c={RUN_ID}",
-        "Changes": f"#W-Changes/changes?c={RUN_ID}",
-        "Modules": f"#CP-2A?c={RUN_ID}",
-        "Forecast": f"#W-Forecast/none?c={RUN_ID}",
-        "Evidence": f"#W-Evidence/sources?c={RUN_ID}",
-    }.items():
-        dom, console = visit(library_browser_shell(index), route)
-        shown[name] = " ".join(re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>", " ", dom).split())
-        assert console == [], (name, console)
-        assert UNFILLED.search(shown[name]) is None, (name, UNFILLED.findall(shown[name]))
-        assert ISSUER in shown[name] and "Lite credit assessment" in shown[name], name
-    dom, _ = visit(library_browser_shell(index), f"#W-Overview/overview?c={RUN_ID}")
-    # The lead is written by CP-2; the Overview no longer links its writer, so the trace
-    # controls of the lead's key findings (the handoff file each was read from) are the evidence.
-    lead = re.search(
-        r'(?s)<section class="overview-part" id="overview-lead"[^>]*>.*?</section>', dom
-    )
-    why = re.search(
-        r'(?s)<section class="overview-part[^"]*" id="overview-why"[^>]*>.*?</section>', dom
-    )
-    assert lead is not None and why is not None
-    sources = re.findall(r'data-paragraph="([^"]*)"', why[0])
-    assert sources and all("/CP-2.md:" in source for source in sources), sources
-    assert "First run of this pathway" in shown["Changes"]
-    assert "No forecast model was published from this run\u2019s files" in shown["Forecast"]
-
-
 def _deep_run_in_the_library(tmp_path, provider, capsys) -> dict:
     """A SYNTHETIC deep run (fake provider, hand-written handoffs) launched into runs/ through the
     real launcher, delivery and library refresh; returns the library's data."""
@@ -5831,33 +5627,6 @@ def test_a_deep_run_is_delivered_and_listed_by_the_library_with_every_module(
     blocks = tuple(block.block_id for block in report.blocks)
     assert set(FULL_BLOCKS) - {"what-changed"} <= set(blocks) and len(blocks) == 23
     assert {"recovery-by-class", "peer-positioning", "rating-triggers"} <= set(blocks)
-
-
-@pytest.mark.browser
-def test_a_deep_run_fills_the_library_pages(tmp_path, provider, capsys):
-    """The same synthetic deep run read in the real library: Overview, Changes, Modules, Forecast
-    and Evidence render with its label, no console message and no unfilled value."""
-    from test_library_page_browser import visit
-
-    data = _deep_run_in_the_library(tmp_path, provider, capsys)
-    (model,) = data["workspace"]["models"]
-    index = tmp_path / "library/index.html"
-    shown = {}
-    for name, route in {
-        "Overview": f"#W-Overview/overview?c={RUN_ID}",
-        "Changes": f"#W-Changes/changes?c={RUN_ID}",
-        "Modules CP-4C": f"#CP-4C?c={RUN_ID}",
-        "Modules CP-1C": f"#CP-1C?c={RUN_ID}",
-        "Forecast": f"#W-Forecast/{model['id']}?c={RUN_ID}",
-        "Evidence": f"#W-Evidence/sources?c={RUN_ID}",
-    }.items():
-        dom, console = visit(library_browser_shell(index), route)
-        shown[name] = " ".join(re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>", " ", dom).split())
-        assert console == [], (name, console)
-        assert UNFILLED.search(shown[name]) is None, (name, UNFILLED.findall(shown[name]))
-        assert ISSUER in shown[name] and "Deep credit assessment" in shown[name], name
-    assert "First run of this pathway" in shown["Changes"]
-    assert "FY2026E" in shown["Forecast"]
 
 
 def test_a_delivery_without_a_forecast_has_no_forecast_key_in_its_receipt(

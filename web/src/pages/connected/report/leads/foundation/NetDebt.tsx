@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { cx } from "@/utils/cx";
 import { Figure, Well } from "../../overview/Tile";
-import { latestReported, unplacedNotes } from "../kit/tables";
+import { latestReportedItem, unplacedNotes } from "../kit/tables";
 import { FigureTile, GapTile } from "../kit/LeadFrame";
 import { GapSlot, LINE, SIZE, useFigureWidth } from "../kit/marks";
 import { Grid, HALO, HALO_CLASS, TickLabels } from "../kit/marks/parts";
@@ -475,7 +475,7 @@ function Liquidity({ view }: { view: NetDebtView }) {
 function legendOf(view: NetDebtView, proForma: readonly ProForma[]) {
   const labels = view.periods.map((p) => p.label);
   // The latest reported period is the primary bar; a pro forma or forecast period never is.
-  const latest = latestReported(labels, (label) => label);
+  const latest = latestReportedItem(labels, (label) => label);
   const earlier = labels.filter((label) => label !== latest);
   const gap = view.periods.some((p) => [p.net, p.cash, p.gross].some((c) => c.kind !== "number"));
   return [

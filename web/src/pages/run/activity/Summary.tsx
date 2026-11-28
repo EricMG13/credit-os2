@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
 import { Card } from "@/components/card/Card";
 import { Missing } from "@/components/gap/Missing";
-import type { Figure, RunRecord } from "../slice-activity";
+import type { RunFigure, RunRecord } from "../slice-activity";
 
 function Item({
   caption,
@@ -22,7 +22,7 @@ function Item({
   );
 }
 
-function WithBar({ caption, figure }: { caption: string; figure: Figure }) {
+function WithBar({ caption, figure }: { caption: string; figure: RunFigure }) {
   const value = figure.value ?? <Missing />;
   if (figure.bar === null)
     return (

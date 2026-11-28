@@ -1,6 +1,6 @@
 import { unitLabel, type OutputEntry } from "../../../publishedReport";
 import type { Reading } from "../kit/numbers";
-import { comparisonOf, latestReported, type Period } from "../kit/tables";
+import { comparisonOf, latestReportedItem, type Period } from "../kit/tables";
 import {
   cashLadder,
   earningsAgainstDebt,
@@ -227,7 +227,7 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
   const apartPeriods = annual.length
     ? stated.periods.filter((period) => period.kind !== "annual")
     : [];
-  const latest = latestReported(stated.labels, (label) => label);
+  const latest = latestReportedItem(stated.labels, (label) => label);
   const comparison = coveredComparison(stated.comparison, found);
   const compared = (label: string) =>
     comparison?.from === label ? "from" : comparison?.to === label ? "to" : null;

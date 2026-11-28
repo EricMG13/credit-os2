@@ -83,7 +83,7 @@ export function columnAt(table: SourceTable, value: unknown) {
 const NOT_STATED = /^Not (?:supplied|calculated):\s*(\S.*)$/;
 
 /** One cell read with the cells that share its measure and unit. A gap keeps its reason. */
-export function readCell(text: string, scope: readonly string[], unit: string): Cell {
+export function readFigureCell(text: string, scope: readonly string[], unit: string): Cell {
   const value = cellAmount(text, scope, unit || undefined);
   const stated = NOT_STATED.exec(text)?.[1] ?? null;
   return {

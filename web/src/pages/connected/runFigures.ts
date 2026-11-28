@@ -1,4 +1,4 @@
-import type { ActivityLine, Figure, ModuleStep, ModuleWord } from "../run/slice-activity";
+import type { ActivityLine, ModuleStep, ModuleWord, RunFigure } from "../run/slice-activity";
 import { moduleName, serviceText, type ConnectedRun as Run, type RunEvent } from "./api";
 
 function amount(text: string | null | undefined): { value: number; text: string } | undefined {
@@ -24,7 +24,7 @@ function usd({ text }: { text: string }) {
   return `USD ${String(cents / 100n)}.${String(cents % 100n).padStart(2, "0")}`;
 }
 
-export function spendFigure(run: Run): Figure {
+export function spendFigure(run: Run): RunFigure {
   const spent = amount(run.spent);
   if (spent === undefined)
     return {
@@ -71,7 +71,7 @@ export function spendParts(run: Pick<Run, "cap" | "settled_spent" | "held">) {
   };
 }
 
-export function finishedFigure(run: Pick<Run, "modules">): Figure {
+export function finishedFigure(run: Pick<Run, "modules">): RunFigure {
   const modules = run.modules.filter(([code]) => code !== "Report");
   const max = modules.length;
   if (max === 0) return { value: null, bar: null, note: "No analytical modules listed" };

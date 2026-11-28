@@ -63,7 +63,9 @@ def test_selected_sources_include_the_react_design_specs() -> None:
             "tests/fixtures/cp1-instruction-pr/answer-key.json",
         ):
             assert archive.read(name) == (PROJECT / name).read_bytes()
-        assert "apps/issuer-library/credit_os/web/index.html" not in archive.namelist()
+        assert not any(
+            name.startswith("apps/issuer-library/credit_os/web/") for name in archive.namelist()
+        )
         assert "docs/templates/context-form.html" not in archive.namelist()
         assert "docs/COPILOT.md" in archive.namelist()
 
@@ -73,7 +75,7 @@ def test_build_fingerprints_the_same_source_that_the_zip_delivers(tmp_path, monk
 
     def build(workspace):
         assert (workspace / "SOURCE-COMMIT.txt").read_bytes() == expected
-        assert not (workspace / "apps/issuer-library/credit_os/web/index.html").exists()
+        assert not (workspace / "apps/issuer-library/credit_os/web").exists()
         assert not (workspace / "docs/templates/context-form.html").exists()
         (workspace / "web/dist").mkdir()
         (workspace / "proof-artifacts").mkdir()

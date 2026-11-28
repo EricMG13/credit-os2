@@ -1338,7 +1338,7 @@ def run_shows(
     runs: dict[str, dict[str, Any]],
 ) -> bool:
     """Whether a run's Forecast lists this model: the same issuer key and the run named by the
-    model's run_id or by one of its sources (the rule of views.js runModels)."""
+    model's run_id or by one of its sources."""
     folder = artifact["folder"]
     # Documented fail-open: a record that cannot be read is not shown by a run; read_model reports
     # the same failure as a Workspace issue.

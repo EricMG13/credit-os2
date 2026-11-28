@@ -14,7 +14,7 @@ import {
 } from "../../visuals/visualData";
 import { namedTable } from "../../reportView";
 import { downsideView, scenarioShareLabel } from "../Downside";
-import { columnAt, readCell, type Cell } from "./figureData";
+import { columnAt, readFigureCell, type Cell } from "./figureData";
 import { labelText, readableWords, readerCell } from "./notes";
 import { readerReason } from "./reason";
 
@@ -49,8 +49,8 @@ export function headroomTests(table: SourceTable, descriptor: Descriptor): Headr
     return {
       label: labelText(row[label] ?? "", "A test"),
       unit,
-      threshold: readCell(scope[0] ?? "", scope, unit),
-      current: readCell(scope[1] ?? "", scope, unit),
+      threshold: readFigureCell(scope[0] ?? "", scope, unit),
+      current: readFigureCell(scope[1] ?? "", scope, unit),
       headroom: headroom === null ? null : stated(row[headroom] ?? ""),
       direction: direction === null ? "" : (row[direction] ?? ""),
       line: table.rowLines?.[at],

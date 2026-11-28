@@ -166,7 +166,7 @@ LEAD_MODULE = {
 DEFAULT_LEAD = "CP-2"
 # A custom run's lead (PR 7a, ruling C16): CP-2 if it delivered, else the planned modules in reverse
 # order, except these (the sources, the research questions, the evidence check, the comparison and
-# the forecast owner lead nothing). The same rule is in reader.js and reportView.ts.
+# the forecast owner lead nothing). The same rule is in reportView.ts.
 NOT_A_CUSTOM_LEAD = frozenset({"CP-0", "CP-DR", "CP-5", "CP-8", "CP-MODEL"})
 # What a custom run's CP-8 compares: the completed modules, less the comparison and the forecast.
 COMPARED_AWAY = frozenset({"CP-8", "CP-MODEL"})

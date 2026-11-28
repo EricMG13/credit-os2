@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ConnectedLoadBoundary } from "../../ConnectedLoadBoundary";
-import { askAhead, LIBRARY_ADDRESS, request, snapshotAddress } from "./ahead";
+import { askAhead, LIBRARY_ADDRESS, requestAhead, snapshotAddress } from "./ahead";
 import { ConnectedApp, preloadPage } from "./ConnectedApp";
 
 const INDEX = { catalogue: { real: [] }, workspace: { runs: {} } };
@@ -89,17 +89,17 @@ it("gives an answer asked for ahead to the first request only", async () => {
   const fetch = serve();
   askAhead(LIBRARY_ADDRESS);
   const { signal } = new AbortController();
-  const first = request(LIBRARY_ADDRESS, signal);
+  const first = requestAhead(LIBRARY_ADDRESS, signal);
   expect(fetch).toHaveBeenCalledOnce();
   await expect(first.then((response) => response.json())).resolves.toEqual(INDEX);
-  await request(LIBRARY_ADDRESS, signal);
+  await requestAhead(LIBRARY_ADDRESS, signal);
   expect(fetch.mock.calls[1]).toEqual([LIBRARY_ADDRESS, { cache: "no-store", signal }]);
 });
 
 it("reports a failed read ahead to the page that takes it", async () => {
   vi.stubGlobal("fetch", () => Promise.reject(new TypeError("Failed to fetch")));
   askAhead(LIBRARY_ADDRESS);
-  await expect(request(LIBRARY_ADDRESS, new AbortController().signal)).rejects.toThrow(
+  await expect(requestAhead(LIBRARY_ADDRESS, new AbortController().signal)).rejects.toThrow(
     "Failed to fetch",
   );
 });

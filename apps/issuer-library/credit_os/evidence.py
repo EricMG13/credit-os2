@@ -199,8 +199,8 @@ def instruction_rows(
 def run_downloads(
     run: dict[str, Any], key: str, models: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """The Model and calculation files of the models this run's Forecast lists (the rule of
-    views.js runModels), each as a label and a download link."""
+    """The Model and calculation files of the models this run's Forecast lists (matching the
+    store's run-model association rule), each as a label and a download link."""
     rows: list[dict[str, Any]] = []
     for model in sorted(models, key=lambda m: m["id"]):
         holds = model["issuerKey"] == run["issuerKey"] and (

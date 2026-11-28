@@ -3,7 +3,7 @@ import { unitLabel, type Row } from "../../publishedReport";
 import { fiscalYear, yearPrefix } from "../../visuals/scenarioPeriods";
 import { ticks, type SourceTable } from "../../visuals/visualData";
 import { Key } from "../overview/figureParts";
-import { basisNotes, readCell, type Cell } from "../overview/figureData";
+import { basisNotes, readFigureCell, type Cell } from "../overview/figureData";
 import { Bento, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
 import {
@@ -59,7 +59,7 @@ function needRows(table: SourceTable) {
       year,
       line: table.rowLines?.[at] ?? table.line,
       cells: [debt, resources].map((column) =>
-        readerCellOf(readCell(row[column] ?? "", scope, row.at(-2) ?? "")),
+        readerCellOf(readFigureCell(row[column] ?? "", scope, row.at(-2) ?? "")),
       ),
     };
   });

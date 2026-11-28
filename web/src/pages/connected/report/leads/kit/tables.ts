@@ -2,7 +2,7 @@ import type { OutputEntry, Row, Table } from "../../../publishedReport";
 import { orderPeriods } from "@/utils/periodOrder";
 import { periodGapNote } from "@/components/chart/seriesData";
 import { latestReported as latestPlaced, periodPlace } from "../../../reportView";
-import { changePeriod, yearApart, type Period as ChangePeriod } from "./changes";
+import { changePeriod, yearApart, type ChangePeriod } from "./changes";
 
 /** Every table of the entry, in the order the handoff wrote them, with its section's heading. */
 export function allTables(entry: OutputEntry) {
@@ -111,7 +111,7 @@ export const isReported = (label: string) => periodPlace(label)?.reported === tr
  * ones the period order can place: the last of the reported classes, never a pro forma or
  * forecast one. Undefined where it chooses none (no reported period, two periods on one place).
  */
-export function latestReported<T>(items: readonly T[], label: (item: T) => string) {
+export function latestReportedItem<T>(items: readonly T[], label: (item: T) => string) {
   const place = (item: T) => periodPlace(label(item));
   return latestPlaced(items.filter(place), place)?.latest;
 }

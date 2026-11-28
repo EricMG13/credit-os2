@@ -15,7 +15,7 @@ export function askAhead(address: string) {
 }
 
 /** The answer asked for ahead, taken once; any later request is made afresh. */
-export function request(address: string, signal: AbortSignal) {
+export function requestAhead(address: string, signal: AbortSignal) {
   const ahead = asked.get(address);
   asked.delete(address);
   return ahead ?? fetch(address, { cache: "no-store", signal });

@@ -1,4 +1,4 @@
-import { request } from "./ahead";
+import { requestAhead } from "./ahead";
 import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
 import { writtenUnit } from "./moneyUnits";
 import { DECISION_MODULES, periodPlace } from "./reportView";
@@ -73,7 +73,7 @@ export type Coverage = {
 export const COVERAGE_ADDRESS = "/connected/coverage";
 
 export async function getCoverage(signal: AbortSignal): Promise<Coverage | null> {
-  const response = await request(COVERAGE_ADDRESS, signal);
+  const response = await requestAhead(COVERAGE_ADDRESS, signal);
   if (!response.ok) throw new Error("Coverage could not be loaded.");
   return (await response.json()) as Coverage | null;
 }

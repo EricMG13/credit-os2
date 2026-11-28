@@ -342,6 +342,11 @@ def test_native_policy_enforces_subscription_and_medium_effort(tmp_path: Path) -
             with pytest.raises(ValueError, match="medium for Astra and Fable"):
                 approve(model, effort)
     assert approve("gpt-6-luna", "low") is not None
+    policy["client"] = "gemini"
+    assert approve("gemini-4-neon", "high") is not None
+    assert approve("gemini-pro", "medium") is not None
+    assert approve("gemini-flash", "low") is not None
+    policy["client"] = "codex"
     with pytest.raises(ValueError, match="subscription client"):
         approve("gpt-6.2-astra", "medium", unmetered=False)
 

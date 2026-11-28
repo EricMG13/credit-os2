@@ -8,7 +8,7 @@ import {
   columnOf,
   comparisonOf,
   isReported,
-  latestReported,
+  latestReportedItem,
   normalLabel,
   orderByPeriod,
   periodRows,
@@ -414,7 +414,7 @@ function readEarnings(entry: OutputEntry): EarningsAgainstDebt | string {
       bases: periods.map((period) => basisOf(period.label)),
       line: lev.table.line,
     };
-    const latest = latestReported(lev.rows, ({ period }) => period.label);
+    const latest = latestReportedItem(lev.rows, ({ period }) => period.label);
     leverageBasis = latest ? basisOf(latest.period.label) : null;
   }
   return {
@@ -1627,8 +1627,9 @@ export const interestCover = (entry: OutputEntry) => ready(readCover(entry));
 /** The debt stack in the module's ranking order: amounts and cumulative leverage as written. */
 export const debtStack = (entry: OutputEntry) => ready(readStack(entry));
 
-export type Figure = "earnings" | "ladder" | "netDebt" | "bridge" | "segments" | "cover" | "stack";
-const READERS: Record<Figure, (entry: OutputEntry) => unknown> = {
+export type FoundationFigure =
+  "earnings" | "ladder" | "netDebt" | "bridge" | "segments" | "cover" | "stack";
+const READERS: Record<FoundationFigure, (entry: OutputEntry) => unknown> = {
   earnings: readEarnings,
   ladder: readLadder,
   netDebt: readNetDebt,
@@ -1643,7 +1644,7 @@ const READERS: Record<Figure, (entry: OutputEntry) => unknown> = {
  * of net debt data because FY2024 appears more than once."), or the module's own reason for an
  * all-gap figure; null when it draws.
  */
-export function figureGap(entry: OutputEntry, figure: Figure): string | null {
+export function figureGap(entry: OutputEntry, figure: FoundationFigure): string | null {
   const read = READERS[figure](entry);
   return typeof read === "string" ? read : null;
 }

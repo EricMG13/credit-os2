@@ -70,7 +70,7 @@ export function groupOutcomes(outcomes: readonly ScriptCheckOutcome[]) {
 }
 
 /** How a recorded status word is drawn: pass, fail, not run, or any other word. */
-export type CheckMark = "pass" | "fail" | "not-run" | "other";
+type CheckMark = "pass" | "fail" | "not-run" | "other";
 
 const markOf = (status: string): CheckMark =>
   status === "agreed"

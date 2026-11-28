@@ -651,14 +651,9 @@ def test_a_pair_of_custom_runs_with_equal_lists_needs_no_cause_beyond_the_checke
     assert _analysis_issues(changed, pack) == []
 
 
-@pytest.mark.browser
-def test_a_second_lite_run_runs_cp8_last_and_the_changes_page_shows_the_comparison(
-    tmp_path, provider, capsys
-):
+def test_a_second_lite_run_runs_cp8_last_and_publishes_the_comparison(tmp_path, provider, capsys):
     """Synthetic: the real launcher, checker, delivery and library over a prior lite run. It
     proves the wiring of CP-8 after the lite modules, not analytical quality."""
-    from test_library_page_browser import visit
-
     workspace = tmp_path / "ws"
     make_run(
         workspace,
@@ -689,11 +684,13 @@ def test_a_second_lite_run_runs_cp8_last_and_the_changes_page_shows_the_comparis
     assert completed["changes"].startswith(
         "changes: CP-8 compares with the lite_credit_assessment run"
     )
-    dom, console = visit(workspace / "library/index.html", "#W-Changes/changes?c=cur")
-    text = " ".join(re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>", " ", dom).split())
-    assert console == []
-    assert "Lite credit assessment" in text and "Since 31 December 2024" in text
-    assert re.search(r"\b(undefined|NaN|null|\[object Object\])\b", text) is None
+    raw = (workspace / "library/data.js").read_text(encoding="utf-8")
+    data = json.loads(raw.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
+    published = data["workspace"]["runs"]["cur"]
+    assert published["pathway"] == "lite_credit_assessment"
+    assert published["changes"]["pack"]["prior"]["as_of"] == "2024-12-31"
+    assert published["changes"]["problem"] is None
+    assert published["changes"]["verdicts"] is not None
 
 
 def two_priors(tmp_path):
@@ -4830,9 +4827,9 @@ def test_two_runs_on_the_adjusted_names_compare_as_one_measure():
     )
 
 
-def test_the_custom_lead_exclusion_list_is_the_same_in_python_the_reader_and_the_report_view():
-    """The list is written in `changes.py`, `reader.js` and `reportView.ts` (ruling C16); each
-    comment names the others. `react_frontend/library_cards.py` `DECISION_MODULES` is another
+def test_the_custom_lead_exclusion_list_is_the_same_in_python_and_the_report_view():
+    """The list is written in `changes.py` and `reportView.ts` (ruling C16); each
+    comment names the other. `react_frontend/library_cards.py` `DECISION_MODULES` is another
     list (the decision modules the card never leads with), so it is not bound here."""
     from deploy_workflow.changes import NOT_A_CUSTOM_LEAD
 
@@ -4842,10 +4839,9 @@ def test_the_custom_lead_exclusion_list_is_the_same_in_python_the_reader_and_the
         assert found, f"{name} not found in {path}"
         return frozenset(re.findall(r"CP-[0-9A-Z]+", found.group(1)))
 
-    reader = listed("apps/issuer-library/credit_os/web/reader.js", "NOT_A_CUSTOM_LEAD")
     view = listed("web/src/pages/connected/reportView.ts", "NO_CUSTOM_LEAD")
     assert NOT_A_CUSTOM_LEAD
-    assert reader == view == NOT_A_CUSTOM_LEAD
+    assert view == NOT_A_CUSTOM_LEAD
 
 
 def test_scoped_custom_comparison_requires_same_effective_phases(tmp_path):

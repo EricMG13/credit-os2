@@ -2,14 +2,19 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import type { buildReportView } from "../reportView";
-import { LEADS as credit } from "./leads/credit";
-import { LEADS as decision } from "./leads/decision";
-import { LEADS as financials } from "./leads/financials";
-import { LEADS as structure } from "./leads/structure";
+import { CREDIT_LEADS } from "./leads/credit";
+import { DECISION_LEADS } from "./leads/decision";
+import { FINANCIAL_LEADS } from "./leads/financials";
+import { STRUCTURE_LEADS } from "./leads/structure";
 import { Modules } from "./Modules";
 
 /** Every module with a lead of its own. */
-const MODULE_CODES = Object.keys({ ...financials, ...credit, ...structure, ...decision });
+const MODULE_CODES = Object.keys({
+  ...FINANCIAL_LEADS,
+  ...CREDIT_LEADS,
+  ...STRUCTURE_LEADS,
+  ...DECISION_LEADS,
+});
 
 type View = ReturnType<typeof buildReportView>;
 type Sections = OutputEntry["sections"];

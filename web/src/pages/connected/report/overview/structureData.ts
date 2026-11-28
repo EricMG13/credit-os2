@@ -1,6 +1,6 @@
 import { fiscalYear, yearPrefix } from "../../visuals/scenarioPeriods";
 import { items, ticks, type SourceTable } from "../../visuals/visualData";
-import { columnAt, readCell, type Cell } from "./figureData";
+import { columnAt, readFigureCell, type Cell } from "./figureData";
 import { labelText } from "./notes";
 
 type Descriptor = Record<string, unknown>;
@@ -37,7 +37,7 @@ export function wallSlots(table: SourceTable, descriptor: Descriptor, unit: stri
   const texts = table.rows.map((row) => row[column] ?? "");
   const rows: WallSlot[] = table.rows.map((row, at) => ({
     label: labelText(row[0] ?? "", "A period"),
-    cell: readCell(texts[at] ?? "", texts, unit),
+    cell: readFigureCell(texts[at] ?? "", texts, unit),
     line: table.rowLines?.[at],
   }));
   if (!rows.some(({ cell }) => cell?.value != null)) return null;
@@ -110,8 +110,8 @@ export function stackRows(table: SourceTable, descriptor: Descriptor, unit: stri
     order: rank === null ? at : Number(row[rank]),
     label: labelText(row[label] ?? "", "A facility"),
     secured: secured === null ? null : flag(row[secured] ?? ""),
-    amount: readCell(amounts[at] ?? "", amounts, unit),
-    leverage: leverage === null ? null : readCell(levers[at] ?? "", levers, "x"),
+    amount: readFigureCell(amounts[at] ?? "", amounts, unit),
+    leverage: leverage === null ? null : readFigureCell(levers[at] ?? "", levers, "x"),
     line: table.rowLines?.[at],
   }));
   if (!rows.some((row) => row.amount.value !== null)) return null;

@@ -1,7 +1,7 @@
 import { LINE, SIZE, fittingTicks, gapSlotHeight, niceAxis, textWidth, wrap } from "../kit/marks";
 import { group, type Reading } from "../kit/numbers";
 import type { LiquidityPeriod, NetDebtPeriod, NetDebtView, ProForma } from "./foundationData";
-import { isReported, latestReported } from "../kit/tables";
+import { isReported, latestReportedItem } from "../kit/tables";
 import { written } from "./periodsData";
 
 const safeText = written;
@@ -112,7 +112,7 @@ export function barsLayout(view: NetDebtView, proForma: readonly ProForma[], wid
   const slot = Math.min(96, (right - left) * 0.3);
   // The latest reported period is the current bar and the base the pro forma bars are set
   // against: never a pro forma or forecast period of the table.
-  const base = latestReported(view.periods, (period) => period.label);
+  const base = latestReportedItem(view.periods, (period) => period.label);
   let y = 2;
   const take = (bar: Omit<NetBar, "top" | "barY" | "reading">, text: string): NetBar => {
     const reading = wrap(text, right - left, SIZE.label);
@@ -281,7 +281,7 @@ export function stripLayout(
     : 8;
   const right = width - Math.max(...texts.map((text) => textWidth(text, SIZE.value))) - DOT - 14;
   const x = (value: number) => axis.place(value, left, right);
-  const current = latestReported(periods, (entry) => entry.label);
+  const current = latestReportedItem(periods, (entry) => entry.label);
   let top = 4;
   const rows = entries.map((entry, at): StripRow => {
     const beside = !entry.proForma;

@@ -4,7 +4,14 @@ import type { SourceTable } from "../../visuals/visualData";
 import { unitCells } from "../../moneyUnits";
 import { Tile } from "../overview/Tile";
 import { CompactGap, Disclosure, LeadGap, TableRegion, Trace, type LeadTable } from "./parts";
-import { chartsStartingWith, IN_EVIDENCE, readerCell, rowName, WITHHELD, type Chart } from "./read";
+import {
+  chartsStartingWith,
+  CELL_IN_EVIDENCE,
+  readerCell,
+  rowName,
+  WITHHELD,
+  type Chart,
+} from "./read";
 
 type Span = Parameters<typeof LeadGap>[0]["span"];
 type Href = (line?: number) => string;
@@ -204,6 +211,6 @@ export function rowBasis(table: SourceTable) {
   return {
     head: kept.map((at) => table.headers[at] ?? ""),
     cells,
-    shared: notes.length === 1 && only && only !== IN_EVIDENCE ? [only] : [],
+    shared: notes.length === 1 && only && only !== CELL_IN_EVIDENCE ? [only] : [],
   };
 }

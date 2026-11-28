@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import { Segmented } from "@/components/kit/Segmented";
 import { unitLabel } from "../../publishedReport";
 import { ticks, word, type SourceTable } from "../../visuals/visualData";
-import { basisNotes, readCell, type Cell } from "../overview/figureData";
+import { basisNotes, readFigureCell, type Cell } from "../overview/figureData";
 import { Key } from "../overview/figureParts";
 import { Bento, Tile } from "../overview/Tile";
 import { Bridge, BridgeLegend, bridgeOf, rises } from "./bridge";
@@ -184,9 +184,9 @@ function recoveries(table: SourceTable) {
       name: readerCell(row[name] ?? "") || "Not stated",
       scenario: readerCell(row[scenario] ?? ""),
       unit,
-      claim: readerCellOf(readCell(row[claim] ?? "", scope, unit)),
-      recovery: readerCellOf(readCell(row[recovery] ?? "", scope, unit)),
-      percent: readerCellOf(readCell(row[percent] ?? "", [row[percent] ?? ""], "")),
+      claim: readerCellOf(readFigureCell(row[claim] ?? "", scope, unit)),
+      recovery: readerCellOf(readFigureCell(row[recovery] ?? "", scope, unit)),
+      percent: readerCellOf(readFigureCell(row[percent] ?? "", [row[percent] ?? ""], "")),
       line: table.rowLines?.[index] ?? table.line,
     };
   });

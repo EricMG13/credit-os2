@@ -15,11 +15,11 @@ import { MarketLead } from "./cp3d";
 import { LegalLead } from "./cp4";
 import { RestructuringLead } from "./cp4c";
 import { ResearchLead } from "./cpdr";
-import { LEADS as credit } from "./credit";
+import { CREDIT_LEADS } from "./credit";
 import type { Lead, LeadKind } from "./types";
 import { EVENT_HEADERS, leadProps, tableSection } from "./lead.fixture";
 import { proofHandoff } from "./proof.fixture";
-import { LEADS as structure } from "./structure";
+import { STRUCTURE_LEADS } from "./structure";
 
 afterEach(cleanup);
 
@@ -43,11 +43,11 @@ it.each(DRAWS)("%s declares the kinds it draws", (module, Lead, kinds) => {
   expect(Lead.draws).toEqual(kinds);
   expect(Object.isFrozen(Lead.draws)).toBe(true);
   // The stage's map holds this very lead, so the frame reads `draws` from what it renders.
-  expect({ ...credit, ...structure }[module]).toBe(Lead);
+  expect({ ...CREDIT_LEADS, ...STRUCTURE_LEADS }[module]).toBe(Lead);
 });
 
 it("declares draws on every lead of the two stages", () => {
-  expect(Object.keys({ ...credit, ...structure }).sort()).toEqual(
+  expect(Object.keys({ ...CREDIT_LEADS, ...STRUCTURE_LEADS }).sort()).toEqual(
     DRAWS.map(([module]) => module).sort(),
   );
 });

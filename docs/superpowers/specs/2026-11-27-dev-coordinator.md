@@ -1,9 +1,10 @@
 # Credit OS2 development coordinator
-Revised operating specification · 27 November 2026 · pilot scope is software development in EricMG13/credit-os2. CP-OS continues to own paid issuer workflows. Project policy applies to the development coordinator in the initiating Claude or Codex session.
+Revised operating specification · 27 November 2026 · pilot scope is software development in EricMG13/credit-os2. CP-OS continues to own paid issuer workflows. Project policy applies to the development coordinator in the initiating Claude, Codex, or Gemini (Antigravity) session.
 
 Use subscription access for development workers and reviewers. Use Astra at medium effort on
-Codex and Fable at medium effort on Claude when those models are selected. If the approved
-subscription route cannot be verified or has no capacity, queue that work and report the reason.
+Codex, Fable at medium effort on Claude, and the `GEMINI.md` Gemini model ladder on Antigravity
+when those clients are selected. If the approved subscription route cannot be verified or has no
+capacity, queue that work and report the reason.
 
 ## The user contract
 

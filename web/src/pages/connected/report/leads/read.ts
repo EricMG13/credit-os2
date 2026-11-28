@@ -34,7 +34,7 @@ export const drawsNothing = (entry: OutputEntry) =>
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** What a cell that names a source shows; the cell itself is in the trace. */
-export const IN_EVIDENCE = "In Evidence";
+export const CELL_IN_EVIDENCE = "In Evidence";
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -127,7 +127,7 @@ export function readerCell(text: string) {
     if (words) kept.push(kept.length ? `${parts[at - 1] ?? ""} ${words}` : words);
   }
   const joined = kept.join("").replace(DANGLING, "");
-  return (joined && readerReason(joined)) || IN_EVIDENCE;
+  return (joined && readerReason(joined)) || CELL_IN_EVIDENCE;
 }
 
 const BARE_NUMBER = /^[-−]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/;

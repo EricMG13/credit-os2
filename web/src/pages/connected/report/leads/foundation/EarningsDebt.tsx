@@ -18,7 +18,7 @@ import { unplacedNotes } from "../kit/tables";
 import { periodsCaption } from "./periodsData";
 import {
   barLayout,
-  changeText,
+  signedChangeText,
   contiguous,
   dumbbellRows,
   earningsReading,
@@ -495,7 +495,7 @@ function Leverage({
       )}
       {moved !== null && (
         <p data-change className="text-small text-text-secondary">
-          <Figure className="font-medium">{`${changeText(moved)}x`}</Figure>
+          <Figure className="font-medium">{`${signedChangeText(moved)}x`}</Figure>
           {word && (
             <span
               data-tone={word}

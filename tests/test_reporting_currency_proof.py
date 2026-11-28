@@ -26,7 +26,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import test_cpos_launch as launched
-from test_library_page_browser import chrome, visit
+from browser_helper import chrome
 
 from deploy_workflow.inbox import runs as inbox_runs
 from react_frontend import make_server
@@ -153,8 +153,8 @@ def forecast_block(code: str) -> str:
 
 
 class Built:
-    """One launched run: its folders, what the launcher printed and the pages read from both
-    libraries (the connected report and the static library)."""
+    """One launched run: its folders, what the launcher printed and the pages read from the
+    connected React report."""
 
     def __init__(self, out: Path, workspace: Path, printed: tuple[str, str]):
         self.out, self.workspace = out, workspace
@@ -162,7 +162,6 @@ class Built:
         (receipt,) = (out / "deliveries").glob("*/delivery.json")
         self.delivery = receipt.parent
         self.pages: dict[str, str] = {}
-        self.static: dict[str, str] = {}
 
     def delivered(self, name: str) -> str:
         return (self.delivery / name).read_text(encoding="utf-8")
@@ -176,27 +175,6 @@ def plain(dom: str) -> str:
     """A page's visible text."""
     stripped = re.sub(r"(?s)<(script|style)\b.*?</\1>|<[^>]+>", " ", dom)
     return " ".join(html.unescape(stripped).split())
-
-
-def static_pages(workspace: Path) -> dict[str, str]:
-    """The static library's pages (`library/index.html`, opened from disk)."""
-    routes = {
-        "Overview": "#W-Overview/overview",
-        "Changes": "#W-Changes/changes",
-        "CP-1": "#CP-1",
-        "CP-2D": "#CP-2D",
-        "CP-2G": "#CP-2G",
-        "Forecast": "#W-Forecast/none",
-        "Evidence": "#W-Evidence/sources",
-    }
-    index = workspace / "library/index.html"
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        shown = pool.map(lambda route: visit(index, f"{route}?c={RUN}"), routes.values())
-        pages = {}
-        for name, (dom, console) in zip(routes, shown, strict=True):
-            assert console == [], (name, console)
-            pages[name] = plain(dom)
-    return pages
 
 
 def react_pages(workspace: Path, trace: str) -> dict[str, str]:
@@ -299,7 +277,6 @@ def build(code: str, rate_stated: bool, provider_fixture, tmp_path_factory, caps
     sha = hashlib.sha256(cp1.read_bytes()).hexdigest()
     trace = f"{RUN}%2Fdeliveries%2F{built.delivery.name}%2FCP-1.md~{sha}-{line}"
     built.pages = react_pages(tmp_path, trace)
-    built.static = static_pages(tmp_path)
     _BUILT[key] = built
     return built
 
@@ -439,7 +416,6 @@ def run_in(code: str, built: Built) -> None:
     names = ("Overview", "Modules", "Forecast", "CP-1", "CP-1 records", "CP-1 principal")
     for name in (*names, "CP-2D", "CP-3C", "CP-4C"):
         assert "US$" not in pages[name] and "$" not in pages[name].replace("US$", ""), name
-    assert unit in built.static["CP-1"] and unit in built.static["CP-2D"], "static library"
 
 
 @pytest.mark.browser
@@ -485,7 +461,7 @@ def test_p3_delivery_and_the_library_carry_and_draw_the_not_calculable_total_the
 @pytest.mark.browser
 def test_p4_the_rate_locator_is_drawn_only_on_evidence(gbp):
     assert RATE_LOCATOR in gbp.pages["Trace"] and "0.80 GBP/USD" in gbp.pages["Trace"]
-    for name, text in {**gbp.pages, **gbp.static}.items():
+    for name, text in gbp.pages.items():
         if name != "Trace":
             assert RATE_LOCATOR not in text and "p.97" not in text, name
 
@@ -499,7 +475,6 @@ ALLOWED = (
     (r"(?<=\| )USD(?= \| 100 \|)", "the Dollar notes' `Currency` cell (table text)"),
     (r'(?<=")USD(?=", "100", )', "its `Currency` cell (library data)"),
     (r"(?<=Senior )USD(?= 100 )", "the Dollar notes' `Currency` cell (page text)"),
-    (r"(?<=Currency )USD(?= Reporting Currency Amount 100)", "its `Currency` cell (static page)"),
     (
         r"(?<=Currency — )USD(?= Reporting Currency Amount — 100)",
         "its `Currency` cell (the Evidence trace's field list)",
@@ -532,7 +507,6 @@ def us_dollar_hits(built: Built) -> list[str]:
     del data["workspace"]["visuals"]
     texts["library data.js"] = json.dumps(data, ensure_ascii=False)
     texts.update({f"connected page {name}": text for name, text in built.pages.items()})
-    texts.update({f"static page {name}": text for name, text in built.static.items()})
     return [
         f"{name}: ...{text[max(0, m.start() - 60) : m.end() + 40]}..."
         for name, raw in texts.items()

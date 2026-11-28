@@ -83,7 +83,14 @@ import {
   carriedModules,
   noteIndex,
 } from "./start/intake";
-import { type FieldKey, FieldProblem, refusedField, stepOfField, focusField } from "./start/fields";
+import {
+  type FieldKey,
+  FieldProblem,
+  refusedField,
+  stepOfField,
+  focusField,
+  withoutFields,
+} from "./start/fields";
 import { IntakePanels } from "./start/IntakePanels";
 import { useComparisonPortfolio } from "./start/referencePortfolio";
 import { useStandingPortfolios } from "./start/standingPortfoliosModel";
@@ -575,7 +582,7 @@ function IntakeForm({
   const effectiveSubmittedBy = signIn ? (runAccess?.analyst_name ?? "") : submittedBy.trim();
 
   function clearProblem(...fields: FieldKey[]) {
-    setFieldError((previous) => previous?.without(fields));
+    setFieldError((previous) => withoutFields(previous, fields));
   }
 
   function changeRun(key: keyof Context["run"], value: string) {
